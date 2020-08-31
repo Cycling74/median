@@ -1,4 +1,4 @@
-use crate::class::Class;
+use crate::class::{Class, MaxFree, MaxNew};
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
 
@@ -16,15 +16,31 @@ impl<T> Wrapper<T> {
     pub fn wrapped(&mut self) -> &mut T {
         unsafe { &mut (*self.wrapped.as_mut_ptr()) }
     }
-    pub fn free(&mut self) {
+
+    pub extern "C" fn free(&mut self) {
         let mut wrapped = MaybeUninit::uninit();
         std::mem::swap(&mut self.wrapped, &mut wrapped);
         unsafe {
             std::mem::drop(wrapped.assume_init());
         }
     }
+
     pub fn maxobj(&mut self) -> *mut max_sys::t_object {
         &mut self.s_obj
+    }
+
+    //unfortunately the 'new' method needs to access a static variable
+    //and so it cannot be created automatically
+    //the result of `new_class` should be stored in that static
+    //new should be a sample trampoline that calls Wrapper<T>::new(CLASS_STATIC.unwrap())
+    pub fn new_class(name: &str, new: MaxNew) -> Class<Self> {
+        unsafe {
+            Class::new(
+                name,
+                new,
+                Some(std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free)),
+            )
+        }
     }
 }
 

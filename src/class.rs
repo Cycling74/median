@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 //TODO take args
 pub type MaxNew = unsafe extern "C" fn() -> *mut c_void;
-pub type MaxFree<T> = unsafe extern "C" fn(obj: *mut T);
+pub type MaxFree<T> = extern "C" fn(obj: *mut T);
 pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
 
 pub struct Class<T> {
