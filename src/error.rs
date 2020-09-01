@@ -1,4 +1,6 @@
 pub type MaxResult<T> = Result<T, MaxError>;
+
+#[derive(Copy, Clone, Debug)]
 pub enum MaxError {
     Generic,
     InvalidPtr,

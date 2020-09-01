@@ -2,7 +2,7 @@ use crate::class::{Class, MaxFree, MaxNew};
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
 
-pub trait WrapperNew {
+pub trait WrappedNew {
     fn new(o: *mut max_sys::t_object) -> Self;
 }
 
@@ -46,14 +46,17 @@ impl<T> Wrapper<T> {
 
 impl<T> Wrapper<T>
 where
-    T: WrapperNew,
+    T: WrappedNew,
 {
-    pub fn new(class: &mut Class<T>) -> *mut c_void {
-        unsafe {
-            let o = max_sys::object_alloc(class.inner());
-            let o = std::mem::transmute::<_, &mut Self>(o);
-            o.init();
-            std::mem::transmute::<_, _>(o)
+    pub fn new(class: &mut Option<Class<Wrapper<T>>>) -> *mut c_void {
+        match class {
+            Some(class) => unsafe {
+                let o = max_sys::object_alloc(class.inner());
+                let o = std::mem::transmute::<_, &mut Self>(o);
+                o.init();
+                std::mem::transmute::<_, _>(o)
+            },
+            None => panic!("class not registered"),
         }
     }
     pub fn init(&mut self) {
