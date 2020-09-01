@@ -1,73 +1,79 @@
-use std::cell::UnsafeCell;
-use std::convert::From;
+//re-export
+#[cfg(target_arch = "x86_64")]
+pub use self::atomic64::*;
 
-//we assume that f64 and i64 are atomic on the platforms we run on
-//so, Float and Long are wrappers that codify that and allow interior mutability, Send and Sync
+#[cfg(target_arch = "x86_64")]
+mod atomic64 {
+    //we assume that f64 and i64 are atomic on the platforms we run on
+    //so, Float and Long are wrappers that codify that and allow interior mutability, Send and Sync
+    use std::cell::UnsafeCell;
+    use std::convert::From;
+    #[derive(Default)]
+    #[repr(transparent)]
+    pub struct Float {
+        pub(crate) value: UnsafeCell<f64>,
+    }
 
-#[derive(Default)]
-#[repr(transparent)]
-pub struct Float {
-    value: UnsafeCell<f64>,
-}
+    #[derive(Default)]
+    #[repr(transparent)]
+    pub struct Long {
+        pub(crate) value: UnsafeCell<i64>,
+    }
 
-#[derive(Default)]
-#[repr(transparent)]
-pub struct Long {
-    value: UnsafeCell<i64>,
-}
-
-impl Float {
-    pub fn new(v: f64) -> Self {
-        Self {
-            value: UnsafeCell::new(v),
+    impl Float {
+        pub fn new(v: f64) -> Self {
+            Self {
+                value: UnsafeCell::new(v),
+            }
+        }
+        pub fn get(&self) -> f64 {
+            unsafe { *self.value.get() }
+        }
+        pub fn set(&self, v: f64) {
+            unsafe {
+                *self.value.get() = v;
+            }
         }
     }
-    pub fn get(&self) -> f64 {
-        unsafe { *self.value.get() }
-    }
-    pub fn set(&self, v: f64) {
-        unsafe {
-            *self.value.get() = v;
+
+    impl From<f64> for Float {
+        fn from(v: f64) -> Self {
+            Float::new(v)
         }
     }
-}
 
-impl From<f64> for Float {
-    fn from(v: f64) -> Self {
-        Float::new(v)
-    }
-}
-
-impl Long {
-    pub fn new(v: i64) -> Self {
-        Self {
-            value: UnsafeCell::new(v),
+    impl Long {
+        pub fn new(v: i64) -> Self {
+            Self {
+                value: UnsafeCell::new(v),
+            }
+        }
+        pub fn get(&self) -> i64 {
+            unsafe { *self.value.get() }
+        }
+        pub fn set(&self, v: i64) {
+            unsafe {
+                *self.value.get() = v;
+            }
         }
     }
-    pub fn get(&self) -> i64 {
-        unsafe { *self.value.get() }
-    }
-    pub fn set(&self, v: i64) {
-        unsafe {
-            *self.value.get() = v;
+
+    impl From<i64> for Long {
+        fn from(v: i64) -> Self {
+            Long::new(v)
         }
     }
+
+    unsafe impl Send for Float {}
+    unsafe impl Sync for Float {}
+    unsafe impl Send for Long {}
+    unsafe impl Sync for Long {}
 }
 
-impl From<i64> for Long {
-    fn from(v: i64) -> Self {
-        Long::new(v)
-    }
-}
-
-unsafe impl Send for Float {}
-unsafe impl Sync for Float {}
-unsafe impl Send for Long {}
-unsafe impl Sync for Long {}
-
-#[cfg(test)]
+#[cfg(all(test, target_arch = "x86_64"))]
 mod tests {
-    use super::*;
+    use super::atomic64::*;
+    use std::cell::UnsafeCell;
     use std::sync::Arc;
 
     #[derive(Default)]
