@@ -1,2 +1,3 @@
+*.mxo
 /target
 Cargo.lock
