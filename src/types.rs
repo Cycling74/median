@@ -90,6 +90,18 @@ mod tests {
     };
 
     #[test]
+    fn sizes() {
+        assert_eq!(std::mem::size_of::<f64>(), std::mem::size_of::<Float>());
+        assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Long>());
+    }
+
+    #[test]
+    fn align() {
+        assert_eq!(std::mem::align_of::<f64>(), std::mem::align_of::<Float>());
+        assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Long>());
+    }
+
+    #[test]
     fn can_from() {
         let x: Long = 4i64.into();
         assert_eq!(x.get(), 4i64);
