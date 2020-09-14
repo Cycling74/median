@@ -1,5 +1,6 @@
 pub mod class;
 pub mod error;
+pub mod object;
 pub mod types;
 pub mod wrapper;
 
