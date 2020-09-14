@@ -1,9 +1,34 @@
-use crate::class::{Class, MaxFree, MaxNew};
+use crate::{
+    class::{Class, MaxFree},
+    object::MaxObj,
+};
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
+use std::sync::Mutex;
 
-pub trait WrappedNew {
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+
+lazy_static! {
+    //type name -> ClassWrapper
+    static ref CLASSES: Mutex<HashMap<&'static str, ClassWrapper>> = Mutex::new(HashMap::new());
+}
+
+//we only use ClassWrapper in CLASSES after we've registered the class, for max's usage this is
+//send
+#[repr(transparent)]
+struct ClassWrapper(*mut max_sys::t_class);
+unsafe impl Send for ClassWrapper {}
+
+pub trait Wrapped: Sized {
     fn new(o: *mut max_sys::t_object) -> Self;
+
+    fn class_name() -> &'static str;
+
+    /// Register any methods you need for your class
+    fn class_setup(_class: &mut Class<Wrapper<Self>>) {
+        //default, do nothing
+    }
 }
 
 #[repr(C)]
@@ -11,6 +36,8 @@ pub struct Wrapper<T> {
     s_obj: max_sys::t_object,
     wrapped: MaybeUninit<T>,
 }
+
+unsafe impl<T> MaxObj for Wrapper<T> {}
 
 impl<T> Wrapper<T> {
     pub fn wrapped(&mut self) -> &mut T {
@@ -24,42 +51,46 @@ impl<T> Wrapper<T> {
             std::mem::drop(wrapped.assume_init());
         }
     }
-
-    pub fn maxobj(&mut self) -> *mut max_sys::t_object {
-        &mut self.s_obj
-    }
-
-    //unfortunately the 'new' method needs to access a static variable
-    //and so it cannot be created automatically
-    //the result of `new_class` should be stored in that static
-    //new should be a sample trampoline that calls Wrapper<T>::new(CLASS_STATIC.unwrap())
-    pub fn new_class(name: &str, new: MaxNew) -> Class<Self> {
-        unsafe {
-            Class::new(
-                name,
-                new,
-                Some(std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free)),
-            )
-        }
-    }
 }
 
 impl<T> Wrapper<T>
 where
-    T: WrappedNew,
+    T: Wrapped,
 {
-    pub fn new(class: &mut Option<Class<Wrapper<T>>>) -> *mut c_void {
-        match class {
-            Some(class) => unsafe {
-                let o = max_sys::object_alloc(class.inner());
+    // the key to use in the CLASSES hash
+    fn key() -> &'static str {
+        std::any::type_name::<Wrapper<T>>()
+    }
+
+    pub unsafe fn register() {
+        let mut c = Class::new(
+            T::class_name(),
+            Self::new_tramp,
+            Some(std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free)),
+        );
+        T::class_setup(&mut c);
+        c.register()
+            .expect(format!("failed to register {}", Self::key()).as_str());
+        CLASSES
+            .lock()
+            .expect("couldn't lock CLASSES mutex")
+            .insert(Self::key(), ClassWrapper(c.inner()));
+    }
+
+    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
+        let g = CLASSES.lock().expect("couldn't lock CLASSES mutex");
+        match g.get(Self::key()) {
+            Some(class) => {
+                let o = max_sys::object_alloc(class.0);
                 let o = std::mem::transmute::<_, &mut Self>(o);
                 o.init();
                 std::mem::transmute::<_, _>(o)
-            },
-            None => panic!("class not registered"),
+            }
+            None => panic!("class {} not registered", Self::key()),
         }
     }
-    pub fn init(&mut self) {
-        self.wrapped = MaybeUninit::new(T::new(self.maxobj()))
+
+    fn init(&mut self) {
+        unsafe { self.wrapped = MaybeUninit::new(T::new(self.max_obj())) }
     }
 }
