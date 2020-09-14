@@ -8,6 +8,8 @@ mod atomic64 {
     //so, Float and Long are wrappers that codify that and allow interior mutability, Send and Sync
     use std::cell::UnsafeCell;
     use std::convert::From;
+    use std::fmt::{Display, Formatter, Result};
+
     #[derive(Default)]
     #[repr(transparent)]
     pub struct Float {
@@ -42,6 +44,12 @@ mod atomic64 {
         }
     }
 
+    impl Display for Float {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            unsafe { write!(f, "{}", *self.value.get()) }
+        }
+    }
+
     impl Long {
         pub fn new(v: i64) -> Self {
             Self {
@@ -61,6 +69,12 @@ mod atomic64 {
     impl From<i64> for Long {
         fn from(v: i64) -> Self {
             Long::new(v)
+        }
+    }
+
+    impl Display for Long {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            unsafe { write!(f, "{}", *self.value.get()) }
         }
     }
 
