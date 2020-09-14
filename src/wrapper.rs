@@ -39,24 +39,18 @@ pub struct Wrapper<T> {
 
 unsafe impl<T> MaxObj for Wrapper<T> {}
 
-impl<T> Wrapper<T> {
-    pub fn wrapped(&mut self) -> &mut T {
+impl<T> Wrapper<T>
+where
+    T: Wrapped + Send + Sync,
+{
+    pub fn wrapped_mut(&mut self) -> &mut T {
         unsafe { &mut (*self.wrapped.as_mut_ptr()) }
     }
 
-    pub extern "C" fn free(&mut self) {
-        let mut wrapped = MaybeUninit::uninit();
-        std::mem::swap(&mut self.wrapped, &mut wrapped);
-        unsafe {
-            std::mem::drop(wrapped.assume_init());
-        }
+    pub fn wrapped(&self) -> &T {
+        unsafe { &(*self.wrapped.as_ptr()) }
     }
-}
 
-impl<T> Wrapper<T>
-where
-    T: Wrapped,
-{
     // the key to use in the CLASSES hash
     fn key() -> &'static str {
         std::any::type_name::<Wrapper<T>>()
@@ -75,6 +69,14 @@ where
             .lock()
             .expect("couldn't lock CLASSES mutex")
             .insert(Self::key(), ClassWrapper(c.inner()));
+    }
+
+    extern "C" fn free(&mut self) {
+        let mut wrapped = MaybeUninit::uninit();
+        std::mem::swap(&mut self.wrapped, &mut wrapped);
+        unsafe {
+            std::mem::drop(wrapped.assume_init());
+        }
     }
 
     pub unsafe extern "C" fn new_tramp() -> *mut c_void {

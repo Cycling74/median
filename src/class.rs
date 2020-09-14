@@ -53,7 +53,7 @@ impl<T> Class<T> {
         self.class
     }
 
-    pub fn add_method_int(&mut self, name: &str, cb: extern "C" fn(*mut T, i64)) {
+    pub fn add_method_int(&mut self, name: &str, cb: extern "C" fn(*const T, i64)) {
         unsafe {
             max_sys::class_addmethod(
                 self.class,
@@ -65,7 +65,7 @@ impl<T> Class<T> {
         }
     }
 
-    pub fn add_method_bang(&mut self, cb: extern "C" fn(*mut T)) {
+    pub fn add_method_bang(&mut self, cb: extern "C" fn(*const T)) {
         unsafe {
             max_sys::class_addmethod(
                 self.class,
