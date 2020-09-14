@@ -2,9 +2,7 @@ use std::ffi::c_void;
 use std::ffi::CString;
 
 use median::class::Class;
-use median::wrapper::{WrappedNew, Wrapper};
-
-static mut SIMP_CLASS: Option<Class<Wrapper<Simp>>> = None;
+use median::wrapper::{Wrapped, Wrapper};
 
 pub fn post(msg: String) {
     unsafe {
@@ -16,17 +14,36 @@ pub struct Simp {
     value: i64,
 }
 
-impl WrappedNew for Simp {
+impl Wrapped for Simp {
     fn new(_o: *mut max_sys::t_object) -> Self {
         Self { value: 0 }
+    }
+
+    fn class_name() -> &'static str {
+        &"simp"
+    }
+
+    /// Register any methods you need for your class
+    fn class_setup(c: &mut Class<Wrapper<Self>>) {
+        pub extern "C" fn bang_trampoline(s: *mut Wrapper<Simp>) {
+            unsafe {
+                let obj = &mut *(s as *mut Wrapper<Simp>);
+                obj.wrapped().bang();
+            }
+        }
+
+        pub extern "C" fn int_trampoline(s: *mut Wrapper<Simp>, v: i64) {
+            unsafe {
+                let obj = &mut *(s as *mut Wrapper<Simp>);
+                obj.wrapped().int(v);
+            }
+        }
+        c.add_method_int("int", int_trampoline);
+        c.add_method_bang(bang_trampoline);
     }
 }
 
 impl Simp {
-    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        Wrapper::new(&mut SIMP_CLASS)
-    }
-
     pub fn bang(&mut self) {
         post(format!("from rust, value is {}", self.value));
     }
@@ -37,25 +54,7 @@ impl Simp {
     }
 }
 
-pub extern "C" fn bang_trampoline(s: *mut Wrapper<Simp>) {
-    unsafe {
-        let obj = &mut *(s as *mut Wrapper<Simp>);
-        obj.wrapped().bang();
-    }
-}
-
-pub extern "C" fn int_trampoline(s: *mut Wrapper<Simp>, v: i64) {
-    unsafe {
-        let obj = &mut *(s as *mut Wrapper<Simp>);
-        obj.wrapped().int(v);
-    }
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
-    let mut c = Wrapper::new_class("simp", Simp::new_tramp);
-    c.add_method_int("int", int_trampoline);
-    c.add_method_bang(bang_trampoline);
-    c.register().expect("failed to register");
-    SIMP_CLASS = Some(c);
+    Wrapper::<Simp>::register()
 }
