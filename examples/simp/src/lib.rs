@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::ffi::CString;
 
-use median::class::{Class, ClassType};
+use median::class::Class;
 use median::num::Long;
 use median::wrapper::{Wrapped, Wrapper};
 
@@ -63,5 +63,5 @@ impl Simp {
 
 #[no_mangle]
 pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
-    Wrapper::<Simp>::register(ClassType::Box)
+    Wrapper::<Simp>::register()
 }
