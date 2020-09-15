@@ -15,7 +15,14 @@ pub struct Class<T> {
     _phantom: PhantomData<T>,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ClassType {
+    Box,
+    NoBox,
+}
+
 impl<T> Class<T> {
+    /// Create a new max class with the given name, new trampoline and optional freem trampoline.
     pub fn new(name: &str, new: MaxNew, free: Option<MaxFree<T>>) -> Self {
         let class = unsafe {
             max_sys::class_new(
@@ -39,11 +46,16 @@ impl<T> Class<T> {
         }
     }
 
-    pub fn register(&mut self) -> MaxResult<()> {
+    /// Register the max class.
+    pub fn register(&mut self, class_type: ClassType) -> MaxResult<()> {
+        let class_type = match class_type {
+            ClassType::NoBox => "nobox",
+            ClassType::Box => "box",
+        };
         unsafe {
             MaxError::from(
                 max_sys::class_register(
-                    max_sys::gensym(CString::new("box").unwrap().as_ptr()),
+                    max_sys::gensym(CString::new(class_type).unwrap().as_ptr()),
                     self.class,
                 ) as _,
                 (),
@@ -51,6 +63,7 @@ impl<T> Class<T> {
         }
     }
 
+    /// Get the inner class object.
     pub fn inner(&mut self) -> *mut max_sys::t_class {
         self.class
     }

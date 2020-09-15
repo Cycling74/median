@@ -1,7 +1,7 @@
 //! External Wrappers.
 
 use crate::{
-    class::{Class, MaxFree},
+    class::{Class, ClassType, MaxFree},
     object::MaxObj,
 };
 use std::ffi::c_void;
@@ -58,14 +58,14 @@ where
         std::any::type_name::<Wrapper<T>>()
     }
 
-    pub unsafe fn register() {
+    pub unsafe fn register(class_type: ClassType) {
         let mut c = Class::new(
             T::class_name(),
             Self::new_tramp,
             Some(std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free)),
         );
         T::class_setup(&mut c);
-        c.register()
+        c.register(class_type)
             .expect(format!("failed to register {}", Self::key()).as_str());
         CLASSES
             .lock()
