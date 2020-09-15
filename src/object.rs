@@ -1,3 +1,5 @@
+//! Object traits.
+
 /// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
 pub unsafe trait MaxObj: Sized {

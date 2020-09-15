@@ -1,3 +1,5 @@
+//! Wrapping the max error codes into a rust enum.
+
 pub type MaxResult<T> = Result<T, MaxError>;
 
 #[derive(Copy, Clone, Debug)]

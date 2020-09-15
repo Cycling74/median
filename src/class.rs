@@ -1,3 +1,5 @@
+//! Class registration.
+
 use crate::error::{MaxError, MaxResult};
 use std::ffi::c_void;
 use std::ffi::CString;
@@ -76,10 +78,3 @@ impl<T> Class<T> {
         }
     }
 }
-
-/*
-impl<F> Class {
-    //pub fn new(name: &str,
-    pub fn add_method<F>(&mut self, name: &str, f: F) {}
-}
-*/

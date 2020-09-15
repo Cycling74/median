@@ -1,4 +1,4 @@
-///Numeric type wrappers.
+//! Numeric type wrappers.
 
 //re-export
 #[cfg(target_arch = "x86_64")]

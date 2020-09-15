@@ -1,3 +1,5 @@
+//! External Wrappers.
+
 use crate::{
     class::{Class, MaxFree},
     object::MaxObj,

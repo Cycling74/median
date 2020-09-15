@@ -1,3 +1,5 @@
+//! String references.
+
 use std::cell::UnsafeCell;
 use std::convert::{From, TryFrom};
 use std::ffi::CString;
