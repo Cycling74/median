@@ -1,8 +1,8 @@
 pub mod class;
 pub mod error;
+pub mod num;
 pub mod object;
 pub mod symbol;
-pub mod types;
 pub mod wrapper;
 
 #[cfg(test)]

@@ -1,3 +1,5 @@
+///Numeric type wrappers.
+
 //re-export
 #[cfg(target_arch = "x86_64")]
 pub use self::atomic64::*;

@@ -2,7 +2,7 @@ use std::ffi::c_void;
 use std::ffi::CString;
 
 use median::class::Class;
-use median::types::Long;
+use median::num::Long;
 use median::wrapper::{Wrapped, Wrapper};
 
 pub fn post(msg: String) {
