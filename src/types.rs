@@ -40,13 +40,19 @@ mod atomic64 {
 
     impl From<f64> for Float {
         fn from(v: f64) -> Self {
-            Float::new(v)
+            Self::new(v)
         }
     }
 
     impl Display for Float {
         fn fmt(&self, f: &mut Formatter) -> Result {
             unsafe { write!(f, "{}", *self.value.get()) }
+        }
+    }
+
+    impl Clone for Float {
+        fn clone(&self) -> Self {
+            Self::new(self.get())
         }
     }
 
@@ -68,13 +74,19 @@ mod atomic64 {
 
     impl From<i64> for Long {
         fn from(v: i64) -> Self {
-            Long::new(v)
+            Self::new(v)
         }
     }
 
     impl Display for Long {
         fn fmt(&self, f: &mut Formatter) -> Result {
             unsafe { write!(f, "{}", *self.value.get()) }
+        }
+    }
+
+    impl Clone for Long {
+        fn clone(&self) -> Self {
+            Self::new(self.get())
         }
     }
 
