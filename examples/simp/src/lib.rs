@@ -23,7 +23,7 @@ impl Wrapped for Simp {
             let wrapper = std::mem::transmute::<_, &mut Wrapper<Self>>(p);
             wrapper.wrapped().clocked();
         });
-        v.set_clock(Some(ClockHandle::new(f)));
+        v.set_clock(Some(unsafe { ClockHandle::new(f) }));
         v
     }
 

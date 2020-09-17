@@ -94,25 +94,23 @@ impl ClockHandle {
     }
     */
 
-    pub fn new(func: Box<dyn Fn()>) -> Self {
-        unsafe {
-            //register wraper if it hasn't already been
-            //XXX what if there is another instance of this library that has already registered
-            //this clock?
-            Wrapper::<ClockInner>::register();
-            let mut target = Wrapper::<ClockInner>::new();
-            target.wrapped_mut().set(func);
-            let clock = max_sys::clock_new(
-                std::mem::transmute::<_, _>(target.max_obj()),
-                Some(std::mem::transmute::<
-                    extern "C" fn(*const Wrapper<ClockInner>),
-                    MaxMethod,
-                >(ClockInner::call_tramp)),
-            );
-            Self {
-                _target: target,
-                clock,
-            }
+    pub unsafe fn new(func: Box<dyn Fn()>) -> Self {
+        //register wraper if it hasn't already been
+        //XXX what if there is another instance of this library that has already registered
+        //this clock?
+        Wrapper::<ClockInner>::register();
+        let mut target = Wrapper::<ClockInner>::new();
+        target.wrapped_mut().set(func);
+        let clock = max_sys::clock_new(
+            std::mem::transmute::<_, _>(target.max_obj()),
+            Some(std::mem::transmute::<
+                extern "C" fn(*const Wrapper<ClockInner>),
+                MaxMethod,
+            >(ClockInner::call_tramp)),
+        );
+        Self {
+            _target: target,
+            clock,
         }
     }
 }
