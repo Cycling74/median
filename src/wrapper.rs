@@ -93,6 +93,7 @@ where
                 Self::new_tramp,
                 Some(std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free)),
             );
+            //TODO somehow pass the lock so that classes can register additional classes
             T::class_setup(&mut c);
             c.register(T::class_type())
                 .expect(format!("failed to register {}", Self::key()).as_str());
@@ -111,16 +112,18 @@ where
     /// Create an instance of the wrapper, on the heap.
     pub fn new() -> Box<Self> {
         unsafe {
-            let g = CLASSES.lock().expect("couldn't lock CLASSES mutex");
-            match g.get(Self::key()) {
-                Some(class) => {
-                    let o = max_sys::object_alloc(class.0);
-                    let o = std::mem::transmute::<_, &mut Self>(o);
-                    o.init();
-                    std::boxed::Box::from_raw(o)
+            //unlock the mutex so we can register in the object init
+            let max_class = {
+                let g = CLASSES.lock().expect("couldn't lock CLASSES mutex");
+                match g.get(Self::key()) {
+                    Some(class) => class.0,
+                    None => panic!("class {} not registered", Self::key()),
                 }
-                None => panic!("class {} not registered", Self::key()),
-            }
+            };
+            let o = max_sys::object_alloc(max_class);
+            let o = std::mem::transmute::<_, &mut Self>(o);
+            o.init();
+            std::boxed::Box::from_raw(o)
         }
     }
 
