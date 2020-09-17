@@ -1,27 +1,30 @@
-use std::ffi::c_void;
-use std::ffi::CString;
-
 use median::class::Class;
+use median::clock::ClockHandle;
 use median::num::Long;
+use median::post;
 use median::wrapper::{Wrapped, Wrapper};
-
-pub fn post(msg: String) {
-    unsafe {
-        max_sys::post(CString::new(msg.as_str()).unwrap().as_ptr());
-    }
-}
+use std::ffi::c_void;
 
 pub struct Simp {
     value: Long,
     _v: String,
+    clock: Option<ClockHandle>,
 }
 
 impl Wrapped for Simp {
-    fn new(_o: *mut max_sys::t_object) -> Self {
-        Self {
+    fn new(o: *mut max_sys::t_object) -> Self {
+        let mut v = Self {
             value: Long::new(0),
             _v: String::from("blah"),
-        }
+            clock: None,
+        };
+        let p = o;
+        let f = Box::new(move || unsafe {
+            let wrapper = std::mem::transmute::<_, &mut Wrapper<Self>>(p);
+            wrapper.wrapped().clocked();
+        });
+        v.set_clock(Some(ClockHandle::new(f)));
+        v
     }
 
     fn class_name() -> &'static str {
@@ -49,15 +52,26 @@ impl Wrapped for Simp {
 }
 
 impl Simp {
+    fn set_clock(&mut self, clock: Option<ClockHandle>) {
+        self.clock = clock;
+    }
+
     pub fn bang(&self) {
-        post(format!("from rust {}", self.value));
+        post!("from rust {}", self.value);
+        if let Some(clock) = &self.clock {
+            clock.delay(10);
+        }
     }
 
     pub fn int(&self, v: i64) {
         self.value.set(v);
         //XXX won't compile, needs mutex
         //self._v = format!("from rust {}", self.value);
-        post(format!("from rust {}", self.value));
+        post!("from rust {}", self.value);
+    }
+
+    pub fn clocked(&self) {
+        post("clocked".to_string());
     }
 }
 
