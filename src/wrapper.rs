@@ -33,6 +33,8 @@ pub trait Wrapped: Sized {
 
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
+    ///
+    /// You can add additional aliases in the `class_setup` method.
     fn class_name() -> &'static str;
 
     /// The type of your class. Defaults to 'box' which creates visual objects in Max.
