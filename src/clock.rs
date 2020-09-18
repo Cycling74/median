@@ -48,12 +48,6 @@ impl Wrapped for ClockInner {
     }
 }
 
-impl Drop for ClockInner {
-    fn drop(&mut self) {
-        panic!("dropping ClockInner");
-    }
-}
-
 pub struct ClockHandle {
     _target: Box<Wrapper<ClockInner>>,
     clock: *mut c_void,
