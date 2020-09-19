@@ -2,6 +2,7 @@
 
 use crate::{
     class::{Class, ClassType, MaxFree},
+    clock::ClockHandle,
     object::MaxObj,
 };
 use std::ffi::c_void;
@@ -21,6 +22,17 @@ lazy_static! {
 #[repr(transparent)]
 struct ClassWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassWrapper {}
+
+pub trait WrappedBuilder<T> {
+    /// Create a clock with a method callback
+    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
+    /// Create a clock with a closure callback
+    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
+
+    /// Get the parent max object which can be cast to `&Wrapper<T>`.
+    /// This in turn can be used to get your object with the `wrapped()` method.
+    unsafe fn wrapper(&mut self) -> *mut max_sys::t_object;
+}
 
 pub trait Wrapped: Sized {
     /// A constructor for your object.
@@ -112,6 +124,8 @@ where
     }
 
     /// Create an instance of the wrapper, on the heap.
+    /// XXX THIS crashes when we dealloc.. the memory is from max not from Box::new.. need to
+    /// figure that out
     pub fn new() -> Box<Self> {
         unsafe {
             //unlock the mutex so we can register in the object init
