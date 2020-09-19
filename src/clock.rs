@@ -82,11 +82,19 @@ impl ClockHandle {
         }
     }
 
-    /*
-    pub fn get_ftime(&self) -> f64 {
-
+    /// Find out the current logical time of the scheduler in milliseconds as a floating-point number.
+    pub fn ftime() -> f64 {
+        let mut v = 0f64;
+        unsafe {
+            max_sys::clock_getftime(&mut v);
+        }
+        return v;
     }
-    */
+
+    /// Find out the current logical time of the scheduler in milliseconds.
+    pub fn time() -> i64 {
+        unsafe { max_sys::gettime() }
+    }
 
     pub unsafe fn new(func: Box<dyn Fn()>) -> Self {
         //register wraper if it hasn't already been
