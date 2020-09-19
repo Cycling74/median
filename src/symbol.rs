@@ -1,7 +1,7 @@
 //! String references.
 
 use std::cell::UnsafeCell;
-use std::convert::{From, TryFrom};
+use std::convert::{From, Into, TryFrom};
 use std::ffi::CString;
 use std::fmt::{Display, Formatter};
 
@@ -54,6 +54,12 @@ impl From<*mut max_sys::t_symbol> for SymbolRef {
     }
 }
 
+impl Into<*const max_sys::t_symbol> for SymbolRef {
+    fn into(self) -> *const max_sys::t_symbol {
+        unsafe { self.inner() }
+    }
+}
+
 impl From<CString> for SymbolRef {
     fn from(v: CString) -> Self {
         unsafe { SymbolRef::new(max_sys::gensym(v.as_ptr())) }
@@ -63,7 +69,14 @@ impl From<CString> for SymbolRef {
 impl TryFrom<String> for SymbolRef {
     type Error = &'static str;
     fn try_from(v: String) -> Result<Self, Self::Error> {
-        match CString::new(v.as_str()) {
+        return SymbolRef::try_from(v.as_str());
+    }
+}
+
+impl TryFrom<&str> for SymbolRef {
+    type Error = &'static str;
+    fn try_from(v: &str) -> Result<Self, Self::Error> {
+        match CString::new(v) {
             Ok(s) => Ok(Self::from(s)),
             Err(_) => Err(&"couldn't create CString"),
         }
