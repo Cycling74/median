@@ -49,7 +49,7 @@ impl Wrapped for ClockInner {
 }
 
 pub struct ClockHandle {
-    _target: Box<Wrapper<ClockInner>>,
+    _target: crate::object::ObjBox<Wrapper<ClockInner>>,
     clock: *mut c_void,
 }
 

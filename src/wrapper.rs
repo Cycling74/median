@@ -3,7 +3,7 @@
 use crate::{
     class::{Class, ClassType, MaxFree},
     clock::ClockHandle,
-    object::MaxObj,
+    object::{MaxObj, ObjBox},
 };
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
@@ -126,7 +126,7 @@ where
     /// Create an instance of the wrapper, on the heap.
     /// XXX THIS crashes when we dealloc.. the memory is from max not from Box::new.. need to
     /// figure that out
-    pub fn new() -> Box<Self> {
+    pub fn new() -> ObjBox<Self> {
         unsafe {
             //unlock the mutex so we can register in the object init
             let max_class = {
@@ -136,16 +136,15 @@ where
                     None => panic!("class {} not registered", Self::key()),
                 }
             };
-            let o = max_sys::object_alloc(max_class);
-            let o = std::mem::transmute::<_, &mut Self>(o);
+            let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
             o.init();
-            std::boxed::Box::from_raw(o)
+            o
         }
     }
 
     /// A method for Max to create an instance of your class.
     pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        let o = Box::into_raw(Self::new());
+        let o = ObjBox::into_raw(Self::new());
         std::mem::transmute::<_, _>(o)
     }
 
