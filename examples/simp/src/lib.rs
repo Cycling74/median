@@ -2,8 +2,13 @@ use median::class::Class;
 use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
+use median::symbol::SymbolRef;
 use median::wrapper::{Wrapped, Wrapper};
+
+use std::convert::{Into, TryFrom};
+
 use std::ffi::c_void;
+use std::ffi::CString;
 
 pub struct Simp {
     value: Long,
@@ -48,6 +53,21 @@ impl Wrapped for Simp {
         }
         c.add_method_int("int", int_trampoline);
         c.add_method_bang(bang_trampoline);
+
+        //TODO encapsulate in a safe method
+        unsafe {
+            let attr = max_sys::attr_offset_new(
+                CString::new("blah").unwrap().as_ptr(),
+                SymbolRef::try_from("long").unwrap().into(),
+                0,
+                None,
+                None,
+                (std::mem::size_of::<max_sys::t_object>()
+                    + field_offset::offset_of!(Self => value).get_byte_offset())
+                    as _,
+            );
+            max_sys::class_addattr(c.inner(), attr);
+        }
     }
 }
 

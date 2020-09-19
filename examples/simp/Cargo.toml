@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 max-sys = { path = "../../../max-sys/" }
 median = { path = "../../" }
+field-offset = "0.3.2"
 
 [profile.release]
 lto = true
