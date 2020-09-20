@@ -180,6 +180,7 @@ where
     fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
         unsafe {
             ClockHandle::new(
+                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
                 self.wrapper,
                 Box::new(move |wrapper| {
                     let wrapper: &Wrapper<T> = std::mem::transmute::<_, &Wrapper<T>>(wrapper);
@@ -193,6 +194,7 @@ where
     fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
         unsafe {
             ClockHandle::new(
+                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
                 self.wrapper,
                 Box::new(move |wrapper| {
                     let wrapper: &Wrapper<T> = std::mem::transmute::<_, &Wrapper<T>>(wrapper);
