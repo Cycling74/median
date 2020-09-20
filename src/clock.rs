@@ -1,10 +1,11 @@
 use crate::class::{ClassType, MaxMethod};
 use crate::object::MaxObj;
-use crate::wrapper::{Wrapped, Wrapper};
+use crate::wrapper::{Wrapped, WrappedBuilder, Wrapper};
+
 use std::ffi::c_void;
 
 struct ClockInner {
-    func: Option<Box<dyn Fn()>>,
+    target: Option<(*mut max_sys::t_object, Box<dyn Fn(*mut max_sys::t_object)>)>,
 }
 
 //since we know that T is Send and Sync, we should be able to call a method on it and be Send and
@@ -18,19 +19,23 @@ impl ClockInner {
         let wrapper = unsafe { &(*s) };
         wrapper.wrapped().call();
     }
-    pub fn set(&mut self, func: Box<dyn Fn()>) {
-        self.func = Some(func);
+    pub(crate) fn set(
+        &mut self,
+        target: *mut max_sys::t_object,
+        func: Box<dyn Fn(*mut max_sys::t_object)>,
+    ) {
+        self.target = Some((target, func));
     }
     fn call(&self) {
-        if let Some(func) = &self.func {
-            (func)()
+        if let Some((target, func)) = &self.target {
+            (func)(*target)
         }
     }
 }
 
-impl Wrapped for ClockInner {
-    fn new(_o: *mut max_sys::t_object) -> Self {
-        Self { func: None }
+impl Wrapped<ClockInner> for ClockInner {
+    fn new(_builder: &mut dyn WrappedBuilder<Self>) -> Self {
+        Self { target: None }
     }
 
     fn class_name() -> &'static str {
@@ -96,22 +101,25 @@ impl ClockHandle {
         unsafe { max_sys::gettime() }
     }
 
-    pub unsafe fn new(func: Box<dyn Fn()>) -> Self {
+    pub unsafe fn new(
+        target: *mut max_sys::t_object,
+        func: Box<dyn Fn(*mut max_sys::t_object)>,
+    ) -> Self {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
         //this clock?
         Wrapper::<ClockInner>::register();
-        let mut target = Wrapper::<ClockInner>::new();
-        target.wrapped_mut().set(func);
+        let mut clock_target = Wrapper::<ClockInner>::new();
+        clock_target.wrapped_mut().set(target, func);
         let clock = max_sys::clock_new(
-            std::mem::transmute::<_, _>(target.max_obj()),
+            std::mem::transmute::<_, _>(clock_target.max_obj()),
             Some(std::mem::transmute::<
                 extern "C" fn(*const Wrapper<ClockInner>),
                 MaxMethod,
             >(ClockInner::call_tramp)),
         );
         Self {
-            _target: target,
+            _target: clock_target,
             clock,
         }
     }

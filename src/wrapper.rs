@@ -5,12 +5,14 @@ use crate::{
     clock::ClockHandle,
     object::{MaxObj, ObjBox},
 };
+
+use std::collections::HashMap;
 use std::ffi::c_void;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 
 lazy_static! {
     //type name -> ClassWrapper
@@ -34,14 +36,14 @@ pub trait WrappedBuilder<T> {
     unsafe fn wrapper(&mut self) -> *mut max_sys::t_object;
 }
 
-pub trait Wrapped: Sized {
+pub trait Wrapped<T>: Sized {
     /// A constructor for your object.
     ///
     /// # Arguments
     ///
     /// * `parent` - The max `t_object` that owns this wrapped object. Can be used to create
     /// inlets/outlets etc.
-    fn new(parent: *mut max_sys::t_object) -> Self;
+    fn new(builder: &mut dyn WrappedBuilder<T>) -> Self;
 
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
@@ -72,7 +74,7 @@ unsafe impl<T> MaxObj for Wrapper<T> {}
 
 impl<T> Wrapper<T>
 where
-    T: Wrapped + Send + Sync,
+    T: Wrapped<T> + Send + Sync + 'static,
 {
     /// Retrieve a mutable reference to your wrapped class.
     pub fn wrapped_mut(&mut self) -> &mut T {
@@ -149,7 +151,61 @@ where
     }
 
     fn init(&mut self) {
-        unsafe { self.wrapped = MaybeUninit::new(T::new(self.max_obj())) }
+        unsafe {
+            let mut builder = Builder::new(self.max_obj());
+            self.wrapped = MaybeUninit::new(T::new(&mut builder))
+        }
+    }
+}
+
+pub struct Builder<T> {
+    wrapper: *mut max_sys::t_object,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> Builder<T> {
+    pub fn new(wrapper: *mut max_sys::t_object) -> Self {
+        Self {
+            wrapper,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> WrappedBuilder<T> for Builder<T>
+where
+    T: Wrapped<T> + Send + Sync + 'static,
+{
+    /// Create a clock with a method callback
+    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
+        unsafe {
+            ClockHandle::new(
+                self.wrapper,
+                Box::new(move |wrapper| {
+                    let wrapper: &Wrapper<T> = std::mem::transmute::<_, &Wrapper<T>>(wrapper);
+                    func(wrapper.wrapped());
+                }),
+            )
+        }
+    }
+
+    /// Create a clock with a closure callback
+    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
+        unsafe {
+            ClockHandle::new(
+                self.wrapper,
+                Box::new(move |wrapper| {
+                    let wrapper: &Wrapper<T> = std::mem::transmute::<_, &Wrapper<T>>(wrapper);
+                    func(wrapper.wrapped());
+                }),
+            )
+        }
+    }
+
+    /// Get the parent max object which can be cast to `&Wrapper<T>`.
+    /// This in turn can be used to get your object with the `wrapped()` method.
+    unsafe fn wrapper(&mut self) -> *mut max_sys::t_object {
+        self.wrapper
     }
 }
 
