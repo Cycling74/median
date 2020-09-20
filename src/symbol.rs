@@ -114,3 +114,20 @@ impl Clone for SymbolRef {
         unsafe { Self::new(self.inner()) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn size_align() {
+        assert_eq!(
+            std::mem::size_of::<*mut max_sys::t_symbol>(),
+            std::mem::size_of::<SymbolRef>()
+        );
+        assert_eq!(
+            std::mem::align_of::<*mut max_sys::t_symbol>(),
+            std::mem::align_of::<SymbolRef>()
+        );
+    }
+}
