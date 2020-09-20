@@ -1,3 +1,4 @@
+pub mod alloc;
 pub mod class;
 pub mod clock;
 pub mod error;
