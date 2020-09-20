@@ -10,11 +10,3 @@ pub mod wrapper;
 //re-exports
 mod max;
 pub use self::max::*;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
