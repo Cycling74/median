@@ -48,7 +48,7 @@ mod atomic64 {
 
     impl Display for Float {
         fn fmt(&self, f: &mut Formatter) -> Result {
-            unsafe { write!(f, "{}", *self.value.get()) }
+            write!(f, "{}", self.get())
         }
     }
 
@@ -82,7 +82,7 @@ mod atomic64 {
 
     impl Display for Long {
         fn fmt(&self, f: &mut Formatter) -> Result {
-            unsafe { write!(f, "{}", *self.value.get()) }
+            write!(f, "{}", self.get())
         }
     }
 
