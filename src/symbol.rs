@@ -1,7 +1,7 @@
 //! String references.
 
 use std::cell::UnsafeCell;
-use std::convert::{From, Into, TryFrom};
+use std::convert::{From, Into, TryFrom, TryInto};
 use std::ffi::CString;
 use std::fmt::{Display, Formatter};
 
@@ -34,8 +34,29 @@ impl SymbolRef {
         &mut (*self.inner())
     }
 
+    /// Convert to CString.
+    pub fn to_cstring(&self) -> CString {
+        unsafe { CString::from_raw(self.inner_ref().s_name) }
+    }
+
     /// Try to convert to a rust String.
     pub fn to_string(&self) -> Result<String, std::str::Utf8Error> {
+        self.to_cstring().to_str().map(|s| s.to_string())
+    }
+}
+
+unsafe impl Send for SymbolRef {}
+unsafe impl Sync for SymbolRef {}
+
+impl Into<*const max_sys::t_symbol> for SymbolRef {
+    fn into(self) -> *const max_sys::t_symbol {
+        unsafe { self.inner() }
+    }
+}
+
+impl TryInto<String> for SymbolRef {
+    type Error = std::str::Utf8Error;
+    fn try_into(self) -> Result<String, Self::Error> {
         unsafe {
             match CString::from_raw(self.inner_ref().s_name).to_str() {
                 Ok(s) => Ok(s.to_string()),
@@ -45,18 +66,9 @@ impl SymbolRef {
     }
 }
 
-unsafe impl Send for SymbolRef {}
-unsafe impl Sync for SymbolRef {}
-
 impl From<*mut max_sys::t_symbol> for SymbolRef {
     fn from(v: *mut max_sys::t_symbol) -> Self {
         Self::new(v)
-    }
-}
-
-impl Into<*const max_sys::t_symbol> for SymbolRef {
-    fn into(self) -> *const max_sys::t_symbol {
-        unsafe { self.inner() }
     }
 }
 
