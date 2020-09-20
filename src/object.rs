@@ -24,7 +24,7 @@ use std::ops::{Deref, DerefMut};
 
 /// A smart pointer for an object that max allocated
 pub struct ObjBox<T: MaxObj> {
-    pub value: Option<Box<T>>,
+    pub value: Option<Box<T>>, //option box so that we can drop if the value still exists
 }
 
 impl<T: MaxObj> ObjBox<T> {
