@@ -3,7 +3,7 @@ use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
-use median::wrapper::{Wrapped, Wrapper};
+use median::wrapper::{Wrapped, WrappedBuilder, Wrapper};
 
 use std::convert::{Into, TryFrom};
 
@@ -13,23 +13,16 @@ use std::ffi::CString;
 pub struct Simp {
     value: Long,
     _v: String,
-    clock: Option<ClockHandle>,
+    clock: ClockHandle,
 }
 
-impl Wrapped for Simp {
-    fn new(o: *mut max_sys::t_object) -> Self {
-        let mut v = Self {
+impl Wrapped<Simp> for Simp {
+    fn new(builder: &mut dyn WrappedBuilder<Self>) -> Self {
+        Self {
             value: Long::new(0),
             _v: String::from("blah"),
-            clock: None,
-        };
-        let p = o;
-        let f = Box::new(move || unsafe {
-            let wrapper = std::mem::transmute::<_, &mut Wrapper<Self>>(p);
-            wrapper.wrapped().clocked();
-        });
-        v.set_clock(Some(unsafe { ClockHandle::new(f) }));
-        v
+            clock: builder.with_clockfn(Self::clocked),
+        }
     }
 
     fn class_name() -> &'static str {
@@ -72,15 +65,9 @@ impl Wrapped for Simp {
 }
 
 impl Simp {
-    fn set_clock(&mut self, clock: Option<ClockHandle>) {
-        self.clock = clock;
-    }
-
     pub fn bang(&self) {
         post!("from rust {}", self.value);
-        if let Some(clock) = &self.clock {
-            clock.delay(10);
-        }
+        self.clock.delay(10);
     }
 
     pub fn int(&self, v: i64) {
