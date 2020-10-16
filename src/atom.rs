@@ -51,6 +51,10 @@ impl Atom {
         }
     }
 
+    pub fn assign(&mut self, other: Self) {
+        self.value = other.value;
+    }
+
     pub fn get_int(&self) -> i64 {
         unsafe { max_sys::atom_getlong(&self.value) }
     }
@@ -180,6 +184,24 @@ impl From<AtomValue> for Atom {
             }
             s
         }
+    }
+}
+
+impl Into<i64> for &Atom {
+    fn into(self) -> i64 {
+        self.get_int()
+    }
+}
+
+impl Into<f64> for &Atom {
+    fn into(self) -> f64 {
+        self.get_float()
+    }
+}
+
+impl Into<SymbolRef> for &Atom {
+    fn into(self) -> SymbolRef {
+        self.get_symbol()
     }
 }
 
