@@ -4,8 +4,8 @@
 
 use crate::symbol::SymbolRef;
 use core::ffi::c_void;
-use std::cell::UnsafeCell;
 
+/// The type of data that an atom stores.
 #[derive(Copy, Clone, Debug)]
 pub enum AtomType {
     Int,
@@ -14,23 +14,23 @@ pub enum AtomType {
     Object,
 }
 
+/// Typed atom data.
 pub enum AtomValue {
     Int(i64),
     Float(f64),
     Symbol(SymbolRef),
     Object(*mut c_void),
-    None,
 }
 
 #[repr(transparent)]
-pub struct AtomRef {
-    pub(crate) value: UnsafeCell<*mut max_sys::t_atom>,
+pub struct Atom {
+    pub(crate) value: max_sys::t_atom,
 }
 
-impl AtomRef {
+impl Atom {
     pub fn get_type(&self) -> Option<AtomType> {
         unsafe {
-            let t = max_sys::atom_gettype(self.value.get() as _) as max_sys::e_max_atomtypes::Type;
+            let t = max_sys::atom_gettype(&self.value as _) as max_sys::e_max_atomtypes::Type;
             match t {
                 max_sys::e_max_atomtypes::A_LONG => Some(AtomType::Int),
                 max_sys::e_max_atomtypes::A_FLOAT => Some(AtomType::Float),
@@ -41,53 +41,120 @@ impl AtomRef {
         }
     }
 
-    pub fn get_value(&self) -> AtomValue {
+    pub fn get_value(&self) -> Option<AtomValue> {
         match self.get_type() {
-            Some(AtomType::Int) => AtomValue::Int(self.get_int()),
-            Some(AtomType::Float) => AtomValue::Float(self.get_float()),
-            Some(AtomType::Symbol) => AtomValue::Symbol(self.get_symbol()),
-            Some(AtomType::Object) => AtomValue::Object(self.get_obj()),
-            None => AtomValue::None,
+            Some(AtomType::Int) => Some(AtomValue::Int(self.get_int())),
+            Some(AtomType::Float) => Some(AtomValue::Float(self.get_float())),
+            Some(AtomType::Symbol) => Some(AtomValue::Symbol(self.get_symbol())),
+            Some(AtomType::Object) => Some(AtomValue::Object(self.get_obj())),
+            None => None,
         }
     }
 
     pub fn get_int(&self) -> i64 {
-        unsafe { max_sys::atom_getlong(self.value.get() as _) }
+        unsafe { max_sys::atom_getlong(&self.value) }
     }
 
     pub fn get_float(&self) -> f64 {
-        unsafe { max_sys::atom_getfloat(self.value.get() as _) }
+        unsafe { max_sys::atom_getfloat(&self.value) }
     }
 
     pub fn get_symbol(&self) -> SymbolRef {
-        unsafe { max_sys::atom_getsym(self.value.get() as _).into() }
+        unsafe { max_sys::atom_getsym(&self.value).into() }
     }
 
     pub fn get_obj(&self) -> *mut c_void {
-        unsafe { max_sys::atom_getobj(self.value.get() as _) }
+        unsafe { max_sys::atom_getobj(&self.value) }
     }
 
     pub fn set_int(&mut self, v: i64) {
         unsafe {
-            max_sys::atom_setlong(self.value.get() as _, v);
+            max_sys::atom_setlong(&mut self.value, v);
         }
     }
 
     pub fn set_float(&mut self, v: f64) {
         unsafe {
-            max_sys::atom_setfloat(self.value.get() as _, v);
+            max_sys::atom_setfloat(&mut self.value, v);
         }
     }
 
     pub fn set_symbol(&mut self, v: SymbolRef) {
         unsafe {
-            max_sys::atom_setsym(self.value.get() as _, v.into());
+            max_sys::atom_setsym(&mut self.value, v.into());
         }
     }
 
     pub fn set_obj(&mut self, v: *mut c_void) {
         unsafe {
-            max_sys::atom_setobj(self.value.get() as _, v);
+            max_sys::atom_setobj(&mut self.value, v);
         }
+    }
+
+    unsafe fn zeroed() -> Self {
+        Self {
+            value: std::mem::MaybeUninit::<max_sys::t_atom>::zeroed().assume_init(),
+        }
+    }
+}
+
+impl From<i64> for Atom {
+    fn from(v: i64) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_int(v);
+            s
+        }
+    }
+}
+
+impl From<f64> for Atom {
+    fn from(v: f64) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_float(v);
+            s
+        }
+    }
+}
+
+impl From<SymbolRef> for Atom {
+    fn from(v: SymbolRef) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_symbol(v);
+            s
+        }
+    }
+}
+
+impl From<*mut c_void> for Atom {
+    fn from(v: *mut c_void) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_obj(v);
+            s
+        }
+    }
+}
+
+impl From<AtomValue> for Atom {
+    fn from(v: AtomValue) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            match v {
+                AtomValue::Int(v) => s.set_int(v),
+                AtomValue::Float(v) => s.set_float(v),
+                AtomValue::Symbol(v) => s.set_symbol(v),
+                AtomValue::Object(v) => s.set_obj(v),
+            }
+            s
+        }
+    }
+}
+
+impl Default for Atom {
+    fn default() -> Self {
+        Self::from(0i64)
     }
 }
