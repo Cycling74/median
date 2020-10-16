@@ -108,6 +108,16 @@ impl From<i64> for Atom {
     }
 }
 
+impl From<&i64> for Atom {
+    fn from(v: &i64) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_int(*v);
+            s
+        }
+    }
+}
+
 impl From<f64> for Atom {
     fn from(v: f64) -> Self {
         unsafe {
@@ -118,11 +128,31 @@ impl From<f64> for Atom {
     }
 }
 
+impl From<&f64> for Atom {
+    fn from(v: &f64) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_float(*v);
+            s
+        }
+    }
+}
+
 impl From<SymbolRef> for Atom {
     fn from(v: SymbolRef) -> Self {
         unsafe {
             let mut s = Self::zeroed();
             s.set_symbol(v);
+            s
+        }
+    }
+}
+
+impl From<&SymbolRef> for Atom {
+    fn from(v: &SymbolRef) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_symbol(v.clone());
             s
         }
     }

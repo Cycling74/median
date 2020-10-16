@@ -12,3 +12,6 @@ pub mod wrapper;
 //re-exports
 mod max;
 pub use self::max::*;
+
+#[cfg(test)]
+pub mod test;

@@ -34,6 +34,28 @@ impl<T> Slice<T> {
         std::mem::forget(self);
         (ptr, len)
     }
+
+    pub fn from_raw_parts_mut(ptr: *mut T, len: usize) -> Self {
+        assert!(
+            !(len > 0 && ptr.is_null()),
+            "cannot have null ptr and non zero length"
+        );
+        Self {
+            inner: unsafe { slice::from_raw_parts_mut(ptr, len) },
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn as_ref(&self) -> &[T] {
+        self.inner
+    }
+
+    pub fn as_mut(&mut self) -> &mut [T] {
+        self.inner
+    }
 }
 
 impl<T> Default for Slice<T>
@@ -78,5 +100,24 @@ where
             }
             Self { inner }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::atom::Atom;
+    use std::convert::From;
+    #[test]
+    fn can_create() {
+        let s: Slice<Atom> = Slice::from([0i64, 1i64].iter());
+        assert_eq!(2, s.len());
+
+        let (p, l) = s.into_raw();
+        assert!(!p.is_null());
+        assert_eq!(2, l);
+
+        let s = Slice::from_raw_parts_mut(p, l);
+        assert_eq!(2, s.len());
     }
 }
