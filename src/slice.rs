@@ -1,4 +1,4 @@
-use std::convert::From;
+use std::convert::{From, Into};
 use std::slice;
 
 ///A slice allocated and freed using max_sys
@@ -60,9 +60,10 @@ impl<T> Drop for Slice<T> {
     }
 }
 
-impl<T, U> From<U> for Slice<T>
+impl<T, I, U> From<U> for Slice<T>
 where
-    U: ExactSizeIterator<Item = T>,
+    I: Into<T>,
+    U: ExactSizeIterator<Item = I>,
 {
     fn from(iter: U) -> Self {
         unsafe {
@@ -73,7 +74,7 @@ where
             }
             let inner = slice::from_raw_parts_mut(std::mem::transmute::<_, *mut T>(ptr), len);
             for (i, o) in inner.iter_mut().zip(iter) {
-                *i = o;
+                *i = o.into();
             }
             Self { inner }
         }
