@@ -5,6 +5,7 @@ pub mod clock;
 pub mod error;
 pub mod num;
 pub mod object;
+pub mod slice;
 pub mod symbol;
 pub mod wrapper;
 
