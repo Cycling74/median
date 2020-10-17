@@ -63,7 +63,7 @@ impl Wrapped<Simp> for Simp {
             s: *mut Wrapper<Simp>,
             _attr: c_void,
             ac: c_long,
-            av: *mut *mut max_sys::t_atom,
+            av: *mut max_sys::t_atom,
         ) {
             unsafe {
                 let obj = &*(s as *const Wrapper<Simp>);
