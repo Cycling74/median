@@ -7,7 +7,7 @@ use std::os::raw::c_long;
 pub type AttrTrampGetMethod<T> =
     extern "C" fn(s: *mut T, attr: c_void, ac: *mut c_long, av: *mut *mut max_sys::t_atom);
 pub type AttrTrampSetMethod<T> =
-    extern "C" fn(s: *mut T, attr: c_void, ac: c_long, av: *mut *mut max_sys::t_atom);
+    extern "C" fn(s: *mut T, attr: c_void, ac: c_long, av: *mut max_sys::t_atom);
 
 //p_sym_char (char), _sym_long (long), _sym_float32 (32-bit float), _sym_float64 (64-bit float), _sym_atom (Max t_atom pointer), _sym_symbol (Max t_symbol pointer), _sym_pointer (generic pointer) and _sym_object (Max t_object pointer).
 pub enum AttrType {
@@ -55,7 +55,7 @@ where
     T: Into<Atom>,
 {
     unsafe {
-        if *ac < 1 || av.is_null() || (*av).is_null() {
+        if *ac < 1 || (*av).is_null() {
             *ac = 1;
             *av = max_sys::sysmem_newptr(std::mem::size_of::<max_sys::t_atom>() as _) as _;
             if (*av).is_null() {
@@ -70,15 +70,15 @@ where
 }
 
 /// handle the boiler plate of dealing with attribute atoms
-pub fn set<'a, T, F>(ac: c_long, av: *mut *mut max_sys::t_atom, setter: F) -> max_sys::t_max_err
+pub fn set<'a, T, F>(ac: c_long, av: *mut max_sys::t_atom, setter: F) -> max_sys::t_max_err
 where
     F: Fn(T),
     T: From<&'a Atom>,
 {
     unsafe {
-        if ac > 0 && !av.is_null() && !(*av).is_null() {
+        if ac > 0 && !av.is_null() {
             //transparent so this is okay
-            let a: &Atom = std::mem::transmute::<_, _>(*av);
+            let a: &Atom = std::mem::transmute::<_, _>(&*av);
             setter(a.into());
         }
     }
