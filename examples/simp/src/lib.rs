@@ -1,17 +1,19 @@
-use median::class::Class;
+use median::attr::{AttrTrampGetMethod, AttrTrampSetMethod};
+use median::class::{Class, MaxMethod};
 use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
 use median::wrapper::{Wrapped, WrappedBuilder, Wrapper};
 
-use std::convert::{Into, TryFrom};
+use std::convert::{From, TryFrom};
 
 use std::ffi::c_void;
 use std::ffi::CString;
+use std::os::raw::c_long;
 
 pub struct Simp {
-    value: Long,
+    pub value: Long,
     _v: String,
     clock: ClockHandle,
 }
@@ -44,20 +46,51 @@ impl Wrapped<Simp> for Simp {
                 obj.wrapped().int(v);
             }
         }
+
+        pub extern "C" fn attr_get_trampoline(
+            s: *mut Wrapper<Simp>,
+            _attr: c_void,
+            ac: *mut c_long,
+            av: *mut *mut max_sys::t_atom,
+        ) {
+            unsafe {
+                let obj = &*(s as *const Wrapper<Simp>);
+                median::attr::get(ac, av, || obj.wrapped().value.get());
+            }
+        }
+
+        pub extern "C" fn attr_set_trampoline(
+            s: *mut Wrapper<Simp>,
+            _attr: c_void,
+            ac: c_long,
+            av: *mut *mut max_sys::t_atom,
+        ) {
+            unsafe {
+                let obj = &*(s as *const Wrapper<Simp>);
+                median::attr::set(ac, av, |v: i64| {
+                    post!("attr_set_trampoline {}", v);
+                    obj.wrapped().value.set(v);
+                });
+            }
+        }
+
         c.add_method_int("int", int_trampoline);
         c.add_method_bang(bang_trampoline);
 
         //TODO encapsulate in a safe method
         unsafe {
-            let attr = max_sys::attr_offset_new(
+            let attr = max_sys::attribute_new(
                 CString::new("blah").unwrap().as_ptr(),
-                SymbolRef::try_from("long").unwrap().into(),
+                SymbolRef::try_from("long").unwrap().inner(),
                 0,
-                None,
-                None,
-                (std::mem::size_of::<max_sys::t_object>()
-                    + field_offset::offset_of!(Self => value).get_byte_offset())
-                    as _,
+                Some(std::mem::transmute::<
+                    AttrTrampGetMethod<Wrapper<Self>>,
+                    MaxMethod,
+                >(attr_get_trampoline)),
+                Some(std::mem::transmute::<
+                    AttrTrampSetMethod<Wrapper<Self>>,
+                    MaxMethod,
+                >(attr_set_trampoline)),
             );
             max_sys::class_addattr(c.inner(), attr);
         }
