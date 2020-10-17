@@ -187,21 +187,21 @@ impl From<AtomValue> for Atom {
     }
 }
 
-impl Into<i64> for &Atom {
-    fn into(self) -> i64 {
-        self.get_int()
+impl From<&Atom> for i64 {
+    fn from(a: &Atom) -> i64 {
+        a.get_int()
     }
 }
 
-impl Into<f64> for &Atom {
-    fn into(self) -> f64 {
-        self.get_float()
+impl From<&Atom> for f64 {
+    fn from(a: &Atom) -> f64 {
+        a.get_float()
     }
 }
 
-impl Into<SymbolRef> for &Atom {
-    fn into(self) -> SymbolRef {
-        self.get_symbol()
+impl From<&Atom> for SymbolRef {
+    fn from(a: &Atom) -> SymbolRef {
+        a.get_symbol()
     }
 }
 
