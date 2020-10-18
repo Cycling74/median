@@ -3,7 +3,7 @@
 use crate::{
     class::{Class, ClassType, MaxFree},
     clock::ClockHandle,
-    object::{MaxObj, ObjBox},
+    object::{MSPObj, MaxObj, ObjBox},
 };
 
 use std::collections::HashMap;
@@ -65,14 +65,19 @@ pub trait MaxObjWrapped<T>: Sized {
 /// The actual struct that Max gets.
 /// Users shouldn't need to interact with this.
 #[repr(C)]
-pub struct MaxObjWrapper<T> {
-    s_obj: max_sys::t_object,
+pub struct ObjWrapper<Obj, T> {
+    s_obj: Obj,
     wrapped: MaybeUninit<T>,
 }
 
-unsafe impl<T> MaxObj for MaxObjWrapper<T> {}
+pub type MaxObjWrapper<T> = ObjWrapper<max_sys::t_object, T>;
+pub type MSPObjWrapper<T> = ObjWrapper<max_sys::t_pxobject, T>;
 
-impl<T> MaxObjWrapper<T>
+unsafe impl<T> MaxObj for MaxObjWrapper<T> {}
+unsafe impl<T> MaxObj for MSPObjWrapper<T> {}
+unsafe impl<T> MSPObj for MSPObjWrapper<T> {}
+
+impl<Obj, T> ObjWrapper<Obj, T>
 where
     T: MaxObjWrapped<T> + Send + Sync + 'static,
 {
@@ -91,6 +96,19 @@ where
         std::any::type_name::<MaxObjWrapper<T>>()
     }
 
+    extern "C" fn free(&mut self) {
+        let mut wrapped = MaybeUninit::uninit();
+        std::mem::swap(&mut self.wrapped, &mut wrapped);
+        unsafe {
+            std::mem::drop(wrapped.assume_init());
+        }
+    }
+}
+
+impl<T> MaxObjWrapper<T>
+where
+    T: MaxObjWrapped<T> + Send + Sync + 'static,
+{
     /// Register the class with Max.
     ///
     /// # Remarks
@@ -117,17 +135,13 @@ where
         }
     }
 
-    extern "C" fn free(&mut self) {
-        let mut wrapped = MaybeUninit::uninit();
-        std::mem::swap(&mut self.wrapped, &mut wrapped);
-        unsafe {
-            std::mem::drop(wrapped.assume_init());
-        }
+    /// A method for Max to create an instance of your class.
+    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
+        let o = ObjBox::into_raw(Self::new());
+        std::mem::transmute::<_, _>(o)
     }
 
     /// Create an instance of the wrapper, on the heap.
-    /// XXX THIS crashes when we dealloc.. the memory is from max not from Box::new.. need to
-    /// figure that out
     pub fn new() -> ObjBox<Self> {
         unsafe {
             //unlock the mutex so we can register in the object init
@@ -144,16 +158,22 @@ where
         }
     }
 
-    /// A method for Max to create an instance of your class.
-    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        let o = ObjBox::into_raw(Self::new());
-        std::mem::transmute::<_, _>(o)
-    }
-
     fn init(&mut self) {
         unsafe {
             let mut builder = Builder::new(self.max_obj());
             self.wrapped = MaybeUninit::new(T::new(&mut builder))
+        }
+    }
+}
+
+impl<Obj, T> Drop for ObjWrapper<Obj, T>
+where
+    T: Sized,
+{
+    fn drop(&mut self) {
+        unsafe {
+            //use Max's object_free which will call the wrapper's "free" method.
+            max_sys::object_free(std::mem::transmute::<_, _>(&self.s_obj));
         }
     }
 }
@@ -210,17 +230,5 @@ where
     /// This in turn can be used to get your object with the `wrapped()` method.
     unsafe fn wrapper(&mut self) -> *mut max_sys::t_object {
         self.wrapper
-    }
-}
-
-impl<T> Drop for MaxObjWrapper<T>
-where
-    T: Sized,
-{
-    fn drop(&mut self) {
-        unsafe {
-            //use Max's object_free which will call the wrapper's "free" method.
-            max_sys::object_free(std::mem::transmute::<_, _>(&self.s_obj));
-        }
     }
 }
