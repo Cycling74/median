@@ -1,14 +1,13 @@
 //! External MaxObjWrappers.
 
 use crate::{
+    builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType, MaxFree},
-    clock::ClockHandle,
     object::{MSPObj, MaxObj, ObjBox},
 };
 
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::sync::Mutex;
 
@@ -20,21 +19,10 @@ lazy_static! {
 }
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
-//send
+//Send
 #[repr(transparent)]
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
-
-pub trait MaxObjWrappedBuilder<T> {
-    /// Create a clock with a method callback
-    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
-    /// Create a clock with a closure callback
-    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
-
-    /// Get the parent max object which can be cast to `&MaxObjWrapper<T>`.
-    /// This in turn can be used to get your object with the `wrapped()` method.
-    unsafe fn wrapper(&mut self) -> *mut max_sys::t_object;
-}
 
 pub trait ObjWrapped<T>: Sized {
     /// The name of your class, this is what you'll type into a box in Max if your class is a
@@ -47,11 +35,6 @@ pub trait ObjWrapped<T>: Sized {
     fn class_type() -> ClassType {
         ClassType::Box
     }
-
-    /// Register any methods you need for your class.
-    fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
-        //default, do nothing
-    }
 }
 
 pub trait MaxObjWrapped<T>: ObjWrapped<T> {
@@ -59,9 +42,30 @@ pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     ///
     /// # Arguments
     ///
-    /// * `parent` - The max `t_object` that owns this wrapped object. Can be used to create
-    /// inlets/outlets etc.
-    fn new(builder: &mut dyn MaxObjWrappedBuilder<T>) -> Self;
+    /// * `builder` - A builder for constructing inlets/oulets/etc.
+    fn new(builder: &mut dyn MaxWrappedBuilder<T>) -> Self;
+
+    /// Register any methods you need for your class.
+    fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
+        //default, do nothing
+    }
+}
+
+pub trait MSPObjWrapped<T>: ObjWrapped<T> {
+    /// A constructor for your object.
+    ///
+    /// # Arguments
+    ///
+    /// * `builder` - A builder for constructing inlets/oulets/etc.
+    fn new(builder: &mut dyn MSPWrappedBuilder<T>) -> Self;
+
+    /// Perform DSP.
+    fn perform(&self, ins: &[f64], outs: &mut [f64], nframes: usize);
+
+    /// Register any methods you need for your class.
+    fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
+        //default, do nothing
+    }
 }
 
 /// The actual struct that Max gets.
@@ -81,7 +85,7 @@ unsafe impl<T> MSPObj for MSPObjWrapper<T> {}
 
 impl<Obj, T> ObjWrapper<Obj, T>
 where
-    T: MaxObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Send + Sync + 'static,
 {
     /// Retrieve a mutable reference to your wrapped class.
     pub fn wrapped_mut(&mut self) -> &mut T {
@@ -98,11 +102,39 @@ where
         std::any::type_name::<MaxObjWrapper<T>>()
     }
 
-    extern "C" fn free(&mut self) {
+    unsafe extern "C" fn free_wrapped(&mut self) {
+        //free wrapped
         let mut wrapped = MaybeUninit::uninit();
         std::mem::swap(&mut self.wrapped, &mut wrapped);
-        unsafe {
-            std::mem::drop(wrapped.assume_init());
+        std::mem::drop(wrapped.assume_init());
+    }
+
+    fn new_common<F, O>(func: F) -> O
+    where
+        F: Fn(*mut max_sys::t_class) -> O,
+    {
+        //unlock the mutex so we can register in the object init
+        let max_class = {
+            let g = CLASSES.lock().expect("couldn't lock CLASSES mutex");
+            match g.get(Self::key()) {
+                Some(class) => class.0,
+                None => panic!("class {} not registered", Self::key()),
+            }
+        };
+        func(max_class)
+    }
+
+    unsafe fn register_common<F>(creator: F)
+    where
+        F: Fn() -> Class<ObjWrapper<Obj, T>>,
+    {
+        let mut h = CLASSES.lock().expect("couldn't lock CLASSES mutex");
+        let key = Self::key();
+        if !h.contains_key(key) {
+            let mut c = creator();
+            c.register(T::class_type())
+                .expect(format!("failed to register {}", Self::key()).as_str());
+            h.insert(key, ClassMaxObjWrapper(c.inner()));
         }
     }
 }
@@ -121,20 +153,19 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register() {
-        let mut h = CLASSES.lock().expect("couldn't lock CLASSES mutex");
-        let key = Self::key();
-        if !h.contains_key(key) {
+        Self::register_common(|| {
             let mut c = Class::new(
                 T::class_name(),
                 Self::new_tramp,
-                Some(std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free)),
+                Some(std::mem::transmute::<
+                    unsafe extern "C" fn(&mut Self),
+                    MaxFree<Self>,
+                >(Self::free_wrapped)),
             );
             //TODO somehow pass the lock so that classes can register additional classes
             T::class_setup(&mut c);
-            c.register(T::class_type())
-                .expect(format!("failed to register {}", Self::key()).as_str());
-            h.insert(key, ClassMaxObjWrapper(c.inner()));
-        }
+            c
+        });
     }
 
     /// A method for Max to create an instance of your class.
@@ -146,25 +177,75 @@ where
     /// Create an instance of the wrapper, on the heap.
     pub fn new() -> ObjBox<Self> {
         unsafe {
-            //unlock the mutex so we can register in the object init
-            let max_class = {
-                let g = CLASSES.lock().expect("couldn't lock CLASSES mutex");
-                match g.get(Self::key()) {
-                    Some(class) => class.0,
-                    None => panic!("class {} not registered", Self::key()),
-                }
-            };
-            let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
-            o.init();
-            o
+            Self::new_common(|max_class| {
+                let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
+                o.init();
+                o
+            })
         }
     }
 
-    fn init(&mut self) {
+    unsafe fn init(&mut self) {
+        let mut builder = WrappedBuilder::new(self);
+        self.wrapped = MaybeUninit::new(T::new(&mut builder))
+    }
+}
+
+impl<T> MSPObjWrapper<T>
+where
+    T: MSPObjWrapped<T> + Send + Sync + 'static,
+{
+    /// Register the class with Max.
+    ///
+    /// # Remarks
+    ///
+    /// This method expects to only be called from the main thread. Internally, it locks a mutex
+    /// and looks up your class by type name. If your class has alrady been registered it won't
+    /// re-register.
+    ///
+    /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
+    pub unsafe fn register() {
+        Self::register_common(|| {
+            let mut c = Class::new(
+                T::class_name(),
+                Self::new_tramp,
+                Some(std::mem::transmute::<
+                    unsafe extern "C" fn(&mut Self),
+                    MaxFree<Self>,
+                >(Self::free_msp)),
+            );
+            //TODO somehow pass the lock so that classes can register additional classes
+            T::class_setup(&mut c);
+            c
+        });
+    }
+
+    /// A method for Max to create an instance of your class.
+    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
+        let o = ObjBox::into_raw(Self::new());
+        std::mem::transmute::<_, _>(o)
+    }
+
+    unsafe extern "C" fn free_msp(&mut self) {
+        //free dsp first
+        max_sys::z_dsp_free(self.msp_obj());
+        self.free_wrapped();
+    }
+
+    /// Create an instance of the wrapper, on the heap.
+    pub fn new() -> ObjBox<Self> {
         unsafe {
-            let mut builder = MaxBuilder::new(self.max_obj());
-            self.wrapped = MaybeUninit::new(T::new(&mut builder))
+            Self::new_common(|max_class| {
+                let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
+                o.init();
+                o
+            })
         }
+    }
+
+    unsafe fn init(&mut self) {
+        let mut builder = WrappedBuilder::new(self);
+        self.wrapped = MaybeUninit::new(T::new(&mut builder));
     }
 }
 
@@ -177,62 +258,5 @@ where
             //use Max's object_free which will call the wrapper's "free" method.
             max_sys::object_free(std::mem::transmute::<_, _>(&self.s_obj));
         }
-    }
-}
-pub struct Builder<Obj, T> {
-    wrapper: Obj,
-    _phantom: PhantomData<T>,
-}
-
-pub type MaxBuilder<T> = Builder<*mut max_sys::t_object, T>;
-pub type MSPBuilder<T> = Builder<*mut max_sys::t_pxobject, T>;
-
-impl<Obj, T> Builder<Obj, T> {
-    pub fn new(wrapper: Obj) -> Self {
-        Self {
-            wrapper,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<T> MaxObjWrappedBuilder<T> for MaxBuilder<T>
-where
-    T: MaxObjWrapped<T> + Send + Sync + 'static,
-{
-    /// Create a clock with a method callback
-    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
-        unsafe {
-            ClockHandle::new(
-                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
-                self.wrapper,
-                Box::new(move |wrapper| {
-                    let wrapper: &MaxObjWrapper<T> =
-                        std::mem::transmute::<_, &MaxObjWrapper<T>>(wrapper);
-                    func(wrapper.wrapped());
-                }),
-            )
-        }
-    }
-
-    /// Create a clock with a closure callback
-    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
-        unsafe {
-            ClockHandle::new(
-                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
-                self.wrapper,
-                Box::new(move |wrapper| {
-                    let wrapper: &MaxObjWrapper<T> =
-                        std::mem::transmute::<_, &MaxObjWrapper<T>>(wrapper);
-                    func(wrapper.wrapped());
-                }),
-            )
-        }
-    }
-
-    /// Get the parent max object which can be cast to `&MaxObjWrapper<T>`.
-    /// This in turn can be used to get your object with the `wrapped()` method.
-    unsafe fn wrapper(&mut self) -> *mut max_sys::t_object {
-        self.wrapper
     }
 }

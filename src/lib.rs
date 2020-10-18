@@ -1,6 +1,7 @@
 pub mod alloc;
 pub mod atom;
 pub mod attr;
+pub mod builder;
 pub mod class;
 pub mod clock;
 pub mod error;

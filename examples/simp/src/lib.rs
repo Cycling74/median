@@ -1,10 +1,11 @@
 use median::attr::{AttrTrampGetMethod, AttrTrampSetMethod};
+use median::builder::MaxWrappedBuilder;
 use median::class::{Class, MaxMethod};
 use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
-use median::wrapper::{MaxObjWrapped, MaxObjWrappedBuilder, MaxObjWrapper, ObjWrapped};
+use median::wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped};
 
 use std::convert::{From, TryFrom};
 
@@ -19,18 +20,12 @@ pub struct Simp {
 }
 
 impl MaxObjWrapped<Simp> for Simp {
-    fn new(builder: &mut dyn MaxObjWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
         }
-    }
-}
-
-impl ObjWrapped<Simp> for Simp {
-    fn class_name() -> &'static str {
-        &"simp"
     }
 
     /// Register any methods you need for your class
@@ -96,6 +91,12 @@ impl ObjWrapped<Simp> for Simp {
             );
             max_sys::class_addattr(c.inner(), attr);
         }
+    }
+}
+
+impl ObjWrapped<Simp> for Simp {
+    fn class_name() -> &'static str {
+        &"simp"
     }
 }
 
