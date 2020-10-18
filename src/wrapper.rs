@@ -36,15 +36,7 @@ pub trait MaxObjWrappedBuilder<T> {
     unsafe fn wrapper(&mut self) -> *mut max_sys::t_object;
 }
 
-pub trait MaxObjWrapped<T>: Sized {
-    /// A constructor for your object.
-    ///
-    /// # Arguments
-    ///
-    /// * `parent` - The max `t_object` that owns this wrapped object. Can be used to create
-    /// inlets/outlets etc.
-    fn new(builder: &mut dyn MaxObjWrappedBuilder<T>) -> Self;
-
+pub trait ObjWrapped<T>: Sized {
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
     ///
@@ -60,6 +52,16 @@ pub trait MaxObjWrapped<T>: Sized {
     fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
         //default, do nothing
     }
+}
+
+pub trait MaxObjWrapped<T>: ObjWrapped<T> {
+    /// A constructor for your object.
+    ///
+    /// # Arguments
+    ///
+    /// * `parent` - The max `t_object` that owns this wrapped object. Can be used to create
+    /// inlets/outlets etc.
+    fn new(builder: &mut dyn MaxObjWrappedBuilder<T>) -> Self;
 }
 
 /// The actual struct that Max gets.
@@ -160,7 +162,7 @@ where
 
     fn init(&mut self) {
         unsafe {
-            let mut builder = Builder::new(self.max_obj());
+            let mut builder = MaxBuilder::new(self.max_obj());
             self.wrapped = MaybeUninit::new(T::new(&mut builder))
         }
     }
@@ -177,14 +179,16 @@ where
         }
     }
 }
-
-pub struct Builder<T> {
-    wrapper: *mut max_sys::t_object,
+pub struct Builder<Obj, T> {
+    wrapper: Obj,
     _phantom: PhantomData<T>,
 }
 
-impl<T> Builder<T> {
-    pub fn new(wrapper: *mut max_sys::t_object) -> Self {
+pub type MaxBuilder<T> = Builder<*mut max_sys::t_object, T>;
+pub type MSPBuilder<T> = Builder<*mut max_sys::t_pxobject, T>;
+
+impl<Obj, T> Builder<Obj, T> {
+    pub fn new(wrapper: Obj) -> Self {
         Self {
             wrapper,
             _phantom: PhantomData,
@@ -192,7 +196,7 @@ impl<T> Builder<T> {
     }
 }
 
-impl<T> MaxObjWrappedBuilder<T> for Builder<T>
+impl<T> MaxObjWrappedBuilder<T> for MaxBuilder<T>
 where
     T: MaxObjWrapped<T> + Send + Sync + 'static,
 {

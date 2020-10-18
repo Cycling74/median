@@ -4,7 +4,7 @@ use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
-use median::wrapper::{MaxObjWrapped, MaxObjWrappedBuilder, MaxObjWrapper};
+use median::wrapper::{MaxObjWrapped, MaxObjWrappedBuilder, MaxObjWrapper, ObjWrapped};
 
 use std::convert::{From, TryFrom};
 
@@ -26,7 +26,9 @@ impl MaxObjWrapped<Simp> for Simp {
             clock: builder.with_clockfn(Self::clocked),
         }
     }
+}
 
+impl ObjWrapped<Simp> for Simp {
     fn class_name() -> &'static str {
         &"simp"
     }
