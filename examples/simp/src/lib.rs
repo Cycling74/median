@@ -4,7 +4,7 @@ use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
-use median::wrapper::{Wrapped, WrappedBuilder, Wrapper};
+use median::wrapper::{MaxObjWrapped, MaxObjWrappedBuilder, MaxObjWrapper};
 
 use std::convert::{From, TryFrom};
 
@@ -18,8 +18,8 @@ pub struct Simp {
     clock: ClockHandle,
 }
 
-impl Wrapped<Simp> for Simp {
-    fn new(builder: &mut dyn WrappedBuilder<Self>) -> Self {
+impl MaxObjWrapped<Simp> for Simp {
+    fn new(builder: &mut dyn MaxObjWrappedBuilder<Self>) -> Self {
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
@@ -32,41 +32,41 @@ impl Wrapped<Simp> for Simp {
     }
 
     /// Register any methods you need for your class
-    fn class_setup(c: &mut Class<Wrapper<Self>>) {
-        pub extern "C" fn bang_trampoline(s: *const Wrapper<Simp>) {
+    fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
+        pub extern "C" fn bang_trampoline(s: *const MaxObjWrapper<Simp>) {
             unsafe {
-                let obj = &*(s as *const Wrapper<Simp>);
+                let obj = &*(s as *const MaxObjWrapper<Simp>);
                 obj.wrapped().bang();
             }
         }
 
-        pub extern "C" fn int_trampoline(s: *const Wrapper<Simp>, v: i64) {
+        pub extern "C" fn int_trampoline(s: *const MaxObjWrapper<Simp>, v: i64) {
             unsafe {
-                let obj = &*(s as *const Wrapper<Simp>);
+                let obj = &*(s as *const MaxObjWrapper<Simp>);
                 obj.wrapped().int(v);
             }
         }
 
         pub extern "C" fn attr_get_trampoline(
-            s: *mut Wrapper<Simp>,
+            s: *mut MaxObjWrapper<Simp>,
             _attr: c_void,
             ac: *mut c_long,
             av: *mut *mut max_sys::t_atom,
         ) {
             unsafe {
-                let obj = &*(s as *const Wrapper<Simp>);
+                let obj = &*(s as *const MaxObjWrapper<Simp>);
                 median::attr::get(ac, av, || obj.wrapped().value.get());
             }
         }
 
         pub extern "C" fn attr_set_trampoline(
-            s: *mut Wrapper<Simp>,
+            s: *mut MaxObjWrapper<Simp>,
             _attr: c_void,
             ac: c_long,
             av: *mut max_sys::t_atom,
         ) {
             unsafe {
-                let obj = &*(s as *const Wrapper<Simp>);
+                let obj = &*(s as *const MaxObjWrapper<Simp>);
                 median::attr::set(ac, av, |v: i64| {
                     post!("attr_set_trampoline {}", v);
                     obj.wrapped().value.set(v);
@@ -84,11 +84,11 @@ impl Wrapped<Simp> for Simp {
                 SymbolRef::try_from("long").unwrap().inner(),
                 0,
                 Some(std::mem::transmute::<
-                    AttrTrampGetMethod<Wrapper<Self>>,
+                    AttrTrampGetMethod<MaxObjWrapper<Self>>,
                     MaxMethod,
                 >(attr_get_trampoline)),
                 Some(std::mem::transmute::<
-                    AttrTrampSetMethod<Wrapper<Self>>,
+                    AttrTrampSetMethod<MaxObjWrapper<Self>>,
                     MaxMethod,
                 >(attr_set_trampoline)),
             );
@@ -117,5 +117,5 @@ impl Simp {
 
 #[no_mangle]
 pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
-    Wrapper::<Simp>::register()
+    MaxObjWrapper::<Simp>::register()
 }

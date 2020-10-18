@@ -1,6 +1,6 @@
 use crate::class::{ClassType, MaxMethod};
 use crate::object::MaxObj;
-use crate::wrapper::{Wrapped, WrappedBuilder, Wrapper};
+use crate::wrapper::{MaxObjWrapped, MaxObjWrappedBuilder, MaxObjWrapper};
 
 use std::ffi::c_void;
 
@@ -15,7 +15,7 @@ unsafe impl Sync for ClockInner {}
 
 impl ClockInner {
     //tramp actually calls wrapper
-    extern "C" fn call_tramp(s: *const Wrapper<Self>) {
+    extern "C" fn call_tramp(s: *const MaxObjWrapper<Self>) {
         let wrapper = unsafe { &(*s) };
         wrapper.wrapped().call();
     }
@@ -33,8 +33,8 @@ impl ClockInner {
     }
 }
 
-impl Wrapped<ClockInner> for ClockInner {
-    fn new(_builder: &mut dyn WrappedBuilder<Self>) -> Self {
+impl MaxObjWrapped<ClockInner> for ClockInner {
+    fn new(_builder: &mut dyn MaxObjWrappedBuilder<Self>) -> Self {
         Self { target: None }
     }
 
@@ -54,7 +54,7 @@ impl Wrapped<ClockInner> for ClockInner {
 }
 
 pub struct ClockHandle {
-    _target: crate::object::ObjBox<Wrapper<ClockInner>>,
+    _target: crate::object::ObjBox<MaxObjWrapper<ClockInner>>,
     clock: *mut c_void,
 }
 
@@ -108,13 +108,13 @@ impl ClockHandle {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
         //this clock?
-        Wrapper::<ClockInner>::register();
-        let mut clock_target = Wrapper::<ClockInner>::new();
+        MaxObjWrapper::<ClockInner>::register();
+        let mut clock_target = MaxObjWrapper::<ClockInner>::new();
         clock_target.wrapped_mut().set(target, func);
         let clock = max_sys::clock_new(
             std::mem::transmute::<_, _>(clock_target.max_obj()),
             Some(std::mem::transmute::<
-                extern "C" fn(*const Wrapper<ClockInner>),
+                extern "C" fn(*const MaxObjWrapper<ClockInner>),
                 MaxMethod,
             >(ClockInner::call_tramp)),
         );
