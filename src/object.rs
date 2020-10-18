@@ -12,13 +12,11 @@ pub unsafe trait MaxObj: Sized {
 /// must be `#[repr(C)]` and have a `max_sys::t_pxobject` as its first member.
 ///
 /// This automatically implements MaxObj.
-pub unsafe trait MSPObj: Sized {
+pub unsafe trait MSPObj: MaxObj {
     unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
         std::mem::transmute::<_, *mut max_sys::t_pxobject>(self)
     }
 }
-
-unsafe impl<T> MaxObj for T where T: MSPObj {}
 
 use std::ops::{Deref, DerefMut};
 
