@@ -1,7 +1,7 @@
 use crate::{
     clock::ClockHandle,
     object::{MSPObj, MaxObj},
-    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped},
+    wrapper::{MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, ObjWrapped},
 };
 use std::marker::PhantomData;
 
@@ -14,9 +14,16 @@ pub trait MaxWrappedBuilder<T> {
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
 }
 
+pub trait MSPWrappedBuilder<T> {
+    fn with_inputs(&mut self, count: usize);
+    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
+}
+
+/*
 pub trait MSPWrappedBuilder<T>: MaxWrappedBuilder<T> {
     unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
 }
+*/
 
 pub struct WrappedBuilder<'a, O, T> {
     owner: &'a mut O,
@@ -74,16 +81,18 @@ where
     }
 }
 
-/*
-impl<'a, W, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, W, T>
+impl<'a, O, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, O, T>
 where
-    W: MSPObj,
+    O: MSPObj,
     T: MSPObjWrapped<T> + Send + Sync + 'static,
 {
+    fn with_inputs(&mut self, count: usize) {
+        //TODO
+    }
+
     /// Get the parent msp object which can be cast to `&MSPObjWrapper<T>`.
     /// This in turn can be used to get your object with the `wrapped()` method.
     unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
-        std::mem::transmute::<_, _>(self.wrapper.msp_obj())
+        std::mem::transmute::<_, _>(self.owner.msp_obj())
     }
 }
-*/

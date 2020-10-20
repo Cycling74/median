@@ -20,16 +20,13 @@ lazy_static! {
 }
 
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
+pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
 //Send
 #[repr(transparent)]
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
-
-pub trait ObjWrapper<T> {
-    fn wrapped(&self) -> &T;
-}
 
 pub trait ObjWrapped<T>: Sized {
     /// The name of your class, this is what you'll type into a box in Max if your class is a
@@ -58,7 +55,6 @@ pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     }
 }
 
-/*
 pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// A constructor for your object.
     ///
@@ -75,7 +71,6 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
         //default, do nothing
     }
 }
-*/
 
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
@@ -100,16 +95,32 @@ pub trait WrapperInternal<O, T>: Sized {
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
-//unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {}
-//unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
+unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {}
+unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
 
 //wrapper for builders
 struct MaxBuilderOwner {
     owner: *mut max_sys::t_object,
 }
 
+struct MSPBuilderOwner {
+    owner: *mut max_sys::t_pxobject,
+}
+
 unsafe impl MaxObj for MaxBuilderOwner {
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
+        self.owner
+    }
+}
+
+unsafe impl MaxObj for MSPBuilderOwner {
+    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
+        std::mem::transmute::<_, _>(self.owner)
+    }
+}
+
+unsafe impl MSPObj for MSPBuilderOwner {
+    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
         self.owner
     }
 }
@@ -136,8 +147,8 @@ where
 }
 
 impl<T> WrapperInternal<max_sys::t_pxobject, T> for MSPWrapperInternal<T>
-//where
-//T: MSPObjWrapped<T> + Send + Sync + 'static,
+where
+    T: MSPObjWrapped<T> + Send + Sync + 'static,
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
@@ -146,11 +157,13 @@ impl<T> WrapperInternal<max_sys::t_pxobject, T> for MSPWrapperInternal<T>
         &mut self.wrapped
     }
     fn new(owner: *mut max_sys::t_pxobject) -> Self {
-        unimplemented!("asdf");
+        let mut w = MSPBuilderOwner { owner };
+        let mut builder = WrappedBuilder::new(&mut w);
+        let wrapped = T::new(&mut builder);
+        Self { wrapped }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
-        unimplemented!("asdf");
-        //T::class_setup(class);
+        T::class_setup(class);
     }
 }
 
