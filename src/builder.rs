@@ -1,98 +1,138 @@
 use crate::{
     clock::ClockHandle,
-    object::{MSPObj, MaxObj},
-    wrapper::{MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, ObjWrapped},
+    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
 use std::marker::PhantomData;
 
-pub trait MaxWrappedBuilder<T> {
-    /// Create a clock with a method callback
-    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
-    /// Create a clock with a closure callback
-    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
+pub type MSPWrappedBuilderInitial<T, W> = MSPWrappedBuilder<T, W, MSPSetupState>;
 
-    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
-}
-
-pub trait MSPWrappedBuilder<T> {
-    fn with_inputs(&mut self, count: usize);
-    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
-}
-
-/*
-pub trait MSPWrappedBuilder<T>: MaxWrappedBuilder<T> {
-    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
-}
-*/
-
-pub struct WrappedBuilder<'a, O, T> {
-    owner: &'a mut O,
+pub struct MaxWrappedBuilder<T> {
+    owner: *mut max_sys::t_object,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, O, T> WrappedBuilder<'a, O, T> {
-    pub fn new(owner: &'a mut O) -> Self {
+pub trait MSPBuilderState {}
+pub struct MSPSetupState {}
+pub struct MSPWithInputsState {}
+
+impl MSPBuilderState for MSPSetupState {}
+impl MSPBuilderState for MSPWithInputsState {}
+
+pub struct MSPWrappedBuilder<T, W, S> {
+    owner: *mut max_sys::t_pxobject,
+    _phantom: PhantomData<(T, W, S)>,
+}
+
+impl<T> MaxWrappedBuilder<T>
+where
+    T: MaxObjWrapped<T> + Send + Sync + 'static,
+{
+    pub fn new(owner: *mut max_sys::t_object) -> Self {
         Self {
             owner,
             _phantom: PhantomData,
         }
     }
+    /// Create a clock with a method callback
+    pub fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
+        clockfn::<T, MaxObjWrapper<T>>(self.owner, func)
+    }
+    /// Create a clock with a closure callback
+    pub fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
+        clock::<T, MaxObjWrapper<T>>(self.owner, func)
+    }
+    /// Get the owner object.
+    pub unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
+        self.owner
+    }
 }
 
-impl<'a, O, T> MaxWrappedBuilder<T> for WrappedBuilder<'a, O, T>
+impl<T, W, S> MSPWrappedBuilder<T, W, S>
 where
-    O: MaxObj,
-    T: MaxObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Send + Sync + 'static,
+    W: WrapperWrapped<T>,
+    S: MSPBuilderState,
+{
+    /// Get the owner object.
+    pub unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
+        self.owner
+    }
+
+    pub unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
+        std::mem::transmute::<_, _>(self.owner)
+    }
+}
+
+impl<T, W> MSPWrappedBuilder<T, W, MSPSetupState>
+where
+    T: ObjWrapped<T> + Send + Sync + 'static,
+    W: WrapperWrapped<T>,
+{
+    /// Create a builder for setting up wrapped MSP objects.
+    pub fn new(owner: *mut max_sys::t_pxobject) -> Self {
+        Self {
+            owner,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Specify the number of inputs then continue setup.
+    pub fn with_inputs(mut self, count: usize) -> MSPWrappedBuilder<T, W, MSPWithInputsState> {
+        unsafe {
+            max_sys::z_dsp_setup(self.msp_obj(), count as _);
+        }
+        MSPWrappedBuilder {
+            owner: self.owner,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T, W> MSPWrappedBuilder<T, W, MSPWithInputsState>
+where
+    T: ObjWrapped<T> + Send + Sync + 'static,
+    W: WrapperWrapped<T>,
 {
     /// Create a clock with a method callback
-    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
-        unsafe {
-            ClockHandle::new(
-                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
-                self.owner.max_obj(),
-                Box::new(move |wrapper| {
-                    let wrapper: &MaxObjWrapper<T> =
-                        std::mem::transmute::<_, &MaxObjWrapper<T>>(wrapper);
-                    func(wrapper.wrapped());
-                }),
-            )
-        }
+    pub fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
+        clockfn::<T, W>(unsafe { self.max_obj() }, func)
     }
-
     /// Create a clock with a closure callback
-    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
-        unsafe {
-            ClockHandle::new(
-                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
-                self.owner.max_obj(),
-                Box::new(move |wrapper| {
-                    let wrapper: &MaxObjWrapper<T> =
-                        std::mem::transmute::<_, &MaxObjWrapper<T>>(wrapper);
-                    func(wrapper.wrapped());
-                }),
-            )
-        }
-    }
-
-    /// Get the parent max object which can be cast to `&MaxObjWrapper<T>`.
-    /// This in turn can be used to get your object with the `wrapped()` method.
-    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
-        self.owner.max_obj()
+    pub fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
+        clock::<T, W>(unsafe { self.max_obj() }, func)
     }
 }
 
-impl<'a, O, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, O, T>
+fn clockfn<T, W>(owner: *mut max_sys::t_object, func: fn(&T)) -> ClockHandle
 where
-    O: MSPObj,
-    T: MSPObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Send + Sync + 'static,
+    W: WrapperWrapped<T>,
 {
-    fn with_inputs(&mut self, count: usize) {
-        //TODO
+    unsafe {
+        ClockHandle::new(
+            // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
+            owner,
+            Box::new(move |wrapper| {
+                let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
+                func(wrapper.wrapped());
+            }),
+        )
     }
+}
 
-    /// Get the parent msp object which can be cast to `&MSPObjWrapper<T>`.
-    /// This in turn can be used to get your object with the `wrapped()` method.
-    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
-        std::mem::transmute::<_, _>(self.owner.msp_obj())
+fn clock<T, W>(owner: *mut max_sys::t_object, func: Box<dyn Fn(&T)>) -> ClockHandle
+where
+    T: ObjWrapped<T> + Send + Sync + 'static,
+    W: WrapperWrapped<T>,
+{
+    unsafe {
+        ClockHandle::new(
+            // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
+            owner,
+            Box::new(move |wrapper| {
+                let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
+                func(wrapper.wrapped());
+            }),
+        )
     }
 }

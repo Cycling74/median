@@ -2,7 +2,7 @@ use crate::class::{ClassType, MaxMethod};
 use crate::{
     builder::MaxWrappedBuilder,
     object::MaxObj,
-    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped},
+    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
 
 use std::ffi::c_void;
@@ -53,7 +53,7 @@ impl ObjWrapped<ClockInner> for ClockInner {
 }
 
 impl MaxObjWrapped<ClockInner> for ClockInner {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxWrappedBuilder<Self>) -> Self {
         Self { target: None }
     }
 }

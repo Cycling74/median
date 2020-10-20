@@ -1,7 +1,7 @@
 //! External MaxObjWrappers.
 
 use crate::{
-    builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
+    builder::{MSPWrappedBuilderInitial, MaxWrappedBuilder},
     class::{Class, ClassType, MaxFree},
     object::{MSPObj, MaxObj, ObjBox},
 };
@@ -47,7 +47,7 @@ pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     /// # Arguments
     ///
     /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut dyn MaxWrappedBuilder<T>) -> Self;
+    fn new(builder: &mut MaxWrappedBuilder<T>) -> Self;
 
     /// Register any methods you need for your class.
     fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
@@ -61,7 +61,7 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// # Arguments
     ///
     /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut dyn MSPWrappedBuilder<T>) -> Self;
+    fn new(builder: &mut MSPWrappedBuilderInitial<T, MSPObjWrapper<T>>) -> Self;
 
     /// Perform DSP.
     fn perform(&self, ins: &[f64], outs: &mut [f64], nframes: usize);
@@ -70,6 +70,10 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
         //default, do nothing
     }
+}
+
+pub trait WrapperWrapped<T> {
+    fn wrapped(&self) -> &T;
 }
 
 #[repr(C)]
@@ -98,33 +102,6 @@ unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {}
 unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
 
-//wrapper for builders
-struct MaxBuilderOwner {
-    owner: *mut max_sys::t_object,
-}
-
-struct MSPBuilderOwner {
-    owner: *mut max_sys::t_pxobject,
-}
-
-unsafe impl MaxObj for MaxBuilderOwner {
-    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
-        self.owner
-    }
-}
-
-unsafe impl MaxObj for MSPBuilderOwner {
-    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
-        std::mem::transmute::<_, _>(self.owner)
-    }
-}
-
-unsafe impl MSPObj for MSPBuilderOwner {
-    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
-        self.owner
-    }
-}
-
 impl<T> WrapperInternal<max_sys::t_object, T> for MaxWrapperInternal<T>
 where
     T: MaxObjWrapped<T> + Send + Sync + 'static,
@@ -136,8 +113,7 @@ where
         &mut self.wrapped
     }
     fn new(owner: *mut max_sys::t_object) -> Self {
-        let mut w = MaxBuilderOwner { owner };
-        let mut builder = WrappedBuilder::new(&mut w);
+        let mut builder = MaxWrappedBuilder::new(owner);
         let wrapped = T::new(&mut builder);
         Self { wrapped }
     }
@@ -157,8 +133,7 @@ where
         &mut self.wrapped
     }
     fn new(owner: *mut max_sys::t_pxobject) -> Self {
-        let mut w = MSPBuilderOwner { owner };
-        let mut builder = WrappedBuilder::new(&mut w);
+        let mut builder = MSPWrappedBuilderInitial::new(owner);
         let wrapped = T::new(&mut builder);
         Self { wrapped }
     }
@@ -195,6 +170,17 @@ where
     }
 }
 
+impl<O, I, T> WrapperWrapped<T> for Wrapper<O, I, T>
+where
+    I: WrapperInternal<O, T>,
+    T: ObjWrapped<T>,
+{
+    /// Retrieve a reference to your wrapped class.
+    fn wrapped(&self) -> &T {
+        unsafe { (&*self.wrapped.as_ptr()).wrapped() }
+    }
+}
+
 impl<O, I, T> Wrapper<O, I, T>
 where
     I: WrapperInternal<O, T>,
@@ -203,11 +189,6 @@ where
     /// Retrieve a mutable reference to your wrapped class.
     pub fn wrapped_mut(&mut self) -> &mut T {
         unsafe { (&mut *self.wrapped.as_mut_ptr()).wrapped_mut() }
-    }
-
-    /// Retrieve a reference to your wrapped class.
-    pub fn wrapped(&self) -> &T {
-        unsafe { (&*self.wrapped.as_ptr()).wrapped() }
     }
 
     extern "C" fn free_wrapped(&mut self) {

@@ -5,7 +5,7 @@ use median::clock::ClockHandle;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
-use median::wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped};
+use median::wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped};
 
 use std::convert::{From, TryFrom};
 
@@ -20,7 +20,7 @@ pub struct Simp {
 }
 
 impl MaxObjWrapped<Simp> for Simp {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxWrappedBuilder<Self>) -> Self {
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
