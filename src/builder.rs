@@ -5,6 +5,7 @@ use crate::{
 use std::marker::PhantomData;
 
 pub type MSPWrappedBuilderInitial<T, W> = MSPWrappedBuilder<T, W, MSPSetupState>;
+pub type MSPWrappedBuilderFinal<T, W> = MSPWrappedBuilder<T, W, MSPWithInputsState>;
 
 pub struct MaxWrappedBuilder<T> {
     owner: *mut max_sys::t_object,
@@ -20,6 +21,8 @@ impl MSPBuilderState for MSPWithInputsState {}
 
 pub struct MSPWrappedBuilder<T, W, S> {
     owner: *mut max_sys::t_pxobject,
+    ins: usize,
+    outs: usize,
     _phantom: PhantomData<(T, W, S)>,
 }
 
@@ -61,6 +64,14 @@ where
     pub unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
         std::mem::transmute::<_, _>(self.owner)
     }
+
+    pub fn ins(&self) -> usize {
+        self.ins
+    }
+
+    pub fn outs(&self) -> usize {
+        self.outs
+    }
 }
 
 impl<T, W> MSPWrappedBuilder<T, W, MSPSetupState>
@@ -72,16 +83,20 @@ where
     pub fn new(owner: *mut max_sys::t_pxobject) -> Self {
         Self {
             owner,
+            ins: 0,
+            outs: 0,
             _phantom: PhantomData,
         }
     }
 
     /// Specify the number of inputs then continue setup.
-    pub fn with_inputs(mut self, count: usize) -> MSPWrappedBuilder<T, W, MSPWithInputsState> {
+    pub fn with_inputs(mut self, ins: usize) -> MSPWrappedBuilder<T, W, MSPWithInputsState> {
         unsafe {
-            max_sys::z_dsp_setup(self.msp_obj(), count as _);
+            max_sys::z_dsp_setup(self.msp_obj(), ins as _);
         }
         MSPWrappedBuilder {
+            ins,
+            outs: self.outs,
             owner: self.owner,
             _phantom: PhantomData,
         }
@@ -100,6 +115,19 @@ where
     /// Create a clock with a closure callback
     pub fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
         clock::<T, W>(unsafe { self.max_obj() }, func)
+    }
+
+    pub fn add_signal_outlet(&mut self) {
+        self.add_signal_outlets(1);
+    }
+    pub fn add_signal_outlets(&mut self, count: usize) {
+        let signal = std::ffi::CString::new("signal").expect("failed to create cstring");
+        for _ in 0..count {
+            unsafe {
+                max_sys::outlet_new(self.max_obj() as _, signal.as_ptr());
+            }
+        }
+        self.outs += count;
     }
 }
 
