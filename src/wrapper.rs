@@ -1,13 +1,14 @@
 //! External MaxObjWrappers.
 
 use crate::{
-    builder::{MSPWrappedBuilderInitial, MaxWrappedBuilder},
-    class::{Class, ClassType, MaxFree},
+    builder::MaxWrappedBuilder,
+    class::{Class, ClassType, MaxFree, MaxMethod},
     object::{MSPObj, MaxObj, ObjBox},
 };
 
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::ffi::CString;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::sync::Mutex;
@@ -21,6 +22,8 @@ lazy_static! {
 
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
 pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
+pub type MSPWrappedBuilder<T> = crate::builder::MSPWrappedBuilderInitial<T, MSPObjWrapper<T>>;
+pub type MSPWrappedBuilderFinal<T> = crate::builder::MSPWrappedBuilderFinal<T, MSPObjWrapper<T>>;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
 //Send
@@ -61,10 +64,10 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// # Arguments
     ///
     /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut MSPWrappedBuilderInitial<T, MSPObjWrapper<T>>) -> Self;
+    fn new(builder: MSPWrappedBuilder<T>) -> (Self, MSPWrappedBuilderFinal<T>);
 
     /// Perform DSP.
-    fn perform(&self, ins: &[f64], outs: &mut [f64], nframes: usize);
+    fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], nframes: usize);
 
     /// Register any methods you need for your class.
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
@@ -89,6 +92,8 @@ pub struct MaxWrapperInternal<T> {
 
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
+    ins: Vec<&'static [f64]>,
+    outs: Vec<&'static mut [f64]>,
 }
 
 pub trait WrapperInternal<O, T>: Sized {
@@ -133,12 +138,63 @@ where
         &mut self.wrapped
     }
     fn new(owner: *mut max_sys::t_pxobject) -> Self {
-        let mut builder = MSPWrappedBuilderInitial::new(owner);
-        let wrapped = T::new(&mut builder);
-        Self { wrapped }
+        let builder = crate::builder::MSPWrappedBuilderInitial::new(owner);
+        let (wrapped, builder) = T::new(builder);
+        let ins = (0..builder.ins())
+            .map(|_i| unsafe { std::slice::from_raw_parts(std::ptr::null(), 0) })
+            .collect();
+        let outs: Vec<&'static mut [f64]> = (0..builder.outs())
+            .map(|_i| unsafe { std::slice::from_raw_parts_mut(std::ptr::null_mut(), 0) })
+            .collect();
+        Self { wrapped, ins, outs }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
         T::class_setup(class);
+    }
+}
+
+impl<T> MSPWrapperInternal<T>
+where
+    T: MSPObjWrapped<T> + Send + Sync + 'static,
+{
+    extern "C" fn perform64(
+        &mut self,
+        _dsp64: *mut max_sys::t_object,
+        ins: *const *const f64,
+        numins: i64,
+        outs: *mut *mut f64,
+        numouts: i64,
+        sampleframes: i64,
+        _flags: i64,
+        _userparam: *mut c_void,
+    ) {
+        assert!(self.ins.len() >= numins as _);
+        assert!(self.outs.len() >= numouts as _);
+        let nframes = sampleframes as usize;
+
+        //convert into slices
+        let ins = unsafe { std::slice::from_raw_parts(ins, numins as _) };
+        for (i, ip) in self.ins.iter_mut().zip(ins) {
+            unsafe {
+                *i = std::slice::from_raw_parts(*ip, nframes);
+            }
+        }
+        let outs = unsafe { std::slice::from_raw_parts_mut(outs, numouts as _) };
+        for (o, op) in self.outs.iter_mut().zip(outs) {
+            unsafe {
+                *o = std::slice::from_raw_parts_mut(*op, nframes);
+            }
+        }
+
+        //do a dance so we can access an immutable and a mutable at the same time
+        let mut ins = Vec::with_capacity(0);
+        let mut outs = Vec::with_capacity(0);
+        std::mem::swap(&mut self.ins, &mut ins);
+        std::mem::swap(&mut self.outs, &mut outs);
+        self.wrapped()
+            .perform(ins.as_slice(), outs.as_mut_slice(), nframes);
+        std::mem::swap(&mut self.ins, &mut ins);
+        std::mem::swap(&mut self.outs, &mut outs);
     }
 }
 
@@ -252,60 +308,147 @@ where
     }
 }
 
-/*
+use std::os::raw::c_long;
+
 impl<T> MSPObjWrapper<T>
 where
     T: MSPObjWrapped<T> + Send + Sync + 'static,
 {
-    unsafe extern "C" fn free_msp(&mut self) {
-        //free dsp first
-        max_sys::z_dsp_free(self.msp_obj());
-        //free wrapped
-        let mut wrapped = MaybeUninit::uninit();
-        std::mem::swap(&mut self.wrapped, &mut wrapped);
-        std::mem::drop(wrapped.assume_init());
+    /// Register the class with Max.
+    ///
+    /// # Remarks
+    ///
+    /// This method expects to only be called from the main thread. Internally, it locks a mutex
+    /// and looks up your class by type name. If your class has alrady been registered it won't
+    /// re-register.
+    ///
+    /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
+    pub unsafe fn register() {
+        register_common(key::<T>(), T::class_type(), || {
+            let mut c: Class<Self> = Class::new(
+                T::class_name(),
+                Self::new_tramp,
+                Some(
+                    std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free_msp),
+                ),
+            );
+            //TODO somehow pass the lock so that classes can register additional classes
+            MSPWrapperInternal::<T>::class_setup(&mut c);
+            max_sys::class_addmethod(
+                c.inner(),
+                Some(std::mem::transmute::<
+                    extern "C" fn(
+                        &mut Self,
+                        dsp64: *mut max_sys::t_object,
+                        count: *mut std::os::raw::c_short,
+                        samplerate: f64,
+                        maxvectorsize: i64,
+                        flags: i64,
+                    ),
+                    MaxMethod,
+                >(Self::dsp64)),
+                CString::new("dsp64").unwrap().as_ptr(),
+                max_sys::e_max_atomtypes::A_CANT,
+                0,
+            );
+            max_sys::class_dspinit(c.inner());
+            c
+        });
     }
 
-    unsafe extern "C" fn perform64(
-        &self,
+    /// A method for Max to create an instance of your class.
+    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
+        let o = ObjBox::into_raw(Self::new());
+        std::mem::transmute::<_, _>(o)
+    }
+
+    /// Create an instance of the wrapper, on the heap.
+    pub fn new() -> ObjBox<Self> {
+        unsafe {
+            new_common(key::<T>(), |max_class| {
+                let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
+                let internal = MSPWrapperInternal::<T>::new(o.msp_obj());
+                o.wrapped = MaybeUninit::new(internal);
+                o
+            })
+        }
+    }
+
+    extern "C" fn free_msp(&mut self) {
+        //free dsp first
+        unsafe {
+            max_sys::z_dsp_free(self.msp_obj());
+        }
+        self.free_wrapped();
+    }
+
+    extern "C" fn perform64(
+        &mut self,
         dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
         numins: i64,
-        outs: *const *mut f64,
+        outs: *mut *mut f64,
         numouts: i64,
         sampleframes: i64,
         flags: i64,
         userparam: *mut c_void,
     ) {
-        let ins = std::slice::from_raw_parts(ins, numins as _);
-        let outs = std::slice::from_raw_parts(outs, numouts as _);
-    }
-
-    unsafe extern "C" fn dsp64(
-        &self,
-        dsp64: *mut max_sys::t_object,
-        count: *mut std::os::raw::c_short,
-        samplerate: f64,
-        maxvectorsize: i64,
-        flags: i64,
-    ) {
-    }
-
-    /// Create an instance of the wrapper, on the heap.
-    pub fn new() -> ObjBox<Self> {
-        unimplemented!("asdf");
-        /*
         unsafe {
-            Self::new_common(|max_class| {
-                let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
-                o.wrapped = MaybeUninit::new(MSPWrapperInternal::<T>::new(max_class, o.msp_obj()));
-                o
-            })
+            (&mut *self.wrapped.as_mut_ptr()).perform64(
+                dsp64,
+                ins,
+                numins,
+                outs,
+                numouts,
+                sampleframes,
+                flags,
+                userparam,
+            );
         }
-        */
+    }
+
+    extern "C" fn dsp64(
+        &mut self,
+        dsp64: *mut max_sys::t_object,
+        _count: *mut std::os::raw::c_short,
+        _samplerate: f64,
+        _maxvectorsize: i64,
+        _flags: i64,
+    ) {
+        unsafe {
+            max_sys::dsp_add64(
+                dsp64,
+                self.max_obj(),
+                Some(std::mem::transmute::<
+                    extern "C" fn(
+                        &mut Self,
+                        dsp64: *mut max_sys::t_object,
+                        ins: *const *const f64,
+                        numins: i64,
+                        outs: *mut *mut f64,
+                        numouts: i64,
+                        sampleframes: i64,
+                        flags: i64,
+                        userparam: *mut c_void,
+                    ),
+                    unsafe extern "C" fn(
+                        x: *mut max_sys::t_object,
+                        dsp64: *mut max_sys::t_object,
+                        ins: *mut *mut f64,
+                        numins: c_long,
+                        outs: *mut *mut f64,
+                        numouts: c_long,
+                        sampleframes: c_long,
+                        flags: c_long,
+                        userparam: *mut c_void,
+                    ),
+                >(Self::perform64)),
+                0,
+                std::ptr::null_mut(),
+            );
+        }
     }
 }
-*/
 
 impl<O, I, T> Drop for Wrapper<O, I, T>
 where
