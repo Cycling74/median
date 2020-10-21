@@ -187,11 +187,8 @@ where
         }
 
         //do a dance so we can access an immutable and a mutable at the same time
-        //Vec::with_capacity(0) is guaranteed not to allocate
-        let mut ins = Vec::with_capacity(0);
-        let mut outs = Vec::with_capacity(0);
-        std::mem::swap(&mut self.ins, &mut ins);
-        std::mem::swap(&mut self.outs, &mut outs);
+        let mut ins = std::mem::take(&mut self.ins);
+        let mut outs = std::mem::take(&mut self.outs);
         self.wrapped()
             .perform(ins.as_slice(), outs.as_mut_slice(), nframes);
         std::mem::swap(&mut self.ins, &mut ins);
