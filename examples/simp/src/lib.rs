@@ -7,6 +7,8 @@ use median::post;
 use median::symbol::SymbolRef;
 use median::wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped};
 
+use median::outlet::OutList;
+
 use std::convert::{From, TryFrom};
 
 use std::ffi::c_void;
@@ -17,6 +19,7 @@ pub struct Simp {
     pub value: Long,
     _v: String,
     clock: ClockHandle,
+    list_out: OutList,
 }
 
 impl MaxObjWrapped<Simp> for Simp {
@@ -25,6 +28,7 @@ impl MaxObjWrapped<Simp> for Simp {
             value: Long::new(0),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
+            list_out: builder.add_list_outlet(),
         }
     }
 
@@ -64,10 +68,7 @@ impl MaxObjWrapped<Simp> for Simp {
         ) {
             unsafe {
                 let obj = &*(s as *const MaxObjWrapper<Simp>);
-                median::attr::set(ac, av, |v: i64| {
-                    post!("attr_set_trampoline {}", v);
-                    obj.wrapped().value.set(v);
-                });
+                median::attr::set(ac, av, |v: i64| obj.wrapped().value.set(v));
             }
         }
 
@@ -115,6 +116,11 @@ impl Simp {
 
     pub fn clocked(&self) {
         post("clocked".to_string());
+        let _ = self.list_out.send(&[
+            1i64.into(),
+            12f64.into(),
+            SymbolRef::try_from("foo").unwrap().into(),
+        ]);
     }
 }
 
