@@ -6,30 +6,39 @@ use std::ffi::c_void;
 
 /// Result type alias from sending data through an outlet.
 pub type SendResult = Result<(), SendError>;
-pub type OutBang = Box<dyn Send<()>>;
-pub type OutInt = Box<dyn Send<i64>>;
-pub type OutFloat = Box<dyn Send<f64>>;
-pub type OutList = Box<dyn for<'a> Send<&'a [Atom]>>;
-pub type OutAnything = Box<dyn for<'a> SendAnything<'a>>;
+pub type OutBang = Box<dyn SendValue<()> + Sync>;
+pub type OutInt = Box<dyn SendValue<i64> + Sync>;
+pub type OutFloat = Box<dyn SendValue<f64> + Sync>;
+pub type OutList = Box<dyn for<'a> SendValue<&'a [Atom]> + Sync>;
+pub type OutAnything = Box<dyn for<'a> SendAnything<'a> + Sync>;
 
 pub enum SendError {
     StackOverflow,
 }
 
 /// Send data through an outlet.
-pub trait Send<T> {
+pub trait SendValue<T> {
     fn send(&self, value: T) -> SendResult;
 }
 
 /// Send any data through an outlet.
-pub trait SendAnything<'a>: Send<()> + Send<i64> + Send<f64> + Send<&'a [Atom]> {
+pub trait SendAnything<'a>:
+    SendValue<()> + SendValue<i64> + SendValue<f64> + SendValue<&'a [Atom]>
+{
     fn send_anything(&self, selector: SymbolRef, value: &'a [Atom]) -> SendResult;
 }
 
 /// A safe wrapper for a Max outlet.
+///
+/// # Remarks
+/// This type is marked as Send and Sync but technically it can only be
 pub struct Outlet {
     inner: *mut c_void,
 }
+
+/// Technically outlets are only Sync in the scheduler or main Max thread.
+unsafe impl Send for Outlet {}
+unsafe impl Sync for Outlet {}
 
 impl Outlet {
     /// Create an outlet that can send anything Max allows.
@@ -90,28 +99,28 @@ fn res_wrap<F: FnOnce() -> *mut c_void>(func: F) -> SendResult {
     }
 }
 
-impl Send<()> for Outlet {
+impl SendValue<()> for Outlet {
     /// Send a bang.
     fn send(&self, _v: ()) -> SendResult {
         res_wrap(|| unsafe { max_sys::outlet_bang(self.inner) })
     }
 }
 
-impl Send<f64> for Outlet {
+impl SendValue<f64> for Outlet {
     /// Send a float.
     fn send(&self, v: f64) -> SendResult {
         res_wrap(|| unsafe { max_sys::outlet_float(self.inner, v) })
     }
 }
 
-impl Send<i64> for Outlet {
+impl SendValue<i64> for Outlet {
     /// Send an int.
     fn send(&self, v: i64) -> SendResult {
         res_wrap(|| unsafe { max_sys::outlet_int(self.inner, v) })
     }
 }
 
-impl Send<&[Atom]> for Outlet {
+impl SendValue<&[Atom]> for Outlet {
     /// Send a list.
     fn send(&self, v: &[Atom]) -> SendResult {
         self.send_anything_sym(std::ptr::null(), v)

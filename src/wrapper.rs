@@ -109,7 +109,7 @@ unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
 
 impl<T> WrapperInternal<max_sys::t_object, T> for MaxWrapperInternal<T>
 where
-    T: MaxObjWrapped<T> + Send + Sync + 'static,
+    T: MaxObjWrapped<T> + Sync + 'static,
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
@@ -129,7 +129,7 @@ where
 
 impl<T> WrapperInternal<max_sys::t_pxobject, T> for MSPWrapperInternal<T>
 where
-    T: MSPObjWrapped<T> + Send + Sync + 'static,
+    T: MSPObjWrapped<T> + Sync + 'static,
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
@@ -155,7 +155,7 @@ where
 
 impl<T> MSPWrapperInternal<T>
 where
-    T: MSPObjWrapped<T> + Send + Sync + 'static,
+    T: MSPObjWrapped<T> + Sync + 'static,
 {
     extern "C" fn perform64(
         &mut self,
@@ -261,7 +261,7 @@ fn key<T>() -> &'static str {
 
 impl<T> Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>
 where
-    T: MaxObjWrapped<T> + Send + Sync + 'static,
+    T: MaxObjWrapped<T> + Sync + 'static,
 {
     /// Register the class with Max.
     ///
@@ -310,7 +310,7 @@ use std::os::raw::c_long;
 
 impl<T> MSPObjWrapper<T>
 where
-    T: MSPObjWrapped<T> + Send + Sync + 'static,
+    T: MSPObjWrapped<T> + Sync + 'static,
 {
     /// Register the class with Max.
     ///

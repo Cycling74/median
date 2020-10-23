@@ -11,9 +11,6 @@ struct ClockInner {
     target: Option<(*mut max_sys::t_object, Box<dyn Fn(*mut max_sys::t_object)>)>,
 }
 
-//since we know that T is Send and Sync, we should be able to call a method on it and be Send and
-//Sync
-unsafe impl Send for ClockInner {}
 unsafe impl Sync for ClockInner {}
 
 impl ClockInner {

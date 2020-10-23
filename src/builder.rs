@@ -54,7 +54,7 @@ pub struct MSPWrappedBuilder<T, W, S> {
 
 impl<T> MaxWrappedBuilder<T>
 where
-    T: MaxObjWrapped<T> + Send + Sync + 'static,
+    T: MaxObjWrapped<T> + Sync + 'static,
 {
     pub fn new(owner: *mut max_sys::t_object) -> Self {
         Self {
@@ -81,7 +81,7 @@ where
 
 impl<T, W, S> MSPWrappedBuilder<T, W, S>
 where
-    T: ObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Sync + 'static,
     W: WrapperWrapped<T>,
     S: MSPBuilderState,
 {
@@ -105,7 +105,7 @@ where
 
 impl<T, W> MSPWrappedBuilder<T, W, MSPSetupState>
 where
-    T: ObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Sync + 'static,
     W: WrapperWrapped<T>,
 {
     /// Create a builder for setting up wrapped MSP objects.
@@ -134,7 +134,7 @@ where
 
 impl<T, W> MSPWrappedBuilder<T, W, MSPWithInputsState>
 where
-    T: ObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Sync + 'static,
     W: WrapperWrapped<T>,
 {
     /// Create a clock with a method callback
@@ -165,7 +165,7 @@ where
 
 fn clockfn<T, W>(owner: *mut max_sys::t_object, func: fn(&T)) -> ClockHandle
 where
-    T: ObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Sync + 'static,
     W: WrapperWrapped<T>,
 {
     unsafe {
@@ -182,7 +182,7 @@ where
 
 fn clock<T, W>(owner: *mut max_sys::t_object, func: Box<dyn Fn(&T)>) -> ClockHandle
 where
-    T: ObjWrapped<T> + Send + Sync + 'static,
+    T: ObjWrapped<T> + Sync + 'static,
     W: WrapperWrapped<T>,
 {
     unsafe {
