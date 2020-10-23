@@ -75,19 +75,6 @@ impl Outlet {
             inner: unsafe { max_sys::listout(owner as _) },
         })
     }
-
-    //helper function used with list and anything
-    fn send_anything_sym(&self, selector: *const max_sys::t_symbol, list: &[Atom]) -> SendResult {
-        res_wrap(|| unsafe {
-            max_sys::outlet_anything(
-                self.inner,
-                selector,
-                list.len() as _,
-                //Atom is transparent, so it can be cast to t_atom
-                std::mem::transmute::<_, *mut max_sys::t_atom>(list.as_ptr()),
-            )
-        })
-    }
 }
 
 /// wrap the result, all the outlet methods return null for success, 1 for stack overflow
@@ -122,14 +109,30 @@ impl SendValue<i64> for Outlet {
 
 impl SendValue<&[Atom]> for Outlet {
     /// Send a list.
-    fn send(&self, v: &[Atom]) -> SendResult {
-        self.send_anything_sym(std::ptr::null(), v)
+    fn send(&self, list: &[Atom]) -> SendResult {
+        res_wrap(|| unsafe {
+            max_sys::outlet_list(
+                self.inner,
+                std::ptr::null_mut(),
+                list.len() as _,
+                //Atom is transparent, so it can be cast to t_atom
+                std::mem::transmute::<_, *mut max_sys::t_atom>(list.as_ptr()),
+            )
+        })
     }
 }
 
 impl<'a> SendAnything<'a> for Outlet {
     /// Send a selector message.
     fn send_anything(&self, selector: SymbolRef, list: &'a [Atom]) -> SendResult {
-        self.send_anything_sym(unsafe { selector.inner() }, list)
+        res_wrap(|| unsafe {
+            max_sys::outlet_anything(
+                self.inner,
+                selector.inner(),
+                list.len() as _,
+                //Atom is transparent, so it can be cast to t_atom
+                std::mem::transmute::<_, *mut max_sys::t_atom>(list.as_ptr()),
+            )
+        })
     }
 }
