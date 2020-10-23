@@ -46,6 +46,12 @@ mod atomic64 {
         }
     }
 
+    impl Into<f64> for &Float {
+        fn into(self) -> f64 {
+            unsafe { *self.value.get() }
+        }
+    }
+
     impl Display for Float {
         fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{}", self.get())
@@ -77,6 +83,12 @@ mod atomic64 {
     impl From<i64> for Long {
         fn from(v: i64) -> Self {
             Self::new(v)
+        }
+    }
+
+    impl Into<i64> for &Long {
+        fn into(self) -> i64 {
+            unsafe { *self.value.get() }
         }
     }
 
@@ -139,6 +151,14 @@ mod tests {
     fn can_from() {
         let x: Long = 4i64.into();
         assert_eq!(x.get(), 4i64);
+    }
+
+    #[test]
+    fn can_into() {
+        let x = Long::new(12i64);
+        let y = &x;
+        let z: i64 = y.into();
+        assert_eq!(z, 12i64);
     }
 
     #[test]
