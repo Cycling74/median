@@ -1,5 +1,6 @@
 use crate::{
     clock::ClockHandle,
+    outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
     wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
 use std::marker::PhantomData;
@@ -18,6 +19,31 @@ pub struct MSPWithInputsState {}
 
 impl MSPBuilderState for MSPSetupState {}
 impl MSPBuilderState for MSPWithInputsState {}
+
+macro_rules! impl_outs {
+    () => {
+        /// Add an outlet that outputs bangs.
+        pub fn add_bang_outlet(&mut self) -> OutBang {
+            Outlet::new_bang(unsafe { self.max_obj() })
+        }
+        /// Add an outlet that outputs floats.
+        pub fn add_float_outlet(&mut self) -> OutFloat {
+            Outlet::new_float(unsafe { self.max_obj() })
+        }
+        /// Add an outlet that outputs ints.
+        pub fn add_int_outlet(&mut self) -> OutInt {
+            Outlet::new_int(unsafe { self.max_obj() })
+        }
+        /// Add an outlet that outputs lists.
+        pub fn add_list_outlet(&mut self) -> OutList {
+            Outlet::new_list(unsafe { self.max_obj() })
+        }
+        /// Add an outlet that outputs anything Max supports.
+        pub fn add_anything_outlet(&mut self) -> OutAnything {
+            Outlet::new(unsafe { self.max_obj() })
+        }
+    };
+}
 
 pub struct MSPWrappedBuilder<T, W, S> {
     owner: *mut max_sys::t_pxobject,
@@ -44,6 +70,9 @@ where
     pub fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
         clock::<T, MaxObjWrapper<T>>(self.owner, func)
     }
+
+    impl_outs!();
+
     /// Get the owner object.
     pub unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
         self.owner
@@ -120,6 +149,7 @@ where
     pub fn add_signal_outlet(&mut self) {
         self.add_signal_outlets(1);
     }
+
     pub fn add_signal_outlets(&mut self, count: usize) {
         let signal = std::ffi::CString::new("signal").expect("failed to create cstring");
         for _ in 0..count {
@@ -129,6 +159,8 @@ where
         }
         self.outs += count;
     }
+
+    impl_outs!();
 }
 
 fn clockfn<T, W>(owner: *mut max_sys::t_object, func: fn(&T)) -> ClockHandle
