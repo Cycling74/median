@@ -122,6 +122,16 @@ impl From<&i64> for Atom {
     }
 }
 
+impl From<&crate::num::Long> for Atom {
+    fn from(v: &crate::num::Long) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_int(v.get());
+            s
+        }
+    }
+}
+
 impl From<f64> for Atom {
     fn from(v: f64) -> Self {
         unsafe {
@@ -137,6 +147,16 @@ impl From<&f64> for Atom {
         unsafe {
             let mut s = Self::zeroed();
             s.set_float(*v);
+            s
+        }
+    }
+}
+
+impl From<&crate::num::Float> for Atom {
+    fn from(v: &crate::num::Float) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_float(v.get());
             s
         }
     }
