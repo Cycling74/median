@@ -28,7 +28,6 @@ impl<T: MaxObj> ObjBox<T> {
         //convert to t_object for debugging
         let value: *mut max_sys::t_object =
             std::mem::transmute::<_, _>(max_sys::object_alloc(class));
-        println!("ObjBox::alloc() {:p}", value);
         let value = std::mem::transmute::<_, *mut T>(value);
         Self::from_raw(value)
     }
