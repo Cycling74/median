@@ -71,21 +71,21 @@ impl Atom {
         unsafe { max_sys::atom_getobj(&self.value) }
     }
 
-    pub fn set_int(&mut self, v: i64) {
+    pub fn set_int<I: Into<i64>>(&mut self, v: I) {
         unsafe {
-            max_sys::atom_setlong(&mut self.value, v);
+            max_sys::atom_setlong(&mut self.value, v.into());
         }
     }
 
-    pub fn set_float(&mut self, v: f64) {
+    pub fn set_float<I: Into<f64>>(&mut self, v: I) {
         unsafe {
-            max_sys::atom_setfloat(&mut self.value, v);
+            max_sys::atom_setfloat(&mut self.value, v.into());
         }
     }
 
-    pub fn set_symbol(&mut self, v: SymbolRef) {
+    pub fn set_symbol<I: Into<SymbolRef>>(&mut self, v: I) {
         unsafe {
-            max_sys::atom_setsym(&mut self.value, v.into());
+            max_sys::atom_setsym(&mut self.value, v.into().into());
         }
     }
 
