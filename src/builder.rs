@@ -163,6 +163,42 @@ where
     impl_outs!();
 }
 
+macro_rules! add_float_int_ins {
+    ( $( $i:literal ),+ ) => {
+        $(
+            paste::paste! {
+                impl<T, W> MSPWrappedBuilder<T, W, MSPWithInputsState>
+                    where
+                        T: ObjWrapped<T> + Sync + 'static + crate::inlet::[<FloatIn $i>],
+                        W: WrapperWrapped<T>,
+                        {
+                            pub fn [<add_float_inlet $i>](&mut self) {
+                                unsafe {
+                                    max_sys::floatin(self.max_obj() as _, $i);
+                                }
+                            }
+                        }
+
+                impl<T, W> MSPWrappedBuilder<T, W, MSPWithInputsState>
+                    where
+                        T: ObjWrapped<T> + Sync + 'static + crate::inlet::[<IntIn $i>],
+                        W: WrapperWrapped<T>,
+                        {
+                            pub fn [<add_int_inlet $i>](&mut self) {
+                                unsafe {
+                                    max_sys::intin(self.max_obj() as _, $i);
+                                }
+                            }
+                        }
+
+            }
+        )*
+
+    }
+}
+
+add_float_int_ins!(1, 2, 3, 4, 5, 6, 7, 8, 9);
+
 fn clockfn<T, W>(owner: *mut max_sys::t_object, func: fn(&T)) -> ClockHandle
 where
     T: ObjWrapped<T> + Sync + 'static,

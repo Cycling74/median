@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 max-sys = { path = "../max-sys/" }
 lazy_static = "1.4.0"
+paste = "1.0.1"

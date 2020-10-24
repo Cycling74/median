@@ -5,6 +5,7 @@ pub mod builder;
 pub mod class;
 pub mod clock;
 pub mod error;
+pub mod inlet;
 pub mod num;
 pub mod object;
 pub mod outlet;
