@@ -1,8 +1,9 @@
 //! External MaxObjWrappers.
 
 use crate::{
-    builder::MaxWrappedBuilder,
+    builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType, MaxFree, MaxMethod},
+    inlet::{FloatCB, IntCB},
     object::{MSPObj, MaxObj, ObjBox},
 };
 
@@ -22,8 +23,9 @@ lazy_static! {
 
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
 pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
-pub type MSPWrappedBuilder<T> = crate::builder::MSPWrappedBuilderInitial<T, MSPObjWrapper<T>>;
-pub type MSPWrappedBuilderFinal<T> = crate::builder::MSPWrappedBuilderFinal<T, MSPObjWrapper<T>>;
+
+pub type FloatCBHash<T> = HashMap<usize, FloatCB<T>>;
+pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
 //Send
@@ -31,7 +33,7 @@ pub type MSPWrappedBuilderFinal<T> = crate::builder::MSPWrappedBuilderFinal<T, M
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
 
-pub trait ObjWrapped<T>: Sized {
+pub trait ObjWrapped<T>: Sized + Sync + 'static {
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
     ///
@@ -50,7 +52,7 @@ pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     /// # Arguments
     ///
     /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut MaxWrappedBuilder<T>) -> Self;
+    fn new(builder: &mut dyn MaxWrappedBuilder<T>) -> Self;
 
     /// Register any methods you need for your class.
     fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
@@ -64,7 +66,7 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// # Arguments
     ///
     /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: MSPWrappedBuilder<T>) -> (Self, MSPWrappedBuilderFinal<T>);
+    fn new(builder: &mut dyn MSPWrappedBuilder<T>) -> Self;
 
     /// Perform DSP.
     fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], nframes: usize);
@@ -88,12 +90,16 @@ pub struct Wrapper<O, I, T> {
 
 pub struct MaxWrapperInternal<T> {
     wrapped: T,
+    callbacks_float: FloatCBHash<T>,
+    callbacks_int: IntCBHash<T>,
 }
 
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
     ins: Vec<&'static [f64]>,
     outs: Vec<&'static mut [f64]>,
+    callbacks_float: FloatCBHash<T>,
+    callbacks_int: IntCBHash<T>,
 }
 
 pub trait WrapperInternal<O, T>: Sized {
@@ -101,6 +107,9 @@ pub trait WrapperInternal<O, T>: Sized {
     fn wrapped_mut(&mut self) -> &mut T;
     fn new(owner: *mut O) -> Self;
     fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
+
+    fn call_float(&self, index: usize, value: f64);
+    fn call_int(&self, index: usize, value: i64);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -118,12 +127,27 @@ where
         &mut self.wrapped
     }
     fn new(owner: *mut max_sys::t_object) -> Self {
-        let mut builder = MaxWrappedBuilder::new(owner);
+        let mut builder = WrappedBuilder::new_max(owner);
         let wrapped = T::new(&mut builder);
-        Self { wrapped }
+        let mut f = builder.finalize();
+        Self {
+            wrapped,
+            callbacks_float: std::mem::take(&mut f.callbacks_float),
+            callbacks_int: std::mem::take(&mut f.callbacks_int),
+        }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
         T::class_setup(class);
+    }
+    fn call_float(&self, index: usize, value: f64) {
+        if let Some(f) = self.callbacks_float.get(&index) {
+            f(self.wrapped(), value);
+        }
+    }
+    fn call_int(&self, index: usize, value: i64) {
+        if let Some(f) = self.callbacks_int.get(&index) {
+            f(self.wrapped(), value);
+        }
     }
 }
 
@@ -138,18 +162,35 @@ where
         &mut self.wrapped
     }
     fn new(owner: *mut max_sys::t_pxobject) -> Self {
-        let builder = crate::builder::MSPWrappedBuilderInitial::new(owner);
-        let (wrapped, builder) = T::new(builder);
-        let ins = (0..builder.ins())
+        let mut builder = WrappedBuilder::new_msp(owner);
+        let wrapped = T::new(&mut builder);
+        let mut f = builder.finalize();
+        let ins = (0..f.signal_inlets)
             .map(|_i| unsafe { std::slice::from_raw_parts(std::ptr::null(), 0) })
             .collect();
-        let outs: Vec<&'static mut [f64]> = (0..builder.outs())
+        let outs: Vec<&'static mut [f64]> = (0..f.signal_outlets)
             .map(|_i| unsafe { std::slice::from_raw_parts_mut(std::ptr::null_mut(), 0) })
             .collect();
-        Self { wrapped, ins, outs }
+        Self {
+            wrapped,
+            ins,
+            outs,
+            callbacks_float: std::mem::take(&mut f.callbacks_float),
+            callbacks_int: std::mem::take(&mut f.callbacks_int),
+        }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
         T::class_setup(class);
+    }
+    fn call_float(&self, index: usize, value: f64) {
+        if let Some(f) = self.callbacks_float.get(&index) {
+            f(self.wrapped(), value);
+        }
+    }
+    fn call_int(&self, index: usize, value: i64) {
+        if let Some(f) = self.callbacks_int.get(&index) {
+            f(self.wrapped(), value);
+        }
     }
 }
 
@@ -211,19 +252,6 @@ where
     func(max_class)
 }
 
-fn register_common<F, T>(key: &'static str, class_type: ClassType, creator: F)
-where
-    F: Fn() -> Class<T>,
-{
-    let mut h = CLASSES.lock().expect("couldn't lock CLASSES mutex");
-    if !h.contains_key(key) {
-        let mut c = creator();
-        c.register(class_type)
-            .expect(format!("failed to register {}", key).as_str());
-        h.insert(key, ClassMaxObjWrapper(c.inner()));
-    }
-}
-
 impl<O, I, T> WrapperWrapped<T> for Wrapper<O, I, T>
 where
     I: WrapperInternal<O, T>,
@@ -231,8 +259,44 @@ where
 {
     /// Retrieve a reference to your wrapped class.
     fn wrapped(&self) -> &T {
-        unsafe { (&*self.wrapped.as_ptr()).wrapped() }
+        self.internal().wrapped()
     }
+}
+
+//build up our float and int input trampolines, and the register fn
+macro_rules! int_float_tramps {
+    ( $( $i:literal ),+ ) => {
+        $(
+            paste::paste! {
+                pub extern "C" fn [<call_in $i>](&self, value: i64) {
+                    self.internal().call_int($i, value);
+                }
+
+                pub extern "C" fn [<call_ft $i>](&self, value: f64) {
+                    self.internal().call_float($i, value);
+                }
+            }
+        )*
+
+        fn register_ft_in(class: *mut max_sys::t_class) {
+            unsafe {
+            $(
+                paste::paste! {
+                    max_sys::class_addmethod(class,
+                        Some(std::mem::transmute::<extern "C" fn(&Self, f64), crate::class::MaxMethod>(Self::[<call_ft $i>])),
+                        std::ffi::CString::new(concat!("ft", $i)).unwrap().as_ptr(),
+                        max_sys::e_max_atomtypes::A_FLOAT, 0
+                    );
+
+                    max_sys::class_addmethod(class,
+                        Some(std::mem::transmute::<extern "C" fn(&Self, i64), crate::class::MaxMethod>(Self::[<call_in $i>])),
+                        std::ffi::CString::new(concat!("in", $i)).unwrap().as_ptr(),
+                        max_sys::e_max_atomtypes::A_LONG, 0
+                    );
+                })*
+            }
+        }
+    };
 }
 
 impl<O, I, T> Wrapper<O, I, T>
@@ -240,6 +304,10 @@ where
     I: WrapperInternal<O, T>,
     T: ObjWrapped<T>,
 {
+    fn internal(&self) -> &I {
+        unsafe { &*self.wrapped.as_ptr() }
+    }
+
     /// Retrieve a mutable reference to your wrapped class.
     pub fn wrapped_mut(&mut self) -> &mut T {
         unsafe { (&mut *self.wrapped.as_mut_ptr()).wrapped_mut() }
@@ -253,6 +321,38 @@ where
             std::mem::drop(wrapped.assume_init());
         }
     }
+
+    fn register_common<F>(lookup_class: bool, creator: F)
+    where
+        F: Fn() -> Class<Self>,
+    {
+        let key = key::<T>();
+        let mut h = CLASSES.lock().expect("couldn't lock CLASSES mutex");
+        if !h.contains_key(key) {
+            //don't lookup class unless we want to, because max might try to register it which
+            //could cause a loop
+            let existing = if lookup_class {
+                Class::<T>::find_in_max(T::class_name(), T::class_type())
+            } else {
+                std::ptr::null_mut()
+            };
+            let max_class = if existing.is_null() {
+                let mut c = creator();
+                c.register(T::class_type())
+                    .expect(format!("failed to register {}", key).as_str());
+
+                //register our ft1, ft2.. in1, in2.. tramps
+                Self::register_ft_in(c.inner());
+                c.inner()
+            } else {
+                existing
+            };
+
+            h.insert(key, ClassMaxObjWrapper(max_class));
+        }
+    }
+
+    int_float_tramps!(1, 2, 3, 4, 5, 6, 7, 8, 9);
 }
 
 fn key<T>() -> &'static str {
@@ -261,7 +361,7 @@ fn key<T>() -> &'static str {
 
 impl<T> Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>
 where
-    T: MaxObjWrapped<T> + Sync + 'static,
+    T: MaxObjWrapped<T>,
 {
     /// Register the class with Max.
     ///
@@ -272,8 +372,8 @@ where
     /// re-register.
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
-    pub unsafe fn register() {
-        register_common(key::<T>(), T::class_type(), || {
+    pub unsafe fn register(lookup_class: bool) {
+        Self::register_common(lookup_class, || {
             let mut c: Class<Self> = Class::new(
                 T::class_name(),
                 Self::new_tramp,
@@ -321,8 +421,8 @@ where
     /// re-register.
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
-    pub unsafe fn register() {
-        register_common(key::<T>(), T::class_type(), || {
+    pub unsafe fn register(lookup_class: bool) {
+        Self::register_common(lookup_class, || {
             let mut c: Class<Self> = Class::new(
                 T::class_name(),
                 Self::new_tramp,

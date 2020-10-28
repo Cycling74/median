@@ -21,7 +21,47 @@ pub enum ClassType {
     NoBox,
 }
 
+impl Into<*mut max_sys::t_symbol> for ClassType {
+    fn into(self) -> *mut max_sys::t_symbol {
+        unsafe {
+            max_sys::gensym(
+                CString::new(match self {
+                    ClassType::NoBox => "nobox",
+                    ClassType::Box => "box",
+                })
+                .unwrap()
+                .as_ptr(),
+            )
+        }
+    }
+}
+
 impl<T> Class<T> {
+    pub fn exists_in_max(name: &str, class_type: ClassType) -> bool {
+        !Self::find_in_max(name, class_type).is_null()
+    }
+
+    pub fn find_in_max(name: &str, class_type: ClassType) -> *mut max_sys::t_class {
+        unsafe {
+            max_sys::class_findbyname(
+                class_type.into(),
+                max_sys::gensym(
+                    CString::new(name)
+                        .expect("couldn't convert name to CString")
+                        .as_ptr(),
+                ),
+            )
+        }
+    }
+
+    ///
+    pub unsafe fn new_registered(class: *mut max_sys::t_class) -> Self {
+        Self {
+            class,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Create a new max class with the given name, new trampoline and optional freem trampoline.
     pub fn new(name: &str, new: MaxNew, free: Option<MaxFree<T>>) -> Self {
         let class = unsafe {
@@ -39,25 +79,14 @@ impl<T> Class<T> {
                 0,
             )
         };
-
-        Self {
-            class,
-            _phantom: PhantomData,
-        }
+        unsafe { Self::new_registered(class) }
     }
 
     /// Register the max class.
     pub fn register(&mut self, class_type: ClassType) -> MaxResult<()> {
-        let class_type = match class_type {
-            ClassType::NoBox => "nobox",
-            ClassType::Box => "box",
-        };
         unsafe {
             MaxError::from(
-                max_sys::class_register(
-                    max_sys::gensym(CString::new(class_type).unwrap().as_ptr()),
-                    self.class,
-                ) as _,
+                max_sys::class_register(class_type.into(), self.class) as _,
                 (),
             )
         }

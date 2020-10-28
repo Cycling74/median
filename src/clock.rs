@@ -50,7 +50,7 @@ impl ObjWrapped<ClockInner> for ClockInner {
 }
 
 impl MaxObjWrapped<ClockInner> for ClockInner {
-    fn new(_builder: &mut MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
         Self { target: None }
     }
 }
@@ -110,7 +110,7 @@ impl ClockHandle {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
         //this clock?
-        MaxObjWrapper::<ClockInner>::register();
+        MaxObjWrapper::<ClockInner>::register(true);
         let mut clock_target = MaxObjWrapper::<ClockInner>::new();
         clock_target.wrapped_mut().set(target, func);
         let clock = max_sys::clock_new(

@@ -23,7 +23,7 @@ pub struct Simp {
 }
 
 impl MaxObjWrapped<Simp> for Simp {
-    fn new(builder: &mut MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
@@ -126,5 +126,5 @@ impl Simp {
 
 #[no_mangle]
 pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
-    MaxObjWrapper::<Simp>::register()
+    MaxObjWrapper::<Simp>::register(false)
 }
