@@ -28,9 +28,7 @@ impl MaxObjWrapped<Simp> for Simp {
         builder.add_inlet(MaxInlet::Float(Box::new(|_s, v| {
             post!("got float {}", v);
         })));
-        builder.add_inlet(MaxInlet::Int(Box::new(|_s, v| {
-            post!("got int {}", v);
-        })));
+        builder.add_inlet(MaxInlet::Int(Box::new(Self::int)));
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
