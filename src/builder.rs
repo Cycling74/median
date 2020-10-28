@@ -1,6 +1,6 @@
 use crate::{
     clock::ClockHandle,
-    inlet::{MSPInlet, MaxInlet},
+    inlet::{MSPInlet, MaxInlet, Proxy},
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
     wrapper::{
         FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
@@ -113,9 +113,13 @@ impl<T, W> WrappedBuilder<T, W> {
     }
 
     // pass None for Max objects
-    fn finalize_inlets(&mut self, signal_inlets: Option<usize>) -> (FloatCBHash<T>, IntCBHash<T>) {
+    fn finalize_inlets(
+        &mut self,
+        signal_inlets: Option<usize>,
+    ) -> (FloatCBHash<T>, IntCBHash<T>, Vec<Proxy>) {
         let mut callbacks_float = HashMap::new();
         let mut callbacks_int = HashMap::new();
+        let mut proxies = Vec::new();
 
         //handle an MSP object with 0 signal inlets
         let mut called_dsp_setup = match signal_inlets {
@@ -142,7 +146,9 @@ impl<T, W> WrappedBuilder<T, W> {
                     let _ = max_sys::intin(self.max_obj as _, index as _);
                     let _ = callbacks_int.insert(index, cb);
                 },
-                MSPInlet::Proxy => panic!("proxy not supported yet"),
+                MSPInlet::Proxy => {
+                    proxies.push(Proxy::new(self.max_obj, index));
+                }
                 MSPInlet::Signal => {
                     if !called_dsp_setup {
                         called_dsp_setup = true;
@@ -157,7 +163,7 @@ impl<T, W> WrappedBuilder<T, W> {
             };
         }
 
-        (callbacks_float, callbacks_int)
+        (callbacks_float, callbacks_int, proxies)
     }
 
     fn finalize_outlets(&mut self) {
@@ -323,6 +329,7 @@ where
 pub struct MaxWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
+    pub proxy_inlets: Vec<Proxy>,
 }
 
 pub struct MSPWrappedBuilderFinalize<T> {
@@ -330,6 +337,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub signal_outlets: usize,
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
+    pub proxy_inlets: Vec<Proxy>,
 }
 
 impl<T> WrappedBuilder<T, MaxObjWrapper<T>>
@@ -338,10 +346,11 @@ where
 {
     pub fn finalize(mut self) -> MaxWrappedBuilderFinalize<T> {
         self.finalize_outlets();
-        let (callbacks_float, callbacks_int) = self.finalize_inlets(None);
+        let (callbacks_float, callbacks_int, proxy_inlets) = self.finalize_inlets(None);
         MaxWrappedBuilderFinalize {
             callbacks_float,
             callbacks_int,
+            proxy_inlets,
         }
     }
 }
@@ -354,12 +363,14 @@ where
     pub fn finalize(mut self) -> MSPWrappedBuilderFinalize<T> {
         let (signal_inlets, signal_outlets) = self.signal_iolets();
         self.finalize_outlets();
-        let (callbacks_float, callbacks_int) = self.finalize_inlets(Some(signal_inlets));
+        let (callbacks_float, callbacks_int, proxy_inlets) =
+            self.finalize_inlets(Some(signal_inlets));
         MSPWrappedBuilderFinalize {
             signal_inlets,
             signal_outlets,
             callbacks_float,
             callbacks_int,
+            proxy_inlets,
         }
     }
 }

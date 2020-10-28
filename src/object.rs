@@ -10,9 +10,13 @@ pub unsafe trait MaxObj: Sized {
 
 /// Indicates that your struct can be safely cast to a max_sys::t_pxobject this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_pxobject` as its first member.
-pub unsafe trait MSPObj: MaxObj {
+pub unsafe trait MSPObj: Sized {
     fn msp_obj(&self) -> *mut max_sys::t_pxobject {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_pxobject>(self) }
+    }
+    /// any MSP object can be safely cast to and used as a max_sys::t_object
+    fn as_max_obj(&self) -> *mut max_sys::t_object {
+        unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self.msp_obj()) }
     }
 }
 

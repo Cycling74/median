@@ -92,6 +92,8 @@ pub struct MaxWrapperInternal<T> {
     wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
+    //we just hold onto these so they don't get deallocated until later
+    _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
 pub struct MSPWrapperInternal<T> {
@@ -100,6 +102,8 @@ pub struct MSPWrapperInternal<T> {
     outs: Vec<&'static mut [f64]>,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
+    //we just hold onto these so they don't get deallocated until later
+    _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
 pub trait WrapperInternal<O, T>: Sized {
@@ -134,6 +138,7 @@ where
             wrapped,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
+            _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -177,6 +182,7 @@ where
             outs,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
+            _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -458,6 +464,7 @@ where
     /// A method for Max to create an instance of your class.
     pub unsafe extern "C" fn new_tramp() -> *mut c_void {
         let o = ObjBox::into_raw(Self::new());
+        assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
         std::mem::transmute::<_, _>(o)
     }
 
@@ -578,26 +585,19 @@ where
     }
 }
 
-/*
-unsafe impl<T> MaxObj for T
-where
-    T: MSPObjWrapped<T>,
-{
-    fn max_obj(&self) -> *mut max_sys::t_object {
-        //let off = field_offset::offset_of!(MaxObjWrapper => wrapped: MaxWrapperInternal => wrapped);
-        let ptr: *const T = self;
-        unsafe { std::mem::transmute::<_, _>(ptr) }
-    }
-}
-
 unsafe impl<T> MSPObj for T
 where
     T: MSPObjWrapped<T>,
 {
     fn msp_obj(&self) -> *mut max_sys::t_pxobject {
-        //let off = field_offset::offset_of!(MaxObjWrapper => wrapped: MaxWrapperInternal => wrapped);
-        let ptr: *const T = self;
-        unsafe { std::mem::transmute::<_, _>(ptr) }
+        //can't seem to get from wrapper to internal because of MaybeUninit?
+        let off1 = field_offset::offset_of!(Wrapper::<max_sys::t_pxobject, MSPWrapperInternal<T>, T> => wrapped);
+        let off2 = field_offset::offset_of!(MSPWrapperInternal::<T> => wrapped);
+        unsafe {
+            let ptr: *mut u8 = std::mem::transmute::<_, *mut u8>(self as *const T);
+            std::mem::transmute::<_, *mut max_sys::t_pxobject>(
+                ptr.offset(-((off1.get_byte_offset() + off2.get_byte_offset()) as isize)),
+            )
+        }
     }
 }
-*/
