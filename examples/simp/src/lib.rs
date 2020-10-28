@@ -2,6 +2,7 @@ use median::attr::{AttrTrampGetMethod, AttrTrampSetMethod};
 use median::builder::MaxWrappedBuilder;
 use median::class::{Class, MaxMethod};
 use median::clock::ClockHandle;
+use median::inlet::MaxInlet;
 use median::num::Long;
 use median::post;
 use median::symbol::SymbolRef;
@@ -24,6 +25,12 @@ pub struct Simp {
 
 impl MaxObjWrapped<Simp> for Simp {
     fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        builder.add_inlet(MaxInlet::Float(Box::new(|_s, v| {
+            post!("got float {}", v);
+        })));
+        builder.add_inlet(MaxInlet::Int(Box::new(|_s, v| {
+            post!("got int {}", v);
+        })));
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
