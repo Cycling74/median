@@ -4,6 +4,7 @@ use median::class::{Class, MaxMethod};
 use median::clock::ClockHandle;
 use median::inlet::MaxInlet;
 use median::num::Long;
+use median::object::MaxObj;
 use median::post;
 use median::symbol::SymbolRef;
 use median::wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped};
@@ -25,10 +26,13 @@ pub struct Simp {
 
 impl MaxObjWrapped<Simp> for Simp {
     fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        //can call closure
         builder.add_inlet(MaxInlet::Float(Box::new(|_s, v| {
             post!("got float {}", v);
         })));
+        //also can call method
         builder.add_inlet(MaxInlet::Int(Box::new(Self::int)));
+        let _ = builder.add_inlet(MaxInlet::Proxy);
         Self {
             value: Long::new(0),
             _v: String::from("blah"),
@@ -108,15 +112,17 @@ impl ObjWrapped<Simp> for Simp {
 
 impl Simp {
     pub fn bang(&self) {
-        post!("from rust {}", self.value);
+        let i = median::inlet::Proxy::get_inlet(self.max_obj());
+        post!("from rust {} inlet {}", self.value, i);
         self.clock.delay(10);
     }
 
     pub fn int(&self, v: i64) {
+        let i = median::inlet::Proxy::get_inlet(self.max_obj());
         self.value.set(v);
         //XXX won't compile, needs mutex
         //self._v = format!("from rust {}", self.value);
-        post!("from rust {}", self.value);
+        post!("from rust {} inlet {}", self.value, i);
     }
 
     pub fn clocked(&self) {
