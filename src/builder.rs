@@ -132,12 +132,16 @@ impl<T, W> WrappedBuilder<T, W> {
         for (mut index, inlet) in inlets.into_iter().enumerate().rev() {
             index = index + 1; //TODO allow for no default inlet
             match inlet {
-                MSPInlet::Float(cb) => {
+                MSPInlet::Float(cb) => unsafe {
+                    assert!(index > 0 && index < 10, "index out of range");
+                    let _ = max_sys::floatin(self.max_obj as _, index as _);
                     let _ = callbacks_float.insert(index, cb);
-                }
-                MSPInlet::Int(cb) => {
+                },
+                MSPInlet::Int(cb) => unsafe {
+                    assert!(index > 0 && index < 10, "index out of range");
+                    let _ = max_sys::intin(self.max_obj as _, index as _);
                     let _ = callbacks_int.insert(index, cb);
-                }
+                },
                 MSPInlet::Proxy => panic!("proxy not supported yet"),
                 MSPInlet::Signal => {
                     if !called_dsp_setup {
