@@ -8,3 +8,4 @@ edition = "2018"
 max-sys = { path = "../max-sys/" }
 lazy_static = "1.4.0"
 paste = "1.0.1"
+field-offset = "0.3.2"

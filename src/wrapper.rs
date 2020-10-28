@@ -392,6 +392,7 @@ where
     /// A method for Max to create an instance of your class.
     pub unsafe extern "C" fn new_tramp() -> *mut c_void {
         let o = ObjBox::into_raw(Self::new());
+        assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
         std::mem::transmute::<_, _>(o)
     }
 
@@ -559,3 +560,44 @@ where
         }
     }
 }
+
+unsafe impl<T> MaxObj for T
+where
+    T: MaxObjWrapped<T>,
+{
+    fn max_obj(&self) -> *mut max_sys::t_object {
+        //can't seem to get from wrapper to internal because of MaybeUninit?
+        let off1 = field_offset::offset_of!(Wrapper::<max_sys::t_object, MaxWrapperInternal<T>, T> => wrapped);
+        let off2 = field_offset::offset_of!(MaxWrapperInternal::<T> => wrapped);
+        unsafe {
+            let ptr: *mut u8 = std::mem::transmute::<_, *mut u8>(self as *const T);
+            std::mem::transmute::<_, *mut max_sys::t_object>(
+                ptr.offset(-((off1.get_byte_offset() + off2.get_byte_offset()) as isize)),
+            )
+        }
+    }
+}
+
+/*
+unsafe impl<T> MaxObj for T
+where
+    T: MSPObjWrapped<T>,
+{
+    fn max_obj(&self) -> *mut max_sys::t_object {
+        //let off = field_offset::offset_of!(MaxObjWrapper => wrapped: MaxWrapperInternal => wrapped);
+        let ptr: *const T = self;
+        unsafe { std::mem::transmute::<_, _>(ptr) }
+    }
+}
+
+unsafe impl<T> MSPObj for T
+where
+    T: MSPObjWrapped<T>,
+{
+    fn msp_obj(&self) -> *mut max_sys::t_pxobject {
+        //let off = field_offset::offset_of!(MaxObjWrapper => wrapped: MaxWrapperInternal => wrapped);
+        let ptr: *const T = self;
+        unsafe { std::mem::transmute::<_, _>(ptr) }
+    }
+}
+*/
