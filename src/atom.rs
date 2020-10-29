@@ -118,8 +118,8 @@ impl From<&i64> for Atom {
     }
 }
 
-impl From<&crate::num::Long> for Atom {
-    fn from(v: &crate::num::Long) -> Self {
+impl From<&crate::num::Int> for Atom {
+    fn from(v: &crate::num::Int) -> Self {
         Self::from(v.get())
     }
 }

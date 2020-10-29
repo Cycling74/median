@@ -7,7 +7,7 @@ pub use self::atomic64::*;
 #[cfg(target_arch = "x86_64")]
 mod atomic64 {
     //we assume that f64 and i64 are atomic on the platforms we run on
-    //so, Float and Long are wrappers that codify that and allow interior mutability, Send and Sync
+    //so, Float and Int are wrappers that codify that and allow interior mutability, Send and Sync
     use std::cell::UnsafeCell;
     use std::convert::From;
     use std::fmt::{Display, Formatter, Result};
@@ -20,7 +20,7 @@ mod atomic64 {
 
     #[derive(Default)]
     #[repr(transparent)]
-    pub struct Long {
+    pub struct Int {
         pub(crate) value: UnsafeCell<i64>,
     }
 
@@ -64,7 +64,7 @@ mod atomic64 {
         }
     }
 
-    impl Long {
+    impl Int {
         pub fn new(v: i64) -> Self {
             Self {
                 value: UnsafeCell::new(v),
@@ -80,25 +80,25 @@ mod atomic64 {
         }
     }
 
-    impl From<i64> for Long {
+    impl From<i64> for Int {
         fn from(v: i64) -> Self {
             Self::new(v)
         }
     }
 
-    impl Into<i64> for &Long {
+    impl Into<i64> for &Int {
         fn into(self) -> i64 {
             unsafe { *self.value.get() }
         }
     }
 
-    impl Display for Long {
+    impl Display for Int {
         fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{}", self.get())
         }
     }
 
-    impl Clone for Long {
+    impl Clone for Int {
         fn clone(&self) -> Self {
             Self::new(self.get())
         }
@@ -106,8 +106,8 @@ mod atomic64 {
 
     unsafe impl Send for Float {}
     unsafe impl Sync for Float {}
-    unsafe impl Send for Long {}
-    unsafe impl Sync for Long {}
+    unsafe impl Send for Int {}
+    unsafe impl Sync for Int {}
 }
 
 #[cfg(all(test, target_arch = "x86_64"))]
@@ -138,24 +138,24 @@ mod tests {
     #[test]
     fn sizes() {
         assert_eq!(std::mem::size_of::<f64>(), std::mem::size_of::<Float>());
-        assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Long>());
+        assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Int>());
     }
 
     #[test]
     fn align() {
         assert_eq!(std::mem::align_of::<f64>(), std::mem::align_of::<Float>());
-        assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Long>());
+        assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Int>());
     }
 
     #[test]
     fn can_from() {
-        let x: Long = 4i64.into();
+        let x: Int = 4i64.into();
         assert_eq!(x.get(), 4i64);
     }
 
     #[test]
     fn can_into() {
-        let x = Long::new(12i64);
+        let x = Int::new(12i64);
         let y = &x;
         let z: i64 = y.into();
         assert_eq!(z, 12i64);

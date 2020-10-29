@@ -5,7 +5,7 @@ use median::{
     clock::ClockHandle,
     inlet::MaxInlet,
     method::MaxMethod,
-    num::Long,
+    num::Int,
     object::MaxObj,
     outlet::OutList,
     post,
@@ -20,7 +20,7 @@ use std::ffi::CString;
 use std::os::raw::c_long;
 
 pub struct Simp {
-    pub value: Long,
+    pub value: Int,
     _v: String,
     clock: ClockHandle,
     list_out: OutList,
@@ -36,7 +36,7 @@ impl MaxObjWrapped<Simp> for Simp {
         builder.add_inlet(MaxInlet::Int(Box::new(Self::int)));
         let _ = builder.add_inlet(MaxInlet::Proxy);
         Self {
-            value: Long::new(0),
+            value: Int::new(0),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
             list_out: builder.add_list_outlet(),

@@ -2,7 +2,7 @@ use median::attr::{AttrTrampGetMethod, AttrTrampSetMethod};
 use median::builder::MSPWrappedBuilder;
 use median::class::{Class, MaxMethod};
 use median::clock::ClockHandle;
-use median::num::Long;
+use median::num::Int;
 use median::post;
 use median::symbol::SymbolRef;
 use median::wrapper::{MSPObjWrapped, MSPObjWrapper, ObjWrapped, WrapperWrapped};
@@ -14,7 +14,7 @@ use std::ffi::CString;
 use std::os::raw::c_long;
 
 pub struct HelloDSP {
-    pub value: Long,
+    pub value: Int,
     _v: String,
     clock: ClockHandle,
 }
@@ -24,7 +24,7 @@ impl MSPObjWrapped<HelloDSP> for HelloDSP {
         builder.add_signal_inlets(2);
         builder.add_signal_outlets(2);
         Self {
-            value: Long::new(0),
+            value: Int::new(0),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
         }
