@@ -9,14 +9,15 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 //hold outlets until after they've all been allocated, then init
 enum UninitOutlet {
-    Bang(*mut Outlet),
-    Float(*mut Outlet),
-    Int(*mut Outlet),
-    List(*mut Outlet),
-    Anything(*mut Outlet),
+    Bang(Arc<Outlet>),
+    Float(Arc<Outlet>),
+    Int(Arc<Outlet>),
+    List(Arc<Outlet>),
+    Anything(Arc<Outlet>),
     Signal,
 }
 
@@ -173,29 +174,19 @@ impl<T, W> WrappedBuilder<T, W> {
         for outlet in self.outlets.iter_mut().rev() {
             match outlet {
                 UninitOutlet::Bang(o) => unsafe {
-                    let mut o = Box::from_raw(*o);
                     o.init_bang(self.max_obj);
-                    Box::leak(o);
                 },
                 UninitOutlet::Float(o) => unsafe {
-                    let mut o = Box::from_raw(*o);
                     o.init_float(self.max_obj);
-                    Box::leak(o);
                 },
                 UninitOutlet::Int(o) => unsafe {
-                    let mut o = Box::from_raw(*o);
                     o.init_int(self.max_obj);
-                    Box::leak(o);
                 },
                 UninitOutlet::List(o) => unsafe {
-                    let mut o = Box::from_raw(*o);
                     o.init_list(self.max_obj);
-                    Box::leak(o);
                 },
                 UninitOutlet::Anything(o) => unsafe {
-                    let mut o = Box::from_raw(*o);
                     o.init_anything(self.max_obj);
-                    Box::leak(o);
                 },
                 UninitOutlet::Signal => unsafe {
                     max_sys::outlet_new(self.max_obj as _, signal.as_ptr());
@@ -236,32 +227,32 @@ where
     }
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang {
-        let mut b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Bang(b.as_mut()));
+        let b = Outlet::new_null();
+        self.outlets.push(UninitOutlet::Bang(b.clone()));
         b as _
     }
     /// Add an outlet that outputs floats.
     fn add_float_outlet(&mut self) -> OutFloat {
-        let mut b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Float(b.as_mut()));
+        let b = Outlet::new_null();
+        self.outlets.push(UninitOutlet::Float(b.clone()));
         b as _
     }
     /// Add an outlet that outputs ints.
     fn add_int_outlet(&mut self) -> OutInt {
-        let mut b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Int(b.as_mut()));
+        let b = Outlet::new_null();
+        self.outlets.push(UninitOutlet::Int(b.clone()));
         b as _
     }
     /// Add an outlet that outputs lists.
     fn add_list_outlet(&mut self) -> OutList {
-        let mut b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::List(b.as_mut()));
+        let b = Outlet::new_null();
+        self.outlets.push(UninitOutlet::List(b.clone()));
         b as _
     }
     /// Add an outlet that outputs anything Max supports.
     fn add_anything_outlet(&mut self) -> OutAnything {
-        let mut b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Anything(b.as_mut()));
+        let b = Outlet::new_null();
+        self.outlets.push(UninitOutlet::Anything(b.clone()));
         b as _
     }
     /// Get the Max object for the wrapper of this object.
