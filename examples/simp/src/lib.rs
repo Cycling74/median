@@ -1,15 +1,17 @@
-use median::attr::{AttrTrampGetMethod, AttrTrampSetMethod};
-use median::builder::MaxWrappedBuilder;
-use median::class::{Class, MaxMethod};
-use median::clock::ClockHandle;
-use median::inlet::MaxInlet;
-use median::num::Long;
-use median::object::MaxObj;
-use median::post;
-use median::symbol::SymbolRef;
-use median::wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped};
-
-use median::outlet::OutList;
+use median::{
+    attr::{AttrTrampGetMethod, AttrTrampSetMethod},
+    builder::MaxWrappedBuilder,
+    class::Class,
+    clock::ClockHandle,
+    inlet::MaxInlet,
+    method::MaxMethod,
+    num::Long,
+    object::MaxObj,
+    outlet::OutList,
+    post,
+    symbol::SymbolRef,
+    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
+};
 
 use std::convert::{From, TryFrom};
 
@@ -81,8 +83,8 @@ impl MaxObjWrapped<Simp> for Simp {
             }
         }
 
-        c.add_method_int("int", int_trampoline);
-        c.add_method_bang(bang_trampoline);
+        c.add_method(median::method::Method::Int(int_trampoline));
+        c.add_method(median::method::Method::Bang(bang_trampoline));
 
         //TODO encapsulate in a safe method
         unsafe {
