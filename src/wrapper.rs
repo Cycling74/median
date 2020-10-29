@@ -2,8 +2,9 @@
 
 use crate::{
     builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
-    class::{Class, ClassType, MaxFree, MaxMethod},
+    class::{Class, ClassType},
     inlet::{FloatCB, IntCB},
+    method::{MaxFree, MaxMethod},
     object::{MSPObj, MaxObj, ObjBox},
 };
 
@@ -289,13 +290,13 @@ macro_rules! int_float_tramps {
             $(
                 paste::paste! {
                     max_sys::class_addmethod(class,
-                        Some(std::mem::transmute::<extern "C" fn(&Self, f64), crate::class::MaxMethod>(Self::[<call_ft $i>])),
+                        Some(std::mem::transmute::<extern "C" fn(&Self, f64), crate::method::MaxMethod>(Self::[<call_ft $i>])),
                         std::ffi::CString::new(concat!("ft", $i)).unwrap().as_ptr(),
                         max_sys::e_max_atomtypes::A_FLOAT, 0
                     );
 
                     max_sys::class_addmethod(class,
-                        Some(std::mem::transmute::<extern "C" fn(&Self, i64), crate::class::MaxMethod>(Self::[<call_in $i>])),
+                        Some(std::mem::transmute::<extern "C" fn(&Self, i64), crate::method::MaxMethod>(Self::[<call_in $i>])),
                         std::ffi::CString::new(concat!("in", $i)).unwrap().as_ptr(),
                         max_sys::e_max_atomtypes::A_LONG, 0
                     );

@@ -3,9 +3,15 @@ name = "median"
 version = "0.1.0"
 authors = ["Alex Norman <xnor@cycling74.com>"]
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
 max-sys = { path = "../max-sys/" }
 lazy_static = "1.4.0"
 paste = "1.0.1"
 field-offset = "0.3.2"
+
+[build-dependencies]
+quote = "1.0.7"
+proc-macro2 = "1.0.24"
+syn = "1.0.48"

@@ -1,14 +1,10 @@
 //! Class registration.
 
 use crate::error::{MaxError, MaxResult};
+use crate::method::*;
 use std::ffi::c_void;
 use std::ffi::CString;
 use std::marker::PhantomData;
-
-//TODO take args
-pub type MaxNew = unsafe extern "C" fn() -> *mut c_void;
-pub type MaxFree<T> = unsafe extern "C" fn(obj: *mut T);
-pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
 
 pub struct Class<T> {
     class: *mut max_sys::t_class,
@@ -97,26 +93,80 @@ impl<T> Class<T> {
         self.class
     }
 
-    pub fn add_method_int(&mut self, name: &str, cb: extern "C" fn(*const T, i64)) {
-        unsafe {
-            max_sys::class_addmethod(
-                self.class,
-                Some(std::mem::transmute::<_, MaxMethod>(cb)),
-                CString::new(name).unwrap().as_ptr(),
-                max_sys::e_max_atomtypes::A_LONG,
-                0,
-            );
+    fn add_sel_method(
+        &self,
+        sel: CString,
+        m: Option<MaxMethod>,
+        types: &mut [max_sys::e_max_atomtypes::Type],
+        defaults: usize,
+    ) {
+        //fill in defaults
+        let l = types.len();
+        assert!(l >= defaults);
+        for i in l - defaults..l {
+            match types[i] {
+                max_sys::e_max_atomtypes::A_FLOAT | max_sys::e_max_atomtypes::A_DEFFLOAT => {
+                    types[i] = max_sys::e_max_atomtypes::A_DEFFLOAT
+                }
+                max_sys::e_max_atomtypes::A_LONG | max_sys::e_max_atomtypes::A_DEFLONG => {
+                    types[i] = max_sys::e_max_atomtypes::A_DEFLONG
+                }
+                max_sys::e_max_atomtypes::A_SYM | max_sys::e_max_atomtypes::A_DEFSYM => {
+                    types[i] = max_sys::e_max_atomtypes::A_DEFSYM
+                }
+                _ => panic!("type cannot be made default"),
+            }
         }
-    }
 
-    pub fn add_method_bang(&mut self, cb: extern "C" fn(*const T)) {
+        //register
         unsafe {
-            max_sys::class_addmethod(
-                self.class,
-                Some(std::mem::transmute::<_, MaxMethod>(cb)),
-                CString::new("bang").unwrap().as_ptr(),
-                0,
-            );
+            let sel = sel.as_ptr();
+            match types.len() {
+                0 => {
+                    max_sys::class_addmethod(self.class, m, sel, 0);
+                }
+                1 => {
+                    assert!(defaults <= 1);
+                    max_sys::class_addmethod(self.class, m, sel, types[0], 0);
+                }
+                2 => {
+                    assert!(defaults <= 2);
+                    max_sys::class_addmethod(self.class, m, sel, types[0], types[1], 0);
+                }
+                3 => {
+                    assert!(defaults <= 3);
+                    max_sys::class_addmethod(self.class, m, sel, types[0], types[1], types[2], 0);
+                }
+                4 => {
+                    assert!(defaults <= 4);
+                    max_sys::class_addmethod(
+                        self.class, m, sel, types[0], types[1], types[2], types[3], 0,
+                    );
+                }
+                5 => {
+                    assert!(defaults <= 5);
+                    max_sys::class_addmethod(
+                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4], 0,
+                    );
+                }
+                6 => {
+                    assert!(defaults <= 6);
+                    max_sys::class_addmethod(
+                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4],
+                        types[5], 0,
+                    );
+                }
+                7 => {
+                    assert!(defaults <= 7);
+                    max_sys::class_addmethod(
+                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4],
+                        types[5], types[6], 0,
+                    );
+                }
+                _ => unimplemented!(),
+            }
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/class-gen.rs"));

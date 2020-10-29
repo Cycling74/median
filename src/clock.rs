@@ -1,4 +1,5 @@
-use crate::class::{ClassType, MaxMethod};
+use crate::class::ClassType;
+use crate::method::MaxMethod;
 use crate::{
     builder::MaxWrappedBuilder,
     object::MaxObj,
