@@ -1,7 +1,11 @@
 //! Attributes.
 
 use crate::atom::Atom;
+use crate::max::common_symbols;
+use crate::method::MaxMethod;
+
 use std::ffi::c_void;
+use std::marker::PhantomData;
 use std::os::raw::c_long;
 
 pub type AttrTrampGetMethod<T> =
@@ -9,7 +13,186 @@ pub type AttrTrampGetMethod<T> =
 pub type AttrTrampSetMethod<T> =
     extern "C" fn(s: *mut T, attr: c_void, ac: c_long, av: *mut max_sys::t_atom);
 
+//could add scale but it doesn't look like anything in max uses it
+
+pub struct Attr<T> {
+    inner: *mut max_sys::t_object,
+    _phantom: PhantomData<T>,
+}
+
+/// A builder for building up attributes.
+pub struct AttrBuilder<T> {
+    name: String,
+    val_type: AttrType,
+    offset: Option<usize>,
+    get: Option<AttrTrampGetMethod<T>>,
+    set: Option<AttrTrampSetMethod<T>>,
+    clip: AttrClip,
+    get_vis: AttrVisiblity,
+    set_vis: AttrVisiblity,
+}
+
+impl<T> Attr<T> {
+    pub fn inner(&self) -> *mut max_sys::t_object {
+        self.inner
+    }
+}
+
+impl<T> AttrBuilder<T> {
+    // helper method used in public impls
+    fn new<I: Into<String>>(name: I, val_type: AttrType) -> Self {
+        Self {
+            name: name.into(),
+            val_type,
+            offset: None,
+            get: None,
+            set: None,
+            clip: AttrClip::None,
+            get_vis: AttrVisiblity::Visible,
+            set_vis: AttrVisiblity::Visible,
+        }
+    }
+
+    /// Create a new builder with an offset pointing to a struct member.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `offset_bytes` - a byte offset within the struct to the member that represents the attribute.
+    pub unsafe fn new_offset<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        offset_bytes: usize,
+    ) -> Self {
+        let mut s = Self::new(name, val_type);
+        s.offset = Some(offset_bytes);
+        s
+    }
+
+    /// Create a new builder with an offset pointing to a struct member and a get method.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `offset_bytes` - a byte offset within the struct to the member that represents the attribute.
+    /// * `get` - a get method to use with the attribute.
+    pub unsafe fn new_offset_get<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        offset_bytes: usize,
+        get: AttrTrampGetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new_offset(name, val_type, offset_bytes);
+        s.get = Some(get);
+        s
+    }
+
+    /// Create a new builder with an offset pointing to a struct member and a set method.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `offset_bytes` - a byte offset within the struct to the member that represents the attribute.
+    /// * `set` - a set method to use with the attribute.
+    pub unsafe fn new_offset_set<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        offset_bytes: usize,
+        set: AttrTrampSetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new_offset(name, val_type, offset_bytes);
+        s.set = Some(set);
+        s
+    }
+
+    /// Create a new builder with accessor methods.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `get` - a set method to use with the attribute.
+    /// * `set` - a set method to use with the attribute.
+    pub fn new_accessor<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        get: AttrTrampGetMethod<T>,
+        set: AttrTrampSetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new(name, val_type);
+        s.get = Some(get);
+        s.set = Some(set);
+        s
+    }
+
+    /// Set the visiblity for the get for this attribute.
+    ///
+    /// # Remarks
+    /// Defaults to `Visible`.
+    pub fn get_vis(&mut self, v: AttrVisiblity) -> &mut Self {
+        let mut n = self;
+        n.get_vis = v;
+        n
+    }
+    /// Set the visiblity for the set for this attribute.
+    ///
+    /// # Remarks
+    /// Defaults to `Visible`.
+    pub fn set_vis(&mut self, v: AttrVisiblity) -> &mut Self {
+        let mut n = self;
+        n.set_vis = v;
+        n
+    }
+    /// Set the optional clip for this attribute.
+    pub fn clip(&mut self, v: AttrClip) -> &mut Self {
+        let mut n = self;
+        n.clip = v;
+        n
+    }
+
+    pub fn build(self) -> Result<Attr<T>, String> {
+        if self.set.is_none() && self.get.is_none() && self.offset.is_none() {
+            return Err("you must have at least 1 of get, set or offset".into());
+        }
+        let n = std::ffi::CString::new(self.name.clone())
+            .map_err(|_| format!("{} failed to convert to a CString", self.name))?;
+        let flags = match self.get_vis {
+            AttrVisiblity::Visible => max_sys::e_max_attrflags::ATTR_FLAGS_NONE,
+            AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_GET_OPAQUE,
+            AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_GET_OPAQUE_USER,
+        } | match self.set_vis {
+            AttrVisiblity::Visible => max_sys::e_max_attrflags::ATTR_FLAGS_NONE,
+            AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_SET_OPAQUE,
+            AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_SET_OPAQUE_USER,
+        };
+        let inner = unsafe {
+            max_sys::attr_offset_new(
+                n.as_ptr(),
+                self.val_type.into(),
+                flags as _,
+                std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(self.get),
+                std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(self.set),
+                self.offset.unwrap_or(0) as _,
+            )
+        };
+        if inner.is_null() {
+            return Err("failed to create attribute".into());
+        }
+        Ok(Attr {
+            inner,
+            _phantom: PhantomData,
+        })
+    }
+}
+
+pub enum AttrAccess<T> {
+    Offset(usize),
+    OffsetGetMethod(usize, AttrTrampGetMethod<T>),
+    OffsetSetMethod(usize, AttrTrampSetMethod<T>),
+    GetSetMethod(AttrTrampGetMethod<T>, AttrTrampSetMethod<T>),
+}
+
 //p_sym_char (char), _sym_long (long), _sym_float32 (32-bit float), _sym_float64 (64-bit float), _sym_atom (Max t_atom pointer), _sym_symbol (Max t_symbol pointer), _sym_pointer (generic pointer) and _sym_object (Max t_object pointer).
+#[derive(Debug, Clone, Copy)]
 pub enum AttrType {
     Char,
     Int64, //long
@@ -21,14 +204,8 @@ pub enum AttrType {
     ObjectPtr,
 }
 
-pub trait ClippableAttribute {}
-
-impl ClippableAttribute for f32 {}
-impl ClippableAttribute for f64 {}
-impl ClippableAttribute for i64 {}
-
 #[derive(Debug, Clone, Copy)]
-pub enum AttrClip {
+pub enum AttrValClip {
     None,
     /// clip any value below the given to the given value.
     Min(f64),
@@ -39,13 +216,40 @@ pub enum AttrClip {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum AttrVisiblity<T> {
+pub enum AttrClip {
+    None,
+    //Only clip get
+    Get(AttrValClip),
+    //Only clip set
+    Set(AttrValClip),
+    //Clip both get and set
+    GetSet(AttrValClip),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AttrVisiblity {
+    /// accessable from gui and code
+    Visible,
+    /// only accessable from code
+    UserVisible,
     /// not accessable from code or gui
     Opaque,
-    /// accessable from gui and code
-    Visible(T),
-    /// only accessable from code
-    UserVisible(T),
+}
+
+impl Into<*const max_sys::t_symbol> for AttrType {
+    fn into(self) -> *const max_sys::t_symbol {
+        let sym = common_symbols();
+        match self {
+            Self::Char => sym.s_char,
+            Self::Int64 => sym.s_long,
+            Self::Float32 => sym.s_float32,
+            Self::Float64 => sym.s_float64,
+            Self::AtomPtr => sym.s_atom,
+            Self::SymbolRef => sym.s_symbol,
+            Self::Ptr => sym.s_pointer,
+            Self::ObjectPtr => sym.s_object,
+        }
+    }
 }
 
 /// handle the boiler plate of dealing with attribute atoms
