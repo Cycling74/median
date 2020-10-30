@@ -9,23 +9,12 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::Arc;
-
-//hold outlets until after they've all been allocated, then init
-enum UninitOutlet {
-    Bang(Arc<Outlet>),
-    Float(Arc<Outlet>),
-    Int(Arc<Outlet>),
-    List(Arc<Outlet>),
-    Anything(Arc<Outlet>),
-    Signal,
-}
 
 pub struct WrappedBuilder<T, W> {
     max_obj: *mut max_sys::t_object,
     msp_obj: Option<*mut max_sys::t_pxobject>,
     inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
-    outlets: Vec<UninitOutlet>,
+    signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
 }
 
@@ -78,7 +67,7 @@ impl<T, W> WrappedBuilder<T, W> {
             max_obj: owner,
             msp_obj: None,
             inlets: Vec::new(),
-            outlets: Vec::new(),
+            signal_outlets: 0,
             _phantom: PhantomData,
         }
     }
@@ -88,7 +77,7 @@ impl<T, W> WrappedBuilder<T, W> {
             max_obj: owner as _,
             msp_obj: Some(owner),
             inlets: Vec::new(),
-            outlets: Vec::new(),
+            signal_outlets: 0,
             _phantom: PhantomData,
         }
     }
@@ -103,13 +92,7 @@ impl<T, W> WrappedBuilder<T, W> {
                     _ => false,
                 })
                 .count(),
-            self.outlets
-                .iter()
-                .filter(|i| match i {
-                    UninitOutlet::Signal => true,
-                    _ => false,
-                })
-                .count(),
+            self.signal_outlets,
         )
     }
 
@@ -166,34 +149,6 @@ impl<T, W> WrappedBuilder<T, W> {
 
         (callbacks_float, callbacks_int, proxies)
     }
-
-    fn finalize_outlets(&mut self) {
-        let signal = std::ffi::CString::new("signal").expect("failed to create cstring");
-        //allocate in reverse, another box exists so leak it
-        //TODO if the caller drops the box then this will panic, maybe just use Arc?
-        for outlet in self.outlets.iter_mut().rev() {
-            match outlet {
-                UninitOutlet::Bang(o) => unsafe {
-                    o.init_bang(self.max_obj);
-                },
-                UninitOutlet::Float(o) => unsafe {
-                    o.init_float(self.max_obj);
-                },
-                UninitOutlet::Int(o) => unsafe {
-                    o.init_int(self.max_obj);
-                },
-                UninitOutlet::List(o) => unsafe {
-                    o.init_list(self.max_obj);
-                },
-                UninitOutlet::Anything(o) => unsafe {
-                    o.init_anything(self.max_obj);
-                },
-                UninitOutlet::Signal => unsafe {
-                    max_sys::outlet_new(self.max_obj as _, signal.as_ptr());
-                },
-            }
-        }
-    }
 }
 
 impl<T, W> ObjBuilder<T> for WrappedBuilder<T, W>
@@ -227,33 +182,23 @@ where
     }
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang {
-        let b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Bang(b.clone()));
-        b as _
+        Outlet::append_bang(self.max_obj)
     }
     /// Add an outlet that outputs floats.
     fn add_float_outlet(&mut self) -> OutFloat {
-        let b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Float(b.clone()));
-        b as _
+        Outlet::append_float(self.max_obj)
     }
     /// Add an outlet that outputs ints.
     fn add_int_outlet(&mut self) -> OutInt {
-        let b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Int(b.clone()));
-        b as _
+        Outlet::append_int(self.max_obj)
     }
     /// Add an outlet that outputs lists.
     fn add_list_outlet(&mut self) -> OutList {
-        let b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::List(b.clone()));
-        b as _
+        Outlet::append_list(self.max_obj)
     }
     /// Add an outlet that outputs anything Max supports.
     fn add_anything_outlet(&mut self) -> OutAnything {
-        let b = Outlet::new_null();
-        self.outlets.push(UninitOutlet::Anything(b.clone()));
-        b as _
+        Outlet::append_anything(self.max_obj)
     }
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
@@ -284,8 +229,9 @@ where
     /// Add signal outlets
     fn add_signal_outlets(&mut self, count: usize) {
         for _ in 0..count {
-            self.outlets.push(UninitOutlet::Signal);
+            Outlet::append_signal(self.max_obj);
         }
+        self.signal_outlets += count;
     }
 
     /// Add signal inlets.
@@ -336,7 +282,6 @@ where
     T: MaxObjWrapped<T>,
 {
     pub fn finalize(mut self) -> MaxWrappedBuilderFinalize<T> {
-        self.finalize_outlets();
         let (callbacks_float, callbacks_int, proxy_inlets) = self.finalize_inlets(None);
         MaxWrappedBuilderFinalize {
             callbacks_float,
@@ -353,7 +298,6 @@ where
     //finalize and return siginal (inlets, outlets) counts
     pub fn finalize(mut self) -> MSPWrappedBuilderFinalize<T> {
         let (signal_inlets, signal_outlets) = self.signal_iolets();
-        self.finalize_outlets();
         let (callbacks_float, callbacks_int, proxy_inlets) =
             self.finalize_inlets(Some(signal_inlets));
         MSPWrappedBuilderFinalize {

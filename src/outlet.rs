@@ -1,18 +1,17 @@
 //! Routines for creating and sending data through outlets.
 
 use crate::atom::Atom;
+use crate::max::common_symbols;
 use crate::symbol::SymbolRef;
-use std::cell::UnsafeCell;
 use std::ffi::c_void;
-use std::sync::Arc;
 
 /// Result type alias from sending data through an outlet.
 pub type SendResult = Result<(), SendError>;
-pub type OutBang = Arc<dyn SendValue<()> + Sync>;
-pub type OutInt = Arc<dyn SendValue<i64> + Sync>;
-pub type OutFloat = Arc<dyn SendValue<f64> + Sync>;
-pub type OutList = Arc<dyn for<'a> SendValue<&'a [Atom]> + Sync + Send>;
-pub type OutAnything = Arc<dyn for<'a> SendAnything<'a> + Sync + Send>;
+pub type OutBang = Box<dyn SendValue<()> + Sync>;
+pub type OutInt = Box<dyn SendValue<i64> + Sync>;
+pub type OutFloat = Box<dyn SendValue<f64> + Sync>;
+pub type OutList = Box<dyn for<'a> SendValue<&'a [Atom]> + Sync + Send>;
+pub type OutAnything = Box<dyn for<'a> SendAnything<'a> + Sync + Send>;
 
 pub enum SendError {
     StackOverflow,
@@ -35,7 +34,7 @@ pub trait SendAnything<'a>:
 /// # Remarks
 /// This type is marked as Send and Sync but technically it can only be
 pub struct Outlet {
-    inner: UnsafeCell<*mut c_void>,
+    inner: *mut c_void,
 }
 
 /// Technically outlets are only Sync in the scheduler or main Max thread.
@@ -44,87 +43,42 @@ unsafe impl Sync for Outlet {}
 
 impl Outlet {
     /// Create an outlet that can send anything Max allows.
-    pub fn new(owner: *mut max_sys::t_object) -> OutAnything {
-        unsafe {
-            let s = Self::new_null();
-            s.init_anything(owner);
-            s
-        }
-    }
-
-    /// Create an outlet that will only send bangs.
-    pub fn new_bang(owner: *mut max_sys::t_object) -> OutBang {
-        unsafe {
-            let s = Self::new_null();
-            s.init_bang(owner);
-            s
-        }
-    }
-
-    /// Create an outlet that will only send ints.
-    pub fn new_int(owner: *mut max_sys::t_object) -> OutInt {
-        unsafe {
-            let s = Self::new_null();
-            s.init_int(owner);
-            s
-        }
-    }
-
-    /// Create an outlet that will only send floats.
-    pub fn new_float(owner: *mut max_sys::t_object) -> OutFloat {
-        unsafe {
-            let s = Self::new_null();
-            s.init_float(owner);
-            s
-        }
-    }
-
-    /// Create an outlet that will only send floats.
-    pub fn new_list(owner: *mut max_sys::t_object) -> OutList {
-        unsafe {
-            let s = Self::new_null();
-            s.init_list(owner);
-            s
-        }
-    }
-
-    //delayed initialization, allowing builders to allocate but then init later (for reordering)
-    pub(crate) fn new_null() -> Arc<Self> {
-        Arc::new(Self {
-            inner: UnsafeCell::new(std::ptr::null_mut()),
+    fn append(owner: *mut max_sys::t_object, type_sym: *mut max_sys::t_symbol) -> Box<Self> {
+        Box::new(Self {
+            inner: unsafe { max_sys::outlet_append(owner, std::ptr::null_mut(), type_sym) },
         })
     }
 
-    //these init functions will only be called right after creation, in the same thread, so it
-    //should be safe
-
-    pub(crate) unsafe fn init_anything(&self, owner: *mut max_sys::t_object) {
-        assert!(self.inner.get().is_null(), "already initialized");
-        *self.inner.get() = max_sys::outlet_new(owner as _, std::ptr::null());
+    /// Create an outlet that can send anything Max allows.
+    pub fn append_anything(owner: *mut max_sys::t_object) -> OutAnything {
+        Self::append(owner, std::ptr::null_mut())
     }
 
     /// Create an outlet that will only send bangs.
-    pub(crate) unsafe fn init_bang(&self, owner: *mut max_sys::t_object) {
-        assert!(self.inner.get().is_null(), "already initialized");
-        *self.inner.get() = max_sys::bangout(owner as _);
+    pub fn append_bang(owner: *mut max_sys::t_object) -> OutBang {
+        Self::append(owner, common_symbols().s_bang)
     }
 
     /// Create an outlet that will only send ints.
-    pub(crate) unsafe fn init_int(&self, owner: *mut max_sys::t_object) {
-        assert!(self.inner.get().is_null(), "already initialized");
-        *self.inner.get() = max_sys::intout(owner as _);
+    pub fn append_int(owner: *mut max_sys::t_object) -> OutInt {
+        Self::append(owner, common_symbols().s_long)
     }
 
     /// Create an outlet that will only send floats.
-    pub(crate) unsafe fn init_float(&self, owner: *mut max_sys::t_object) {
-        assert!(self.inner.get().is_null(), "already initialized");
-        *self.inner.get() = max_sys::floatout(owner as _);
+    pub fn append_float(owner: *mut max_sys::t_object) -> OutFloat {
+        Self::append(owner, common_symbols().s_float)
     }
 
     /// Create an outlet that will only send floats.
-    pub(crate) unsafe fn init_list(&self, owner: *mut max_sys::t_object) {
-        assert!(self.inner.get().is_null(), "already initialized");
-        *self.inner.get() = max_sys::listout(owner as _);
+    pub fn append_list(owner: *mut max_sys::t_object) -> OutList {
+        Self::append(owner, common_symbols().s_list)
+    }
+
+    /// Add a signal output.
+    pub fn append_signal(owner: *mut max_sys::t_object) {
+        unsafe {
+            let _ = max_sys::outlet_append(owner, std::ptr::null_mut(), common_symbols().s_signal);
+        }
     }
 }
 
@@ -140,34 +94,30 @@ fn res_wrap<F: FnOnce() -> *mut c_void>(func: F) -> SendResult {
 impl SendValue<()> for Outlet {
     /// Send a bang.
     fn send(&self, _v: ()) -> SendResult {
-        assert!(!self.inner.get().is_null(), "Uninitialized outlet");
-        res_wrap(|| unsafe { max_sys::outlet_bang(*self.inner.get()) })
+        res_wrap(|| unsafe { max_sys::outlet_bang(self.inner) })
     }
 }
 
 impl SendValue<f64> for Outlet {
     /// Send a float.
     fn send(&self, v: f64) -> SendResult {
-        assert!(!self.inner.get().is_null(), "Uninitialized outlet");
-        res_wrap(|| unsafe { max_sys::outlet_float(*self.inner.get(), v) })
+        res_wrap(|| unsafe { max_sys::outlet_float(self.inner, v) })
     }
 }
 
 impl SendValue<i64> for Outlet {
     /// Send an int.
     fn send(&self, v: i64) -> SendResult {
-        assert!(!self.inner.get().is_null(), "Uninitialized outlet");
-        res_wrap(|| unsafe { max_sys::outlet_int(*self.inner.get(), v) })
+        res_wrap(|| unsafe { max_sys::outlet_int(self.inner, v) })
     }
 }
 
 impl SendValue<&[Atom]> for Outlet {
     /// Send a list.
     fn send(&self, list: &[Atom]) -> SendResult {
-        assert!(!self.inner.get().is_null(), "Uninitialized outlet");
         res_wrap(|| unsafe {
             max_sys::outlet_list(
-                *self.inner.get(),
+                self.inner,
                 std::ptr::null_mut(),
                 list.len() as _,
                 //Atom is transparent, so it can be cast to t_atom
@@ -180,10 +130,9 @@ impl SendValue<&[Atom]> for Outlet {
 impl<'a> SendAnything<'a> for Outlet {
     /// Send a selector message.
     fn send_anything(&self, selector: SymbolRef, list: &'a [Atom]) -> SendResult {
-        assert!(!self.inner.get().is_null(), "Uninitialized outlet");
         res_wrap(|| unsafe {
             max_sys::outlet_anything(
-                *self.inner.get(),
+                self.inner,
                 selector.inner(),
                 list.len() as _,
                 //Atom is transparent, so it can be cast to t_atom
