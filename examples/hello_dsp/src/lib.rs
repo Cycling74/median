@@ -1,16 +1,16 @@
-use median::attr::{AttrTrampGetMethod, AttrTrampSetMethod};
-use median::builder::MSPWrappedBuilder;
-use median::class::{Class, MaxMethod};
-use median::clock::ClockHandle;
-use median::num::Int;
-use median::post;
-use median::symbol::SymbolRef;
-use median::wrapper::{MSPObjWrapped, MSPObjWrapper, ObjWrapped, WrapperWrapped};
+use median::{
+    attr::{AttrBuilder, AttrType},
+    builder::MSPWrappedBuilder,
+    class::Class,
+    clock::ClockHandle,
+    num::Int,
+    post,
+    wrapper::{MSPObjWrapped, MSPObjWrapper, ObjWrapped, WrapperWrapped},
+};
 
-use std::convert::{From, TryFrom};
+use std::convert::From;
 
 use std::ffi::c_void;
-use std::ffi::CString;
 use std::os::raw::c_long;
 
 pub struct HelloDSP {
@@ -82,26 +82,20 @@ impl MSPObjWrapped<HelloDSP> for HelloDSP {
             }
         }
 
-        c.add_method_int("int", int_trampoline);
-        c.add_method_bang(bang_trampoline);
+        c.add_method(median::method::Method::Int(int_trampoline));
+        c.add_method(median::method::Method::Bang(bang_trampoline));
 
-        //TODO encapsulate in a safe method
-        unsafe {
-            let attr = max_sys::attribute_new(
-                CString::new("blah").unwrap().as_ptr(),
-                SymbolRef::try_from("long").unwrap().inner(),
-                0,
-                Some(std::mem::transmute::<
-                    AttrTrampGetMethod<MSPObjWrapper<Self>>,
-                    MaxMethod,
-                >(attr_get_trampoline)),
-                Some(std::mem::transmute::<
-                    AttrTrampSetMethod<MSPObjWrapper<Self>>,
-                    MaxMethod,
-                >(attr_set_trampoline)),
-            );
-            max_sys::class_addattr(c.inner(), attr);
-        }
+        c.add_attribute(
+            AttrBuilder::new_accessors(
+                "blah",
+                AttrType::Int64,
+                attr_get_trampoline,
+                attr_set_trampoline,
+            )
+            .build()
+            .unwrap(),
+        )
+        .expect("failed to add attribute");
     }
 }
 

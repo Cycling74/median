@@ -1,10 +1,9 @@
 use median::{
-    attr::{AttrTrampGetMethod, AttrTrampSetMethod},
+    attr::{AttrBuilder, AttrType},
     builder::MaxWrappedBuilder,
     class::Class,
     clock::ClockHandle,
     inlet::MaxInlet,
-    method::MaxMethod,
     num::Int,
     object::MaxObj,
     outlet::OutList,
@@ -16,7 +15,6 @@ use median::{
 use std::convert::{From, TryFrom};
 
 use std::ffi::c_void;
-use std::ffi::CString;
 use std::os::raw::c_long;
 
 pub struct Simp {
@@ -86,23 +84,17 @@ impl MaxObjWrapped<Simp> for Simp {
         c.add_method(median::method::Method::Int(int_trampoline));
         c.add_method(median::method::Method::Bang(bang_trampoline));
 
-        //TODO encapsulate in a safe method
-        unsafe {
-            let attr = max_sys::attribute_new(
-                CString::new("blah").unwrap().as_ptr(),
-                SymbolRef::try_from("long").unwrap().inner(),
-                0,
-                Some(std::mem::transmute::<
-                    AttrTrampGetMethod<MaxObjWrapper<Self>>,
-                    MaxMethod,
-                >(attr_get_trampoline)),
-                Some(std::mem::transmute::<
-                    AttrTrampSetMethod<MaxObjWrapper<Self>>,
-                    MaxMethod,
-                >(attr_set_trampoline)),
-            );
-            max_sys::class_addattr(c.inner(), attr);
-        }
+        c.add_attribute(
+            AttrBuilder::new_accessors(
+                "blah",
+                AttrType::Int64,
+                attr_get_trampoline,
+                attr_set_trampoline,
+            )
+            .build()
+            .unwrap(),
+        )
+        .expect("failed to add attribute");
     }
 }
 
