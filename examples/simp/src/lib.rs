@@ -114,6 +114,8 @@ impl Simp {
     pub fn int(&self, v: i64) {
         let i = median::inlet::Proxy::get_inlet(self.max_obj());
         self.value.set(v);
+        median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
+            .unwrap();
         //XXX won't compile, needs mutex
         //self._v = format!("from rust {}", self.value);
         post!("from rust {} inlet {}", self.value, i);
