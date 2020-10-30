@@ -113,7 +113,7 @@ impl<T> AttrBuilder<T> {
     /// * `val_type` - the type of the attribute.
     /// * `get` - a set method to use with the attribute.
     /// * `set` - a set method to use with the attribute.
-    pub fn new_accessor<I: Into<String>>(
+    pub fn new_accessors<I: Into<String>>(
         name: I,
         val_type: AttrType,
         get: AttrTrampGetMethod<T>,
@@ -262,6 +262,14 @@ pub enum AttrVisiblity {
     Opaque,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ClipParams {
+    pub min: f64,
+    pub max: f64,
+    pub use_min: i64,
+    pub use_max: i64,
+}
+
 impl Into<*const max_sys::t_symbol> for AttrType {
     fn into(self) -> *const max_sys::t_symbol {
         let sym = common_symbols();
@@ -276,14 +284,6 @@ impl Into<*const max_sys::t_symbol> for AttrType {
             Self::ObjectPtr => sym.s_object,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ClipParams {
-    pub min: f64,
-    pub max: f64,
-    pub use_min: i64,
-    pub use_max: i64,
 }
 
 impl Into<ClipParams> for AttrValClip {
@@ -311,6 +311,12 @@ impl Into<ClipParams> for AttrValClip {
             }
         };
         p
+    }
+}
+
+impl<T> Into<*mut max_sys::t_object> for Attr<T> {
+    fn into(self) -> *mut max_sys::t_object {
+        self.inner
     }
 }
 
