@@ -1,9 +1,10 @@
 //! Attributes.
 
 use crate::atom::Atom;
-use crate::error::MaxError;
+use crate::error::{MaxError, MaxResult};
 use crate::max::common_symbols;
 use crate::method::MaxMethod;
+use crate::symbol::SymbolRef;
 
 use std::ffi::c_void;
 use std::marker::PhantomData;
@@ -14,12 +15,13 @@ pub type AttrTrampGetMethod<T> =
 pub type AttrTrampSetMethod<T> =
     extern "C" fn(s: *mut T, attr: c_void, ac: c_long, av: *mut max_sys::t_atom);
 
-//could add scale but it doesn't look like anything in max uses it
-
+/// A wrapper for a max attribute. `T` refers to the object that the attribute is attributed to.
 pub struct Attr<T> {
     inner: *mut max_sys::t_object,
     _phantom: PhantomData<T>,
 }
+
+//could add scale but it doesn't look like anything in max uses it
 
 /// A builder for building up attributes.
 pub struct AttrBuilder<T> {
@@ -318,6 +320,21 @@ impl<T> Into<*mut max_sys::t_object> for Attr<T> {
     fn into(self) -> *mut max_sys::t_object {
         self.inner
     }
+}
+
+/// Indicate that an attribute has had a change (outside of its setter).
+///
+/// # Arguments
+/// * `owner` - the object that owns the attribute
+/// * `name` - the name of the attributes
+pub fn touch_with_name<I: Into<SymbolRef>>(
+    owner: *mut max_sys::t_object,
+    name: I,
+) -> MaxResult<()> {
+    MaxError::from(
+        unsafe { max_sys::object_attr_touch(owner, name.into().inner()) as _ },
+        (),
+    )
 }
 
 /// handle the boiler plate of dealing with attribute atoms
