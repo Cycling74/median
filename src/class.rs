@@ -1,5 +1,6 @@
 //! Class registration.
 
+use crate::attr::Attr;
 use crate::error::{MaxError, MaxResult};
 use crate::method::*;
 use std::ffi::c_void;
@@ -91,6 +92,13 @@ impl<T> Class<T> {
     /// Get the inner class object.
     pub fn inner(&mut self) -> *mut max_sys::t_class {
         self.class
+    }
+
+    pub fn add_attribute(&mut self, attr: Attr<T>) -> MaxResult<()> {
+        MaxError::from(
+            unsafe { max_sys::class_addattr(self.inner(), attr.into()) as _ },
+            (),
+        )
     }
 
     fn add_sel_method(
