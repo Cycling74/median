@@ -1,6 +1,7 @@
 //! Attributes.
 
 use crate::atom::Atom;
+use crate::error::MaxError;
 use crate::max::common_symbols;
 use crate::method::MaxMethod;
 
@@ -177,6 +178,32 @@ impl<T> AttrBuilder<T> {
         if inner.is_null() {
             return Err("failed to create attribute".into());
         }
+        //apply clip
+        MaxError::from(
+            unsafe {
+                match self.clip {
+                    AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as i64,
+                    AttrClip::Get(c) => {
+                        let p: ClipParams = c.into();
+                        max_sys::attr_addfilterget_clip(
+                            inner as _, p.min, p.max, p.use_min, p.use_max,
+                        )
+                    }
+                    AttrClip::Set(c) => {
+                        let p: ClipParams = c.into();
+                        max_sys::attr_addfilterset_clip(
+                            inner as _, p.min, p.max, p.use_min, p.use_max,
+                        )
+                    }
+                    AttrClip::GetSet(c) => {
+                        let p: ClipParams = c.into();
+                        max_sys::attr_addfilter_clip(inner as _, p.min, p.max, p.use_min, p.use_max)
+                    }
+                }
+            } as _,
+            (),
+        )
+        .map_err(|e| format!("error {:?} setting clip", e))?;
         Ok(Attr {
             inner,
             _phantom: PhantomData,
@@ -206,7 +233,6 @@ pub enum AttrType {
 
 #[derive(Debug, Clone, Copy)]
 pub enum AttrValClip {
-    None,
     /// clip any value below the given to the given value.
     Min(f64),
     /// clip any value above the given to the given value.
@@ -249,6 +275,42 @@ impl Into<*const max_sys::t_symbol> for AttrType {
             Self::Ptr => sym.s_pointer,
             Self::ObjectPtr => sym.s_object,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ClipParams {
+    pub min: f64,
+    pub max: f64,
+    pub use_min: i64,
+    pub use_max: i64,
+}
+
+impl Into<ClipParams> for AttrValClip {
+    fn into(self) -> ClipParams {
+        let mut p = ClipParams {
+            min: 0f64,
+            max: 0f64,
+            use_min: 0,
+            use_max: 0,
+        };
+        match self {
+            Self::Min(v) => {
+                p.min = v;
+                p.use_min = 1;
+            }
+            Self::Max(v) => {
+                p.max = v;
+                p.use_max = 1;
+            }
+            Self::MinMax(min, max) => {
+                p.min = min;
+                p.max = max;
+                p.use_min = 1;
+                p.use_max = 1;
+            }
+        };
+        p
     }
 }
 
