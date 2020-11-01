@@ -9,7 +9,7 @@ use median::{
     outlet::OutList,
     post,
     symbol::SymbolRef,
-    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
+    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped},
 };
 
 use std::convert::{From, TryFrom};
@@ -85,6 +85,18 @@ median::external! {
                 .unwrap(),
             )
                 .expect("failed to add attribute");
+
+            c.add_attribute(
+                AttrBuilder::new_accessors(
+                    "foo",
+                    AttrType::Float64,
+                    Self::foo_tramp,
+                    Self::set_foo_tramp,
+                )
+                .build()
+                .unwrap(),
+            )
+                .expect("failed to add attribute");
             }
     }
 
@@ -103,6 +115,17 @@ median::external! {
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);
             post!("from rust {} inlet {}", self.value, i);
+        }
+
+        #[attr_get_tramp(MaxObjWrapper<Self>)]
+        pub fn foo(&self) -> f64 {
+            //TODO
+            0f64
+        }
+
+        #[attr_set_tramp(MaxObjWrapper<Self>)]
+        pub fn set_foo(&self, v: f64) {
+            //TODO
         }
 
         pub fn clocked(&self) {
