@@ -118,8 +118,8 @@ impl From<&i64> for Atom {
     }
 }
 
-impl From<&crate::num::Int> for Atom {
-    fn from(v: &crate::num::Int) -> Self {
+impl From<&crate::num::Int64> for Atom {
+    fn from(v: &crate::num::Int64) -> Self {
         Self::from(v.get())
     }
 }
@@ -140,8 +140,8 @@ impl From<&f64> for Atom {
     }
 }
 
-impl From<&crate::num::Float> for Atom {
-    fn from(v: &crate::num::Float) -> Self {
+impl From<&crate::num::Float64> for Atom {
+    fn from(v: &crate::num::Float64) -> Self {
         Self::from(v.get())
     }
 }

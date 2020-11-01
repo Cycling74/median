@@ -6,108 +6,63 @@ pub use self::atomic64::*;
 
 #[cfg(target_arch = "x86_64")]
 mod atomic64 {
+
+    macro_rules! impl_atomic {
+        ($t:ty, $a:ident) => {
+            #[derive(Default)]
+            #[repr(transparent)]
+            pub struct $a {
+                pub(crate) value: ::std::cell::UnsafeCell<$t>,
+            }
+
+            impl $a {
+                pub fn new(v: $t) -> Self {
+                    Self {
+                        value: ::std::cell::UnsafeCell::new(v),
+                    }
+                }
+                pub fn get(&self) -> $t {
+                    unsafe { *self.value.get() }
+                }
+                pub fn set(&self, v: $t) {
+                    unsafe {
+                        *self.value.get() = v;
+                    }
+                }
+            }
+
+            impl ::std::convert::From<$t> for $a {
+                fn from(v: $t) -> Self {
+                    Self::new(v)
+                }
+            }
+
+            impl ::std::convert::Into<$t> for &$a {
+                fn into(self) -> $t {
+                    unsafe { *self.value.get() }
+                }
+            }
+
+            impl ::std::fmt::Display for $a {
+                fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                    write!(f, "{}", self.get())
+                }
+            }
+
+            impl Clone for $a {
+                fn clone(&self) -> Self {
+                    Self::new(self.get())
+                }
+            }
+            unsafe impl Send for $a {}
+            unsafe impl Sync for $a {}
+        };
+    }
+
     //we assume that f64 and i64 are atomic on the platforms we run on
     //so, Float and Int are wrappers that codify that and allow interior mutability, Send and Sync
-    use std::cell::UnsafeCell;
-    use std::convert::From;
-    use std::fmt::{Display, Formatter, Result};
-
-    #[derive(Default)]
-    #[repr(transparent)]
-    pub struct Float {
-        pub(crate) value: UnsafeCell<f64>,
-    }
-
-    #[derive(Default)]
-    #[repr(transparent)]
-    pub struct Int {
-        pub(crate) value: UnsafeCell<i64>,
-    }
-
-    impl Float {
-        pub fn new(v: f64) -> Self {
-            Self {
-                value: UnsafeCell::new(v),
-            }
-        }
-        pub fn get(&self) -> f64 {
-            unsafe { *self.value.get() }
-        }
-        pub fn set(&self, v: f64) {
-            unsafe {
-                *self.value.get() = v;
-            }
-        }
-    }
-
-    impl From<f64> for Float {
-        fn from(v: f64) -> Self {
-            Self::new(v)
-        }
-    }
-
-    impl Into<f64> for &Float {
-        fn into(self) -> f64 {
-            unsafe { *self.value.get() }
-        }
-    }
-
-    impl Display for Float {
-        fn fmt(&self, f: &mut Formatter) -> Result {
-            write!(f, "{}", self.get())
-        }
-    }
-
-    impl Clone for Float {
-        fn clone(&self) -> Self {
-            Self::new(self.get())
-        }
-    }
-
-    impl Int {
-        pub fn new(v: i64) -> Self {
-            Self {
-                value: UnsafeCell::new(v),
-            }
-        }
-        pub fn get(&self) -> i64 {
-            unsafe { *self.value.get() }
-        }
-        pub fn set(&self, v: i64) {
-            unsafe {
-                *self.value.get() = v;
-            }
-        }
-    }
-
-    impl From<i64> for Int {
-        fn from(v: i64) -> Self {
-            Self::new(v)
-        }
-    }
-
-    impl Into<i64> for &Int {
-        fn into(self) -> i64 {
-            unsafe { *self.value.get() }
-        }
-    }
-
-    impl Display for Int {
-        fn fmt(&self, f: &mut Formatter) -> Result {
-            write!(f, "{}", self.get())
-        }
-    }
-
-    impl Clone for Int {
-        fn clone(&self) -> Self {
-            Self::new(self.get())
-        }
-    }
-
-    unsafe impl Send for Float {}
-    unsafe impl Sync for Float {}
-    unsafe impl Send for Int {}
-    unsafe impl Sync for Int {}
+    impl_atomic!(f64, Float64);
+    impl_atomic!(i64, Int64);
 }
 
 #[cfg(all(test, target_arch = "x86_64"))]
@@ -118,44 +73,44 @@ mod tests {
 
     #[derive(Default)]
     pub struct A {
-        pub f: Float,
+        pub f: Float64,
     }
 
     impl A {
         pub fn new() -> Self {
             Self {
-                f: Float::new(0f64),
+                f: Float64::new(0f64),
             }
         }
     }
 
     static BLAH: A = A {
-        f: Float {
+        f: Float64 {
             value: UnsafeCell::new(0f64),
         },
     };
 
     #[test]
     fn sizes() {
-        assert_eq!(std::mem::size_of::<f64>(), std::mem::size_of::<Float>());
-        assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Int>());
+        assert_eq!(std::mem::size_of::<f64>(), std::mem::size_of::<Float64>());
+        assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Int64>());
     }
 
     #[test]
     fn align() {
-        assert_eq!(std::mem::align_of::<f64>(), std::mem::align_of::<Float>());
-        assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Int>());
+        assert_eq!(std::mem::align_of::<f64>(), std::mem::align_of::<Float64>());
+        assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Int64>());
     }
 
     #[test]
     fn can_from() {
-        let x: Int = 4i64.into();
+        let x: Int64 = 4i64.into();
         assert_eq!(x.get(), 4i64);
     }
 
     #[test]
     fn can_into() {
-        let x = Int::new(12i64);
+        let x = Int64::new(12i64);
         let y = &x;
         let z: i64 = y.into();
         assert_eq!(z, 12i64);

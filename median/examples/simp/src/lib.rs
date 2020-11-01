@@ -4,7 +4,7 @@ use median::{
     class::Class,
     clock::ClockHandle,
     inlet::MaxInlet,
-    num::{Float, Int},
+    num::{Float64, Int64},
     object::MaxObj,
     outlet::OutList,
     post,
@@ -17,13 +17,12 @@ use median::{
 use std::convert::{From, TryFrom};
 
 use std::ffi::c_void;
-use std::os::raw::c_long;
 
 median::external! {
     //#[name="simp"]
     pub struct Simp {
-        pub value: Int,
-        pub fvalue: Float,
+        pub value: Int64,
+        pub fvalue: Float64,
         _v: String,
         clock: ClockHandle,
         list_out: OutList,
@@ -41,7 +40,7 @@ median::external! {
             builder.add_inlet(MaxInlet::Int(Box::new(Self::int)));
             let _ = builder.add_inlet(MaxInlet::Proxy);
             Self {
-                value: Int::new(0),
+                value: Default::default(),
                 fvalue: Default::default(),
                 _v: String::from("blah"),
                 clock: builder.with_clockfn(Self::clocked),
