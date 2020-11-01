@@ -214,3 +214,19 @@ impl Default for Atom {
         Self::from(0i64)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn size_align() {
+        assert_eq!(
+            std::mem::size_of::<max_sys::t_atom>(),
+            std::mem::size_of::<Atom>()
+        );
+        assert_eq!(
+            std::mem::align_of::<max_sys::t_atom>(),
+            std::mem::align_of::<Atom>()
+        );
+    }
+}
