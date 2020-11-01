@@ -3,7 +3,7 @@ use median::{
     builder::MSPWrappedBuilder,
     class::Class,
     clock::ClockHandle,
-    num::Int,
+    num::Int64,
     post,
     wrapper::{MSPObjWrapped, MSPObjWrapper, ObjWrapped, WrapperWrapped},
 };
@@ -14,7 +14,7 @@ use std::ffi::c_void;
 use std::os::raw::c_long;
 
 pub struct HelloDSP {
-    pub value: Int,
+    pub value: Int64,
     _v: String,
     clock: ClockHandle,
 }
@@ -24,7 +24,7 @@ impl MSPObjWrapped<HelloDSP> for HelloDSP {
         builder.add_signal_inlets(2);
         builder.add_signal_outlets(2);
         Self {
-            value: Int::new(0),
+            value: Int64::new(0),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
         }
