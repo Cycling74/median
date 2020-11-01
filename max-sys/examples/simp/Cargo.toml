@@ -1,0 +1,16 @@
+[package]
+name = "simp"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2018"
+
+[lib]
+name = "simp"
+crate-type = ["cdylib"]
+
+[dependencies]
+max-sys = { path = "../../" }
+
+[profile.release]
+lto = true
+panic = "abort"

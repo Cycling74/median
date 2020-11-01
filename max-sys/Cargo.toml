@@ -1,0 +1,10 @@
+[package]
+name = "max-sys"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2018"
+build = "build.rs"
+description = "sys bindings for the Cycling 74 Max SDK"
+
+[build-dependencies]
+bindgen = "0.55.1"
