@@ -51,24 +51,6 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            pub extern "C" fn attr_get_trampoline(
-                w: &MaxObjWrapper<Simp>,
-                _attr: c_void,
-                ac: *mut c_long,
-                av: *mut *mut max_sys::t_atom,
-            ) {
-                median::attr::get(ac, av, || w.wrapped().value.get());
-            }
-
-            pub extern "C" fn attr_set_trampoline(
-                w: &MaxObjWrapper<Simp>,
-                _attr: c_void,
-                ac: c_long,
-                av: *mut max_sys::t_atom,
-            ) {
-                median::attr::set(ac, av, |v: i64| w.wrapped().value.set(v));
-            }
-
             c.add_method(median::method::Method::Int(Self::int_tramp));
             c.add_method(median::method::Method::Bang(Self::bang_tramp));
 
@@ -76,8 +58,8 @@ median::external! {
                 AttrBuilder::new_accessors(
                     "blah",
                     AttrType::Int64,
-                    attr_get_trampoline,
-                    attr_set_trampoline,
+                    Self::blah_tramp,
+                    Self::set_blah_tramp,
                 )
                 .build()
                 .unwrap(),
@@ -125,6 +107,16 @@ median::external! {
         #[attr_set_tramp(Wrapper)]
         pub fn set_foo(&self, v: f64) {
             self.fvalue.set(v);
+        }
+
+        #[attr_get_tramp(Wrapper)]
+        pub fn blah(&self) -> i64 {
+            self.value.get()
+        }
+
+        #[attr_set_tramp(Wrapper)]
+        pub fn set_blah(&self, v: i64) {
+            self.value.set(v);
         }
 
         pub fn clocked(&self) {
