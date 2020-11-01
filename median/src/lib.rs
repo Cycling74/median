@@ -17,7 +17,7 @@ pub mod wrapper;
 //re-exports
 mod max;
 pub use self::max::*;
-pub use median_macros::*;
+pub use median_macros::external;
 
 #[cfg(test)]
 pub mod test;
