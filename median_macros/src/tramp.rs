@@ -79,7 +79,7 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     let expanded = quote! {
         pub extern "C" fn #tramp_name(
             wrapper: &#t,
-            _attr: c_void,
+            _attr: ::std::ffi::c_void,
             ac: *mut ::std::os::raw::c_long,
             av: *mut *mut ::max_sys::t_atom,
         ) {

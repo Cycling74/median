@@ -16,8 +16,6 @@ use median::{
 
 use std::convert::{From, TryFrom};
 
-use std::ffi::c_void;
-
 median::external! {
     //#[name="simp"]
     pub struct Simp {
