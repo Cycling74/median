@@ -16,9 +16,8 @@ unsafe impl Sync for ClockInner {}
 
 impl ClockInner {
     //tramp actually calls wrapper
-    extern "C" fn call_tramp(s: *const MaxObjWrapper<Self>) {
-        let wrapper = unsafe { &(*s) };
-        wrapper.wrapped().call();
+    extern "C" fn call_tramp(w: &MaxObjWrapper<Self>) {
+        w.wrapped().call();
     }
     pub(crate) fn set(
         &mut self,
@@ -117,7 +116,7 @@ impl ClockHandle {
         let clock = max_sys::clock_new(
             std::mem::transmute::<_, _>(clock_target.max_obj()),
             Some(std::mem::transmute::<
-                extern "C" fn(*const MaxObjWrapper<ClockInner>),
+                extern "C" fn(&MaxObjWrapper<ClockInner>),
                 MaxMethod,
             >(ClockInner::call_tramp)),
         );
