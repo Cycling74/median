@@ -4,7 +4,7 @@ use median::{
     class::Class,
     clock::ClockHandle,
     inlet::MaxInlet,
-    num::Int,
+    num::{Float, Int},
     object::MaxObj,
     outlet::OutList,
     post,
@@ -21,6 +21,7 @@ median::external! {
     //#[name="simp"]
     pub struct Simp {
         pub value: Int,
+        pub fvalue: Float,
         _v: String,
         clock: ClockHandle,
         list_out: OutList,
@@ -37,6 +38,7 @@ median::external! {
             let _ = builder.add_inlet(MaxInlet::Proxy);
             Self {
                 value: Int::new(0),
+                fvalue: Default::default(),
                 _v: String::from("blah"),
                 clock: builder.with_clockfn(Self::clocked),
                 list_out: builder.add_list_outlet(),
@@ -119,13 +121,12 @@ median::external! {
 
         #[attr_get_tramp(MaxObjWrapper<Self>)]
         pub fn foo(&self) -> f64 {
-            //TODO
-            0f64
+            self.fvalue.get()
         }
 
         #[attr_set_tramp(MaxObjWrapper<Self>)]
         pub fn set_foo(&self, v: f64) {
-            //TODO
+            self.fvalue.set(v);
         }
 
         pub fn clocked(&self) {
