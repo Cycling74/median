@@ -1,3 +1,4 @@
 *.mxo
-/target
+target
 Cargo.lock
+.dsp_cache

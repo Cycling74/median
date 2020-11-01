@@ -28,6 +28,9 @@ pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, 
 pub type FloatCBHash<T> = HashMap<usize, FloatCB<T>>;
 pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 
+//reexports
+pub use median_macros::wrapped_tramp as tramp;
+
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
 //Send
 #[repr(transparent)]

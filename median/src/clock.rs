@@ -3,9 +3,8 @@ use crate::method::MaxMethod;
 use crate::{
     builder::MaxWrappedBuilder,
     object::MaxObj,
-    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
+    wrapper::{tramp, MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
-use median_macros::tramp;
 
 use std::ffi::c_void;
 
