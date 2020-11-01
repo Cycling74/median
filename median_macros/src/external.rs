@@ -111,6 +111,11 @@ fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
         #(#impls)*
 
         #(#remain)*
+
+        #[no_mangle]
+        pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
+            MaxObjWrapper::<#class_name>::register(false)
+        }
     };
     Ok(expanded.into())
 }

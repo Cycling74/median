@@ -128,8 +128,3 @@ median::external! {
         }
     }
 }
-
-#[no_mangle]
-pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
-    MaxObjWrapper::<Simp>::register(false)
-}
