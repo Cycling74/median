@@ -59,8 +59,8 @@ mod atomic64 {
         };
     }
 
-    //we assume that f64 and i64 are atomic on the platforms we run on
-    //so, Float and Int are wrappers that codify that and allow interior mutability, Send and Sync
+    //we assume that the following types are atomic on the platform we run on so we wrap them in a
+    //type that codifies that for rust
     impl_atomic!(f64, Float64);
     impl_atomic!(i64, Int64);
 }
