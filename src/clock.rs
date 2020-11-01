@@ -5,6 +5,7 @@ use crate::{
     object::MaxObj,
     wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
+use median_macros::tramp;
 
 use std::ffi::c_void;
 
@@ -15,10 +16,6 @@ struct ClockInner {
 unsafe impl Sync for ClockInner {}
 
 impl ClockInner {
-    //tramp actually calls wrapper
-    extern "C" fn call_tramp(w: &MaxObjWrapper<Self>) {
-        w.wrapped().call();
-    }
     pub(crate) fn set(
         &mut self,
         target: *mut max_sys::t_object,
@@ -26,6 +23,8 @@ impl ClockInner {
     ) {
         self.target = Some((target, func));
     }
+
+    #[tramp(MaxObjWrapper<Self>)]
     fn call(&self) {
         if let Some((target, func)) = &self.target {
             (func)(*target)
