@@ -9,7 +9,9 @@ use median::{
     outlet::OutList,
     post,
     symbol::SymbolRef,
-    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped},
+    wrapper::{
+        attr_get_tramp, attr_set_tramp, tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped,
+    },
 };
 
 use std::convert::{From, TryFrom};
@@ -26,6 +28,8 @@ median::external! {
         clock: ClockHandle,
         list_out: OutList,
     }
+
+    type Wrapper = MaxObjWrapper<Simp>;
 
     impl MaxObjWrapped<Simp> for Simp {
         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
@@ -47,14 +51,6 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            pub extern "C" fn bang_trampoline(w: &MaxObjWrapper<Simp>) {
-                w.wrapped().bang();
-            }
-
-            pub extern "C" fn int_trampoline(s: &MaxObjWrapper<Simp>, v: i64) {
-                s.wrapped().int(v);
-            }
-
             pub extern "C" fn attr_get_trampoline(
                 w: &MaxObjWrapper<Simp>,
                 _attr: c_void,
@@ -73,8 +69,8 @@ median::external! {
                 median::attr::set(ac, av, |v: i64| w.wrapped().value.set(v));
             }
 
-            c.add_method(median::method::Method::Int(int_trampoline));
-            c.add_method(median::method::Method::Bang(bang_trampoline));
+            c.add_method(median::method::Method::Int(Self::int_tramp));
+            c.add_method(median::method::Method::Bang(Self::bang_tramp));
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
@@ -103,12 +99,14 @@ median::external! {
     }
 
     impl Simp {
+        #[tramp(Wrapper)]
         pub fn bang(&self) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             post!("from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
+        #[tramp(Wrapper)]
         pub fn int(&self, v: i64) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
@@ -119,12 +117,12 @@ median::external! {
             post!("from rust {} inlet {}", self.value, i);
         }
 
-        #[attr_get_tramp(MaxObjWrapper<Self>)]
+        #[attr_get_tramp(Wrapper)]
         pub fn foo(&self) -> f64 {
             self.fvalue.get()
         }
 
-        #[attr_set_tramp(MaxObjWrapper<Self>)]
+        #[attr_set_tramp(Wrapper)]
         pub fn set_foo(&self, v: f64) {
             self.fvalue.set(v);
         }
