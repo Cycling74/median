@@ -11,9 +11,9 @@ use std::marker::PhantomData;
 use std::os::raw::c_long;
 
 pub type AttrTrampGetMethod<T> =
-    extern "C" fn(s: *mut T, attr: c_void, ac: *mut c_long, av: *mut *mut max_sys::t_atom);
+    extern "C" fn(s: &T, attr: c_void, ac: *mut c_long, av: *mut *mut max_sys::t_atom);
 pub type AttrTrampSetMethod<T> =
-    extern "C" fn(s: *mut T, attr: c_void, ac: c_long, av: *mut max_sys::t_atom);
+    extern "C" fn(s: &T, attr: c_void, ac: c_long, av: *mut max_sys::t_atom);
 
 /// A wrapper for a max attribute. `T` refers to the object that the attribute is attributed to.
 pub struct Attr<T> {

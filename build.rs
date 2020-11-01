@@ -92,7 +92,7 @@ fn gen_method(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
         let args = p.iter().map(Arg::to_sig);
         f.write_all(
             quote! {
-                pub type #t<T> = unsafe extern "C" fn(*const T, #(#args),*);
+                pub type #t<T> = unsafe extern "C" fn(&T, #(#args),*);
             }
             .to_string()
             .as_bytes(),

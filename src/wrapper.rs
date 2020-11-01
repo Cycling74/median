@@ -79,6 +79,7 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
 }
 
 pub trait WrapperWrapped<T> {
+    /// Retrieve a reference to your wrapped class.
     fn wrapped(&self) -> &T;
 }
 
@@ -264,7 +265,6 @@ where
     I: WrapperInternal<O, T>,
     T: ObjWrapped<T>,
 {
-    /// Retrieve a reference to your wrapped class.
     fn wrapped(&self) -> &T {
         self.internal().wrapped()
     }

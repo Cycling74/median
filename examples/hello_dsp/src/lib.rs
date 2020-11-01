@@ -41,45 +41,33 @@ impl MSPObjWrapped<HelloDSP> for HelloDSP {
 
     /// Register any methods you need for your class
     fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
-        pub extern "C" fn bang_trampoline(s: *const MSPObjWrapper<HelloDSP>) {
-            unsafe {
-                let obj = &*(s as *const MSPObjWrapper<HelloDSP>);
-                obj.wrapped().bang();
-            }
+        pub extern "C" fn bang_trampoline(w: &MSPObjWrapper<HelloDSP>) {
+            w.wrapped().bang();
         }
 
-        pub extern "C" fn int_trampoline(s: *const MSPObjWrapper<HelloDSP>, v: i64) {
-            unsafe {
-                let obj = &*(s as *const MSPObjWrapper<HelloDSP>);
-                obj.wrapped().int(v);
-            }
+        pub extern "C" fn int_trampoline(w: &MSPObjWrapper<HelloDSP>, v: i64) {
+            w.wrapped().int(v);
         }
 
         pub extern "C" fn attr_get_trampoline(
-            s: *mut MSPObjWrapper<HelloDSP>,
+            w: &MSPObjWrapper<HelloDSP>,
             _attr: c_void,
             ac: *mut c_long,
             av: *mut *mut max_sys::t_atom,
         ) {
-            unsafe {
-                let obj = &*(s as *const MSPObjWrapper<HelloDSP>);
-                median::attr::get(ac, av, || obj.wrapped().value.get());
-            }
+            median::attr::get(ac, av, || w.wrapped().value.get());
         }
 
         pub extern "C" fn attr_set_trampoline(
-            s: *mut MSPObjWrapper<HelloDSP>,
+            w: &MSPObjWrapper<HelloDSP>,
             _attr: c_void,
             ac: c_long,
             av: *mut max_sys::t_atom,
         ) {
-            unsafe {
-                let obj = &*(s as *const MSPObjWrapper<HelloDSP>);
-                median::attr::set(ac, av, |v: i64| {
-                    post!("attr_set_trampoline {}", v);
-                    obj.wrapped().value.set(v);
-                });
-            }
+            median::attr::set(ac, av, |v: i64| {
+                post!("attr_set_trampoline {}", v);
+                w.wrapped().value.set(v);
+            });
         }
 
         c.add_method(median::method::Method::Int(int_trampoline));
