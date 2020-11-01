@@ -1,0 +1,15 @@
+[package]
+name = "median_macros"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+quote = "1.0.7"
+syn = { version = "1.0.48", features = ["full"] }
+proc-macro2 = "1.0.24"
