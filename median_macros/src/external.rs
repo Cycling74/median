@@ -93,6 +93,8 @@ fn process_impls(
                 the_impl = Some(i);
                 continue;
             }
+        } else {
+            //XXX extract methods etc.
         }
         processed_impls.push(i);
     }
