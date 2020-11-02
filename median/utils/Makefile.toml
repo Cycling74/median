@@ -1,0 +1,56 @@
+# vim: set ts=4 sw=4 expandtab:
+[config]
+additional_profiles = [ "release" ]
+
+[env]
+PLATFORM_DYLIB_EXT = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "so", mapping = {"macos" = "dylib", "windows" = "dll" } }
+PLATFORM_EXTERNAL_EXT = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = {"macos" = "mxo", "windows" = "mxe64"} }
+PACKAGE_INSTALL_DIR = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = {"macos" = "${HOME}/Documents/Max 8/Packages/median/externals"} }
+
+[env.development]
+BUILD_ARGS = "build"
+PROFILE_TARGET_DIR = "target/debug"
+
+[env.release]
+BUILD_ARGS = "build|--release"
+PROFILE_TARGET_DIR = "target/release"
+
+[tasks.build]
+args = ["@@split(BUILD_ARGS,|)"]
+
+[tasks.name-env]
+env = { "PROFILE_PACKAGE_DIR" = "${PROFILE_TARGET_DIR}/${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_EXTERNAL_EXT}" }
+
+[tasks.echo]
+dependencies = ["name-env"]
+script = [
+'''
+echo PLATFORM_DYLIB_EXT: ${PLATFORM_DYLIB_EXT}
+echo PLATFORM_EXTERNAL_EXT: ${PLATFORM_EXTERNAL_EXT}
+echo PROFILE_PACKAGE_DIR: ${PROFILE_PACKAGE_DIR}
+echo PACKAGE_INSTALL_DIR: ${PACKAGE_INSTALL_DIR}
+'''
+]
+
+[tasks.package.mac]
+clear = true
+dependencies = ["build", "name-env"]
+script_runner = "@shell"
+script = [
+    '''
+    mkdir -p ${PROFILE_PACKAGE_DIR}/Contents/MacOS/
+		cp "${PROFILE_TARGET_DIR}/lib${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_DYLIB_EXT}" "${PROFILE_PACKAGE_DIR}/Contents/MacOS/${CARGO_MAKE_CRATE_FS_NAME}"
+		cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_PACKAGE_DIR}/Contents/"
+    '''
+]
+
+[tasks.install]
+clear = true
+dependencies = ["package"]
+script_runner = "@shell"
+script = [
+    '''
+    mkdir -p "${PACKAGE_INSTALL_DIR}"
+		cp -r "${PROFILE_PACKAGE_DIR}" "${PACKAGE_INSTALL_DIR}"
+    '''
+]
