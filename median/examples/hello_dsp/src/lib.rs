@@ -13,7 +13,7 @@ use median::{
 median::external! {
     #[name="hello_dsp~"]
     pub struct HelloDSP {
-        pub value: Int64,
+        value: Int64,
         _v: String,
         clock: ClockHandle,
     }

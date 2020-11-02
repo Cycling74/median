@@ -19,8 +19,8 @@ use std::convert::{From, TryFrom};
 median::external! {
     //#[name="simp"]
     pub struct Simp {
-        pub value: Int64,
-        pub fvalue: Float64,
+        value: Int64,
+        fvalue: Float64,
         _v: String,
         clock: ClockHandle,
         list_out: OutList,
