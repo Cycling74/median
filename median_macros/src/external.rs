@@ -6,12 +6,6 @@ use syn::{
     ItemImpl, ItemStruct, Lit, LitInt, LitStr, Pat, Token, Type, TypePath,
 };
 
-#[derive(Copy, Clone, Debug)]
-enum ExternalType {
-    Max,
-    MSP,
-}
-
 struct Parsed {
     items: Vec<Item>,
 }
@@ -73,6 +67,53 @@ fn process_struct(mut s: ItemStruct) -> syn::Result<StructDetails> {
     })
 }
 
+struct ImplDetails {
+    wrapper_type: Ident,
+    processed_impls: Vec<ItemImpl>,
+}
+
+fn process_impls(
+    the_struct: &ItemStruct,
+    class_name: &Ident,
+    impls: Vec<ItemImpl>,
+) -> syn::Result<ImplDetails> {
+    let mut processed_impls = Vec::new();
+    let mut the_impl = None;
+    let mut wrapper_type = None;
+
+    for i in impls {
+        if let Some((_, path, _)) = &i.trait_ {
+            let t = path.segments.last().unwrap().ident.clone();
+            if t == "MaxObjWrapped" {
+                wrapper_type = Some(Ident::new(&"MaxObjWrapper", the_struct.span()));
+                the_impl = Some(i);
+                continue;
+            } else if t == "MSPObjWrapped" {
+                wrapper_type = Some(Ident::new(&"MSPObjWrapper", the_struct.span()));
+                the_impl = Some(i);
+                continue;
+            }
+        }
+        processed_impls.push(i);
+    }
+
+    let wrapper_type = wrapper_type.ok_or(syn::Error::new(
+        the_struct.span(),
+        "Failed to find MaxObjWrapper or MSPObjWrapper",
+    ))?;
+
+    let the_impl = the_impl.unwrap();
+
+    //TODO actually process
+
+    processed_impls.push(the_impl);
+
+    Ok(ImplDetails {
+        wrapper_type,
+        processed_impls,
+    })
+}
+
 fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
     let mut impls = Vec::new();
     let mut the_struct = None;
@@ -86,18 +127,24 @@ fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
                 }
                 the_struct = Some(i);
             }
-            Item::Impl(i) => impls.push(i),
+            Item::Impl(i) => impls.push(i.clone()),
             _ => remain.push(item),
         }
     }
 
+    //process the struct, getting the names
     let StructDetails {
         the_struct,
         class_name,
         class_alias,
     } = process_struct(the_struct.unwrap().clone())?;
-
     let max_class_name = LitStr::new(&class_alias, the_struct.span());
+
+    //process the impls, getting the wrapper type
+    let ImplDetails {
+        wrapper_type,
+        processed_impls: impls,
+    } = process_impls(&the_struct, &class_name, impls)?;
 
     let expanded = quote! {
         #the_struct
@@ -114,7 +161,7 @@ fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
 
         #[no_mangle]
         pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
-            MaxObjWrapper::<#class_name>::register(false)
+            ::median::wrapper::#wrapper_type::<#class_name>::register(false)
         }
     };
     Ok(expanded.into())
