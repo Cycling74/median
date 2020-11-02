@@ -74,7 +74,7 @@ median::external! {
                 .unwrap(),
             )
                 .expect("failed to add attribute");
-            }
+        }
     }
 
     impl Simp {
