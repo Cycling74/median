@@ -1,3 +1,8 @@
+## Dependencies
+
+* [rust](https://rustup.rs/)
+* [cargo make](https://github.com/sagiegurari/cargo-make)
+  * `cargo install cargo-make`
 
 ## Resources
 - [writing docs in rust](https://facility9.com/2016/05/writing-documentation-in-rust/)
