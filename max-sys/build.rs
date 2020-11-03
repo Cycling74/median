@@ -31,6 +31,12 @@ fn main() {
         .clang_arg(
             "-DWIN_VERSION",
         );
+
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        println!("cargo:rustc-link-search={}/thirdparty/max-sdk/source/c74support/max-includes/x64/", manifest_dir);
+        println!("cargo:rustc-link-search={}/thirdparty/max-sdk/source/c74support/msp-includes/x64/", manifest_dir);
+        println!("cargo:rustc-link-lib=static=MaxAPI");
+        println!("cargo:rustc-link-lib=static=MaxAudio");
     }
 
     //include functions, types, etc.. disabled for now
