@@ -4,11 +4,12 @@ use std::ffi::CString;
 /// Get a reference to the common symbols table
 pub fn common_symbols() -> &'static max_sys::_common_symbols_table {
     unsafe {
+        let t = max_sys::common_symbols_gettable();
         assert!(
-            !max_sys::_common_symbols.is_null(),
+            !t.is_null(),
             "common symbols table hasn't been initialized"
         );
-        &*max_sys::_common_symbols
+        &*t
     }
 }
 

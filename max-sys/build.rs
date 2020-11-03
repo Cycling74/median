@@ -2,9 +2,6 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    println!("cargo:rustc-link-lib=framework=CoreAudio");
-    println!("cargo:rustc-link-lib=framework=CoreServices");
-
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=wrapper-max.h");
@@ -13,17 +10,34 @@ fn main() {
     let support_dir = "./thirdparty/max-sdk/source/c74support";
     let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
+        .clang_arg(format!("-I{}/max-includes/", support_dir))
+        .clang_arg(format!("-I{}/msp-includes/", support_dir))
+        .clang_arg(format!("-I{}/jit-includes/", support_dir))
+        .rustfmt_bindings(true);
+
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=framework=CoreAudio");
+        println!("cargo:rustc-link-lib=framework=CoreServices");
+        builder = builder
         .clang_args(&[
             "-isysroot",
             "/Library/Developer/CommandLineTools/SDKs/MacOSX11.0.sdk/",
         ])
-        .clang_arg(format!("-I{}/max-includes/", support_dir))
-        .clang_arg(format!("-I{}/msp-includes/", support_dir))
-        .clang_arg(format!("-I{}/jit-includes/", support_dir))
         .clang_arg(
             "-F/Library/Developer/CommandLineTools/SDKs/MacOSX11.0.sdk/System/Library/Frameworks/",
-        )
-        .rustfmt_bindings(true);
+        );
+    } else if cfg!(target_os = "windows") {
+        builder = builder
+        .clang_arg(
+            "-DWIN_VERSION",
+        );
+
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        println!("cargo:rustc-link-search={}/thirdparty/max-sdk/source/c74support/max-includes/x64/", manifest_dir);
+        println!("cargo:rustc-link-search={}/thirdparty/max-sdk/source/c74support/msp-includes/x64/", manifest_dir);
+        println!("cargo:rustc-link-lib=static=MaxAPI");
+        println!("cargo:rustc-link-lib=static=MaxAudio");
+    }
 
     //include functions, types, etc.. disabled for now
     /*
@@ -168,6 +182,39 @@ fn main() {
         //unsure about the below
         "path_.*fsref",
         "jit_mac_gestalt",
+        //windows
+        "AddVectoredContinueHandler",
+        "AddVectoredExceptionHandler",
+        "CopyContext",
+        "GetThreadContext",
+        "GetXStateFeaturesMask",
+        "InitializeContext",
+        "InitializeContext2",
+        "InitializeSListHead",
+        "InterlockedFlushSList",
+        "InterlockedPopEntrySList",
+        "InterlockedPushEntrySList",
+        "InterlockedPushListSListEx",
+        "LocateXStateFeature",
+        "QueryDepthSList",
+        "RaiseFailFastException",
+        "RtlCaptureContext",
+        "RtlCaptureContext2",
+        "RtlFirstEntrySList",
+        "RtlInitializeSListHead",
+        "RtlInterlockedFlushSList",
+        "RtlInterlockedPopEntrySList",
+        "RtlInterlockedPushEntrySList",
+        "RtlInterlockedPushListSListEx",
+        "RtlQueryDepthSList",
+        "RtlRestoreContext",
+        "RtlUnwindEx",
+        "RtlVirtualUnwind",
+        "SetThreadContext",
+        "SetUnhandledExceptionFilter",
+        "SetXStateFeaturesMask",
+        "UnhandledExceptionFilter",
+        "__C_specific_handler",
     ]
     .iter()
     .fold(builder, |b, i| b.blacklist_function(i));
@@ -183,6 +230,24 @@ fn main() {
         "timespec",
         "sleep_type_t",
         "natural_t",
+
+        //windows
+        "LPMONITORINFOEXA?W?",
+        "LPTOP_LEVEL_EXCEPTION_FILTER",
+        "MONITORINFOEXA?W?",
+        "PEXCEPTION_FILTER",
+        "PEXCEPTION_ROUTINE",
+        "PSLIST_HEADER",
+        "PTOP_LEVEL_EXCEPTION_FILTER",
+        "PVECTORED_EXCEPTION_HANDLER",
+        "_?L?P?CONTEXT",
+        "_?L?P?EXCEPTION_POINTERS",
+        "_?P?DISPATCHER_CONTEXT",
+        "_?P?EXCEPTION_REGISTRATION_RECORD",
+        "_?P?IMAGE_TLS_DIRECTORY.*",
+        "_?P?NT_TIB",
+        "tagMONITORINFOEXA",
+        "tagMONITORINFOEXW",
     ]
     .iter()
     .fold(builder, |b, i| b.blacklist_type(i));

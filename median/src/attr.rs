@@ -268,8 +268,8 @@ pub enum AttrVisiblity {
 struct ClipParams {
     pub min: f64,
     pub max: f64,
-    pub use_min: i64,
-    pub use_max: i64,
+    pub use_min: c_long,
+    pub use_max: c_long,
 }
 
 impl Into<*const max_sys::t_symbol> for AttrType {
