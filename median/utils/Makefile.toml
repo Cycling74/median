@@ -6,6 +6,8 @@ additional_profiles = [ "release" ]
 PLATFORM_DYLIB_EXT = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "so", mapping = {"macos" = "dylib", "windows" = "dll" } }
 PLATFORM_EXTERNAL_EXT = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = {"macos" = "mxo", "windows" = "mxe64"} }
 PACKAGE_INSTALL_DIR = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = {"macos" = "${HOME}/Documents/Max 8/Packages/median/externals"} }
+LIB_FILE_NAME = "lib${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_DYLIB_EXT}"
+LIB_TILDE_FILE_NAME = "lib${CARGO_MAKE_CRATE_FS_NAME}_tilde.${PLATFORM_DYLIB_EXT}"
 
 [env.development]
 BUILD_ARGS = "build"
@@ -19,7 +21,20 @@ PROFILE_TARGET_DIR = "target/release"
 args = ["@@split(BUILD_ARGS,|)"]
 
 [tasks.name-env]
+dependencies = ["build"]
 env = { "PROFILE_PACKAGE_DIR" = "${PROFILE_TARGET_DIR}/${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_EXTERNAL_EXT}" }
+run_task = "add_tilde"
+
+#see if we should add a tilde
+[tasks.add_tilde]
+private = true
+condition_script = [
+    '''
+    [ -f "${PROFILE_TARGET_DIR}/${LIB_TILDE_FILE_NAME}" ]
+    '''
+]
+env = { "PROFILE_PACKAGE_DIR" = "${PROFILE_TARGET_DIR}/${CARGO_MAKE_CRATE_FS_NAME}~.${PLATFORM_EXTERNAL_EXT}", "LIB_FILE_NAME" = "${LIB_TILDE_FILE_NAME}" }
+
 
 [tasks.echo]
 dependencies = ["name-env"]
@@ -29,6 +44,9 @@ echo PLATFORM_DYLIB_EXT: ${PLATFORM_DYLIB_EXT}
 echo PLATFORM_EXTERNAL_EXT: ${PLATFORM_EXTERNAL_EXT}
 echo PROFILE_PACKAGE_DIR: ${PROFILE_PACKAGE_DIR}
 echo PACKAGE_INSTALL_DIR: ${PACKAGE_INSTALL_DIR}
+echo CARGO_MAKE_PROJECT_NAME: ${CARGO_MAKE_PROJECT_NAME}
+echo LIB_FILE_NAME: ${LIB_FILE_NAME}
+echo LIB_TILDE_FILE_NAME: ${LIB_TILDE_FILE_NAME}
 '''
 ]
 
@@ -39,8 +57,8 @@ script_runner = "@shell"
 script = [
     '''
     mkdir -p ${PROFILE_PACKAGE_DIR}/Contents/MacOS/
-		cp "${PROFILE_TARGET_DIR}/lib${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_DYLIB_EXT}" "${PROFILE_PACKAGE_DIR}/Contents/MacOS/${CARGO_MAKE_CRATE_FS_NAME}"
-		cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_PACKAGE_DIR}/Contents/"
+    cp "${PROFILE_TARGET_DIR}/${LIB_FILE_NAME}" "${PROFILE_PACKAGE_DIR}/Contents/MacOS/${CARGO_MAKE_CRATE_FS_NAME}"
+    cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_PACKAGE_DIR}/Contents/"
     '''
 ]
 
@@ -51,6 +69,6 @@ script_runner = "@shell"
 script = [
     '''
     mkdir -p "${PACKAGE_INSTALL_DIR}"
-		cp -r "${PROFILE_PACKAGE_DIR}" "${PACKAGE_INSTALL_DIR}"
+    cp -r "${PROFILE_PACKAGE_DIR}" "${PACKAGE_INSTALL_DIR}"
     '''
 ]
