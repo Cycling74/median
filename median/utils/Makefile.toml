@@ -8,6 +8,7 @@ PLATFORM_EXTERNAL_EXT = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value
 PACKAGE_INSTALL_DIR = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = {"macos" = "${HOME}/Documents/Max 8/Packages/median/externals"} }
 LIB_FILE_NAME = "lib${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_DYLIB_EXT}"
 LIB_TILDE_FILE_NAME = "lib${CARGO_MAKE_CRATE_FS_NAME}_tilde.${PLATFORM_DYLIB_EXT}"
+PACKAGED_LIB_FILE_NAME = "${CARGO_MAKE_CRATE_FS_NAME}"
 
 [env.development]
 BUILD_ARGS = "build"
@@ -33,7 +34,7 @@ condition_script = [
     [ -f "${PROFILE_TARGET_DIR}/${LIB_TILDE_FILE_NAME}" ]
     '''
 ]
-env = { "PROFILE_PACKAGE_DIR" = "${PROFILE_TARGET_DIR}/${CARGO_MAKE_CRATE_FS_NAME}~.${PLATFORM_EXTERNAL_EXT}", "LIB_FILE_NAME" = "${LIB_TILDE_FILE_NAME}" }
+env = { "PROFILE_PACKAGE_DIR" = "${PROFILE_TARGET_DIR}/${CARGO_MAKE_CRATE_FS_NAME}~.${PLATFORM_EXTERNAL_EXT}", "LIB_FILE_NAME" = "${LIB_TILDE_FILE_NAME}", "PACKAGED_LIB_FILE_NAME" = "${PACKAGED_LIB_FILE_NAME}~" }
 
 
 [tasks.echo]
@@ -57,7 +58,7 @@ script_runner = "@shell"
 script = [
     '''
     mkdir -p ${PROFILE_PACKAGE_DIR}/Contents/MacOS/
-    cp "${PROFILE_TARGET_DIR}/${LIB_FILE_NAME}" "${PROFILE_PACKAGE_DIR}/Contents/MacOS/${CARGO_MAKE_CRATE_FS_NAME}"
+    cp "${PROFILE_TARGET_DIR}/${LIB_FILE_NAME}" "${PROFILE_PACKAGE_DIR}/Contents/MacOS/${PACKAGED_LIB_FILE_NAME}"
     cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_PACKAGE_DIR}/Contents/"
     '''
 ]
