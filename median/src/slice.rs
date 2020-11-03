@@ -1,5 +1,7 @@
 use std::convert::{From, Into};
 use std::slice;
+use std::os::raw::c_long;
+
 
 ///A slice allocated and freed using max_sys
 pub struct Slice<T: 'static + Sized> {
@@ -12,7 +14,7 @@ where
 {
     pub fn new_with_length(len: usize) -> Self {
         let inner = unsafe {
-            let ptr = max_sys::sysmem_newptr((std::mem::size_of::<T>() * len) as i64);
+            let ptr = max_sys::sysmem_newptr((std::mem::size_of::<T>() * len) as c_long);
             if ptr.is_null() {
                 panic!("max_sys::sysmem_newptr returned null");
             }
@@ -90,7 +92,7 @@ where
     fn from(iter: U) -> Self {
         unsafe {
             let len = iter.len();
-            let ptr = max_sys::sysmem_newptr((std::mem::size_of::<T>() * len) as i64);
+            let ptr = max_sys::sysmem_newptr((std::mem::size_of::<T>() * len) as c_long);
             if ptr.is_null() {
                 panic!("max_sys::sysmem_newptr returned null");
             }

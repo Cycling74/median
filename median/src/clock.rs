@@ -68,9 +68,9 @@ impl ClockHandle {
     }
 
     /// Execute the callback after the given milliseconds
-    pub fn delay(&self, milliseconds: i64) {
+    pub fn delay(&self, milliseconds: i32) {
         unsafe {
-            max_sys::clock_delay(self.clock, milliseconds);
+            max_sys::clock_delay(self.clock, milliseconds as _);
         }
     }
 
@@ -98,7 +98,7 @@ impl ClockHandle {
 
     /// Find out the current logical time of the scheduler in milliseconds.
     pub fn time() -> i64 {
-        unsafe { max_sys::gettime() }
+        unsafe { max_sys::gettime() as _ }
     }
 
     pub unsafe fn new(

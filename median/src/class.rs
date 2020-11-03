@@ -5,6 +5,7 @@ use crate::error::{MaxError, MaxResult};
 use crate::method::*;
 use std::ffi::c_void;
 use std::ffi::CString;
+use std::os::raw::c_long;
 use std::marker::PhantomData;
 
 pub struct Class<T> {
@@ -71,7 +72,7 @@ impl<T> Class<T> {
                     MaxMethod,
                 >(new)),
                 std::mem::transmute::<Option<MaxFree<T>>, Option<MaxMethod>>(free),
-                std::mem::size_of::<T>() as i64,
+                std::mem::size_of::<T>() as c_long,
                 None,
                 0,
             )
