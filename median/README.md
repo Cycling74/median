@@ -4,6 +4,15 @@
 * [cargo make](https://github.com/sagiegurari/cargo-make)
   * `cargo install cargo-make`
 
+## Examples
+
+checkout the examples in **median/examples**
+You can build/package/install them with:
+
+`cargo make build`
+`cargo make package`
+`cargo make install`
+
 ## Resources
 - [writing docs in rust](https://facility9.com/2016/05/writing-documentation-in-rust/)
 
@@ -13,4 +22,8 @@ if you have more than 7 args or if you are mixing floating point and other argum
 ```
 
 # TODO
+
+* Windows support
+* osxcross
+* mingw
 
