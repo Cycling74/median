@@ -7,9 +7,6 @@ struct FSRef;
 typedef struct FSRef FSRef;
 #endif
 
-//va_list
-#include <stdarg.h>
-
 //for t_critical
 struct  OpaqueMPCriticalRegionID;
 typedef struct OpaqueMPCriticalRegionID*  MPCriticalRegionID;
