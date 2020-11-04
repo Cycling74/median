@@ -60,7 +60,16 @@ fn main() {
     builder = max.iter().fold(builder, |b, i| b.whitelist_function(i));
 
     //msp
-    let msp = ["z_dsp.*", "dsp_.*", "buffer_.*", "sys_.*", "class_.*"];
+    let msp = [
+        "z_dsp.*",
+        "dsp_.*",
+        "buffer_.*",
+        "sys_.*",
+        "class_.*",
+        "z_jbox.*",
+        "z_isconnected",
+        "canvas_.*",
+    ];
     builder = msp.iter().fold(builder, |b, i| b.whitelist_function(i));
 
     let enums = [
