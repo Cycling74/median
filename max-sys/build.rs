@@ -44,6 +44,8 @@ fn main() {
         println!("cargo:rustc-link-lib=static=MaxAudio");
     }
 
+    //windows is really spammy so, we just parse the link flags to figure out what we want to include
+    //and we also add some msp and enums below
     let max: Vec<String> =
         std::fs::read_to_string(format!("{}/max-includes/c74_linker_flags.txt", support_dir))
             .expect("Something went wrong reading the file")
