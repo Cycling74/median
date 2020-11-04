@@ -80,8 +80,10 @@ script_runner = "powershell"
 script_extension = "ps1"
 script = [
     '''
-    Get-ChildItem Env:
-    New-Item $env:PACKAGE_INSTALL_DIR -ItemType Directory
+    if((Test-Path $env:PACKAGE_INSTALL_DIR) -eq 0)
+    {
+        New-Item $env:PACKAGE_INSTALL_DIR -ItemType Directory
+    }
     Copy-Item $env:PROFILE_PACKAGE_PATH -Destination $env:PACKAGE_INSTALL_DIR
     '''
 ]
