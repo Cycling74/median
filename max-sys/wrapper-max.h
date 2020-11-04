@@ -23,8 +23,9 @@
 #include <ext_preferences.h>
 #include <ext_preprocessor.h>
 #include <ext_proto_win.h>
-#include <ext_qtimage.h>
-#include <ext_qtstubs.h>
+//took out to get windows to build
+//#include <ext_qtimage.h>
+//#include <ext_qtstubs.h>
 #include <ext_quickmap.h>
 #include <ext_sndfile.h>
 #include <ext_support.h>
