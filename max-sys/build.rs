@@ -1,5 +1,4 @@
 use std::env;
-use std::path::PathBuf;
 
 #[cfg(feature = "build-bindings")]
 fn build_bindings(support_dir: &str) {
@@ -95,9 +94,12 @@ fn build_bindings(support_dir: &str) {
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
-    //let out_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
-    let out_path =
-        PathBuf::from("src").join(format!("ffi-{}-{}.rs", env::consts::OS, env::consts::ARCH,));
+    //let out_path = std::path::PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
+    let out_path = std::path::PathBuf::from("src").join(format!(
+        "ffi-{}-{}.rs",
+        env::consts::OS,
+        env::consts::ARCH,
+    ));
     bindings
         .write_to_file(out_path)
         .expect("Couldn't write bindings!");
