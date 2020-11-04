@@ -25,7 +25,6 @@ if you have more than 7 args or if you are mixing floating point and other argum
 
 # TODO
 
-* Windows support
 * osxcross
 * mingw
 
