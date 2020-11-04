@@ -7,12 +7,12 @@ fn main() {
     println!("cargo:rerun-if-changed=wrapper-max.h");
     //println!("cargo:rerun-if-changed=wrapper-jitter.h");
 
-    let support_dir = "./thirdparty/max-sdk/source/c74support";
+    let support_dir = "thirdparty/max-sdk/source/c74support";
     let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
-        .clang_arg(format!("-I{}/max-includes/", support_dir))
-        .clang_arg(format!("-I{}/msp-includes/", support_dir))
-        .clang_arg(format!("-I{}/jit-includes/", support_dir))
+        .clang_arg(format!("-I./{}/max-includes/", support_dir))
+        .clang_arg(format!("-I./{}/msp-includes/", support_dir))
+        .clang_arg(format!("-I./{}/jit-includes/", support_dir))
         .rustfmt_bindings(true);
 
     if cfg!(target_os = "macos") {
@@ -27,20 +27,41 @@ fn main() {
             "-F/Library/Developer/CommandLineTools/SDKs/MacOSX11.0.sdk/System/Library/Frameworks/",
         );
     } else if cfg!(target_os = "windows") {
-        builder = builder.clang_arg("-DWIN_VERSION");
+        builder = builder
+            .clang_arg("-DWIN_VERSION")
+            .clang_arg("-DWIN32_LEAN_AND_MEAN");
 
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         println!(
-            "cargo:rustc-link-search={}/thirdparty/max-sdk/source/c74support/max-includes/x64/",
-            manifest_dir
+            "cargo:rustc-link-search={}/{}/max-includes/x64/",
+            support_dir, manifest_dir
         );
         println!(
-            "cargo:rustc-link-search={}/thirdparty/max-sdk/source/c74support/msp-includes/x64/",
-            manifest_dir
+            "cargo:rustc-link-search={}/{}/msp-includes/x64/",
+            support_dir, manifest_dir
         );
         println!("cargo:rustc-link-lib=static=MaxAPI");
         println!("cargo:rustc-link-lib=static=MaxAudio");
     }
+
+    let max: Vec<String> =
+        std::fs::read_to_string(format!("{}/max-includes/c74_linker_flags.txt", support_dir))
+            .expect("Something went wrong reading the file")
+            .split(" ")
+            .map(|l| {
+                //lines are in the form: '-Wl,-U,_addbang'
+                let mut e = l.split(',').last().unwrap().to_string();
+                e.remove(0); //remove _
+                e.pop(); //remove '
+                e
+            })
+            .collect();
+
+    builder = max.iter().fold(builder, |b, i| b.whitelist_function(i));
+
+    //msp
+    let msp = ["z_dsp.*", "dsp_.*", "buffer_.*", "sys_.*", "class_.*"];
+    builder = msp.iter().fold(builder, |b, i| b.whitelist_function(i));
 
     let enums = [
         "e_max_attrflags",
@@ -62,9 +83,9 @@ fn main() {
         "PARAM_.*",
     ];
 
-    builder = enums
-        .iter()
-        .fold(builder, |b, i| b.constified_enum_module(i));
+    builder = enums.iter().fold(builder, |b, i| {
+        b.whitelist_type(i).constified_enum_module(i)
+    });
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
