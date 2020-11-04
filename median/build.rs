@@ -125,31 +125,6 @@ fn gen_method(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
         .as_bytes(),
     )?;
 
-    //class new enumeration
-    let cvoidptr = quote! { *mut ::std::os::raw::c_void };
-    let mut variants = vec![
-        quote! { NoArgs(unsafe extern "C" fn() -> #cvoidptr) },
-        quote! { VarArgs(unsafe extern "C" fn(*mut max_sys::t_symbol, std::os::raw::c_int, *const max_sys::t_atom) -> #cvoidptr) },
-    ];
-    //XXX TODO, filter out pointers when we get them
-    for p in perms.iter() {
-        //build type alias
-        let alias = type_alias_name(&p);
-        let v = classnew_variant_name(&alias);
-        let args = p.iter().map(Arg::to_sig);
-        variants.push(quote! { #v(unsafe extern "C" fn(#(#args),*) -> #cvoidptr) });
-    }
-
-    f.write_all(
-        quote! {
-            pub enum ClassNewMethod {
-                #(#variants),*
-            }
-        }
-        .to_string()
-        .as_bytes(),
-    )?;
-
     Ok(())
 }
 
