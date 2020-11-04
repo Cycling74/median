@@ -10,7 +10,21 @@
 //! The [Max API Docs](https://cycling74.com/sdk/max-sdk-8.0.3/html/index.html) will be useful for
 //! understanding this library.
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+include!("./ffi-macos-x86_64.rs");
+
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+include!("./ffi-windows-x86_64.rs");
+
+#[cfg(not(all(
+    any(target_os = "windows", target_os = "macos"),
+    target_arch = "x86_64"
+)))]
+compile_error!(
+    "{} {} isn't supported yet",
+    std::env::consts::OS,
+    std::env::consts::ARCH
+);
 
 //pointer to a t_pxobject can be savely turned into a t_object
 impl std::convert::From<&mut crate::t_pxobject> for &mut crate::object {
