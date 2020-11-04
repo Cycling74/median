@@ -1,13 +1,8 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() {
-    // Tell cargo to invalidate the built crate whenever the wrapper changes
-    println!("cargo:rerun-if-changed=wrapper.h");
-    println!("cargo:rerun-if-changed=wrapper-max.h");
-    //println!("cargo:rerun-if-changed=wrapper-jitter.h");
-
-    let support_dir = "thirdparty/max-sdk/source/c74support";
+#[cfg(feature = "build-bindings")]
+fn build_bindings(support_dir: &str) {
     let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg(format!("-I./{}/max-includes/", support_dir))
@@ -100,9 +95,40 @@ fn main() {
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
-    // Write the bindings to the $OUT_DIR/bindings.rs file.
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    //let out_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
+    let out_path =
+        PathBuf::from("src").join(format!("ffi-{}-{}.rs", env::consts::OS, env::consts::ARCH,));
     bindings
-        .write_to_file(out_path.join("bindings.rs"))
+        .write_to_file(out_path)
         .expect("Couldn't write bindings!");
+}
+
+fn main() {
+    let support_dir = "thirdparty/max-sdk/source/c74support";
+
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=framework=CoreAudio");
+        println!("cargo:rustc-link-lib=framework=CoreServices");
+    } else if cfg!(target_os = "windows") {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        println!(
+            "cargo:rustc-link-search={}/{}/max-includes/x64/",
+            manifest_dir, support_dir,
+        );
+        println!(
+            "cargo:rustc-link-search={}/{}/msp-includes/x64/",
+            manifest_dir, support_dir,
+        );
+        println!("cargo:rustc-link-lib=static=MaxAPI");
+        println!("cargo:rustc-link-lib=static=MaxAudio");
+    }
+
+    #[cfg(feature = "build-bindings")]
+    {
+        // Tell cargo to invalidate the built crate whenever the wrapper changes
+        println!("cargo:rerun-if-changed=wrapper.h");
+        println!("cargo:rerun-if-changed=wrapper-max.h");
+        //println!("cargo:rerun-if-changed=wrapper-jitter.h");
+        build_bindings(&support_dir);
+    }
 }
