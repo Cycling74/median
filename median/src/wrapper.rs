@@ -1,11 +1,13 @@
 //! External MaxObjWrappers.
 
 use crate::{
+    atom::Atom,
     builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType},
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
     object::{MSPObj, MaxObj, ObjBox},
+    symbol::SymbolRef,
 };
 
 use std::collections::HashMap;
@@ -402,14 +404,25 @@ where
     }
 
     /// A method for Max to create an instance of your class.
-    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        let o = ObjBox::into_raw(Self::new());
+    pub unsafe extern "C" fn new_tramp(
+        sym: *mut max_sys::t_symbol,
+        argc: c_long,
+        argv: *const max_sys::t_atom,
+    ) -> *mut c_void {
+        let sym: SymbolRef = sym.into();
+        let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
+        let o = ObjBox::into_raw(Self::new(sym, &args));
         assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
         std::mem::transmute::<_, _>(o)
     }
 
+    /// Create an instance of the wrapper, on the heap, with no arguments.
+    pub fn new_noargs() -> ObjBox<Self> {
+        Self::new(crate::max::common_symbols().s_nothing.into(), &[])
+    }
+
     /// Create an instance of the wrapper, on the heap.
-    pub fn new() -> ObjBox<Self> {
+    pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         new_common(key::<T>(), |max_class| unsafe {
             let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
             let internal = MaxWrapperInternal::<T>::new(o.max_obj());
@@ -468,14 +481,20 @@ where
     }
 
     /// A method for Max to create an instance of your class.
-    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        let o = ObjBox::into_raw(Self::new());
+    pub unsafe extern "C" fn new_tramp(
+        sym: *mut max_sys::t_symbol,
+        argc: c_long,
+        argv: *const max_sys::t_atom,
+    ) -> *mut c_void {
+        let sym: SymbolRef = sym.into();
+        let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
+        let o = ObjBox::into_raw(Self::new(sym, &args));
         assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
         std::mem::transmute::<_, _>(o)
     }
 
     /// Create an instance of the wrapper, on the heap.
-    pub fn new() -> ObjBox<Self> {
+    pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         unsafe {
             new_common(key::<T>(), |max_class| {
                 let mut o: ObjBox<Self> = ObjBox::alloc(max_class);

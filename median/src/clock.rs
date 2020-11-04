@@ -109,7 +109,7 @@ impl ClockHandle {
         //XXX what if there is another instance of this library that has already registered
         //this clock?
         MaxObjWrapper::<ClockInner>::register(true);
-        let mut clock_target = MaxObjWrapper::<ClockInner>::new();
+        let mut clock_target = MaxObjWrapper::<ClockInner>::new_noargs();
         clock_target.wrapped_mut().set(target, func);
         let clock = max_sys::clock_new(
             std::mem::transmute::<_, _>(clock_target.max_obj()),

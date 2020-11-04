@@ -5,8 +5,8 @@ use crate::error::{MaxError, MaxResult};
 use crate::method::*;
 use std::ffi::c_void;
 use std::ffi::CString;
-use std::os::raw::c_long;
 use std::marker::PhantomData;
+use std::os::raw::c_long;
 
 pub struct Class<T> {
     class: *mut max_sys::t_class,
@@ -67,13 +67,11 @@ impl<T> Class<T> {
                 CString::new(name)
                     .expect("couldn't convert name to CString")
                     .as_ptr(),
-                Some(std::mem::transmute::<
-                    unsafe extern "C" fn() -> *mut c_void,
-                    MaxMethod,
-                >(new)),
+                Some(std::mem::transmute::<MaxNew, MaxMethod>(new)),
                 std::mem::transmute::<Option<MaxFree<T>>, Option<MaxMethod>>(free),
                 std::mem::size_of::<T>() as c_long,
                 None,
+                max_sys::e_max_atomtypes::A_GIMME as _,
                 0,
             )
         };
