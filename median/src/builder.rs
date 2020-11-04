@@ -1,7 +1,10 @@
+//! Utilities for building objects.
 use crate::{
+    atom::Atom,
     clock::ClockHandle,
     inlet::{MSPInlet, MaxInlet, Proxy},
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
+    symbol::SymbolRef,
     wrapper::{
         FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
         ObjWrapped, WrapperWrapped,
@@ -10,9 +13,11 @@ use crate::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-pub struct WrappedBuilder<T, W> {
+pub struct WrappedBuilder<'a, T, W> {
     max_obj: *mut max_sys::t_object,
     msp_obj: Option<*mut max_sys::t_pxobject>,
+    sym: SymbolRef,
+    args: &'a [Atom],
     inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
     signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
@@ -35,6 +40,12 @@ pub trait ObjBuilder<T> {
     fn add_list_outlet(&mut self) -> OutList;
     /// Add an outlet that outputs anything Max supports.
     fn add_anything_outlet(&mut self) -> OutAnything;
+
+    /// Get the arguments that were passed to this object on creation.
+    fn creation_args(&self) -> &[Atom];
+
+    /// Get the symbol that were passed used when creating this object.
+    fn creation_symbol(&self) -> SymbolRef;
 
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
@@ -61,21 +72,25 @@ pub trait MSPWrappedBuilder<T>: ObjBuilder<T> {
     unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
 }
 
-impl<T, W> WrappedBuilder<T, W> {
-    pub fn new_max(owner: *mut max_sys::t_object) -> Self {
+impl<'a, T, W> WrappedBuilder<'a, T, W> {
+    pub fn new_max(owner: *mut max_sys::t_object, sym: SymbolRef, args: &'a [Atom]) -> Self {
         Self {
             max_obj: owner,
             msp_obj: None,
+            sym,
+            args,
             inlets: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
         }
     }
 
-    pub fn new_msp(owner: *mut max_sys::t_pxobject) -> Self {
+    pub fn new_msp(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &'a [Atom]) -> Self {
         Self {
             max_obj: owner as _,
             msp_obj: Some(owner),
+            sym,
+            args,
             inlets: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
@@ -151,7 +166,7 @@ impl<T, W> WrappedBuilder<T, W> {
     }
 }
 
-impl<T, W> ObjBuilder<T> for WrappedBuilder<T, W>
+impl<'a, T, W> ObjBuilder<T> for WrappedBuilder<'a, T, W>
 where
     T: ObjWrapped<T>,
     W: WrapperWrapped<T>,
@@ -200,13 +215,20 @@ where
     fn add_anything_outlet(&mut self) -> OutAnything {
         Outlet::append_anything(self.max_obj)
     }
+    fn creation_args(&self) -> &[Atom] {
+        self.args
+    }
+    fn creation_symbol(&self) -> SymbolRef {
+        self.sym.clone()
+    }
+
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
         return self.max_obj;
     }
 }
 
-impl<T> MaxWrappedBuilder<T> for WrappedBuilder<T, MaxObjWrapper<T>>
+impl<'a, T> MaxWrappedBuilder<T> for WrappedBuilder<'a, T, MaxObjWrapper<T>>
 where
     T: MaxObjWrapped<T>,
 {
@@ -222,7 +244,7 @@ where
     }
 }
 
-impl<T> MSPWrappedBuilder<T> for WrappedBuilder<T, MSPObjWrapper<T>>
+impl<'a, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, T, MSPObjWrapper<T>>
 where
     T: MSPObjWrapped<T>,
 {
@@ -277,7 +299,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub proxy_inlets: Vec<Proxy>,
 }
 
-impl<T> WrappedBuilder<T, MaxObjWrapper<T>>
+impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
 where
     T: MaxObjWrapped<T>,
 {
@@ -291,7 +313,7 @@ where
     }
 }
 
-impl<T> WrappedBuilder<T, MSPObjWrapper<T>>
+impl<'a, T> WrappedBuilder<'a, T, MSPObjWrapper<T>>
 where
     T: MSPObjWrapped<T>,
 {

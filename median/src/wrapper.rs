@@ -118,7 +118,7 @@ pub struct MSPWrapperInternal<T> {
 pub trait WrapperInternal<O, T>: Sized {
     fn wrapped(&self) -> &T;
     fn wrapped_mut(&mut self) -> &mut T;
-    fn new(owner: *mut O) -> Self;
+    fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
     fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
 
     fn call_float(&self, index: usize, value: f64);
@@ -139,8 +139,8 @@ where
     fn wrapped_mut(&mut self) -> &mut T {
         &mut self.wrapped
     }
-    fn new(owner: *mut max_sys::t_object) -> Self {
-        let mut builder = WrappedBuilder::new_max(owner);
+    fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
+        let mut builder = WrappedBuilder::new_max(owner, sym, args);
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
         Self {
@@ -175,8 +175,8 @@ where
     fn wrapped_mut(&mut self) -> &mut T {
         &mut self.wrapped
     }
-    fn new(owner: *mut max_sys::t_pxobject) -> Self {
-        let mut builder = WrappedBuilder::new_msp(owner);
+    fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
+        let mut builder = WrappedBuilder::new_msp(owner, sym, args);
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
         let ins = (0..f.signal_inlets)
@@ -425,7 +425,7 @@ where
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         new_common(key::<T>(), |max_class| unsafe {
             let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
-            let internal = MaxWrapperInternal::<T>::new(o.max_obj());
+            let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             o.wrapped = MaybeUninit::new(internal);
             o
         })
@@ -498,7 +498,7 @@ where
         unsafe {
             new_common(key::<T>(), |max_class| {
                 let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
-                let internal = MSPWrapperInternal::<T>::new(o.msp_obj());
+                let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 o.wrapped = MaybeUninit::new(internal);
                 o
             })
