@@ -34,11 +34,11 @@ fn main() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         println!(
             "cargo:rustc-link-search={}/{}/max-includes/x64/",
-            support_dir, manifest_dir
+            manifest_dir, support_dir,
         );
         println!(
             "cargo:rustc-link-search={}/{}/msp-includes/x64/",
-            support_dir, manifest_dir
+            manifest_dir, support_dir,
         );
         println!("cargo:rustc-link-lib=static=MaxAPI");
         println!("cargo:rustc-link-lib=static=MaxAudio");
