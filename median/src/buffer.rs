@@ -1,13 +1,20 @@
 //! Data access to MSP buffer~ object data.
-use crate::symbol::SymbolRef;
+use crate::{notify::Notification, symbol::SymbolRef};
 use core::ffi::c_void;
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
+lazy_static::lazy_static! {
+    static ref GLOBAL_SYMBOL_BINDING: SymbolRef = SymbolRef::try_from("globalsymbol_binding").unwrap();
+    static ref GLOBAL_SYMBOL_UNBINDING: SymbolRef = SymbolRef::try_from("globalsymbol_unbinding").unwrap();
+    static ref GET_NAME: SymbolRef = SymbolRef::try_from("getname").unwrap();
+}
+
 /// A safe wrapper for `max_sys::t_buffer_ref` objects.
-#[repr(transparent)]
 pub struct BufferRef {
     value: *mut max_sys::t_buffer_ref,
+    buffer_name: SymbolRef,
 }
 
 /// A locked buffer, for sample data access.
@@ -41,18 +48,17 @@ impl BufferRef {
     /// # Remarks
     /// * You must have a notify method in your owner.
     pub unsafe fn new(owner: *mut max_sys::t_object, name: Option<SymbolRef>) -> Self {
+        let name = name.unwrap_or_else(|| crate::max::common_symbols().s_nothing.into());
         Self {
-            value: max_sys::buffer_ref_new(
-                owner,
-                name.unwrap_or_else(|| crate::max::common_symbols().s_nothing.into())
-                    .inner(),
-            ),
+            value: max_sys::buffer_ref_new(owner, name.inner()),
+            buffer_name: name,
         }
     }
 
     pub fn set(&mut self, name: SymbolRef) {
         unsafe {
-            max_sys::buffer_ref_set(self.value, name.inner());
+            self.buffer_name = name;
+            max_sys::buffer_ref_set(self.value, self.buffer_name.inner());
         }
     }
 
@@ -116,21 +122,37 @@ impl BufferRef {
         }
     }
 
-    pub fn notify(
-        &self,
-        sender_name: SymbolRef,
-        message: SymbolRef,
-        sender: *mut c_void,
-        data: *mut c_void,
-    ) {
-        unsafe {
-            max_sys::buffer_ref_notify(
-                self.value,
-                sender_name.inner(),
-                message.inner(),
-                sender,
-                data,
-            );
+    /// Apply the notification to this buffer reference it if its applicable.
+    ///
+    /// # Remarks
+    /// It should be okay to send notifications that are intended for other objects, including
+    /// other buffer references.
+    pub fn notify_if(&mut self, notification: &Notification) {
+        let sender = notification.sender();
+        if !sender.is_null() {
+            let message = notification.message();
+            //see if it is a binding or unbinding message
+            if *message == *GLOBAL_SYMBOL_BINDING || *message == *GLOBAL_SYMBOL_UNBINDING {
+                unsafe {
+                    //try to get the name of the buffer
+                    let name: *mut max_sys::t_symbol = std::ptr::null_mut();
+                    max_sys::object_method(
+                        notification.data(),
+                        GET_NAME.inner(),
+                        std::mem::transmute::<_, *mut c_void>(&name),
+                    );
+                    //if the name matches our buffer's name, send notification
+                    if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
+                        max_sys::buffer_ref_notify(
+                            self.value,
+                            notification.sender_name().inner(),
+                            message.inner(),
+                            sender,
+                            notification.data(),
+                        );
+                    }
+                }
+            }
         }
     }
 }
