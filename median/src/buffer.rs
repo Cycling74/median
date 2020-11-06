@@ -47,6 +47,29 @@ struct BufferChannelIterMut<'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
+pub trait BufferReference {
+    /// Set this buffer reference's buffer name, associating it with a different buffer.
+    fn set(&mut self, name: SymbolRef);
+
+    /// See if a buffer exists with the name associated with this buffer reference.
+    fn exists(&self) -> bool;
+
+    /// Get the number of channels that the referenced buffer has, if there is a buffer.
+    fn channels(&self) -> Option<usize>;
+
+    /// Get the number of frames that the referenced buffer has, if there is a buffer.
+    fn frames(&self) -> Option<usize>;
+
+    /// Get the sample rate, samples per second, of referenced buffer data, if there is a buffer.
+    fn sample_rate(&self) -> Option<f64>;
+
+    /// Get the sample rate, samples per milliseconds, of referenced buffer data, if there is a buffer.
+    fn millisample_rate(&self) -> Option<f64>;
+
+    /// Lock the buffer if it exists.
+    fn try_lock(&mut self) -> Result<BufferLocked, TryLockError>;
+}
+
 impl BufferRef {
     /// Create a new buffer reference.
     ///
@@ -60,19 +83,6 @@ impl BufferRef {
         }
     }
 
-    /// Set this buffer reference's buffer name, associating it with a different buffer.
-    pub fn set(&mut self, name: SymbolRef) {
-        unsafe {
-            self.buffer_name = name;
-            max_sys::buffer_ref_set(self.value, self.buffer_name.inner());
-        }
-    }
-
-    /// See if a buffer exists with the name associated with this buffer reference.
-    pub fn exists(&self) -> bool {
-        unsafe { max_sys::buffer_ref_exists(self.value) != 0 }
-    }
-
     fn buffer(&self) -> Option<*mut max_sys::t_buffer_obj> {
         unsafe {
             let buffer = max_sys::buffer_ref_getobject(self.value);
@@ -80,51 +90,6 @@ impl BufferRef {
                 None
             } else {
                 Some(buffer)
-            }
-        }
-    }
-
-    /// Get the number of channels that the referenced buffer has, if there is a buffer.
-    pub fn channels(&self) -> Option<usize> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getchannelcount(buffer) as _ })
-    }
-
-    /// Get the number of frames that the referenced buffer has, if there is a buffer.
-    pub fn frames(&self) -> Option<usize> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getframecount(buffer) as _ })
-    }
-
-    /// Get the sample rate, samples per second, of referenced buffer data, if there is a buffer.
-    pub fn sample_rate(&self) -> Option<f64> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getsamplerate(buffer) })
-    }
-
-    /// Get the sample rate, samples per milliseconds, of referenced buffer data, if there is a buffer.
-    pub fn millisample_rate(&self) -> Option<f64> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getmillisamplerate(buffer) })
-    }
-
-    /// Lock the buffer if it exists.
-    pub fn try_lock(&mut self) -> Result<BufferLocked, TryLockError> {
-        unsafe {
-            let buffer = max_sys::buffer_ref_getobject(self.value);
-            if buffer.is_null() {
-                Err(TryLockError::BufferDoesNotExist)
-            } else {
-                let samples = max_sys::buffer_locksamples(buffer);
-                if samples.is_null() {
-                    Err(TryLockError::BufferDoesNotExist)
-                } else {
-                    Ok(BufferLocked {
-                        buffer,
-                        samples,
-                        dirty: false,
-                    })
-                }
             }
         }
     }
@@ -158,6 +123,66 @@ impl BufferRef {
                             notification.data(),
                         );
                     }
+                }
+            }
+        }
+    }
+}
+
+impl BufferReference for BufferRef {
+    /// Set this buffer reference's buffer name, associating it with a different buffer.
+    fn set(&mut self, name: SymbolRef) {
+        unsafe {
+            self.buffer_name = name;
+            max_sys::buffer_ref_set(self.value, self.buffer_name.inner());
+        }
+    }
+
+    /// See if a buffer exists with the name associated with this buffer reference.
+    fn exists(&self) -> bool {
+        unsafe { max_sys::buffer_ref_exists(self.value) != 0 }
+    }
+
+    /// Get the number of channels that the referenced buffer has, if there is a buffer.
+    fn channels(&self) -> Option<usize> {
+        self.buffer()
+            .map(|buffer| unsafe { max_sys::buffer_getchannelcount(buffer) as _ })
+    }
+
+    /// Get the number of frames that the referenced buffer has, if there is a buffer.
+    fn frames(&self) -> Option<usize> {
+        self.buffer()
+            .map(|buffer| unsafe { max_sys::buffer_getframecount(buffer) as _ })
+    }
+
+    /// Get the sample rate, samples per second, of referenced buffer data, if there is a buffer.
+    fn sample_rate(&self) -> Option<f64> {
+        self.buffer()
+            .map(|buffer| unsafe { max_sys::buffer_getsamplerate(buffer) })
+    }
+
+    /// Get the sample rate, samples per milliseconds, of referenced buffer data, if there is a buffer.
+    fn millisample_rate(&self) -> Option<f64> {
+        self.buffer()
+            .map(|buffer| unsafe { max_sys::buffer_getmillisamplerate(buffer) })
+    }
+
+    /// Lock the buffer if it exists.
+    fn try_lock(&mut self) -> Result<BufferLocked, TryLockError> {
+        unsafe {
+            let buffer = max_sys::buffer_ref_getobject(self.value);
+            if buffer.is_null() {
+                Err(TryLockError::BufferDoesNotExist)
+            } else {
+                let samples = max_sys::buffer_locksamples(buffer);
+                if samples.is_null() {
+                    Err(TryLockError::BufferDoesNotExist)
+                } else {
+                    Ok(BufferLocked {
+                        buffer,
+                        samples,
+                        dirty: false,
+                    })
                 }
             }
         }
