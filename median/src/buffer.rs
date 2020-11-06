@@ -11,6 +11,11 @@ lazy_static::lazy_static! {
     static ref GET_NAME: SymbolRef = SymbolRef::try_from("getname").unwrap();
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum TryLockError {
+    BufferDoesNotExist,
+}
+
 /// A safe wrapper for `max_sys::t_buffer_ref` objects.
 pub struct BufferRef {
     value: *mut max_sys::t_buffer_ref,
@@ -102,17 +107,17 @@ impl BufferRef {
     }
 
     /// Lock the buffer if it exists.
-    pub fn lock(&mut self) -> Option<BufferLocked> {
+    pub fn try_lock(&mut self) -> Result<BufferLocked, TryLockError> {
         unsafe {
             let buffer = max_sys::buffer_ref_getobject(self.value);
             if buffer.is_null() {
-                None
+                Err(TryLockError::BufferDoesNotExist)
             } else {
                 let samples = max_sys::buffer_locksamples(buffer);
                 if samples.is_null() {
-                    None
+                    Err(TryLockError::BufferDoesNotExist)
                 } else {
-                    Some(BufferLocked {
+                    Ok(BufferLocked {
                         buffer,
                         samples,
                         dirty: false,
@@ -125,7 +130,7 @@ impl BufferRef {
     /// Apply the notification to this buffer reference it if its applicable.
     ///
     /// # Remarks
-    /// It should be okay to send notifications that are intended for other objects, including
+    /// * It should be okay to send notifications that are intended for other objects, including
     /// other buffer references.
     pub fn notify_if(&mut self, notification: &Notification) {
         let sender = notification.sender();
