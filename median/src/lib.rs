@@ -1,12 +1,14 @@
 pub mod alloc;
 pub mod atom;
 pub mod attr;
+pub mod buffer;
 pub mod builder;
 pub mod class;
 pub mod clock;
 pub mod error;
 pub mod inlet;
 pub mod method;
+pub mod notify;
 pub mod num;
 pub mod object;
 pub mod outlet;
