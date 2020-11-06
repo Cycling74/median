@@ -1,9 +1,9 @@
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
-use syn::spanned::Spanned;
 use syn::{
-    parenthesized, parse_macro_input, Attribute, FnArg, Ident, ImplItem, ImplItemMethod, Item,
-    ItemImpl, ItemStruct, Lit, LitInt, LitStr, Pat, Token, Type, TypePath,
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    spanned::Spanned,
+    Ident, Item, ItemImpl, ItemStruct, LitStr, Token,
 };
 
 struct Parsed {
@@ -74,7 +74,7 @@ struct ImplDetails {
 
 fn process_impls(
     the_struct: &ItemStruct,
-    class_name: &Ident,
+    _class_name: &Ident,
     impls: Vec<ItemImpl>,
 ) -> syn::Result<ImplDetails> {
     let mut processed_impls = Vec::new();
