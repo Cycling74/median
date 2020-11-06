@@ -50,8 +50,7 @@ impl BufferRef {
         }
     }
 
-    //XXX should be a mut method?
-    pub fn set(&self, name: SymbolRef) {
+    pub fn set(&mut self, name: SymbolRef) {
         unsafe {
             max_sys::buffer_ref_set(self.value, name.inner());
         }
@@ -96,9 +95,8 @@ impl BufferRef {
             .map(|buffer| unsafe { max_sys::buffer_getmillisamplerate(buffer) })
     }
 
-    //XXX should be a mut method?
     /// Lock the buffer if it exists.
-    pub fn lock(&self) -> Option<BufferLocked> {
+    pub fn lock(&mut self) -> Option<BufferLocked> {
         unsafe {
             let buffer = max_sys::buffer_ref_getobject(self.value);
             if buffer.is_null() {
