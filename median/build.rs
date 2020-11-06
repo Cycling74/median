@@ -64,10 +64,6 @@ fn type_alias_name(perm: &Vec<Arg>) -> String {
         .join("")
 }
 
-fn classnew_variant_name(type_alias: &String) -> syn::Ident {
-    syn::Ident::new(type_alias, proc_macro2::Span::call_site())
-}
-
 fn sel_variant_name(type_alias: &String) -> syn::Ident {
     syn::Ident::new(
         &format!("Sel{}", type_alias),
