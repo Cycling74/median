@@ -60,6 +60,7 @@ impl BufferRef {
         }
     }
 
+    /// Set this buffer reference's buffer name, associating it with a different buffer.
     pub fn set(&mut self, name: SymbolRef) {
         unsafe {
             self.buffer_name = name;
@@ -67,6 +68,7 @@ impl BufferRef {
         }
     }
 
+    /// See if a buffer exists with the name associated with this buffer reference.
     pub fn exists(&self) -> bool {
         unsafe { max_sys::buffer_ref_exists(self.value) != 0 }
     }
