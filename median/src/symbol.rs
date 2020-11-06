@@ -68,7 +68,11 @@ impl TryInto<String> for SymbolRef {
 
 impl From<*mut max_sys::t_symbol> for SymbolRef {
     fn from(v: *mut max_sys::t_symbol) -> Self {
-        Self::new(v)
+        if v.is_null() {
+            Self::new(crate::max::common_symbols().s_nothing)
+        } else {
+            Self::new(v)
+        }
     }
 }
 
@@ -114,6 +118,13 @@ impl Clone for SymbolRef {
         unsafe { Self::new(self.inner()) }
     }
 }
+
+impl PartialEq for SymbolRef {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { self.inner() == other.inner() }
+    }
+}
+impl Eq for SymbolRef {}
 
 #[cfg(test)]
 mod tests {
