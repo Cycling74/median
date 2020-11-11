@@ -2,7 +2,7 @@
 
 use std::cell::UnsafeCell;
 use std::convert::{From, Into, TryFrom, TryInto};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fmt::{Display, Formatter};
 
 #[repr(transparent)]
@@ -36,7 +36,7 @@ impl SymbolRef {
 
     /// Convert to CString.
     pub fn to_cstring(&self) -> CString {
-        unsafe { CString::from_raw(self.inner_ref().s_name) }
+        unsafe { CStr::from_ptr(self.inner_ref().s_name).into() }
     }
 
     /// Try to convert to a rust String.
@@ -55,13 +55,12 @@ impl Into<*const max_sys::t_symbol> for SymbolRef {
 }
 
 impl TryInto<String> for SymbolRef {
-    type Error = std::str::Utf8Error;
+    type Error = std::ffi::IntoStringError;
     fn try_into(self) -> Result<String, Self::Error> {
-        unsafe {
-            match CString::from_raw(self.inner_ref().s_name).to_str() {
-                Ok(s) => Ok(s.to_string()),
-                Err(e) => Err(e),
-            }
+        let c: CString = unsafe { CStr::from_ptr(self.inner_ref().s_name).into() };
+        match c.into_string() {
+            Ok(s) => Ok(s.to_string()),
+            Err(e) => Err(e),
         }
     }
 }
@@ -73,6 +72,12 @@ impl From<*mut max_sys::t_symbol> for SymbolRef {
         } else {
             Self::new(v)
         }
+    }
+}
+
+impl From<&CStr> for SymbolRef {
+    fn from(v: &CStr) -> Self {
+        unsafe { SymbolRef::new(max_sys::gensym(v.as_ptr())) }
     }
 }
 
@@ -101,15 +106,7 @@ impl TryFrom<&str> for SymbolRef {
 
 impl Display for SymbolRef {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        unsafe {
-            write!(
-                f,
-                "{}",
-                CString::from_raw(self.inner_ref().s_name)
-                    .to_str()
-                    .expect("failed to convert to str")
-            )
-        }
+        write!(f, "{}", self.to_string().expect("failed to convert to str"))
     }
 }
 
