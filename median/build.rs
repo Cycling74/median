@@ -138,7 +138,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     Some(std::mem::transmute::<crate::method::B<T>, MaxMethod>(f)),
                     ::std::ffi::CString::new("bang").unwrap().as_ptr(),
                     0,
-                    );
+                )
             }
         },
         quote! {
@@ -149,7 +149,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     ::std::ffi::CString::new("float").unwrap().as_ptr(),
                     max_sys::e_max_atomtypes::A_FLOAT,
                     0,
-                );
+                )
             }
         },
         quote! {
@@ -160,7 +160,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     ::std::ffi::CString::new("int").unwrap().as_ptr(),
                     max_sys::e_max_atomtypes::A_LONG,
                     0,
-                );
+                )
             }
         },
         quote! {
@@ -171,7 +171,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     ::std::ffi::CString::new("symbol").unwrap().as_ptr(),
                     max_sys::e_max_atomtypes::A_SYM,
                     0,
-                );
+                )
             }
         },
         quote! {
@@ -182,7 +182,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     ::std::ffi::CString::new("list").unwrap().as_ptr(),
                     max_sys::e_max_atomtypes::A_GIMME,
                     0,
-                );
+                )
             }
         },
         quote! {
@@ -193,7 +193,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     ::std::ffi::CString::new("anything").unwrap().as_ptr(),
                     max_sys::e_max_atomtypes::A_GIMME,
                     0,
-                );
+                )
             }
         },
         quote! {
@@ -203,7 +203,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     Some(std::mem::transmute::<crate::method::B<T>, MaxMethod>(f)),
                     &mut [],
                     0,
-                );
+                )
             }
         },
         quote! {
@@ -213,7 +213,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     Some(std::mem::transmute::<crate::method::SelList<T>, MaxMethod>(f)),
                     &mut [max_sys::e_max_atomtypes::A_GIMME],
                     0,
-                );
+                )
             }
         },
     ];
@@ -229,7 +229,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
                     Some(std::mem::transmute::<crate::method::#t<T>, MaxMethod>(f)),
                     &mut [#(#args),*],
                     defaults,
-                );
+                )
             }
         });
     }
@@ -237,11 +237,12 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
     f.write_all(
         quote! {
         impl<T> Class<T> {
-            pub fn add_method(&mut self, m: Method<T>) {
+            pub fn add_method(&mut self, m: Method<T>) -> crate::error::MaxResult<()> {
                 unsafe {
-                    match m {
+                    let r = match m {
                         #(#matches)*
-                    }
+                    };
+                    crate::error::MaxError::from(r as _, ())
                 }
             }
         }

@@ -105,7 +105,7 @@ impl<T> Class<T> {
         m: Option<MaxMethod>,
         types: &mut [max_sys::e_max_atomtypes::Type],
         defaults: usize,
-    ) {
+    ) -> max_sys::t_max_err {
         //fill in defaults
         let l = types.len();
         assert!(l >= defaults);
@@ -126,51 +126,68 @@ impl<T> Class<T> {
 
         //register
         unsafe {
-            let sel = std::ffi::CString::new(sel)
-                .expect("failed to create CString from selector &str")
-                .as_ptr();
+            let sel =
+                std::ffi::CString::new(sel).expect("failed to create CString from selector &str");
+
             match types.len() {
-                0 => {
-                    max_sys::class_addmethod(self.class, m, sel, 0);
-                }
-                1 => {
-                    assert!(defaults <= 1);
-                    max_sys::class_addmethod(self.class, m, sel, types[0], 0);
-                }
-                2 => {
-                    assert!(defaults <= 2);
-                    max_sys::class_addmethod(self.class, m, sel, types[0], types[1], 0);
-                }
-                3 => {
-                    assert!(defaults <= 3);
-                    max_sys::class_addmethod(self.class, m, sel, types[0], types[1], types[2], 0);
-                }
-                4 => {
-                    assert!(defaults <= 4);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], 0,
-                    );
-                }
-                5 => {
-                    assert!(defaults <= 5);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4], 0,
-                    );
-                }
-                6 => {
-                    assert!(defaults <= 6);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4],
-                        types[5], 0,
-                    );
-                }
-                7 => {
-                    assert!(defaults <= 7);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4],
-                        types[5], types[6], 0,
-                    );
-                }
+                0 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), 0),
+                1 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), types[0], 0),
+                2 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), types[0], types[1], 0),
+                3 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    0,
+                ),
+                4 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    0,
+                ),
+                5 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    types[4],
+                    0,
+                ),
+                6 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    types[4],
+                    types[5],
+                    0,
+                ),
+                7 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    types[4],
+                    types[5],
+                    types[6],
+                    0,
+                ),
                 _ => unimplemented!(),
             }
         }
