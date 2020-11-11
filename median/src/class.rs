@@ -101,7 +101,7 @@ impl<T> Class<T> {
 
     fn add_sel_method(
         &self,
-        sel: CString,
+        sel: &str,
         m: Option<MaxMethod>,
         types: &mut [max_sys::e_max_atomtypes::Type],
         defaults: usize,
@@ -126,7 +126,9 @@ impl<T> Class<T> {
 
         //register
         unsafe {
-            let sel = sel.as_ptr();
+            let sel = std::ffi::CString::new(sel)
+                .expect("failed to create CString from selector &str")
+                .as_ptr();
             match types.len() {
                 0 => {
                     max_sys::class_addmethod(self.class, m, sel, 0);

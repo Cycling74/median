@@ -98,22 +98,22 @@ fn gen_method(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
         //build up variant
         //TODO when we allow pointers, don't provide defaults if a pointer is at the end?
         variants.push(quote! {
-            #v (::std::ffi::CString, #t<T>, usize)
+            #v (&'a str, #t<T>, usize)
         });
     }
 
     //build enumeration
     f.write_all(
         quote! {
-        pub enum Method<T> {
+        pub enum Method<'a, T> {
             Bang(B<T>),
             Int(I<T>),
             Float(F<T>),
             Symbol(S<T>),
             List(SelList<T>),
             Anything(SelList<T>),
-            Sel(::std::ffi::CString, B<T>),
-            SelVarArg(::std::ffi::CString, SelList<T>),
+            Sel(&'a str, B<T>),
+            SelVarArg(&'a str, SelList<T>),
             #(#variants),*
         }
         }
