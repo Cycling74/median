@@ -1,6 +1,6 @@
 use median::{
     attr::{AttrBuilder, AttrType},
-    builder::MSPWrappedBuilder,
+    builder::{MSPWrappedBuilder, ManagedBufferRef},
     class::Class,
     clock::ClockHandle,
     num::Int64,
@@ -16,6 +16,8 @@ median::external! {
         value: Int64,
         _v: String,
         clock: ClockHandle,
+        buffer1: ManagedBufferRef,
+        buffer2: ManagedBufferRef
     }
 
     impl MSPObjWrapped<HelloDSP> for HelloDSP {
@@ -26,6 +28,8 @@ median::external! {
                 value: Int64::new(0),
                 _v: String::from("blah"),
                 clock: builder.with_clockfn(Self::clocked),
+                buffer1: builder.with_buffer(None),
+                buffer2: builder.with_buffer(None),
             }
         }
 
