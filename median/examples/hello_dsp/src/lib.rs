@@ -34,8 +34,9 @@ median::external! {
         }
 
         fn perform(&self, _ins: &[&[f64]], outs: &mut [&mut [f64]], _nframes: usize) {
+            let c = if self.buffer1.exists() { 1. } else { 0.} + if self.buffer2.exists() { 1. } else { 0. };
             for o in outs[0].iter_mut() {
-                *o = 2f64;
+                *o = c;
             }
             for o in outs[1].iter_mut() {
                 *o = 1f64;
@@ -44,8 +45,9 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
-            c.add_method(median::method::Method::Int(Self::int_tramp));
-            c.add_method(median::method::Method::Bang(Self::bang_tramp));
+            c.add_method(median::method::Method::Int(Self::int_tramp)).unwrap();
+            c.add_method(median::method::Method::Bang(Self::bang_tramp)).unwrap();
+            c.add_method(median::method::Method::SelS(&"set", Self::set_tramp, 0)).unwrap();
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
@@ -68,6 +70,12 @@ median::external! {
         pub fn bang(&self) {
             post!("from rust {}", self.value);
             self.clock.delay(10);
+        }
+
+        #[tramp(Wrapper)]
+        pub fn set(&self, name: *mut max_sys::t_symbol) {
+            let name = name.into();
+            self.buffer1.set(name);
         }
 
         #[tramp(Wrapper)]
