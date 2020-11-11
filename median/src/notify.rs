@@ -1,4 +1,4 @@
-//! Wrapper for Max object notifications.
+//! Max object notifications.
 use crate::symbol::SymbolRef;
 use core::ffi::c_void;
 
@@ -12,7 +12,7 @@ pub type NotifyMethod<T> = unsafe extern "C" fn(
     data: *mut c_void,
 );
 
-/// Wrap a notification into an object.
+/// Encapsulated notification data.
 pub struct Notification {
     sender_name: SymbolRef,
     message: SymbolRef,

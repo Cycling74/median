@@ -4,6 +4,7 @@ use core::ffi::c_void;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 lazy_static::lazy_static! {
     static ref GLOBAL_SYMBOL_BINDING: SymbolRef = SymbolRef::try_from("globalsymbol_binding").unwrap();
@@ -20,6 +21,7 @@ pub enum TryLockError {
 pub struct BufferRef {
     value: *mut max_sys::t_buffer_ref,
     buffer_name: SymbolRef,
+    mutex: AtomicBool,
 }
 
 /// A locked buffer, for sample data access.
@@ -47,9 +49,9 @@ struct BufferChannelIterMut<'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
-pub trait BufferReference {
+pub trait BufferReference: Send + Sync {
     /// Set this buffer reference's buffer name, associating it with a different buffer.
-    fn set(&mut self, name: SymbolRef);
+    fn set(&self, name: SymbolRef);
 
     /// See if a buffer exists with the name associated with this buffer reference.
     fn exists(&self) -> bool;
@@ -67,7 +69,7 @@ pub trait BufferReference {
     fn millisample_rate(&self) -> Option<f64>;
 
     /// Lock the buffer if it exists.
-    fn try_lock(&mut self) -> Result<BufferLocked, TryLockError>;
+    fn try_lock(&self) -> Result<BufferLocked, TryLockError>;
 }
 
 impl BufferRef {
@@ -80,18 +82,22 @@ impl BufferRef {
         Self {
             value: max_sys::buffer_ref_new(owner, name.inner()),
             buffer_name: name,
+            mutex: AtomicBool::new(false),
         }
     }
 
-    fn buffer(&self) -> Option<*mut max_sys::t_buffer_obj> {
-        unsafe {
+    // execute the function wrapped in a mutex so the buffer doesn't change while we're operating
+    fn with_locked_buffer<F: Fn(Option<*mut max_sys::t_buffer_obj>) -> R, R>(&self, func: F) -> R {
+        //spin until we set it to from false to true
+        while self.mutex.compare_and_swap(false, true, Ordering::SeqCst) {}
+
+        let r = unsafe {
             let buffer = max_sys::buffer_ref_getobject(self.value);
-            if buffer.is_null() {
-                None
-            } else {
-                Some(buffer)
-            }
-        }
+            func(if buffer.is_null() { None } else { Some(buffer) })
+        };
+
+        self.mutex.store(false, Ordering::SeqCst);
+        r
     }
 
     /// See if this notification is applicable for buffer references.
@@ -111,7 +117,7 @@ impl BufferRef {
     /// # Remarks
     /// * It should be okay to send notifications that are intended for other objects, including
     /// other buffer references.
-    pub unsafe fn notify_if_unchecked(&mut self, notification: &Notification) {
+    pub unsafe fn notify_if_unchecked(&self, notification: &Notification) {
         //try to get the name of the buffer
         let name: *mut max_sys::t_symbol = std::ptr::null_mut();
         max_sys::object_method(
@@ -119,16 +125,18 @@ impl BufferRef {
             GET_NAME.inner(),
             std::mem::transmute::<_, *mut c_void>(&name),
         );
-        //if the name matches our buffer's name, send notification
-        if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
-            max_sys::buffer_ref_notify(
-                self.value,
-                notification.sender_name().inner(),
-                notification.message().inner(),
-                notification.sender(),
-                notification.data(),
-            );
-        }
+        self.with_locked_buffer(|_| {
+            //if the name matches our buffer's name, send notification
+            if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
+                max_sys::buffer_ref_notify(
+                    self.value,
+                    notification.sender_name().inner(),
+                    notification.message().inner(),
+                    notification.sender(),
+                    notification.data(),
+                );
+            }
+        });
     }
 
     /// Apply the notification to this buffer reference it if its applicable.
@@ -147,50 +155,54 @@ impl BufferRef {
 
 impl BufferReference for BufferRef {
     /// Set this buffer reference's buffer name, associating it with a different buffer.
-    fn set(&mut self, name: SymbolRef) {
-        unsafe {
-            self.buffer_name = name;
+    fn set(&self, name: SymbolRef) {
+        self.with_locked_buffer(|_| unsafe {
+            self.buffer_name.assign(&name);
             max_sys::buffer_ref_set(self.value, self.buffer_name.inner());
-        }
+        });
     }
 
     /// See if a buffer exists with the name associated with this buffer reference.
     fn exists(&self) -> bool {
-        unsafe { max_sys::buffer_ref_exists(self.value) != 0 }
+        self.with_locked_buffer(|_| unsafe { max_sys::buffer_ref_exists(self.value) != 0 })
     }
 
     /// Get the number of channels that the referenced buffer has, if there is a buffer.
     fn channels(&self) -> Option<usize> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getchannelcount(buffer) as _ })
+        self.with_locked_buffer(|buffer| {
+            buffer.map(|buffer| unsafe { max_sys::buffer_getchannelcount(buffer) as _ })
+        })
     }
 
     /// Get the number of frames that the referenced buffer has, if there is a buffer.
     fn frames(&self) -> Option<usize> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getframecount(buffer) as _ })
+        self.with_locked_buffer(|buffer| {
+            buffer.map(|buffer| unsafe { max_sys::buffer_getframecount(buffer) as _ })
+        })
     }
 
     /// Get the sample rate, samples per second, of referenced buffer data, if there is a buffer.
     fn sample_rate(&self) -> Option<f64> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getsamplerate(buffer) })
+        self.with_locked_buffer(|buffer| {
+            buffer.map(|buffer| unsafe { max_sys::buffer_getsamplerate(buffer) })
+        })
     }
 
     /// Get the sample rate, samples per milliseconds, of referenced buffer data, if there is a buffer.
     fn millisample_rate(&self) -> Option<f64> {
-        self.buffer()
-            .map(|buffer| unsafe { max_sys::buffer_getmillisamplerate(buffer) })
+        self.with_locked_buffer(|buffer| {
+            buffer.map(|buffer| unsafe { max_sys::buffer_getmillisamplerate(buffer) })
+        })
     }
 
     /// Lock the buffer if it exists.
-    fn try_lock(&mut self) -> Result<BufferLocked, TryLockError> {
-        unsafe {
-            let buffer = max_sys::buffer_ref_getobject(self.value);
-            if buffer.is_null() {
-                Err(TryLockError::BufferDoesNotExist)
-            } else {
-                let samples = max_sys::buffer_locksamples(buffer);
+    fn try_lock(&self) -> Result<BufferLocked, TryLockError> {
+        //once we've called buffer_locksamples, max has incremented the reference count, so we
+        //are able to unlock our mutex and pass the BufferLocked struct out
+        self.with_locked_buffer(|buffer| match buffer {
+            None => Err(TryLockError::BufferDoesNotExist),
+            Some(buffer) => {
+                let samples = unsafe { max_sys::buffer_locksamples(buffer) };
                 if samples.is_null() {
                     Err(TryLockError::BufferDoesNotExist)
                 } else {
@@ -201,9 +213,12 @@ impl BufferReference for BufferRef {
                     })
                 }
             }
-        }
+        })
     }
 }
+
+unsafe impl Send for BufferRef {}
+unsafe impl Sync for BufferRef {}
 
 impl BufferLocked {
     /// Get the number of channels that the buffer has.

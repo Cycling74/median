@@ -14,7 +14,6 @@ use crate::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 pub struct WrappedBuilder<'a, T, W> {
     max_obj: *mut max_sys::t_object,
@@ -22,13 +21,13 @@ pub struct WrappedBuilder<'a, T, W> {
     sym: SymbolRef,
     args: &'a [Atom],
     inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
-    buffer_refs: Vec<Arc<Mutex<BufferRef>>>,
+    buffer_refs: Vec<ManagedBufferRefInternal>,
     signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
 }
 
-pub type ManagedBuffer = Arc<Mutex<dyn BufferReference>>;
-pub type ManagedBufferInternal = Arc<Mutex<BufferRef>>;
+pub type ManagedBufferRef = Arc<dyn BufferReference>;
+pub(crate) type ManagedBufferRefInternal = Arc<BufferRef>;
 
 /// Builder for your object
 ///
@@ -40,7 +39,7 @@ pub trait ObjBuilder<T> {
     /// Get a clock object that executes `func` when triggered.
     fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
     /// Get a managed buffer reference.
-    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBuffer;
+    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef;
 
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang;
@@ -209,8 +208,8 @@ where
             )
         }
     }
-    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBuffer {
-        let b = Arc::new(Mutex::new(unsafe { BufferRef::new(self.max_obj, name) }));
+    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef {
+        let b = Arc::new(unsafe { BufferRef::new(self.max_obj, name) });
         self.buffer_refs.push(b.clone());
         b
     }
@@ -309,7 +308,7 @@ pub struct MaxWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
-    pub buffer_refs: Vec<ManagedBufferInternal>,
+    pub buffer_refs: Vec<ManagedBufferRefInternal>,
 }
 
 pub struct MSPWrappedBuilderFinalize<T> {
@@ -318,7 +317,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
-    pub buffer_refs: Vec<ManagedBufferInternal>,
+    pub buffer_refs: Vec<ManagedBufferRefInternal>,
 }
 
 impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>

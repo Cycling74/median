@@ -3,7 +3,7 @@
 use crate::{
     atom::Atom,
     buffer::BufferRef,
-    builder::{MSPWrappedBuilder, ManagedBufferInternal, MaxWrappedBuilder, WrappedBuilder},
+    builder::{MSPWrappedBuilder, ManagedBufferRefInternal, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType},
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
@@ -106,7 +106,7 @@ pub struct MaxWrapperInternal<T> {
     wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
-    buffer_refs: Vec<ManagedBufferInternal>,
+    buffer_refs: Vec<ManagedBufferRefInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -117,7 +117,7 @@ pub struct MSPWrapperInternal<T> {
     outs: Vec<&'static mut [f64]>,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
-    buffer_refs: Vec<ManagedBufferInternal>,
+    buffer_refs: Vec<ManagedBufferRefInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -229,15 +229,13 @@ where
 }
 
 fn handle_buffer_ref_notifications(
-    buffer_refs: &Vec<ManagedBufferInternal>,
+    buffer_refs: &Vec<ManagedBufferRefInternal>,
     notification: &Notification,
 ) {
     if BufferRef::is_applicable(notification) {
         for r in buffer_refs {
-            if let Ok(mut r) = r.lock() {
-                unsafe {
-                    r.notify_if_unchecked(&notification);
-                }
+            unsafe {
+                r.notify_if_unchecked(&notification);
             }
         }
     }
