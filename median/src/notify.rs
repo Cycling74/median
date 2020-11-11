@@ -1,6 +1,9 @@
+//! Wrapper for Max object notifications.
 use crate::symbol::SymbolRef;
 use core::ffi::c_void;
 
+/// A type that encapsulates the Max notify method signature, can be cast to
+/// `MaxMethod` and supplied as the `"notify"` class method for a class.
 pub type NotifyMethod<T> = unsafe extern "C" fn(
     x: *mut T,
     sender_name: *mut max_sys::t_symbol,
@@ -9,6 +12,7 @@ pub type NotifyMethod<T> = unsafe extern "C" fn(
     data: *mut c_void,
 );
 
+/// Wrap a notification into an object.
 pub struct Notification {
     sender_name: SymbolRef,
     message: SymbolRef,
@@ -30,19 +34,27 @@ impl Notification {
             data,
         }
     }
+
+    /// Get the notification message.
+    pub fn message(&self) -> &SymbolRef {
+        &self.message
+    }
+
+    /// Get a pointer to the sender of the notification.
     pub fn sender(&self) -> *mut c_void {
         self.sender
     }
 
+    /// Get the name of the sender of the notification.
     pub fn sender_name(&self) -> &SymbolRef {
         &self.sender_name
     }
 
+    /// Get the data from the notification.
+    ///
+    /// # Remarks
+    /// * Might be null.
     pub fn data(&self) -> *mut c_void {
         self.data
-    }
-
-    pub fn message(&self) -> &SymbolRef {
-        &self.message
     }
 }
