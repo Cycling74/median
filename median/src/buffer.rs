@@ -94,36 +94,52 @@ impl BufferRef {
         }
     }
 
+    /// See if this notification is applicable for buffer references.
+    pub fn is_applicable(notification: &Notification) -> bool {
+        if notification.sender().is_null() {
+            false
+        } else {
+            let message = notification.message();
+            //see if it is a binding or unbinding message
+            *message == *GLOBAL_SYMBOL_BINDING || *message == *GLOBAL_SYMBOL_UNBINDING
+        }
+    }
+
+    /// Apply the notification to this buffer reference it if its applicable.
+    /// This expects that `is_applicable` has already returned `true`.
+    ///
+    /// # Remarks
+    /// * It should be okay to send notifications that are intended for other objects, including
+    /// other buffer references.
+    pub unsafe fn notify_if_unchecked(&mut self, notification: &Notification) {
+        //try to get the name of the buffer
+        let name: *mut max_sys::t_symbol = std::ptr::null_mut();
+        max_sys::object_method(
+            notification.data(),
+            GET_NAME.inner(),
+            std::mem::transmute::<_, *mut c_void>(&name),
+        );
+        //if the name matches our buffer's name, send notification
+        if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
+            max_sys::buffer_ref_notify(
+                self.value,
+                notification.sender_name().inner(),
+                notification.message().inner(),
+                notification.sender(),
+                notification.data(),
+            );
+        }
+    }
+
     /// Apply the notification to this buffer reference it if its applicable.
     ///
     /// # Remarks
     /// * It should be okay to send notifications that are intended for other objects, including
     /// other buffer references.
     pub fn notify_if(&mut self, notification: &Notification) {
-        let sender = notification.sender();
-        if !sender.is_null() {
-            let message = notification.message();
-            //see if it is a binding or unbinding message
-            if *message == *GLOBAL_SYMBOL_BINDING || *message == *GLOBAL_SYMBOL_UNBINDING {
-                unsafe {
-                    //try to get the name of the buffer
-                    let name: *mut max_sys::t_symbol = std::ptr::null_mut();
-                    max_sys::object_method(
-                        notification.data(),
-                        GET_NAME.inner(),
-                        std::mem::transmute::<_, *mut c_void>(&name),
-                    );
-                    //if the name matches our buffer's name, send notification
-                    if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
-                        max_sys::buffer_ref_notify(
-                            self.value,
-                            notification.sender_name().inner(),
-                            message.inner(),
-                            sender,
-                            notification.data(),
-                        );
-                    }
-                }
+        if Self::is_applicable(&notification) {
+            unsafe {
+                self.notify_if_unchecked(&notification);
             }
         }
     }
