@@ -1,6 +1,7 @@
 //! Utilities for building objects.
 use crate::{
     atom::Atom,
+    buffer::{BufferRef, BufferReference},
     clock::ClockHandle,
     inlet::{MSPInlet, MaxInlet, Proxy},
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
@@ -12,6 +13,8 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct WrappedBuilder<'a, T, W> {
     max_obj: *mut max_sys::t_object,
@@ -19,17 +22,26 @@ pub struct WrappedBuilder<'a, T, W> {
     sym: SymbolRef,
     args: &'a [Atom],
     inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
+    buffer_refs: Vec<Arc<Mutex<BufferRef>>>,
     signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
 }
+
+pub type ManagedBuffer = Arc<Mutex<dyn BufferReference>>;
+pub type ManagedBufferInternal = Arc<Mutex<BufferRef>>;
 
 /// Builder for your object
 ///
 /// # Remarks
 /// Unlike the Max SDK, inlets and outlets are specified from left to right.
 pub trait ObjBuilder<T> {
+    /// Get a clock object that executes `func` when triggered.
     fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
+    /// Get a clock object that executes `func` when triggered.
     fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
+    /// Get a managed buffer reference.
+    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBuffer;
+
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang;
     /// Add an outlet that outputs floats.
@@ -80,6 +92,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             sym,
             args,
             inlets: Vec::new(),
+            buffer_refs: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
         }
@@ -92,6 +105,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             sym,
             args,
             inlets: Vec::new(),
+            buffer_refs: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
         }
@@ -195,6 +209,12 @@ where
             )
         }
     }
+    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBuffer {
+        let b = Arc::new(Mutex::new(unsafe { BufferRef::new(self.max_obj, name) }));
+        self.buffer_refs.push(b.clone());
+        b
+    }
+
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang {
         Outlet::append_bang(self.max_obj)
@@ -289,6 +309,7 @@ pub struct MaxWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
+    pub buffer_refs: Vec<ManagedBufferInternal>,
 }
 
 pub struct MSPWrappedBuilderFinalize<T> {
@@ -297,6 +318,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
+    pub buffer_refs: Vec<ManagedBufferInternal>,
 }
 
 impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
@@ -309,6 +331,7 @@ where
             callbacks_float,
             callbacks_int,
             proxy_inlets,
+            buffer_refs: self.buffer_refs,
         }
     }
 }
@@ -328,6 +351,7 @@ where
             callbacks_float,
             callbacks_int,
             proxy_inlets,
+            buffer_refs: self.buffer_refs,
         }
     }
 }

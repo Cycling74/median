@@ -2,10 +2,12 @@
 
 use crate::{
     atom::Atom,
-    builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
+    buffer::BufferRef,
+    builder::{MSPWrappedBuilder, ManagedBufferInternal, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType},
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
+    notify::Notification,
     object::{MSPObj, MaxObj, ObjBox},
     symbol::SymbolRef,
 };
@@ -52,6 +54,9 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
     fn class_type() -> ClassType {
         ClassType::Box
     }
+
+    /// Handle notifications that your object gets
+    fn handle_notification(&self, _notification: &Notification) {}
 }
 
 pub trait MaxObjWrapped<T>: ObjWrapped<T> {
@@ -101,6 +106,7 @@ pub struct MaxWrapperInternal<T> {
     wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
+    buffer_refs: Vec<ManagedBufferInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -111,6 +117,7 @@ pub struct MSPWrapperInternal<T> {
     outs: Vec<&'static mut [f64]>,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
+    buffer_refs: Vec<ManagedBufferInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -123,6 +130,8 @@ pub trait WrapperInternal<O, T>: Sized {
 
     fn call_float(&self, index: usize, value: f64);
     fn call_int(&self, index: usize, value: i64);
+
+    fn handle_notification(&self, notification: &Notification);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -147,6 +156,7 @@ where
             wrapped,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
+            buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
         }
     }
@@ -162,6 +172,10 @@ where
         if let Some(f) = self.callbacks_int.get(&index) {
             f(self.wrapped(), value);
         }
+    }
+    fn handle_notification(&self, notification: &Notification) {
+        handle_buffer_ref_notifications(&self.buffer_refs, notification);
+        self.wrapped().handle_notification(notification);
     }
 }
 
@@ -191,6 +205,7 @@ where
             outs,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
+            buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
         }
     }
@@ -205,6 +220,25 @@ where
     fn call_int(&self, index: usize, value: i64) {
         if let Some(f) = self.callbacks_int.get(&index) {
             f(self.wrapped(), value);
+        }
+    }
+    fn handle_notification(&self, notification: &Notification) {
+        handle_buffer_ref_notifications(&self.buffer_refs, notification);
+        self.wrapped().handle_notification(notification);
+    }
+}
+
+fn handle_buffer_ref_notifications(
+    buffer_refs: &Vec<ManagedBufferInternal>,
+    notification: &Notification,
+) {
+    if BufferRef::is_applicable(notification) {
+        for r in buffer_refs {
+            if let Ok(mut r) = r.lock() {
+                unsafe {
+                    r.notify_if_unchecked(&notification);
+                }
+            }
         }
     }
 }
@@ -336,8 +370,17 @@ where
         }
     }
 
-    fn register_common<F>(lookup_class: bool, creator: F)
-    where
+    fn register_common<F>(
+        lookup_class: bool,
+        notification_handler: extern "C" fn(
+            &Wrapper<O, I, T>,
+            sender_name: *mut max_sys::t_symbol,
+            message: *mut max_sys::t_symbol,
+            sender: *mut c_void,
+            data: *mut c_void,
+        ),
+        creator: F,
+    ) where
         F: Fn() -> Class<Self>,
     {
         let key = key::<T>();
@@ -352,6 +395,16 @@ where
             };
             let max_class = if existing.is_null() {
                 let mut c = creator();
+                //register notifications
+                unsafe {
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<_, MaxMethod>(notification_handler)),
+                        std::ffi::CString::new("notify").unwrap().as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
+                }
                 c.register(T::class_type())
                     .expect(format!("failed to register {}", key).as_str());
 
@@ -387,7 +440,7 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, || {
+        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
             let mut c: Class<Self> = Class::new(
                 T::class_name(),
                 Self::new_tramp,
@@ -430,6 +483,17 @@ where
             o
         })
     }
+
+    extern "C" fn handle_notification_tramp(
+        &self,
+        sender_name: *mut max_sys::t_symbol,
+        message: *mut max_sys::t_symbol,
+        sender: *mut c_void,
+        data: *mut c_void,
+    ) {
+        let notification = Notification::new(sender_name, message, sender, data);
+        self.internal().handle_notification(&notification);
+    }
 }
 
 use std::os::raw::c_long;
@@ -448,7 +512,7 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, || {
+        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
             let mut c: Class<Self> = Class::new(
                 T::class_name(),
                 Self::new_tramp,
@@ -578,6 +642,17 @@ where
                 std::ptr::null_mut(),
             );
         }
+    }
+
+    extern "C" fn handle_notification_tramp(
+        &self,
+        sender_name: *mut max_sys::t_symbol,
+        message: *mut max_sys::t_symbol,
+        sender: *mut c_void,
+        data: *mut c_void,
+    ) {
+        let notification = Notification::new(sender_name, message, sender, data);
+        self.internal().handle_notification(&notification);
     }
 }
 
