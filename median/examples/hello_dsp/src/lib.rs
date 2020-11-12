@@ -85,6 +85,10 @@ median::external! {
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);
             post!("from rust {}", self.value);
+            //just an example to show an error
+            if v < 0 {
+                median::object_error!(self.as_max_obj(), "from rust {}", self.value);
+            }
         }
 
         #[attr_get_tramp(Wrapper)]
