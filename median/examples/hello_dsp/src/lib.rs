@@ -4,6 +4,7 @@ use median::{
     class::Class,
     clock::ClockHandle,
     num::Int64,
+    object::MSPObj,
     post,
     wrapper::{
         attr_get_tramp, attr_set_tramp, tramp, MSPObjWrapped, MSPObjWrapper, WrapperWrapped,
@@ -68,7 +69,7 @@ median::external! {
     impl HelloDSP {
         #[tramp(Wrapper)]
         pub fn bang(&self) {
-            post!("from rust {}", self.value);
+            median::object_post!(self.as_max_obj(), "from rust {}", self.value);
             self.clock.delay(10);
         }
 
