@@ -86,18 +86,20 @@ impl BufferRef {
         }
     }
 
-    // execute the function wrapped in a mutex so the buffer doesn't change while we're operating
-    fn with_locked_buffer<F: Fn(Option<*mut max_sys::t_buffer_obj>) -> R, R>(&self, func: F) -> R {
+    fn with_lock<F: Fn() -> R, R>(&self, func: F) -> R {
         //spin until we set it to from false to true
         while self.mutex.compare_and_swap(false, true, Ordering::SeqCst) {}
-
-        let r = unsafe {
-            let buffer = max_sys::buffer_ref_getobject(self.value);
-            func(if buffer.is_null() { None } else { Some(buffer) })
-        };
-
+        let r = func();
         self.mutex.store(false, Ordering::SeqCst);
         r
+    }
+
+    // execute the function wrapped in a mutex so the buffer doesn't change while we're operating
+    fn with_locked_buffer<F: Fn(Option<*mut max_sys::t_buffer_obj>) -> R, R>(&self, func: F) -> R {
+        self.with_lock(|| {
+            let buffer = unsafe { max_sys::buffer_ref_getobject(self.value) };
+            func(if buffer.is_null() { None } else { Some(buffer) })
+        })
     }
 
     /// See if this notification is applicable for buffer references.
@@ -125,7 +127,7 @@ impl BufferRef {
             GET_NAME.inner(),
             std::mem::transmute::<_, *mut c_void>(&name),
         );
-        self.with_locked_buffer(|_| {
+        self.with_lock(|| {
             //if the name matches our buffer's name, send notification
             if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
                 max_sys::buffer_ref_notify(
@@ -156,7 +158,7 @@ impl BufferRef {
 impl BufferReference for BufferRef {
     /// Set this buffer reference's buffer name, associating it with a different buffer.
     fn set(&self, name: SymbolRef) {
-        self.with_locked_buffer(|_| unsafe {
+        self.with_lock(|| unsafe {
             self.buffer_name.assign(&name);
             max_sys::buffer_ref_set(self.value, self.buffer_name.inner());
         });
@@ -164,7 +166,7 @@ impl BufferReference for BufferRef {
 
     /// See if a buffer exists with the name associated with this buffer reference.
     fn exists(&self) -> bool {
-        self.with_locked_buffer(|_| unsafe { max_sys::buffer_ref_exists(self.value) != 0 })
+        self.with_lock(|| unsafe { max_sys::buffer_ref_exists(self.value) != 0 })
     }
 
     /// Get the number of channels that the referenced buffer has, if there is a buffer.
