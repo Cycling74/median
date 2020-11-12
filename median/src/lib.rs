@@ -25,7 +25,7 @@ pub use median_macros::external;
 #[macro_export]
 macro_rules! post {
     ($($arg:tt)*) => {{
-        $crate::post(std::format!($($arg)*))
+        $crate::post(::std::format!($($arg)*))
     }}
 }
 
@@ -33,23 +33,74 @@ macro_rules! post {
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {{
-        $crate::error(std::format!($($arg)*))
+        $crate::error(::std::format!($($arg)*))
     }}
 }
 
-/// Post a message to the Max console, using the same format as `std::format!`.
+/// Post a message to the Max console, associated with the given object, using the same format as `std::format!`.
+///
+/// # Examples
+///
+/// Calling inside method for a struct that implements `MaxObjWrapped`.
+/// ```ignore
+/// use median::object::MaxObj;
+///
+/// pub fn bang(&self) {
+///     median::object_post!(self.max_obj(), "from max obj");
+/// }
+/// ```
+///
+/// Calling inside method for a struct that implements `MSPObjWrapped`.
+/// ```ignore
+/// use median::object::MSPObj;
+///
+/// pub fn bang(&self) {
+///     median::object_post!(self.as_max_obj(), "from msp obj {}", 2084);
+/// }
+/// ```
+///
+/// # Remarks
+/// * `MaxObjWrapped` objects can use `self.max_obj()` as the first argument, but you must `use
+/// median::object::MaxObj`
+/// * `MSPObjWrapped` objects can use `self.as_max_obj()` as the first argument, but you must `use
+/// median::object::MSPObj`
 #[macro_export]
 macro_rules! object_post {
     ($obj:expr, $($arg:tt)*) => {{
-        $crate::object::post($obj, std::format!($($arg)*))
+        $crate::object::post($obj, ::std::format!($($arg)*))
     }}
 }
 
-/// Post an error to the Max console, using the same format as `std::format!`.
+/// Post an error to the Max console, associated with the given object, using the same format as `std::format!`.
+/// # Examples
+///
+/// Calling inside method for a struct that implements `MaxObjWrapped`.
+/// ```ignore
+/// use median::object::MaxObj;
+///
+/// pub fn bang(&self) {
+///     median::object_error!(self.max_obj(), "from max obj");
+/// }
+/// ```
+///
+/// Calling inside method for a struct that implements `MSPObjWrapped`.
+/// ```ignore
+/// use median::object::MSPObj;
+///
+/// pub fn bang(&self) {
+///     median::object_error!(self.as_max_obj(), "from msp obj {}", 2084);
+/// }
+/// ```
+///
+/// # Remarks
+/// * `MaxObjWrapped` objects can use `self.max_obj()` as the first argument, but you must `use
+/// median::object::MaxObj`
+/// * `MSPObjWrapped` objects can use `self.as_max_obj()` as the first argument, but you must `use
+/// median::object::MSPObj`
 #[macro_export]
 macro_rules! object_error {
-    ($obj:tt, $($arg:tt)*) => {{
-        $crate::object::error($obj, std::format!($($arg)*))
+    ($obj:expr, $($arg:tt)*) => {{
+        $crate::object::error($obj, ::std::format!($($arg)*))
     }}
 }
 
