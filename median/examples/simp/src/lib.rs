@@ -48,8 +48,8 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            c.add_method(median::method::Method::Int(Self::int_tramp));
-            c.add_method(median::method::Method::Bang(Self::bang_tramp));
+            c.add_method(median::method::Method::Int(Self::int_tramp)).expect("failed to add int method");
+            c.add_method(median::method::Method::Bang(Self::bang_tramp)).expect("failed to add bang method");
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
@@ -81,7 +81,7 @@ median::external! {
         #[tramp(Wrapper)]
         pub fn bang(&self) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
-            post!("from rust {} inlet {}", self.value, i);
+            median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
