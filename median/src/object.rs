@@ -20,7 +20,33 @@ pub unsafe trait MSPObj: Sized {
     }
 }
 
+use std::ffi::CString;
 use std::ops::{Deref, DerefMut};
+
+/// Post a message to the Max console, associated with the given object.
+pub fn post<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
+    unsafe {
+        match CString::new(msg) {
+            Ok(p) => max_sys::object_post(obj, p.as_ptr()),
+            //TODO make CString below a const static
+            Err(_) => self::error(obj, "failed to create CString"),
+        }
+    }
+}
+
+/// Post an error to the Max console, associated with the given object
+pub fn error<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
+    unsafe {
+        match CString::new(msg) {
+            Ok(p) => max_sys::object_error(obj, p.as_ptr()),
+            //TODO make CString below a const static
+            Err(_) => max_sys::object_error(
+                obj,
+                CString::new("failed to create CString").unwrap().as_ptr(),
+            ),
+        }
+    }
+}
 
 /// A smart pointer for an object that max allocated
 pub struct ObjBox<T: MaxObj> {
