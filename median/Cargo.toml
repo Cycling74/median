@@ -11,6 +11,7 @@ median_macros = { path = "../median_macros/" }
 lazy_static = "1.4.0"
 paste = "1.0.1"
 field-offset = "0.3.2"
+parking_lot = "0.11.0"
 
 [build-dependencies]
 quote = "1.0.7"

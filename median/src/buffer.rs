@@ -3,8 +3,7 @@ use crate::{notify::Notification, symbol::SymbolRef};
 use core::ffi::c_void;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use std::ops::{Index, IndexMut};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::ops::{DerefMut, Index, IndexMut};
 
 lazy_static::lazy_static! {
     static ref GLOBAL_SYMBOL_BINDING: SymbolRef = SymbolRef::try_from("globalsymbol_binding").unwrap();
@@ -17,11 +16,14 @@ pub enum TryLockError {
     BufferDoesNotExist,
 }
 
-/// A safe wrapper for `max_sys::t_buffer_ref` objects.
-pub struct BufferRef {
+struct BufInner {
     value: *mut max_sys::t_buffer_ref,
     buffer_name: SymbolRef,
-    mutex: AtomicBool,
+}
+
+/// A safe wrapper for `max_sys::t_buffer_ref` objects.
+pub struct BufferRef {
+    inner: parking_lot::Mutex<BufInner>,
 }
 
 /// A locked buffer, for sample data access.
@@ -80,24 +82,22 @@ impl BufferRef {
     pub unsafe fn new(owner: *mut max_sys::t_object, name: Option<SymbolRef>) -> Self {
         let name = name.unwrap_or_else(|| crate::max::common_symbols().s_nothing.into());
         Self {
-            value: max_sys::buffer_ref_new(owner, name.inner()),
-            buffer_name: name,
-            mutex: AtomicBool::new(false),
+            inner: parking_lot::Mutex::new(BufInner {
+                value: max_sys::buffer_ref_new(owner, name.inner()) as _,
+                buffer_name: name,
+            }),
         }
     }
 
-    fn with_lock<F: Fn() -> R, R>(&self, func: F) -> R {
-        //spin until we set it to from false to true
-        while self.mutex.compare_and_swap(false, true, Ordering::SeqCst) {}
-        let r = func();
-        self.mutex.store(false, Ordering::SeqCst);
-        r
+    fn with_lock<F: Fn(&mut BufInner) -> R, R>(&self, func: F) -> R {
+        let mut g = self.inner.lock();
+        func(g.deref_mut())
     }
 
     // execute the function wrapped in a mutex so the buffer doesn't change while we're operating
     fn with_locked_buffer<F: Fn(Option<*mut max_sys::t_buffer_obj>) -> R, R>(&self, func: F) -> R {
-        self.with_lock(|| {
-            let buffer = unsafe { max_sys::buffer_ref_getobject(self.value) };
+        self.with_lock(|inner| {
+            let buffer = unsafe { max_sys::buffer_ref_getobject(inner.value) };
             func(if buffer.is_null() { None } else { Some(buffer) })
         })
     }
@@ -127,11 +127,11 @@ impl BufferRef {
             GET_NAME.inner(),
             std::mem::transmute::<_, *mut c_void>(&name),
         );
-        self.with_lock(|| {
+        self.with_lock(|inner| {
             //if the name matches our buffer's name, send notification
-            if !name.is_null() && SymbolRef::from(name) == self.buffer_name {
+            if !name.is_null() && SymbolRef::from(name) == inner.buffer_name {
                 max_sys::buffer_ref_notify(
-                    self.value,
+                    inner.value,
                     notification.sender_name().inner(),
                     notification.message().inner(),
                     notification.sender(),
@@ -158,15 +158,15 @@ impl BufferRef {
 impl BufferReference for BufferRef {
     /// Set this buffer reference's buffer name, associating it with a different buffer.
     fn set(&self, name: SymbolRef) {
-        self.with_lock(|| unsafe {
-            self.buffer_name.assign(&name);
-            max_sys::buffer_ref_set(self.value, self.buffer_name.inner());
+        self.with_lock(|inner| unsafe {
+            inner.buffer_name.assign(&name);
+            max_sys::buffer_ref_set(inner.value, inner.buffer_name.inner());
         });
     }
 
     /// See if a buffer exists with the name associated with this buffer reference.
     fn exists(&self) -> bool {
-        self.with_lock(|| unsafe { max_sys::buffer_ref_exists(self.value) != 0 })
+        self.with_lock(|inner| unsafe { max_sys::buffer_ref_exists(inner.value) != 0 })
     }
 
     /// Get the number of channels that the referenced buffer has, if there is a buffer.
@@ -411,7 +411,7 @@ impl<'a> ExactSizeIterator for BufferChannelIterMut<'a> {
     }
 }
 
-impl Drop for BufferRef {
+impl Drop for BufInner {
     fn drop(&mut self) {
         unsafe {
             max_sys::object_free(self.value as _);
