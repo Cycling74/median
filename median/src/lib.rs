@@ -103,6 +103,3 @@ macro_rules! object_error {
         $crate::object::error($obj, ::std::format!($($arg)*))
     }}
 }
-
-//#[cfg(test)]
-//pub mod test;

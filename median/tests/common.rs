@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /*
 
     println!("cargo:rustc-link-lib=dylib=c++");
