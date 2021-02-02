@@ -254,6 +254,15 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("cargo:rustc-link-search=native=/Users/xnor/dev/max/build-ninja/kernel/");
+    println!("cargo:rustc-link-search=native=/Users/xnor/dev/max/build-ninja/kernel/juce");
+    println!("cargo:rustc-link-search=native=/Users/xnor/dev/max/build-ninja/c74support/");
+    println!("cargo:rustc-link-search=native=/Users/xnor/dev/max/build-ninja/c74support-private/rand-support/");
+    println!("cargo:rustc-link-search=native=/Users/xnor/dev/max/build-ninja/c74support-private/test-support/");
+    println!("cargo:rustc-link-search=native=/Users/xnor/.conan/data/libiconv/1.16/_/_/package/604f29636cf2c13bacc083687cf5cd7c4a88f832/lib");
+    println!("cargo:rustc-link-search=native=/Users/xnor/.conan/data/boost/1.74.0/_/_/package/bc95d585948df078133f0c1ecef95b76eaa9256b/lib/");
+    //println!("cargo:rustc-link-search=native=/Users/xnor/dev/max/build-ninja/c74support-private/");
+
     //don't mix floats and other types
     let mut perms = vec![vec![Arg::Int], vec![Arg::Symbol]];
     let mut fperms = vec![vec![Arg::Float]];
