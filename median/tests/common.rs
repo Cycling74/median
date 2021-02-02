@@ -1,49 +1,4 @@
 #![allow(dead_code)]
-/*
-
-    println!("cargo:rustc-link-lib=dylib=c++");
-    println!("cargo:rustc-link-lib=static=Juce");
-    println!("cargo:rustc-link-lib=static=MaxInternals");
-    println!("cargo:rustc-link-lib=framework=AppKit");
-    println!("cargo:rustc-link-lib=framework=AudioUnit");
-    println!("cargo:rustc-link-lib=framework=Accelerate");
-    println!("cargo:rustc-link-lib=framework=WebKit");
-    println!("cargo:rustc-link-lib=framework=AVFoundation");
-    println!("cargo:rustc-link-lib=framework=AVKit");
-    println!("cargo:rustc-link-lib=framework=Foundation");
-    println!("cargo:rustc-link-lib=framework=CoreAudioKit");
-    println!("cargo:rustc-link-lib=framework=AudioToolBox");
-    println!("cargo:rustc-link-lib=framework=Cocoa");
-    println!("cargo:rustc-link-lib=framework=Carbon");
-    println!("cargo:rustc-link-lib=framework=CoreData");
-    println!("cargo:rustc-link-lib=framework=CoreGraphics");
-    println!("cargo:rustc-link-lib=framework=CoreFoundation");
-    println!("cargo:rustc-link-lib=framework=CoreServices");
-    println!("cargo:rustc-link-lib=framework=QuartzCore");
-*/
-
-/*
-#[link(name = "c++", kind = "dylib")]
-#[link(name = "iconv", kind = "dylib")]
-#[link(name = "MaxCoreStubs", kind = "static")]
-#[link(name = "MaxInternals", kind = "static")]
-#[link(name = "C74ApiPrivate", kind = "static")]
-#[link(name = "Juce", kind = "static")]
-#[link(name = "CoreData", kind = "framework")]
-#[link(name = "CoreGraphics", kind = "framework")]
-#[link(name = "CoreFoundation", kind = "framework")]
-#[link(name = "CoreServices", kind = "framework")]
-#[link(name = "QuartzCore", kind = "framework")]
-#[link(name = "Carbon", kind = "framework")]
-#[link(name = "Cocoa", kind = "framework")]
-#[link(name = "AVFoundation", kind = "framework")]
-#[link(name = "AppKit", kind = "framework")]
-#[link(name = "AVKit", kind = "framework")]
-#[link(name = "IOKit", kind = "framework")]
-#[link(name = "WebKit", kind = "framework")]
-#[link(name = "AudioToolBox", kind = "framework")]
-#[link(name = "AudioUnit", kind = "framework")]
-*/
 
 #[link(name = "MaxCore", kind = "static")]
 #[link(name = "MaxCoreStubs", kind = "static")]
@@ -111,21 +66,18 @@ unsafe extern "C" fn byteorder_swap_pointer_32(p: *mut ::std::os::raw::c_char) {
     p[1] = c;
 }
 
-pub fn with_setup<F: FnOnce() + std::panic::UnwindSafe>(func: F) {
-    unsafe {
-        max_core_init();
-    }
-    let result = std::panic::catch_unwind(move || {
-        func();
-    });
-    unsafe {
-        max_core_deinit();
-    }
-    assert!(result.is_ok());
+use std::sync::Mutex;
+
+lazy_static::lazy_static! {
+    pub static ref INITIALIZED: Mutex<bool> = Mutex::new(false);
 }
 
 pub fn setup() {
     unsafe {
-        max_core_init();
+        let mut g = INITIALIZED.lock().expect("no poison");
+        if !*g {
+            max_core_init();
+            *g = true;
+        }
     }
 }

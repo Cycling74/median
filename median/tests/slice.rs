@@ -5,6 +5,7 @@ use std::convert::From;
 
 #[test]
 fn can_create_slice() {
+    common::setup();
     let s: Slice<Atom> = Slice::from([0i64, 1i64].iter());
     assert_eq!(2, s.len());
 
