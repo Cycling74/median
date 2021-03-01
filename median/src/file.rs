@@ -7,7 +7,8 @@ use std::{
 //XXX can we get this from the SDK?
 const MAX_PATH_CHARS: usize = 2048;
 
-pub struct FileInfo {
+/// Information about a file and where it is.
+pub struct FilePath {
     //The name of the file.
     pub file_name: CString,
     //The volume the file exists in.
@@ -44,7 +45,7 @@ pub enum LocateError {
     NotFound,
 }
 
-impl FileInfo {
+impl FilePath {
     /// Find the file by name, if it isn't empty, otherwise, present user with dialog.
     ///
     /// # Arguments
@@ -100,7 +101,7 @@ impl FileInfo {
                     len as _,
                 ) == 0
                 {
-                    Ok(FileInfo {
+                    Ok(FilePath {
                         file_name: CStr::from_ptr(file_name.as_ptr()).to_owned(),
                         vol,
                         typ,
@@ -134,7 +135,7 @@ impl FileInfo {
                 len as _,
             ) == 0
             {
-                Some(FileInfo {
+                Some(FilePath {
                     file_name: CStr::from_ptr(file_name.as_ptr()).to_owned(),
                     vol,
                     typ,
