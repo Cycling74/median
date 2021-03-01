@@ -6,6 +6,7 @@ pub mod builder;
 pub mod class;
 pub mod clock;
 pub mod error;
+pub mod file;
 pub mod inlet;
 pub mod method;
 pub mod notify;
@@ -14,6 +15,7 @@ pub mod object;
 pub mod outlet;
 pub mod slice;
 pub mod symbol;
+pub mod thread;
 pub mod wrapper;
 
 //re-exports

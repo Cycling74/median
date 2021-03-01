@@ -35,6 +35,7 @@ pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 //reexports
 pub use median_macros::wrapped_attr_get_tramp as attr_get_tramp;
 pub use median_macros::wrapped_attr_set_tramp as attr_set_tramp;
+pub use median_macros::wrapped_defer_tramp as defer_tramp;
 pub use median_macros::wrapped_tramp as tramp;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
