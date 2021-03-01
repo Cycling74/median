@@ -1,12 +1,15 @@
 //! Methods and types that manage threading and execution.
 
-/// A signature for a method that can be defered.
+/// A signature for a method that can be deferred.
 pub type DeferMethod = unsafe extern "C" fn(
     obj: *mut max_sys::t_object,
     sym: *mut max_sys::t_symbol,
     argc: std::os::raw::c_long,
     argv: *const max_sys::t_atom,
 );
+
+/// A convenience wrapper around Max's systhread.
+pub struct SysThread;
 
 /// Defer execution of a method to the main thread if (and only if) you are calling from the
 /// scheduler thread.
@@ -68,5 +71,22 @@ pub fn defer_low(
             args.len() as _,
             std::mem::transmute::<_, _>(args.as_ptr()), //should have been const in max_sys
         );
+    }
+}
+
+impl SysThread {
+    /// Is the current thread the audio thread.
+    pub fn is_audio() -> bool {
+        unsafe { max_sys::systhread_isaudiothread() != 0 }
+    }
+
+    /// Is the current thread the main thread.
+    pub fn is_main() -> bool {
+        unsafe { max_sys::systhread_ismainthread() != 0 }
+    }
+
+    /// Is the current thread a scheduler (timer) thread.
+    pub fn is_scheduler() -> bool {
+        unsafe { max_sys::systhread_istimerthread() != 0 }
     }
 }
