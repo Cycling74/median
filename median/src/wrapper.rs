@@ -103,6 +103,7 @@ pub trait WrapperWrapped<T> {
     fn wrapped(&self) -> &T;
 }
 
+/// Defer methods for wrapped objects.
 pub trait WrappedDefer<T> {
     ///defer a tramp method with the sym and atoms args
     fn defer(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
