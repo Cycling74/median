@@ -27,6 +27,12 @@ pub enum TextLineBreak {
     Unix,
 }
 
+impl Default for TextLineBreak {
+    fn default() -> Self {
+        Self::Native
+    }
+}
+
 /// Error reading from a file.
 pub enum FileReadError {
     ErrorOpening,
@@ -47,7 +53,7 @@ impl FileInfo {
     /// disable filtering.
     pub fn find_with_dialog(
         name: &SymbolRef,
-        types: &Option<Vec<max_sys::t_fourcc>>,
+        types: Option<&Vec<max_sys::t_fourcc>>,
     ) -> Option<Self> {
         if name.is_empty() {
             Self::open_dialog(types)
@@ -66,7 +72,7 @@ impl FileInfo {
     /// Will return `LocateError::NameEmpty` if the name is empty.
     pub fn locate(
         name: &SymbolRef,
-        types: &Option<Vec<max_sys::t_fourcc>>,
+        types: Option<&Vec<max_sys::t_fourcc>>,
     ) -> Result<Self, LocateError> {
         if name.is_empty() {
             Err(LocateError::NameEmpty)
@@ -111,7 +117,7 @@ impl FileInfo {
     /// # Arguments
     /// * `types` - An optional list of file types to filter the display, pass `None` to disable
     /// filtering.
-    pub fn open_dialog(types: &Option<Vec<max_sys::t_fourcc>>) -> Option<Self> {
+    pub fn open_dialog(types: Option<&Vec<max_sys::t_fourcc>>) -> Option<Self> {
         let (types_ptr, len) = match types {
             Some(t) => (t.as_ptr(), t.len()),
             None => (std::ptr::null(), 0),
