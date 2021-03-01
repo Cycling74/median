@@ -1,3 +1,6 @@
+//! Methods and types that manage threading and execution.
+
+/// A signature for a method that can be defered.
 pub type DeferMethod = unsafe extern "C" fn(
     obj: *mut max_sys::t_object,
     sym: *mut max_sys::t_symbol,

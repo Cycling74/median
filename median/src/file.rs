@@ -1,3 +1,5 @@
+//! Things that refer to files.
+
 use crate::symbol::SymbolRef;
 use std::{
     ffi::{CStr, CString},
@@ -7,7 +9,7 @@ use std::{
 //XXX can we get this from the SDK?
 const MAX_PATH_CHARS: usize = 2048;
 
-/// Information about a file and where it is.
+/// Information about a file and its location.
 pub struct FilePath {
     //The name of the file.
     pub file_name: CString,
@@ -17,6 +19,7 @@ pub struct FilePath {
     pub typ: max_sys::t_fourcc,
 }
 
+/// Line break conversions.
 pub enum TextLineBreak {
     ///Use the linebreak format native to the current platform.
     Native,
