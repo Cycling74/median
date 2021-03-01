@@ -32,6 +32,13 @@ pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, 
 pub type FloatCBHash<T> = HashMap<usize, FloatCB<T>>;
 pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 
+pub type DeferMethodWrapped<T> = extern "C" fn(
+    wrapper: &T,
+    sym: *mut max_sys::t_symbol,
+    argc: std::os::raw::c_long,
+    argv: *const max_sys::t_atom,
+);
+
 //reexports
 pub use median_macros::wrapped_attr_get_tramp as attr_get_tramp;
 pub use median_macros::wrapped_attr_set_tramp as attr_set_tramp;
@@ -94,6 +101,13 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
 pub trait WrapperWrapped<T> {
     /// Retrieve a reference to your wrapped class.
     fn wrapped(&self) -> &T;
+}
+
+pub trait WrappedDefer<T> {
+    ///defer a tramp method with the sym and atoms args
+    fn defer(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
+    ///defer_low a tramp method with the sym and atoms args
+    fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
 }
 
 #[repr(C)]
@@ -698,5 +712,65 @@ where
                 ptr.offset(-((off1.get_byte_offset() + off2.get_byte_offset()) as isize)),
             )
         }
+    }
+}
+
+impl<T> WrappedDefer<MaxObjWrapper<T>> for T
+where
+    T: MaxObjWrapped<T>,
+{
+    fn defer(&self, meth: DeferMethodWrapped<MaxObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
+        let obj = self.max_obj();
+        crate::thread::defer(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+
+    fn defer_low(
+        &self,
+        meth: DeferMethodWrapped<MaxObjWrapper<T>>,
+        sym: SymbolRef,
+        atoms: &[Atom],
+    ) {
+        let obj = self.max_obj();
+        crate::thread::defer_low(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+}
+
+impl<T> WrappedDefer<MSPObjWrapper<T>> for T
+where
+    T: MSPObjWrapped<T>,
+{
+    fn defer(&self, meth: DeferMethodWrapped<MSPObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
+        let obj = self.as_max_obj();
+        crate::thread::defer(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+
+    fn defer_low(
+        &self,
+        meth: DeferMethodWrapped<MSPObjWrapper<T>>,
+        sym: SymbolRef,
+        atoms: &[Atom],
+    ) {
+        let obj = self.as_max_obj();
+        crate::thread::defer_low(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
     }
 }
