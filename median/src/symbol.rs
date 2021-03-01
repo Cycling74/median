@@ -43,6 +43,11 @@ impl SymbolRef {
     pub fn to_string(&self) -> Result<String, std::str::Utf8Error> {
         self.to_cstring().to_str().map(|s| s.to_string())
     }
+
+    /// Is the symbol ref empty
+    pub fn is_empty(&self) -> bool {
+        unsafe { *self.value.get() == crate::max::common_symbols().s_nothing }
+    }
 }
 
 unsafe impl Send for SymbolRef {}
@@ -121,7 +126,14 @@ impl PartialEq for SymbolRef {
         unsafe { self.inner() == other.inner() }
     }
 }
+
 impl Eq for SymbolRef {}
+
+impl Default for SymbolRef {
+    fn default() -> Self {
+        Self::new(crate::max::common_symbols().s_nothing)
+    }
+}
 
 #[cfg(test)]
 mod tests {
