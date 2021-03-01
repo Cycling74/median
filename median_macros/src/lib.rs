@@ -14,6 +14,11 @@ pub fn wrapped_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+pub fn wrapped_defer_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    tramp::defer_tramp(attr, item)
+}
+
+#[proc_macro_attribute]
 pub fn wrapped_attr_get_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     tramp::wrapped_attr_get_tramp(attr, item)
 }
