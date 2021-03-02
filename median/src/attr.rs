@@ -41,6 +41,10 @@ impl<T> Attr<T> {
     }
 }
 
+//attributes still call methods when you set them to opaque, so we just provide nop methods
+extern "C" fn get_nop<T>(_s: &T, _attr: c_void, _ac: *mut c_long, _av: *mut *mut max_sys::t_atom) {}
+extern "C" fn set_nop<T>(_s: &T, _attr: c_void, _ac: c_long, _av: *mut max_sys::t_atom) {}
+
 impl<T> AttrBuilder<T> {
     // helper method used in public impls
     fn new<I: Into<String>>(name: I, val_type: AttrType) -> Self {
@@ -216,14 +220,33 @@ impl<T> AttrBuilder<T> {
             AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_SET_OPAQUE_USER,
         };
         let inner = unsafe {
-            max_sys::attr_offset_new(
-                n.as_ptr(),
-                self.val_type.into(),
-                flags as _,
-                std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(self.get),
-                std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(self.set),
-                self.offset.unwrap_or(0) as _,
-            )
+            //assign no-ops if we need them
+            let get = std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(
+                self.get.or(Some(get_nop)),
+            );
+            let set = std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(
+                self.set.or(Some(set_nop)),
+            );
+            if let Some(offset) = self.offset {
+                max_sys::attr_offset_new(
+                    n.as_ptr(),
+                    self.val_type.into(),
+                    flags as _,
+                    get,
+                    set,
+                    offset as _,
+                )
+            } else {
+                max_sys::attribute_new(
+                    n.as_ptr(),
+                    std::mem::transmute::<*const max_sys::t_symbol, *mut max_sys::t_symbol>(
+                        self.val_type.into(),
+                    ), //should have been const in max_sys
+                    flags as _,
+                    get,
+                    set,
+                )
+            }
         };
         if inner.is_null() {
             return Err("failed to create attribute".into());
@@ -302,7 +325,7 @@ pub enum AttrClip {
     GetSet(AttrValClip),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttrVisiblity {
     /// accessable from gui and code
     Visible,
