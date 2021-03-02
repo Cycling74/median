@@ -163,7 +163,11 @@ fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
 
         #[no_mangle]
         pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
-            ::median::wrapper::#wrapper_type::<#class_name>::register(false)
+            if std::panic::catch_unwind(|| {
+                ::median::wrapper::#wrapper_type::<#class_name>::register(false)
+            }).is_err() {
+                std::process::exit(1);
+            }
         }
     };
     Ok(expanded.into())
