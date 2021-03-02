@@ -6,6 +6,16 @@ pub unsafe trait MaxObj: Sized {
     fn max_obj(&self) -> *mut max_sys::t_object {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self) }
     }
+
+    /// Post a message to max.
+    fn post<M: Into<Vec<u8>>>(&self, msg: M) {
+        crate::object::post(self.max_obj(), msg)
+    }
+
+    /// Post an error message to max.
+    fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
+        crate::object::error(self.max_obj(), msg)
+    }
 }
 
 /// Indicates that your struct can be safely cast to a max_sys::t_pxobject this means your struct
@@ -17,6 +27,16 @@ pub unsafe trait MSPObj: Sized {
     /// any MSP object can be safely cast to and used as a max_sys::t_object
     fn as_max_obj(&self) -> *mut max_sys::t_object {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self.msp_obj()) }
+    }
+
+    /// Post a message to max.
+    fn post<M: Into<Vec<u8>>>(&self, msg: M) {
+        crate::object::post(self.as_max_obj(), msg)
+    }
+
+    /// Post an error message to max.
+    fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
+        crate::object::error(self.as_max_obj(), msg)
     }
 }
 
