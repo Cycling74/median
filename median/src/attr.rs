@@ -144,7 +144,7 @@ impl<T> AttrBuilder<T> {
     ) -> Self {
         let mut s = Self::new(name, val_type);
         s.get = Some(get);
-        s.set_vis = AttrVisiblity::Opaque;
+        s.set_vis = AttrVisiblity::UserVisible;
         s
     }
 
@@ -161,7 +161,7 @@ impl<T> AttrBuilder<T> {
     ) -> Self {
         let mut s = Self::new(name, val_type);
         s.set = Some(set);
-        s.get_vis = AttrVisiblity::Opaque;
+        s.get_vis = AttrVisiblity::UserVisible;
         s
     }
 
@@ -212,11 +212,11 @@ impl<T> AttrBuilder<T> {
             .map_err(|_| format!("{} failed to convert to a CString", self.name))?;
         let flags = match self.get_vis {
             AttrVisiblity::Visible => max_sys::e_max_attrflags::ATTR_FLAGS_NONE,
-            AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_GET_OPAQUE,
+            //not actually used AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_GET_OPAQUE,
             AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_GET_OPAQUE_USER,
         } | match self.set_vis {
             AttrVisiblity::Visible => max_sys::e_max_attrflags::ATTR_FLAGS_NONE,
-            AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_SET_OPAQUE,
+            //not actually used AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_SET_OPAQUE,
             AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_SET_OPAQUE_USER,
         };
         let inner = unsafe {
@@ -331,8 +331,8 @@ pub enum AttrVisiblity {
     Visible,
     /// only accessable from code
     UserVisible,
-    /// not accessable from code or gui
-    Opaque,
+    // not accessable from code or gui
+    // not actually usedOpaque,
 }
 
 #[derive(Debug, Clone, Copy)]
