@@ -113,7 +113,7 @@ impl<T> AttrBuilder<T> {
     /// # Arguments
     /// * `name` - the name of the attribute.
     /// * `val_type` - the type of the attribute.
-    /// * `get` - a set method to use with the attribute.
+    /// * `get` - a get method to use with the attribute.
     /// * `set` - a set method to use with the attribute.
     pub fn new_accessors<I: Into<String>>(
         name: I,
@@ -127,11 +127,52 @@ impl<T> AttrBuilder<T> {
         s
     }
 
+    /// Create a new builder with only a get method.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `get` - a get method to use with the attribute.
+    pub fn new_get<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        get: AttrTrampGetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new(name, val_type);
+        s.get = Some(get);
+        s.set_vis = AttrVisiblity::Opaque;
+        s
+    }
+
+    /// Create a new builder with only a set method.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `set` - a set method to use with the attribute.
+    pub fn new_set<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        set: AttrTrampSetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new(name, val_type);
+        s.set = Some(set);
+        s.get_vis = AttrVisiblity::Opaque;
+        s
+    }
+
     /// Set the visiblity for the get for this attribute.
     ///
     /// # Remarks
     /// Defaults to `Visible`.
+    ///
+    /// # Panics
+    /// Will panic if called when there is no offset or get method.
     pub fn get_vis(&mut self, v: AttrVisiblity) -> &mut Self {
+        assert!(
+            self.get.is_some() || self.offset.is_some(),
+            "to set get visibilty you must have either a get method or an offset"
+        );
         let mut n = self;
         n.get_vis = v;
         n
@@ -140,7 +181,14 @@ impl<T> AttrBuilder<T> {
     ///
     /// # Remarks
     /// Defaults to `Visible`.
+    ///
+    /// # Panics
+    /// Will panic if called when there is no offset or set method.
     pub fn set_vis(&mut self, v: AttrVisiblity) -> &mut Self {
+        assert!(
+            self.set.is_some() || self.offset.is_some(),
+            "to set set visibilty you must have either a set method or an offset"
+        );
         let mut n = self;
         n.set_vis = v;
         n
