@@ -1,6 +1,10 @@
 //! Object traits.
 
-use crate::{error::MaxResult, symbol::SymbolRef};
+use crate::{
+    error::{MaxError, MaxResult},
+    symbol::SymbolRef,
+};
+use std::convert::TryInto;
 
 /// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
@@ -25,6 +29,18 @@ pub unsafe trait MaxObj: Sized {
     /// * `name` - the name of the attribute
     fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
         crate::attr::touch_with_name(self.max_obj(), name)
+    }
+
+    /// Indicate that an attribute has had a change (outside of its setter).
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute
+    fn attr_try_touch_with_name<I: TryInto<SymbolRef>>(&self, name: I) -> MaxResult<()> {
+        if let Ok(name) = name.try_into() {
+            crate::attr::touch_with_name(self.max_obj(), name)
+        } else {
+            Err(MaxError::Generic)
+        }
     }
 }
 
@@ -55,6 +71,18 @@ pub unsafe trait MSPObj: Sized {
     /// * `name` - the name of the attribute
     fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
         crate::attr::touch_with_name(self.as_max_obj(), name)
+    }
+
+    /// Indicate that an attribute has had a change (outside of its setter).
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute
+    fn attr_try_touch_with_name<I: TryInto<SymbolRef>>(&self, name: I) -> MaxResult<()> {
+        if let Ok(name) = name.try_into() {
+            crate::attr::touch_with_name(self.as_max_obj(), name)
+        } else {
+            Err(MaxError::Generic)
+        }
     }
 }
 
