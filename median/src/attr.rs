@@ -41,9 +41,16 @@ impl<T> Attr<T> {
     }
 }
 
-//attributes still call methods when you set them to opaque, so we just provide nop methods
-extern "C" fn get_nop<T>(_s: &T, _attr: c_void, _ac: *mut c_long, _av: *mut *mut max_sys::t_atom) {}
-extern "C" fn set_nop<T>(_s: &T, _attr: c_void, _ac: c_long, _av: *mut max_sys::t_atom) {}
+/// No-op get method for attributes.
+pub extern "C" fn get_nop<T>(
+    _s: &T,
+    _attr: c_void,
+    _ac: *mut c_long,
+    _av: *mut *mut max_sys::t_atom,
+) {
+}
+/// No-op set method for attributes.
+pub extern "C" fn set_nop<T>(_s: &T, _attr: c_void, _ac: c_long, _av: *mut max_sys::t_atom) {}
 
 impl<T> AttrBuilder<T> {
     // helper method used in public impls
