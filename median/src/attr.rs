@@ -397,7 +397,7 @@ impl<T> Into<*mut max_sys::t_object> for Attr<T> {
 ///
 /// # Arguments
 /// * `owner` - the object that owns the attribute
-/// * `name` - the name of the attributes
+/// * `name` - the name of the attribute
 pub fn touch_with_name<I: Into<SymbolRef>>(
     owner: *mut max_sys::t_object,
     name: I,
