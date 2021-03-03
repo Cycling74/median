@@ -1,5 +1,7 @@
 //! Object traits.
 
+use crate::{error::MaxResult, symbol::SymbolRef};
+
 /// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
 pub unsafe trait MaxObj: Sized {
@@ -15,6 +17,14 @@ pub unsafe trait MaxObj: Sized {
     /// Post an error message to max.
     fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
         crate::object::error(self.max_obj(), msg)
+    }
+
+    /// Indicate that an attribute has had a change (outside of its setter).
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute
+    fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
+        crate::attr::touch_with_name(self.max_obj(), name)
     }
 }
 
@@ -37,6 +47,14 @@ pub unsafe trait MSPObj: Sized {
     /// Post an error message to max.
     fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
         crate::object::error(self.as_max_obj(), msg)
+    }
+
+    /// Indicate that an attribute has had a change (outside of its setter).
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute
+    fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
+        crate::attr::touch_with_name(self.as_max_obj(), name)
     }
 }
 
