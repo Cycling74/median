@@ -26,7 +26,7 @@ impl Arg {
         match self {
             Arg::Float => quote! { f64 },
             Arg::Int => quote! { i64 },
-            Arg::Symbol => quote! { *mut max_sys::t_symbol },
+            Arg::Symbol => quote! { crate::symbol::SymbolRef },
         }
     }
 
