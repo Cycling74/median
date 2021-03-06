@@ -21,9 +21,57 @@ impl Parse for Parsed {
     }
 }
 
-pub fn parse_and_build(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn parse_and_build(input: proc_macro::TokenStream, with_main: bool) -> proc_macro::TokenStream {
     let Parsed { items } = parse_macro_input!(input as Parsed);
-    crate::error::wrap(process(items))
+    crate::error::wrap(match process(items) {
+        Ok((ts, class_name)) => {
+            if with_main {
+                match ext_main_classes(&[class_name]) {
+                    Ok(m) => Ok(quote! {
+                        #ts
+                        #m
+                    }
+                    .into()),
+                    Err(e) => Err(e),
+                }
+            } else {
+                Ok(ts.into())
+            }
+        }
+        Err(e) => Err(e),
+    })
+}
+
+pub fn ext_main(tokens: proc_macro2::TokenStream) -> syn::Result<proc_macro2::TokenStream> {
+    Ok(quote! {
+        #[no_mangle]
+        pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
+            if std::panic::catch_unwind(|| {
+                #tokens
+            }).is_err() {
+                std::process::exit(1);
+            }
+        }
+    }
+    .into())
+}
+
+pub fn ext_main_classes(class_names: &[Ident]) -> syn::Result<proc_macro2::TokenStream> {
+    let register: Vec<_> = class_names
+        .iter()
+        .map(|n| quote! { #n::register() })
+        .collect();
+    Ok(quote! {
+        #[no_mangle]
+        pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
+            if std::panic::catch_unwind(|| {
+                #(#register)*
+            }).is_err() {
+                std::process::exit(1);
+            }
+        }
+    }
+    .into())
 }
 
 struct StructDetails {
@@ -116,7 +164,7 @@ fn process_impls(
     })
 }
 
-fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
+fn process(items: Vec<Item>) -> syn::Result<(proc_macro2::TokenStream, Ident)> {
     let mut impls = Vec::new();
     let mut the_struct = None;
     let mut remain = Vec::new();
@@ -148,27 +196,28 @@ fn process(items: Vec<Item>) -> syn::Result<proc_macro::TokenStream> {
         processed_impls: impls,
     } = process_impls(&the_struct, &class_name, impls)?;
 
-    let expanded = quote! {
-        #the_struct
+    Ok((
+        quote! {
+            #the_struct
 
-        impl ::median::wrapper::ObjWrapped<#class_name> for #class_name {
-            fn class_name() -> &'static str {
-                &#max_class_name
+            impl ::median::wrapper::ObjWrapped<#class_name> for #class_name {
+                fn class_name() -> &'static str {
+                    &#max_class_name
+                }
             }
-        }
 
-        #(#impls)*
-
-        #(#remain)*
-
-        #[no_mangle]
-        pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
-            if std::panic::catch_unwind(|| {
-                ::median::wrapper::#wrapper_type::<#class_name>::register(false)
-            }).is_err() {
-                std::process::exit(1);
+            impl #class_name {
+                /// Register your wrapped class with Max
+                pub(crate) unsafe fn register() {
+                    ::median::wrapper::#wrapper_type::<#class_name>::register(false)
+                }
             }
+
+            #(#impls)*
+
+            #(#remain)*
         }
-    };
-    Ok(expanded.into())
+        .into(),
+        class_name,
+    ))
 }
