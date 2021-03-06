@@ -21,7 +21,13 @@ pub mod wrapper;
 //re-exports
 mod max;
 pub use self::max::*;
+
+/// Wrap the given code in ext_main
+pub use median_macros::ext_main;
+/// Create an external with the wrapped contents.
 pub use median_macros::external;
+/// Create an external with the wrapped contents, don't register ext_main.
+pub use median_macros::external_no_main;
 
 /// Post a message to the Max console, using the same format as `std::format!`.
 #[macro_export]
