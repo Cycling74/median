@@ -168,6 +168,7 @@ fn process(items: Vec<Item>) -> syn::Result<(proc_macro2::TokenStream, Ident)> {
     let mut impls = Vec::new();
     let mut the_struct = None;
     let mut remain = Vec::new();
+    let mut has_obj_wrapped = false;
 
     for item in items.iter() {
         match item {
@@ -177,7 +178,20 @@ fn process(items: Vec<Item>) -> syn::Result<(proc_macro2::TokenStream, Ident)> {
                 }
                 the_struct = Some(i);
             }
-            Item::Impl(i) => impls.push(i.clone()),
+            Item::Impl(i) => {
+                //see if ObjWrapped is already implemented so we don't double impl
+                match &i.trait_ {
+                    Some((_, path, _)) => {
+                        if let Some(l) = path.segments.last() {
+                            if l.ident == "ObjWrapped" {
+                                has_obj_wrapped = true;
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+                impls.push(i.clone());
+            }
             _ => remain.push(item),
         }
     }
@@ -188,7 +202,6 @@ fn process(items: Vec<Item>) -> syn::Result<(proc_macro2::TokenStream, Ident)> {
         class_name,
         class_alias,
     } = process_struct(the_struct.unwrap().clone())?;
-    let max_class_name = LitStr::new(&class_alias, the_struct.span());
 
     //process the impls, getting the wrapper type
     let ImplDetails {
@@ -196,28 +209,32 @@ fn process(items: Vec<Item>) -> syn::Result<(proc_macro2::TokenStream, Ident)> {
         processed_impls: impls,
     } = process_impls(&the_struct, &class_name, impls)?;
 
-    Ok((
-        quote! {
-            #the_struct
+    let mut out = quote! {
+        #the_struct
 
+        impl #class_name {
+            /// Register your wrapped class with Max
+            pub(crate) unsafe fn register() {
+                ::median::wrapper::#wrapper_type::<#class_name>::register(false)
+            }
+        }
+
+        #(#impls)*
+
+        #(#remain)*
+    };
+
+    if !has_obj_wrapped {
+        let max_class_name = LitStr::new(&class_alias, the_struct.span());
+        out = quote! {
+            #out
             impl ::median::wrapper::ObjWrapped<#class_name> for #class_name {
                 fn class_name() -> &'static str {
                     &#max_class_name
                 }
             }
+        };
+    }
 
-            impl #class_name {
-                /// Register your wrapped class with Max
-                pub(crate) unsafe fn register() {
-                    ::median::wrapper::#wrapper_type::<#class_name>::register(false)
-                }
-            }
-
-            #(#impls)*
-
-            #(#remain)*
-        }
-        .into(),
-        class_name,
-    ))
+    Ok((out.into(), class_name))
 }
