@@ -74,8 +74,7 @@ median::external! {
         }
 
         #[tramp(Wrapper)]
-        pub fn set(&self, name: *mut max_sys::t_symbol) {
-            let name = name.into();
+        pub fn set(&self, name: median::symbol::SymbolRef) {
             self.buffer1.set(name);
         }
 
