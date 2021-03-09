@@ -4,7 +4,34 @@ use crate::{
     error::{MaxError, MaxResult},
     symbol::SymbolRef,
 };
-use std::convert::TryInto;
+use std::{cell::UnsafeCell, convert::TryInto};
+
+/// A max object registration object.
+pub struct Registration {
+    inner: UnsafeCell<*mut core::ffi::c_void>,
+}
+
+impl Registration {
+    pub fn new(obj: *mut max_sys::t_object, namespace: SymbolRef, name: SymbolRef) -> Self {
+        unsafe {
+            let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
+            assert!(!inner.is_null());
+            Self {
+                inner: UnsafeCell::new(inner),
+            }
+        }
+    }
+}
+
+impl Drop for Registration {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = max_sys::object_unregister(*self.inner.get());
+        }
+    }
+}
+
+unsafe impl Send for Registration {}
 
 /// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
@@ -21,6 +48,11 @@ pub unsafe trait MaxObj: Sized {
     /// Post an error message to max.
     fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
         crate::object::error(self.max_obj(), msg)
+    }
+
+    /// Register this object with the given namespace and name.
+    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> Registration {
+        Registration::new(self.max_obj(), namespace, name)
     }
 
     /// Broadcast a message from a registered object to any attached client objects.
@@ -73,6 +105,11 @@ pub unsafe trait MSPObj: Sized {
     /// Post an error message to max.
     fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
         crate::object::error(self.as_max_obj(), msg)
+    }
+
+    /// Register this object with the given namespace and name.
+    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> Registration {
+        Registration::new(self.as_max_obj(), namespace, name)
     }
 
     /// Broadcast a message from a registered object to any attached client objects.
