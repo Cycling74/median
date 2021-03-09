@@ -4,11 +4,13 @@ use crate::{
     buffer::{BufferRef, BufferReference},
     clock::ClockHandle,
     inlet::{MSPInlet, MaxInlet, Proxy},
+    object::Subscription,
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
     symbol::SymbolRef,
     wrapper::{
         FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
-        ObjWrapped, WrappedAttachment, WrappedAttachmentHandle, WrapperWrapped,
+        ObjWrapped, WrappedAttachment, WrappedAttachmentHandle, WrappedSubscriptionHandle,
+        WrapperWrapped,
     },
 };
 use std::{
@@ -27,6 +29,7 @@ pub struct WrappedBuilder<'a, T, W> {
     signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
     attachments: HashSet<Arc<WrappedAttachment>>,
+    subscriptions: HashSet<Arc<Subscription>>,
 }
 
 pub type ManagedBufferRef = Arc<dyn BufferReference>;
@@ -71,6 +74,14 @@ pub trait ObjBuilder<T> {
         name: SymbolRef,
     ) -> Result<WrappedAttachmentHandle, ()>;
 
+    ///subscribe to attach to an object with the given name in the given namespace.
+    fn subscribe(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+        class_name: Option<SymbolRef>,
+    ) -> WrappedSubscriptionHandle;
+
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
 }
@@ -108,6 +119,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             signal_outlets: 0,
             _phantom: PhantomData,
             attachments: Default::default(),
+            subscriptions: Default::default(),
         }
     }
 
@@ -122,6 +134,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             signal_outlets: 0,
             _phantom: PhantomData,
             attachments: Default::default(),
+            subscriptions: Default::default(),
         }
     }
 
@@ -256,7 +269,7 @@ where
         self.sym.clone()
     }
     fn register(&self, namespace: SymbolRef, name: SymbolRef) -> crate::object::Registration {
-        crate::object::Registration::new(self.max_obj, namespace, name)
+        unsafe { crate::object::Registration::new(self.max_obj, namespace, name) }
     }
     fn attach(
         &mut self,
@@ -270,6 +283,16 @@ where
             }
             Err(e) => Err(e),
         }
+    }
+    fn subscribe(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+        class_name: Option<SymbolRef>,
+    ) -> WrappedSubscriptionHandle {
+        let inner = Arc::new(Subscription::new(self.max_obj, namespace, name, class_name));
+        self.subscriptions.insert(inner.clone());
+        WrappedSubscriptionHandle::new(&inner)
     }
 
     /// Get the Max object for the wrapper of this object.
@@ -341,6 +364,7 @@ pub struct MaxWrappedBuilderFinalize<T> {
     pub proxy_inlets: Vec<Proxy>,
     pub buffer_refs: Vec<ManagedBufferRefInternal>,
     pub(crate) attachments: Mutex<HashSet<Arc<WrappedAttachment>>>,
+    pub(crate) subscriptions: Mutex<HashSet<Arc<Subscription>>>,
 }
 
 pub struct MSPWrappedBuilderFinalize<T> {
@@ -351,6 +375,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub proxy_inlets: Vec<Proxy>,
     pub buffer_refs: Vec<ManagedBufferRefInternal>,
     pub(crate) attachments: Mutex<HashSet<Arc<WrappedAttachment>>>,
+    pub(crate) subscriptions: Mutex<HashSet<Arc<Subscription>>>,
 }
 
 impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
@@ -365,6 +390,7 @@ where
             proxy_inlets,
             buffer_refs: self.buffer_refs,
             attachments: Mutex::new(self.attachments),
+            subscriptions: Mutex::new(self.subscriptions),
         }
     }
 }
@@ -386,6 +412,7 @@ where
             proxy_inlets,
             buffer_refs: self.buffer_refs,
             attachments: Mutex::new(self.attachments),
+            subscriptions: Mutex::new(self.subscriptions),
         }
     }
 }
