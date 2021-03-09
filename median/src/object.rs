@@ -20,11 +20,23 @@ pub struct Subscription {
     class_name: SymbolRef,
 }
 
+pub enum RegistrationError {
+    NameCollision,
+}
+
 impl Registration {
-    pub unsafe fn new(obj: *mut max_sys::t_object, namespace: SymbolRef, name: SymbolRef) -> Self {
-        let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
-        assert!(!inner.is_null());
-        Self { inner }
+    pub unsafe fn try_register(
+        obj: *mut max_sys::t_object,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Registration, RegistrationError> {
+        if max_sys::object_findregistered(namespace.inner(), name.inner()).is_null() {
+            let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
+            assert!(!inner.is_null());
+            Ok(Self { inner })
+        } else {
+            Err(RegistrationError::NameCollision)
+        }
     }
 }
 
@@ -95,9 +107,13 @@ pub unsafe trait MaxObj: Sized {
         crate::object::error(self.max_obj(), msg)
     }
 
-    /// Register this object with the given namespace and name.
-    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> Registration {
-        unsafe { Registration::new(self.max_obj(), namespace, name) }
+    /// Try to register this object with the given namespace and name.
+    fn try_register(
+        &self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Registration, RegistrationError> {
+        unsafe { Registration::try_register(self.max_obj(), namespace, name) }
     }
 
     /// Broadcast a message from a registered object to any attached client objects.
@@ -152,9 +168,13 @@ pub unsafe trait MSPObj: Sized {
         crate::object::error(self.as_max_obj(), msg)
     }
 
-    /// Register this object with the given namespace and name.
-    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> Registration {
-        unsafe { Registration::new(self.as_max_obj(), namespace, name) }
+    /// Try to register this object with the given namespace and name.
+    fn try_register(
+        &self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Registration, RegistrationError> {
+        unsafe { Registration::try_register(self.as_max_obj(), namespace, name) }
     }
 
     /// Broadcast a message from a registered object to any attached client objects.

@@ -64,8 +64,12 @@ pub trait ObjBuilder<T> {
     /// Get the symbol that were passed used when creating this object.
     fn creation_symbol(&self) -> SymbolRef;
 
-    /// Register your object in the given namespace with the given name;
-    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> crate::object::Registration;
+    /// Try to your object in the given namespace with the given name;
+    fn try_register(
+        &self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<crate::object::Registration, crate::object::RegistrationError>;
 
     /// Attach to an object with the given name and namespace;
     fn attach(
@@ -268,8 +272,12 @@ where
     fn creation_symbol(&self) -> SymbolRef {
         self.sym.clone()
     }
-    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> crate::object::Registration {
-        unsafe { crate::object::Registration::new(self.max_obj, namespace, name) }
+    fn try_register(
+        &self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<crate::object::Registration, crate::object::RegistrationError> {
+        unsafe { crate::object::Registration::try_register(self.max_obj, namespace, name) }
     }
     fn attach(
         &mut self,
