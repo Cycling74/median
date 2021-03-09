@@ -4,34 +4,79 @@ use crate::{
     error::{MaxError, MaxResult},
     symbol::SymbolRef,
 };
-use std::{cell::UnsafeCell, convert::TryInto};
+use std::convert::TryInto;
 
 /// A max object registration object.
 pub struct Registration {
-    inner: UnsafeCell<*mut core::ffi::c_void>,
+    inner: *mut core::ffi::c_void,
+}
+
+/// A max object subscription object.
+#[derive(PartialEq, Eq, Hash)]
+pub struct Subscription {
+    namespace: SymbolRef,
+    name: SymbolRef,
+    client: *mut core::ffi::c_void,
+    class_name: SymbolRef,
 }
 
 impl Registration {
-    pub fn new(obj: *mut max_sys::t_object, namespace: SymbolRef, name: SymbolRef) -> Self {
-        unsafe {
-            let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
-            assert!(!inner.is_null());
-            Self {
-                inner: UnsafeCell::new(inner),
-            }
-        }
+    pub unsafe fn new(obj: *mut max_sys::t_object, namespace: SymbolRef, name: SymbolRef) -> Self {
+        let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
+        assert!(!inner.is_null());
+        Self { inner }
     }
 }
 
 impl Drop for Registration {
     fn drop(&mut self) {
         unsafe {
-            let _ = max_sys::object_unregister(*self.inner.get());
+            let _ = max_sys::object_unregister(self.inner);
         }
     }
 }
 
 unsafe impl Send for Registration {}
+
+impl Subscription {
+    pub fn new(
+        client: *mut max_sys::t_object,
+        namespace: SymbolRef,
+        name: SymbolRef,
+        class_name: Option<SymbolRef>,
+    ) -> Self {
+        let client: *mut core::ffi::c_void = client as _;
+        let class_name = class_name.unwrap_or_default();
+        unsafe {
+            let _ = max_sys::object_subscribe(
+                namespace.inner(),
+                name.inner(),
+                class_name.inner(),
+                client,
+            );
+        }
+        Self {
+            namespace,
+            name,
+            client,
+            class_name,
+        }
+    }
+}
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = max_sys::object_unsubscribe(
+                self.namespace.inner(),
+                self.name.inner(),
+                self.class_name.inner(),
+                self.client,
+            );
+        }
+    }
+}
+
+unsafe impl Send for Subscription {}
 
 /// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
@@ -52,7 +97,7 @@ pub unsafe trait MaxObj: Sized {
 
     /// Register this object with the given namespace and name.
     fn register(&self, namespace: SymbolRef, name: SymbolRef) -> Registration {
-        Registration::new(self.max_obj(), namespace, name)
+        unsafe { Registration::new(self.max_obj(), namespace, name) }
     }
 
     /// Broadcast a message from a registered object to any attached client objects.
@@ -109,7 +154,7 @@ pub unsafe trait MSPObj: Sized {
 
     /// Register this object with the given namespace and name.
     fn register(&self, namespace: SymbolRef, name: SymbolRef) -> Registration {
-        Registration::new(self.as_max_obj(), namespace, name)
+        unsafe { Registration::new(self.as_max_obj(), namespace, name) }
     }
 
     /// Broadcast a message from a registered object to any attached client objects.
