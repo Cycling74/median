@@ -8,12 +8,14 @@ use crate::{
     symbol::SymbolRef,
     wrapper::{
         FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
-        ObjWrapped, WrapperWrapped,
+        ObjWrapped, WrappedAttachment, WrappedAttachmentHandle, WrapperWrapped,
     },
 };
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
 pub struct WrappedBuilder<'a, T, W> {
     max_obj: *mut max_sys::t_object,
@@ -24,6 +26,7 @@ pub struct WrappedBuilder<'a, T, W> {
     buffer_refs: Vec<ManagedBufferRefInternal>,
     signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
+    attachments: HashSet<Arc<WrappedAttachment>>,
 }
 
 pub type ManagedBufferRef = Arc<dyn BufferReference>;
@@ -57,6 +60,16 @@ pub trait ObjBuilder<T> {
 
     /// Get the symbol that were passed used when creating this object.
     fn creation_symbol(&self) -> SymbolRef;
+
+    /// Register your object in the given namespace with the given name;
+    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> crate::object::Registration;
+
+    /// Attach to an object with the given name and namespace;
+    fn attach(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<WrappedAttachmentHandle, ()>;
 
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
@@ -94,6 +107,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             buffer_refs: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
+            attachments: Default::default(),
         }
     }
 
@@ -107,6 +121,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             buffer_refs: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
+            attachments: Default::default(),
         }
     }
 
@@ -240,6 +255,22 @@ where
     fn creation_symbol(&self) -> SymbolRef {
         self.sym.clone()
     }
+    fn register(&self, namespace: SymbolRef, name: SymbolRef) -> crate::object::Registration {
+        crate::object::Registration::new(self.max_obj, namespace, name)
+    }
+    fn attach(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<WrappedAttachmentHandle, ()> {
+        match WrappedAttachment::new(self.max_obj, namespace, name) {
+            Ok(inner) => {
+                self.attachments.insert(inner.clone());
+                Ok(WrappedAttachmentHandle::new(&inner))
+            }
+            Err(e) => Err(e),
+        }
+    }
 
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
@@ -309,6 +340,7 @@ pub struct MaxWrappedBuilderFinalize<T> {
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
     pub buffer_refs: Vec<ManagedBufferRefInternal>,
+    pub(crate) attachments: Mutex<HashSet<Arc<WrappedAttachment>>>,
 }
 
 pub struct MSPWrappedBuilderFinalize<T> {
@@ -318,6 +350,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
     pub buffer_refs: Vec<ManagedBufferRefInternal>,
+    pub(crate) attachments: Mutex<HashSet<Arc<WrappedAttachment>>>,
 }
 
 impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
@@ -331,6 +364,7 @@ where
             callbacks_int,
             proxy_inlets,
             buffer_refs: self.buffer_refs,
+            attachments: Mutex::new(self.attachments),
         }
     }
 }
@@ -351,6 +385,7 @@ where
             callbacks_int,
             proxy_inlets,
             buffer_refs: self.buffer_refs,
+            attachments: Mutex::new(self.attachments),
         }
     }
 }
