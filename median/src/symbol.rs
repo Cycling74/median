@@ -1,9 +1,12 @@
 //! String references.
 
-use std::cell::UnsafeCell;
-use std::convert::{From, Into, TryFrom, TryInto};
-use std::ffi::{CStr, CString};
-use std::fmt::{Display, Formatter};
+use std::{
+    cell::UnsafeCell,
+    convert::{From, Into, TryFrom, TryInto},
+    ffi::{CStr, CString},
+    fmt::{Display, Formatter},
+    hash::{Hash, Hasher},
+};
 
 #[repr(transparent)]
 pub struct SymbolRef {
@@ -47,6 +50,15 @@ impl SymbolRef {
     /// Is the symbol ref empty
     pub fn is_empty(&self) -> bool {
         unsafe { *self.value.get() == crate::max::common_symbols().s_nothing }
+    }
+}
+
+impl Hash for SymbolRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        unsafe {
+            let s = CStr::from_ptr(self.inner_ref().s_name);
+            s.hash(state);
+        }
     }
 }
 
