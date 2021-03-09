@@ -8,16 +8,16 @@ use crate::{
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
     notify::Notification,
-    object::{MSPObj, MaxObj, ObjBox, Subscription},
+    object::{MSPObj, MaxObj, ObjBox},
     symbol::SymbolRef,
 };
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ffi::{c_void, CString},
     marker::PhantomData,
     mem::MaybeUninit,
-    sync::{Arc, Mutex, Weak},
+    sync::Mutex,
 };
 
 use lazy_static::lazy_static;
@@ -112,43 +112,6 @@ pub trait WrappedDefer<T> {
     fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
 }
 
-/// Attachements for notifications from other objects.
-pub trait WrappedAttach<T> {
-    ///attempt to attach to an object with the given name in the given namespace.
-    fn attach(&self, namespace: SymbolRef, name: SymbolRef) -> Result<WrappedAttachmentHandle, ()>;
-
-    ///detach from the object with the given handle.
-    fn detach(&self, handle: WrappedAttachmentHandle);
-
-    ///subscribe to attach to an object with the given name in the given namespace.
-    fn subscribe(
-        &self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> WrappedSubscriptionHandle;
-
-    ///unsubscribe from the subscription.
-    fn unsubscribe(&self, handle: WrappedSubscriptionHandle);
-}
-
-#[derive(PartialEq, Eq, Hash)]
-pub(crate) struct WrappedAttachment {
-    namespace: SymbolRef,
-    name: SymbolRef,
-    client: *mut core::ffi::c_void,
-}
-
-/// A handle for an attachment, used to detatch.
-pub struct WrappedAttachmentHandle {
-    inner: Weak<WrappedAttachment>,
-}
-
-/// A handle for an subscription, used to unsubscribe.
-pub struct WrappedSubscriptionHandle {
-    inner: Weak<Subscription>,
-}
-
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
     s_obj: O,
@@ -163,8 +126,6 @@ pub struct MaxWrapperInternal<T> {
     buffer_refs: Vec<ManagedBufferRefInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
-    attachments: Mutex<HashSet<Arc<WrappedAttachment>>>,
-    subscriptions: Mutex<HashSet<Arc<Subscription>>>,
 }
 
 pub struct MSPWrapperInternal<T> {
@@ -176,8 +137,6 @@ pub struct MSPWrapperInternal<T> {
     buffer_refs: Vec<ManagedBufferRefInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
-    attachments: Mutex<HashSet<Arc<WrappedAttachment>>>,
-    subscriptions: Mutex<HashSet<Arc<Subscription>>>,
 }
 
 pub trait WrapperInternal<O, T>: Sized {
@@ -190,22 +149,6 @@ pub trait WrapperInternal<O, T>: Sized {
     fn call_int(&self, index: usize, value: i64);
 
     fn handle_notification(&self, notification: &Notification);
-
-    fn attach(
-        &self,
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<WrappedAttachmentHandle, ()>;
-    fn detatch(&self, handle: WrappedAttachmentHandle);
-    fn subscribe(
-        &self,
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> WrappedSubscriptionHandle;
-    fn unsubscribe(&self, handle: WrappedSubscriptionHandle);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -232,8 +175,6 @@ where
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
-            attachments: std::mem::take(&mut f.attachments),
-            subscriptions: std::mem::take(&mut f.subscriptions),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -252,45 +193,6 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
-    }
-    fn attach(
-        &self,
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<WrappedAttachmentHandle, ()> {
-        let mut g = self.attachments.lock().unwrap();
-        match WrappedAttachment::new(client, namespace, name) {
-            Ok(inner) => {
-                g.insert(inner.clone());
-                Ok(WrappedAttachmentHandle::new(&inner))
-            }
-            Err(e) => Err(e),
-        }
-    }
-    fn detatch(&self, handle: WrappedAttachmentHandle) {
-        let mut g = self.attachments.lock().unwrap();
-        if let Some(handle) = handle.inner.upgrade() {
-            g.remove(&handle);
-        }
-    }
-    fn subscribe(
-        &self,
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> WrappedSubscriptionHandle {
-        let s = Arc::new(Subscription::new(client, namespace, name, class_name));
-        let mut g = self.subscriptions.lock().unwrap();
-        g.insert(s.clone());
-        WrappedSubscriptionHandle::new(&s)
-    }
-    fn unsubscribe(&self, handle: WrappedSubscriptionHandle) {
-        let mut g = self.subscriptions.lock().unwrap();
-        if let Some(handle) = handle.inner.upgrade() {
-            g.remove(&handle);
-        }
     }
 }
 
@@ -322,8 +224,6 @@ where
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
-            attachments: std::mem::take(&mut f.attachments),
-            subscriptions: std::mem::take(&mut f.subscriptions),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -342,45 +242,6 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
-    }
-    fn attach(
-        &self,
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<WrappedAttachmentHandle, ()> {
-        let mut g = self.attachments.lock().unwrap();
-        match WrappedAttachment::new(client, namespace, name) {
-            Ok(inner) => {
-                g.insert(inner.clone());
-                Ok(WrappedAttachmentHandle::new(&inner))
-            }
-            Err(e) => Err(e),
-        }
-    }
-    fn detatch(&self, handle: WrappedAttachmentHandle) {
-        let mut g = self.attachments.lock().unwrap();
-        if let Some(handle) = handle.inner.upgrade() {
-            g.remove(&handle);
-        }
-    }
-    fn subscribe(
-        &self,
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> WrappedSubscriptionHandle {
-        let s = Arc::new(Subscription::new(client, namespace, name, class_name));
-        let mut g = self.subscriptions.lock().unwrap();
-        g.insert(s.clone());
-        WrappedSubscriptionHandle::new(&s)
-    }
-    fn unsubscribe(&self, handle: WrappedSubscriptionHandle) {
-        let mut g = self.subscriptions.lock().unwrap();
-        if let Some(handle) = handle.inner.upgrade() {
-            g.remove(&handle);
-        }
     }
 }
 
@@ -810,53 +671,6 @@ where
     }
 }
 
-impl WrappedAttachment {
-    pub(crate) fn new(
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<Arc<Self>, ()> {
-        let p = unsafe { max_sys::object_attach(namespace.inner(), name.inner(), client as _) };
-        if p.is_null() {
-            Err(())
-        } else {
-            Ok(Arc::new(WrappedAttachment {
-                namespace,
-                name,
-                client: client as _,
-            }))
-        }
-    }
-}
-
-impl Drop for WrappedAttachment {
-    fn drop(&mut self) {
-        unsafe {
-            let _ =
-                max_sys::object_detach(self.namespace.inner(), self.name.inner(), self.client as _);
-        }
-    }
-}
-
-impl WrappedAttachmentHandle {
-    pub(crate) fn new(attachment: &Arc<WrappedAttachment>) -> Self {
-        Self {
-            inner: Arc::downgrade(attachment),
-        }
-    }
-}
-
-impl WrappedSubscriptionHandle {
-    pub(crate) fn new(attachment: &Arc<Subscription>) -> Self {
-        Self {
-            inner: Arc::downgrade(attachment),
-        }
-    }
-}
-
-unsafe impl Send for WrappedAttachmentHandle {}
-unsafe impl Send for WrappedSubscriptionHandle {}
-
 impl<O, I, T> Drop for Wrapper<O, I, T>
 where
     T: Sized,
@@ -960,73 +774,5 @@ where
             sym,
             atoms,
         );
-    }
-}
-
-impl<T> WrappedAttach<MaxObjWrapper<T>> for T
-where
-    T: MaxObjWrapped<T>,
-{
-    fn attach(&self, namespace: SymbolRef, name: SymbolRef) -> Result<WrappedAttachmentHandle, ()> {
-        let wrapper: &MaxObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.max_obj()) };
-        wrapper.internal().attach(self.max_obj(), namespace, name)
-    }
-
-    fn detach(&self, handle: WrappedAttachmentHandle) {
-        let wrapper: &MaxObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.max_obj()) };
-        wrapper.internal().detatch(handle)
-    }
-
-    fn subscribe(
-        &self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> WrappedSubscriptionHandle {
-        let wrapper: &MaxObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.max_obj()) };
-        wrapper
-            .internal()
-            .subscribe(self.max_obj(), namespace, name, class_name)
-    }
-
-    ///unsubscribe from the subscription.
-    fn unsubscribe(&self, handle: WrappedSubscriptionHandle) {
-        let wrapper: &MaxObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.max_obj()) };
-        wrapper.internal().unsubscribe(handle);
-    }
-}
-
-impl<T> WrappedAttach<MSPObjWrapper<T>> for T
-where
-    T: MSPObjWrapped<T>,
-{
-    fn attach(&self, namespace: SymbolRef, name: SymbolRef) -> Result<WrappedAttachmentHandle, ()> {
-        let wrapper: &MSPObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.as_max_obj()) };
-        wrapper
-            .internal()
-            .attach(self.as_max_obj(), namespace, name)
-    }
-
-    fn detach(&self, handle: WrappedAttachmentHandle) {
-        let wrapper: &MSPObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.as_max_obj()) };
-        wrapper.internal().detatch(handle)
-    }
-
-    fn subscribe(
-        &self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> WrappedSubscriptionHandle {
-        let wrapper: &MSPObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.as_max_obj()) };
-        wrapper
-            .internal()
-            .subscribe(self.as_max_obj(), namespace, name, class_name)
-    }
-
-    ///unsubscribe from the subscription.
-    fn unsubscribe(&self, handle: WrappedSubscriptionHandle) {
-        let wrapper: &MSPObjWrapper<T> = unsafe { std::mem::transmute::<_, _>(self.as_max_obj()) };
-        wrapper.internal().unsubscribe(handle);
     }
 }

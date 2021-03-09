@@ -2,93 +2,83 @@
 
 use crate::{
     error::{MaxError, MaxResult},
+    notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     symbol::SymbolRef,
 };
 use std::convert::TryInto;
 
-/// A max object registration object.
-pub struct Registration {
-    inner: *mut core::ffi::c_void,
-}
-
-/// A max object subscription object.
-#[derive(PartialEq, Eq, Hash)]
-pub struct Subscription {
-    namespace: SymbolRef,
-    name: SymbolRef,
-    client: *mut core::ffi::c_void,
-    class_name: SymbolRef,
-}
-
-pub enum RegistrationError {
-    NameCollision,
-}
-
-impl Registration {
-    pub unsafe fn try_register(
-        obj: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<Registration, RegistrationError> {
-        if max_sys::object_findregistered(namespace.inner(), name.inner()).is_null() {
-            let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
-            assert!(!inner.is_null());
-            Ok(Self { inner })
-        } else {
-            Err(RegistrationError::NameCollision)
+macro_rules! impl_obj_methods {
+    ($o:expr) => {
+        /// Post a message to max.
+        fn post<M: Into<Vec<u8>>>(&self, msg: M) {
+            crate::object::post($o(self), msg)
         }
-    }
-}
 
-impl Drop for Registration {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = max_sys::object_unregister(self.inner);
+        /// Post an error message to max.
+        fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
+            crate::object::error($o(self), msg)
         }
-    }
-}
 
-unsafe impl Send for Registration {}
+        /// Try to register this object with the given namespace and name.
+        fn try_register(
+            &self,
+            namespace: SymbolRef,
+            name: SymbolRef,
+        ) -> Result<Registration, RegistrationError> {
+            unsafe { Registration::try_register($o(self), namespace, name) }
+        }
 
-impl Subscription {
-    pub fn new(
-        client: *mut max_sys::t_object,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> Self {
-        let client: *mut core::ffi::c_void = client as _;
-        let class_name = class_name.unwrap_or_default();
-        unsafe {
-            let _ = max_sys::object_subscribe(
-                namespace.inner(),
-                name.inner(),
-                class_name.inner(),
-                client,
-            );
+        /// Try to attach to the namespace and name.
+        fn try_attach(
+            &self,
+            namespace: SymbolRef,
+            name: SymbolRef,
+        ) -> Result<Attachment, AttachmentError> {
+            unsafe { Attachment::try_attach($o(self), namespace, name) }
         }
-        Self {
-            namespace,
-            name,
-            client,
-            class_name,
-        }
-    }
-}
-impl Drop for Subscription {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = max_sys::object_unsubscribe(
-                self.namespace.inner(),
-                self.name.inner(),
-                self.class_name.inner(),
-                self.client,
-            );
-        }
-    }
-}
 
-unsafe impl Send for Subscription {}
+        /// Subscribe to be attached to the namespace, name and optionally filter by class
+        /// name.
+        fn subscribe(
+            &self,
+            namespace: SymbolRef,
+            name: SymbolRef,
+            class_name: Option<SymbolRef>,
+        ) -> Subscription {
+            unsafe { Subscription::new($o(self), namespace, name, class_name) }
+        }
+
+        /// Broadcast a message from a registered object to any attached client objects.
+        fn notify(&self, msg: SymbolRef) -> MaxResult<()> {
+            crate::error::MaxError::from(
+                unsafe {
+                    max_sys::object_notify($o(self) as _, msg.inner(), std::ptr::null_mut()) as _
+                },
+                (),
+            )
+        }
+
+        /// Indicate that an attribute has had a change (outside of its setter).
+        ///
+        /// # Arguments
+        /// * `name` - the name of the attribute
+        fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
+            crate::attr::touch_with_name($o(self), name)
+        }
+
+        /// Indicate that an attribute has had a change (outside of its setter).
+        ///
+        /// # Arguments
+        /// * `name` - the name of the attribute
+        fn attr_try_touch_with_name<I: TryInto<SymbolRef>>(&self, name: I) -> MaxResult<()> {
+            if let Ok(name) = name.try_into() {
+                crate::attr::touch_with_name($o(self), name)
+            } else {
+                Err(MaxError::Generic)
+            }
+        }
+    };
+}
 
 /// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
@@ -97,54 +87,7 @@ pub unsafe trait MaxObj: Sized {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self) }
     }
 
-    /// Post a message to max.
-    fn post<M: Into<Vec<u8>>>(&self, msg: M) {
-        crate::object::post(self.max_obj(), msg)
-    }
-
-    /// Post an error message to max.
-    fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
-        crate::object::error(self.max_obj(), msg)
-    }
-
-    /// Try to register this object with the given namespace and name.
-    fn try_register(
-        &self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<Registration, RegistrationError> {
-        unsafe { Registration::try_register(self.max_obj(), namespace, name) }
-    }
-
-    /// Broadcast a message from a registered object to any attached client objects.
-    fn notify(&self, msg: SymbolRef) -> MaxResult<()> {
-        crate::error::MaxError::from(
-            unsafe {
-                max_sys::object_notify(self.max_obj() as _, msg.inner(), std::ptr::null_mut()) as _
-            },
-            (),
-        )
-    }
-
-    /// Indicate that an attribute has had a change (outside of its setter).
-    ///
-    /// # Arguments
-    /// * `name` - the name of the attribute
-    fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
-        crate::attr::touch_with_name(self.max_obj(), name)
-    }
-
-    /// Indicate that an attribute has had a change (outside of its setter).
-    ///
-    /// # Arguments
-    /// * `name` - the name of the attribute
-    fn attr_try_touch_with_name<I: TryInto<SymbolRef>>(&self, name: I) -> MaxResult<()> {
-        if let Ok(name) = name.try_into() {
-            crate::attr::touch_with_name(self.max_obj(), name)
-        } else {
-            Err(MaxError::Generic)
-        }
-    }
+    impl_obj_methods!(Self::max_obj);
 }
 
 /// Indicates that your struct can be safely cast to a max_sys::t_pxobject this means your struct
@@ -158,55 +101,7 @@ pub unsafe trait MSPObj: Sized {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self.msp_obj()) }
     }
 
-    /// Post a message to max.
-    fn post<M: Into<Vec<u8>>>(&self, msg: M) {
-        crate::object::post(self.as_max_obj(), msg)
-    }
-
-    /// Post an error message to max.
-    fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
-        crate::object::error(self.as_max_obj(), msg)
-    }
-
-    /// Try to register this object with the given namespace and name.
-    fn try_register(
-        &self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<Registration, RegistrationError> {
-        unsafe { Registration::try_register(self.as_max_obj(), namespace, name) }
-    }
-
-    /// Broadcast a message from a registered object to any attached client objects.
-    fn notify(&self, msg: SymbolRef) -> MaxResult<()> {
-        crate::error::MaxError::from(
-            unsafe {
-                max_sys::object_notify(self.as_max_obj() as _, msg.inner(), std::ptr::null_mut())
-                    as _
-            },
-            (),
-        )
-    }
-
-    /// Indicate that an attribute has had a change (outside of its setter).
-    ///
-    /// # Arguments
-    /// * `name` - the name of the attribute
-    fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
-        crate::attr::touch_with_name(self.as_max_obj(), name)
-    }
-
-    /// Indicate that an attribute has had a change (outside of its setter).
-    ///
-    /// # Arguments
-    /// * `name` - the name of the attribute
-    fn attr_try_touch_with_name<I: TryInto<SymbolRef>>(&self, name: I) -> MaxResult<()> {
-        if let Ok(name) = name.try_into() {
-            crate::attr::touch_with_name(self.as_max_obj(), name)
-        } else {
-            Err(MaxError::Generic)
-        }
-    }
+    impl_obj_methods!(Self::as_max_obj);
 }
 
 use std::ffi::CString;
