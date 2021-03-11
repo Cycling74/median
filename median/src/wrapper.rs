@@ -776,3 +776,6 @@ where
         );
     }
 }
+
+unsafe impl<T: Send> Send for MaxObjWrapper<T> {}
+unsafe impl<T: Send> Send for MSPObjWrapper<T> {}

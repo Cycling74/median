@@ -181,3 +181,6 @@ impl<T: MaxObj> Drop for ObjBox<T> {
         }
     }
 }
+
+unsafe impl<T: MaxObj + Sync> Sync for ObjBox<T> {}
+unsafe impl<T: MaxObj + Send> Send for ObjBox<T> {}
