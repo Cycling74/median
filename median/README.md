@@ -27,4 +27,16 @@ if you have more than 7 args or if you are mixing floating point and other argum
 
 * osxcross
 * mingw
+* `#S` for clock object
+
+```c
+t_scheduler *sched = scheduler_fromobject((t_object *) mainobject);
+object_obex_storeflags(child, gensym("#S"), (t_object *) sched, OBJ_FLAG_DATA);
+
+t_patcher *p=NULL;
+t_box *b=NULL;
+t_max_err err;
+err = object_obex_lookup(x, gensym("#P"), (t_object **)&p);
+err = object_obex_lookup(x, gensym("#B"), (t_object **)&b);
+```
 
