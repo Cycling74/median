@@ -495,6 +495,13 @@ where
             let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
             let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             o.wrapped = MaybeUninit::new(internal);
+            //process attribute arguments
+            //TODO optionally don't process?
+            max_sys::attr_args_process(
+                o.max_obj() as _,
+                args.len() as _,
+                std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
+            );
             o
         })
     }
@@ -579,6 +586,13 @@ where
                 let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
                 let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 o.wrapped = MaybeUninit::new(internal);
+                //process attribute arguments
+                //TODO optionally don't process?
+                max_sys::attr_args_process(
+                    o.max_obj() as _,
+                    args.len() as _,
+                    std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
+                );
                 o
             })
         }
