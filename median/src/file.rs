@@ -9,6 +9,14 @@ use std::{
 //XXX can we get this from the SDK?
 const MAX_PATH_CHARS: usize = 2048;
 
+//TODO macro that makes this nicer
+pub fn fourcc(s: [char; 4]) -> max_sys::t_fourcc {
+    ((s[0] as u8) as max_sys::t_fourcc) << 24
+        | ((s[1] as u8) as max_sys::t_fourcc) << 16
+        | ((s[2] as u8) as max_sys::t_fourcc) << 8
+        | ((s[3] as u8) as max_sys::t_fourcc)
+}
+
 /// Information about a file and its location.
 pub struct FilePath {
     //The name of the file.
