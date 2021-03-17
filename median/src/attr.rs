@@ -211,7 +211,7 @@ impl<T> AttrBuilder<T> {
         n
     }
 
-    pub fn build(self) -> Result<Attr<T>, String> {
+    pub fn build(&self) -> Result<Attr<T>, String> {
         if self.set.is_none() && self.get.is_none() && self.offset.is_none() {
             return Err("you must have at least 1 of get, set or offset".into());
         }
