@@ -27,7 +27,10 @@ pub fn error<T: Into<Vec<u8>>>(msg: T) {
         match CString::new(msg) {
             Ok(p) => max_sys::error(p.as_ptr()),
             //TODO make CString below a const static
-            Err(_) => max_sys::error(CString::new("failed to create CString").unwrap().as_ptr()),
+            Err(_) => {
+                let m = CString::new("failed to create CString").unwrap();
+                max_sys::error(m.as_ptr());
+            }
         }
     }
 }

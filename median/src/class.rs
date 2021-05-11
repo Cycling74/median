@@ -20,16 +20,12 @@ pub enum ClassType {
 
 impl Into<*mut max_sys::t_symbol> for ClassType {
     fn into(self) -> *mut max_sys::t_symbol {
-        unsafe {
-            max_sys::gensym(
-                CString::new(match self {
-                    ClassType::NoBox => "nobox",
-                    ClassType::Box => "box",
-                })
-                .unwrap()
-                .as_ptr(),
-            )
-        }
+        let t = CString::new(match self {
+            ClassType::NoBox => "nobox",
+            ClassType::Box => "box",
+        })
+        .unwrap();
+        unsafe { max_sys::gensym(t.as_ptr()) }
     }
 }
 
@@ -39,16 +35,8 @@ impl<T> Class<T> {
     }
 
     pub fn find_in_max(name: &str, class_type: ClassType) -> *mut max_sys::t_class {
-        unsafe {
-            max_sys::class_findbyname(
-                class_type.into(),
-                max_sys::gensym(
-                    CString::new(name)
-                        .expect("couldn't convert name to CString")
-                        .as_ptr(),
-                ),
-            )
-        }
+        let name = CString::new(name).expect("couldn't convert name to CString");
+        unsafe { max_sys::class_findbyname(class_type.into(), max_sys::gensym(name.as_ptr())) }
     }
 
     ///
@@ -61,11 +49,10 @@ impl<T> Class<T> {
 
     /// Create a new max class with the given name, new trampoline and optional freem trampoline.
     pub fn new(name: &str, new: MaxNew, free: Option<MaxFree<T>>) -> Self {
+        let name = CString::new(name).expect("couldn't convert name to CString");
         let class = unsafe {
             max_sys::class_new(
-                CString::new(name)
-                    .expect("couldn't convert name to CString")
-                    .as_ptr(),
+                name.as_ptr(),
                 Some(std::mem::transmute::<MaxNew, MaxMethod>(new)),
                 std::mem::transmute::<Option<MaxFree<T>>, Option<MaxMethod>>(free),
                 std::mem::size_of::<T>() as c_long,

@@ -410,12 +410,13 @@ where
             };
             let max_class = if existing.is_null() {
                 let mut c = creator();
+                let notify = std::ffi::CString::new("notify").unwrap();
                 //register notifications
                 unsafe {
                     max_sys::class_addmethod(
                         c.inner(),
                         Some(std::mem::transmute::<_, MaxMethod>(notification_handler)),
-                        std::ffi::CString::new("notify").unwrap().as_ptr(),
+                        notify.as_ptr(),
                         max_sys::e_max_atomtypes::A_CANT,
                         0,
                     );
@@ -544,6 +545,7 @@ where
             );
             //TODO somehow pass the lock so that classes can register additional classes
             MSPWrapperInternal::<T>::class_setup(&mut c);
+            let dsp64 = CString::new("dsp64").unwrap();
             max_sys::class_addmethod(
                 c.inner(),
                 Some(std::mem::transmute::<
@@ -557,7 +559,7 @@ where
                     ),
                     MaxMethod,
                 >(Self::dsp64)),
-                CString::new("dsp64").unwrap().as_ptr(),
+                dsp64.as_ptr(),
                 max_sys::e_max_atomtypes::A_CANT,
                 0,
             );
