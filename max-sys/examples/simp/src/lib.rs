@@ -23,17 +23,16 @@ impl Simp {
     }
 
     pub fn bang(&mut self) {
+        let m = CString::new("from rust, value is %ld").unwrap();
         unsafe {
-            max_sys::post(
-                CString::new("from rust, value is %ld").unwrap().as_ptr(),
-                self.s_value,
-            );
+            max_sys::post(m.as_ptr(), self.s_value);
         }
     }
 
     pub fn int(&mut self, v: i64) {
+        let m = CString::new("from rust, value is %ld").unwrap();
         unsafe {
-            max_sys::post(CString::new("from rust, value is %ld").unwrap().as_ptr(), v);
+            max_sys::post(m.as_ptr(), v);
         }
         self.s_value = v
     }
@@ -51,8 +50,9 @@ impl Simp {
 
 #[no_mangle]
 pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
+    let name = CString::new("simp").unwrap();
     let c = max_sys::class_new(
-        CString::new("simp").unwrap().as_ptr(),
+        name.as_ptr(),
         Some(std::mem::transmute::<
             unsafe extern "C" fn() -> *mut c_void,
             Method,
@@ -63,27 +63,30 @@ pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
         0,
     );
 
+    let bang = CString::new("bang").unwrap();
     max_sys::class_addmethod(
         c,
         Some(std::mem::transmute::<
             unsafe extern "C" fn(s: *mut Simp),
             Method,
         >(Simp::bang_trampoline)),
-        CString::new("bang").unwrap().as_ptr(),
+        bang.as_ptr(),
         0,
     );
 
+    let ints = CString::new("int").unwrap();
     max_sys::class_addmethod(
         c,
         Some(std::mem::transmute::<
             unsafe extern "C" fn(s: *mut Simp, i64),
             Method,
         >(Simp::int_trampoline)),
-        CString::new("int").unwrap().as_ptr(),
+        ints.as_ptr(),
         max_sys::e_max_atomtypes::A_LONG,
         0,
     );
 
-    max_sys::class_register(max_sys::gensym(CString::new("box").unwrap().as_ptr()), c);
+    let boxs = CString::new("box").unwrap();
+    max_sys::class_register(max_sys::gensym(boxs.as_ptr()), c);
     SIMP_CLASS = Some(c);
 }
