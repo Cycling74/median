@@ -86,7 +86,7 @@ median::external! {
         }
 
         #[tramp(Wrapper)]
-        pub fn int(&self, v: i64) {
+        pub fn int(&self, v: max_sys::t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
             median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
@@ -107,12 +107,12 @@ median::external! {
         }
 
         #[attr_get_tramp(Wrapper)]
-        pub fn blah(&self) -> i64 {
+        pub fn blah(&self) -> max_sys::t_atom_long {
             self.value.get()
         }
 
         #[attr_set_tramp(Wrapper)]
-        pub fn set_blah(&self, v: i64) {
+        pub fn set_blah(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
         }
 
