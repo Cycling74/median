@@ -1,14 +1,15 @@
+use max_sys::t_atom_long as max_long;
 use std::ffi::c_void;
 use std::ffi::CString;
 
 static mut SIMP_CLASS: Option<*mut max_sys::t_class> = None;
 
-type Method = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
+type Method = unsafe extern "C" fn(arg1: *mut c_void) -> *mut c_void;
 
 #[repr(C)]
 struct Simp {
     s_obj: max_sys::t_object,
-    s_value: i64,
+    s_value: max_long,
 }
 
 impl Simp {
@@ -29,7 +30,7 @@ impl Simp {
         }
     }
 
-    pub fn int(&mut self, v: i64) {
+    pub fn int(&mut self, v: max_long) {
         let m = CString::new("from rust, value is %ld").unwrap();
         unsafe {
             max_sys::post(m.as_ptr(), v);
@@ -42,7 +43,7 @@ impl Simp {
         obj.bang();
     }
 
-    pub unsafe extern "C" fn int_trampoline(s: *mut Self, v: i64) {
+    pub unsafe extern "C" fn int_trampoline(s: *mut Self, v: max_long) {
         let obj = &mut *(s as *mut Self);
         obj.int(v);
     }
@@ -58,7 +59,7 @@ pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
             Method,
         >(Simp::new)),
         None,
-        std::mem::size_of::<Simp>() as i64,
+        std::mem::size_of::<Simp>() as _,
         None,
         0,
     );
@@ -78,7 +79,7 @@ pub unsafe extern "C" fn ext_main(_r: *mut c_void) {
     max_sys::class_addmethod(
         c,
         Some(std::mem::transmute::<
-            unsafe extern "C" fn(s: *mut Simp, i64),
+            unsafe extern "C" fn(s: *mut Simp, max_long),
             Method,
         >(Simp::int_trampoline)),
         ints.as_ptr(),
