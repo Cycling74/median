@@ -1,10 +1,10 @@
 //! Numeric type wrappers.
 
 //re-export
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub use self::atomic64::*;
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod atomic64 {
 
     macro_rules! impl_atomic {
