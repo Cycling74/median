@@ -62,7 +62,13 @@ mod atomic64 {
     //we assume that the following types are atomic on the platform we run on so we wrap them in a
     //type that codifies that for rust
     impl_atomic!(f64, Float64);
-    impl_atomic!(i64, Int64);
+    impl_atomic!(max_sys::t_atom_long, Int64);
+
+    impl From<i64> for Int64 {
+        fn from(v: i64) -> Self {
+            Self::new(v as max_sys::t_atom_long)
+        }
+    }
 }
 
 #[cfg(all(test, target_arch = "x86_64"))]
@@ -105,15 +111,15 @@ mod tests {
     #[test]
     fn can_from() {
         let x: Int64 = 4i64.into();
-        assert_eq!(x.get(), 4i64);
+        assert_eq!(x.get(), 4);
     }
 
     #[test]
     fn can_into() {
-        let x = Int64::new(12i64);
+        let x = Int64::new(12);
         let y = &x;
-        let z: i64 = y.into();
-        assert_eq!(z, 12i64);
+        let z: max_sys::t_atom_long = y.into();
+        assert_eq!(z, 12);
     }
 
     #[test]

@@ -97,7 +97,7 @@ impl ClockHandle {
     }
 
     /// Find out the current logical time of the scheduler in milliseconds.
-    pub fn time() -> i64 {
+    pub fn time() -> max_sys::t_atom_long {
         unsafe { max_sys::gettime() as _ }
     }
 

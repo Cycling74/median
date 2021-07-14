@@ -146,7 +146,7 @@ pub trait WrapperInternal<O, T>: Sized {
     fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
 
     fn call_float(&self, index: usize, value: f64);
-    fn call_int(&self, index: usize, value: i64);
+    fn call_int(&self, index: usize, value: max_sys::t_atom_long);
 
     fn handle_notification(&self, notification: &Notification);
 }
@@ -185,7 +185,7 @@ where
             f(self.wrapped(), value);
         }
     }
-    fn call_int(&self, index: usize, value: i64) {
+    fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
         if let Some(f) = self.callbacks_int.get(&index) {
             f(self.wrapped(), value);
         }
@@ -234,7 +234,7 @@ where
             f(self.wrapped(), value);
         }
     }
-    fn call_int(&self, index: usize, value: i64) {
+    fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
         if let Some(f) = self.callbacks_int.get(&index) {
             f(self.wrapped(), value);
         }
@@ -331,7 +331,7 @@ macro_rules! int_float_tramps {
     ( $( $i:literal ),+ ) => {
         $(
             paste::paste! {
-                pub extern "C" fn [<call_in $i>](&self, value: i64) {
+                pub extern "C" fn [<call_in $i>](&self, value: max_sys::t_atom_long) {
                     self.internal().call_int($i, value);
                 }
 
@@ -352,7 +352,7 @@ macro_rules! int_float_tramps {
                     );
 
                     max_sys::class_addmethod(class,
-                        Some(std::mem::transmute::<extern "C" fn(&Self, i64), crate::method::MaxMethod>(Self::[<call_in $i>])),
+                        Some(std::mem::transmute::<extern "C" fn(&Self, max_sys::t_atom_long), crate::method::MaxMethod>(Self::[<call_in $i>])),
                         std::ffi::CString::new(concat!("in", $i)).unwrap().as_ptr(),
                         max_sys::e_max_atomtypes::A_LONG, 0
                     );

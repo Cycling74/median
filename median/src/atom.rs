@@ -102,6 +102,22 @@ impl Atom {
     }
 }
 
+impl From<i64> for Atom {
+    fn from(v: i64) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_int(v as max_sys::t_atom_long);
+            s
+        }
+    }
+}
+
+impl From<&i64> for Atom {
+    fn from(v: &i64) -> Self {
+        Self::from(*v as max_sys::t_atom_long)
+    }
+}
+
 impl From<max_sys::t_atom_long> for Atom {
     fn from(v: max_sys::t_atom_long) -> Self {
         unsafe {
