@@ -65,8 +65,8 @@ impl Hash for SymbolRef {
 unsafe impl Send for SymbolRef {}
 unsafe impl Sync for SymbolRef {}
 
-impl Into<*const max_sys::t_symbol> for SymbolRef {
-    fn into(self) -> *const max_sys::t_symbol {
+impl Into<*mut max_sys::t_symbol> for SymbolRef {
+    fn into(self) -> *mut max_sys::t_symbol {
         unsafe { self.inner() }
     }
 }
