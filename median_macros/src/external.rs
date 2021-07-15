@@ -98,11 +98,14 @@ fn process_struct(mut s: ItemStruct) -> syn::Result<StructDetails> {
     let mut class_alias = class_name.to_string().to_lowercase();
 
     //find name attribute and remove it
-    if let Some(pos) = s
-        .attrs
-        .iter()
-        .position(|a| a.path.segments.last().unwrap().ident == "name")
-    {
+    if let Some(pos) = s.attrs.iter().position(|a| {
+        a.path
+            .segments
+            .last()
+            .expect("the attribute path to have at least 1 segment")
+            .ident
+            == "name"
+    }) {
         let a = s.attrs.remove(pos);
         let n: ClassNameArgs = syn::parse2(a.tokens.clone())?;
         class_alias = n.name.value();
@@ -122,7 +125,7 @@ struct ImplDetails {
 
 fn process_impls(
     the_struct: &ItemStruct,
-    _class_name: &Ident,
+    class_name: &Ident,
     impls: Vec<ItemImpl>,
 ) -> syn::Result<ImplDetails> {
     let mut processed_impls = Vec::new();
@@ -141,8 +144,6 @@ fn process_impls(
                 the_impl = Some(i);
                 continue;
             }
-        } else {
-            //XXX extract methods etc.
         }
         processed_impls.push(i);
     }
@@ -154,9 +155,43 @@ fn process_impls(
 
     let the_impl = the_impl.unwrap();
 
-    //TODO actually process
-
     processed_impls.push(the_impl);
+
+    //process methods for attributes, add Type if needed
+    {
+        for imp in &mut processed_impls {
+            imp.items = imp
+                .items
+                .iter()
+                .map(|item| match item {
+                    syn::ImplItem::Method(m) => {
+                        let mut m = m.clone();
+                        //find any attributes that end with "tramp" and don't have any tokens
+                        //(tokens is the part after the attribute name, including parens)
+                        if let Some(pos) = m.attrs.iter().position(|a| {
+                            a.tokens.is_empty()
+                                && a.path
+                                    .segments
+                                    .last()
+                                    .expect("attribute path to have at least 1 segment")
+                                    .ident
+                                    .to_string()
+                                    .ends_with("tramp")
+                        }) {
+                            let mut a = m.attrs.remove(pos).clone();
+                            //add the wrapper type to the attribute
+                            a.tokens = quote! {
+                                (::median::wrapper::#wrapper_type::<#class_name>)
+                            };
+                            m.attrs.push(a);
+                        };
+                        syn::ImplItem::Method(m)
+                    }
+                    _ => item.clone(),
+                })
+                .collect();
+        }
+    }
 
     Ok(ImplDetails {
         wrapper_type,
