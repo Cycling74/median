@@ -64,21 +64,19 @@ median::external! {
         }
     }
 
-    type Wrapper = MSPObjWrapper<HelloDSP>;
-
     impl HelloDSP {
-        #[tramp(Wrapper)]
+        #[tramp]
         pub fn bang(&self) {
             median::object_post!(self.as_max_obj(), "from rust {}", self.value);
             self.clock.delay(10);
         }
 
-        #[tramp(Wrapper)]
+        #[tramp]
         pub fn set(&self, name: median::symbol::SymbolRef) {
             self.buffer1.set(name);
         }
 
-        #[tramp(Wrapper)]
+        #[tramp]
         pub fn int(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
             //XXX won't compile, needs mutex
@@ -90,12 +88,12 @@ median::external! {
             }
         }
 
-        #[attr_get_tramp(Wrapper)]
+        #[attr_get_tramp]
         pub fn blah(&self) -> max_sys::t_atom_long {
             self.value.get()
         }
 
-        #[attr_set_tramp(Wrapper)]
+        #[attr_set_tramp]
         pub fn set_blah(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
         }

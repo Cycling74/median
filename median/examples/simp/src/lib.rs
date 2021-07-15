@@ -26,8 +26,6 @@ median::external! {
         list_out: OutList,
     }
 
-    type Wrapper = MaxObjWrapper<Simp>;
-
     impl MaxObjWrapped<Simp> for Simp {
         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
             //can call closure
@@ -78,14 +76,14 @@ median::external! {
     }
 
     impl Simp {
-        #[tramp(Wrapper)]
+        #[tramp]
         pub fn bang(&self) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
-        #[tramp(Wrapper)]
+        #[tramp]
         pub fn int(&self, v: max_sys::t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
@@ -96,22 +94,22 @@ median::external! {
             post!("from rust {} inlet {}", self.value, i);
         }
 
-        #[attr_get_tramp(Wrapper)]
+        #[attr_get_tramp]
         pub fn foo(&self) -> f64 {
             self.fvalue.get()
         }
 
-        #[attr_set_tramp(Wrapper)]
+        #[attr_set_tramp]
         pub fn set_foo(&self, v: f64) {
             self.fvalue.set(v);
         }
 
-        #[attr_get_tramp(Wrapper)]
+        #[attr_get_tramp]
         pub fn blah(&self) -> max_sys::t_atom_long {
             self.value.get()
         }
 
-        #[attr_set_tramp(Wrapper)]
+        #[attr_set_tramp]
         pub fn set_blah(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
         }
