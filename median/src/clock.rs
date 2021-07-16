@@ -132,8 +132,8 @@ impl ClockHandle {
         }
 
         //set the patcher and box for the clock
-        for lookup in ["#P", "#B"] {
-            let name = CString::new(lookup).unwrap();
+        for lookup in &["#P", "#B"] {
+            let name = CString::new(*lookup).unwrap();
             let mut ob = std::ptr::null_mut();
             if max_sys::object_obex_lookup(
                 target as _,
