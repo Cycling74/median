@@ -1,6 +1,5 @@
 use crate::{atom::Atom, symbol::SymbolRef};
-use std::ffi::c_void;
-use std::os::raw::c_long;
+use std::{ffi::c_void, os::raw::c_long};
 
 pub type MaxNew = unsafe extern "C" fn(
     sym: *mut max_sys::t_symbol,
@@ -17,7 +16,8 @@ pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void) -> *mut c_void;
 pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
 
 pub type B<T> = unsafe extern "C" fn(&T);
-pub type SelList<T> = unsafe extern "C" fn(&T, *mut max_sys::t_symbol, i64, *const max_sys::t_atom);
+pub type SelList<T> =
+    unsafe extern "C" fn(&T, *mut max_sys::t_symbol, c_long, *const max_sys::t_atom);
 
 /// helper method to convert between max and median calls selector list method calls
 pub fn sel_list<F>(
