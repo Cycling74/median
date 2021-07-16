@@ -239,7 +239,7 @@ fn process_impls(
                         };
 
                         //create automatic method mappings
-                        for (attr_name, var_name, attr_new_name) in [
+                        for (attr_name, var_name, attr_new_name) in &[
                             ("bang", "Bang", "tramp"),
                             ("int", "Int", "tramp"),
                             ("float", "Float", "tramp"),
