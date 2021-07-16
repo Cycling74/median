@@ -21,6 +21,19 @@ pub fn defer_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     crate::error::wrap(wrapped_defer_tramp_with_type(wrapper, meth))
 }
 
+pub fn wrapped_sel_list_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
+    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    crate::error::wrap(wrapped_sel_list_tramp_with_type(wrapper, meth))
+}
+
+// tramp still has selector, but it isn't passed on to wrapped method
+pub fn wrapped_list_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
+    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    crate::error::wrap(wrapped_list_tramp_with_type(wrapper, meth))
+}
+
 pub fn wrapped_attr_get_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
     let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
@@ -87,15 +100,57 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<Token
     let expanded = quote! {
         pub extern "C" fn #tramp_name(
             wrapper: &#t,
-            sym: *mut max_sys::t_symbol,
+            sel: *mut ::max_sys::t_symbol,
             ac: ::std::os::raw::c_long,
             av: *const ::max_sys::t_atom,
         ) {
-            let sym = ::median::symbol::SymbolRef::from(sym);
-            let atoms = unsafe {
-                std::slice::from_raw_parts(std::mem::transmute::<*const ::max_sys::t_atom, *const ::median::atom::Atom>(av), ac as _)
-            };
-            wrapper.wrapped().#meth_name(&sym, &atoms);
+            median::method::sel_list(sel, ac, av, |sym, atoms| {
+                wrapper.wrapped().#meth_name(&sym, atoms);
+            });
+        }
+        #meth
+    };
+    Ok(expanded.into())
+}
+
+pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+    let Names {
+        meth_name,
+        tramp_name,
+    } = get_names(&meth);
+    //TODO check signature
+    let expanded = quote! {
+        pub extern "C" fn #tramp_name(
+            wrapper: &#t,
+            sel: *mut ::max_sys::t_symbol,
+            ac: ::std::os::raw::c_long,
+            av: *const ::max_sys::t_atom,
+        ) {
+            median::method::sel_list(sel, ac, av, |sym, atoms| {
+                wrapper.wrapped().#meth_name(&sym, atoms);
+            });
+        }
+        #meth
+    };
+    Ok(expanded.into())
+}
+
+pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+    let Names {
+        meth_name,
+        tramp_name,
+    } = get_names(&meth);
+    //TODO check signature
+    let expanded = quote! {
+        pub extern "C" fn #tramp_name(
+            wrapper: &#t,
+            sel: *mut ::max_sys::t_symbol,
+            ac: ::std::os::raw::c_long,
+            av: *const ::max_sys::t_atom,
+        ) {
+            median::method::sel_list(sel, ac, av, |_sym, atoms| {
+                wrapper.wrapped().#meth_name(atoms);
+            });
         }
         #meth
     };

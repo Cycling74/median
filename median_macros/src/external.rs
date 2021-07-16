@@ -207,6 +207,12 @@ fn process_impls(
 
     //process methods for attributes, add Type if needed
     {
+        let attr_add_type = |a: &mut syn::Attribute| {
+            //add the wrapper type to the attribute
+            a.tokens = quote! {
+                (::median::wrapper::#wrapper_type::<#class_name>)
+            };
+        };
         for imp in &mut processed_impls {
             imp.items = imp
                 .items
@@ -228,38 +234,43 @@ fn process_impls(
                                     .ends_with("tramp")
                         }) {
                             let mut a = m.attrs.remove(pos).clone();
-                            //add the wrapper type to the attribute
-                            a.tokens = quote! {
-                                (::median::wrapper::#wrapper_type::<#class_name>)
-                            };
+                            attr_add_type(&mut a);
                             m.attrs.push(a);
                         };
 
-                        //find bang
-                        if let Some(pos) = m.attrs.iter().position(|a| {
-                            a.path
-                                .segments
-                                .last()
-                                .expect("attribute path to have at least 1 segment")
-                                .ident
-                                == "bang"
-                        }) {
-                            //create a tramp and register the method
-                            let mut a = m.attrs.remove(pos).clone();
-                            a.path = syn::parse_str("tramp").expect("to make tramp");
-                            a.tokens = quote! {
-                                (::median::wrapper::#wrapper_type::<#class_name>)
+                        //create automatic method mappings
+                        for (attr_name, var_name, attr_new_name) in [
+                            ("bang", "Bang", "tramp"),
+                            ("int", "Int", "tramp"),
+                            ("float", "Float", "tramp"),
+                            ("sym", "Symbol", "tramp"),
+                            ("list", "List", "list_tramp"),
+                            ("any", "Anything", "sel_list_tramp"),
+                        ] {
+                            if let Some(pos) = m.attrs.iter().position(|a| {
+                                a.path
+                                    .segments
+                                    .last()
+                                    .expect("attribute path to have at least 1 segment")
+                                    .ident
+                                    == attr_name
+                            }) {
+                                //create a tramp and register the method
+                                let mut a = m.attrs.remove(pos).clone();
+                                a.path = syn::parse_str(&format!("::median::wrapper::{}", attr_new_name)).expect("to make tramp");
+                                attr_add_type(&mut a);
+
+                                let tramp_name = std::format!("{}_tramp", m.sig.ident);
+                                let tramp_name = Ident::new(tramp_name.as_str(), m.span());
+                                let var_name = Ident::new(var_name, a.span());
+
+                                class_setup.block.stmts.push(
+                                    syn::parse(
+                                        quote! { #class_setup_class_var.add_method(median::method::Method::#var_name(Self::#tramp_name)).unwrap(); }.into()
+                                    ).expect("to create a statement"));
+                                m.attrs.push(a);
                             };
-                            m.attrs.push(a);
-
-                            let tramp_name = std::format!("{}_tramp", m.sig.ident);
-                            let tramp_name = Ident::new(tramp_name.as_str(), m.span());
-
-                            class_setup.block.stmts.push(
-                                syn::parse(
-                                    quote! { #class_setup_class_var.add_method(median::method::Method::Bang(Self::#tramp_name)).unwrap(); }.into()
-                            ).expect("to create a statement"));
-                        };
+                        }
 
                         syn::ImplItem::Method(m)
                     }
