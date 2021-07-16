@@ -8,7 +8,13 @@ pub type MaxNew = unsafe extern "C" fn(
     argv: *const max_sys::t_atom,
 ) -> *mut c_void;
 pub type MaxFree<T> = unsafe extern "C" fn(obj: *mut T);
+
+#[cfg(not(target_os = "windows"))]
 pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void) -> *mut c_void;
+
+//windows doesnt' use "safe call"
+#[cfg(target_os = "windows")]
+pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
 
 pub type B<T> = unsafe extern "C" fn(&T);
 pub type SelList<T> = unsafe extern "C" fn(&T, *mut max_sys::t_symbol, i64, *const max_sys::t_atom);
