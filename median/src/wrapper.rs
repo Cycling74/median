@@ -41,9 +41,17 @@ pub type DeferMethodWrapped<T> = extern "C" fn(
 );
 
 //reexports
+///trampoline for attribute getters
 pub use median_macros::wrapped_attr_get_tramp as attr_get_tramp;
+///trampoline for attribute setters
 pub use median_macros::wrapped_attr_set_tramp as attr_set_tramp;
+///trampoline for deffered calls
 pub use median_macros::wrapped_defer_tramp as defer_tramp;
+///trampoline for list methods (ditch selector)
+pub use median_macros::wrapped_list_tramp as list_tramp;
+///trampoline for seletor list methods
+pub use median_macros::wrapped_sel_list_tramp as sel_list_tramp;
+///general use trampoline
 pub use median_macros::wrapped_tramp as tramp;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
