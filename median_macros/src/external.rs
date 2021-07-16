@@ -153,9 +153,57 @@ fn process_impls(
         "Failed to find MaxObjWrapper or MSPObjWrapper",
     ))?;
 
-    let the_impl = the_impl.unwrap();
+    //find class_setup, if it exists
+    let mut the_impl = the_impl.unwrap();
 
-    processed_impls.push(the_impl);
+    let mut class_setup = None;
+    if let Some(pos) = the_impl.items.iter().position(|item| {
+        if let syn::ImplItem::Method(m) = item {
+            if m.sig.ident == "class_setup" {
+                class_setup = Some(m.clone());
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }) {
+        let _ = the_impl.items.remove(pos);
+    };
+
+    let mut class_setup: syn::ImplItemMethod = class_setup.unwrap_or_else(|| {
+        syn::parse(
+            quote! {
+                fn class_setup(c: &mut ::median::class::Class<::median::wrapper::#wrapper_type<Self>>) {
+                }
+            }
+            .into(),
+        )
+        .expect("to parse as method")
+    });
+
+    //get the var "c" from class setup
+    let class_setup_class_var = match class_setup.sig.inputs.first().unwrap() {
+        syn::FnArg::Receiver(_) => panic!("failed"),
+        syn::FnArg::Typed(t) => {
+            if let syn::Pat::Ident(i) = t.pat.as_ref() {
+                i.clone()
+            } else {
+                panic!("failed to get ident");
+            }
+        }
+    };
+
+    //get the setup method
+    the_impl.items = the_impl
+        .items
+        .iter()
+        .map(|item| match item {
+            syn::ImplItem::Method(m) => syn::ImplItem::Method(m.clone()),
+            _ => item.clone(),
+        })
+        .collect();
 
     //process methods for attributes, add Type if needed
     {
@@ -166,6 +214,7 @@ fn process_impls(
                 .map(|item| match item {
                     syn::ImplItem::Method(m) => {
                         let mut m = m.clone();
+
                         //find any attributes that end with "tramp" and don't have any tokens
                         //(tokens is the part after the attribute name, including parens)
                         if let Some(pos) = m.attrs.iter().position(|a| {
@@ -185,6 +234,33 @@ fn process_impls(
                             };
                             m.attrs.push(a);
                         };
+
+                        //find bang
+                        if let Some(pos) = m.attrs.iter().position(|a| {
+                            a.path
+                                .segments
+                                .last()
+                                .expect("attribute path to have at least 1 segment")
+                                .ident
+                                == "bang"
+                        }) {
+                            //create a tramp and register the method
+                            let mut a = m.attrs.remove(pos).clone();
+                            a.path = syn::parse_str("tramp").expect("to make tramp");
+                            a.tokens = quote! {
+                                (::median::wrapper::#wrapper_type::<#class_name>)
+                            };
+                            m.attrs.push(a);
+
+                            let tramp_name = std::format!("{}_tramp", m.sig.ident);
+                            let tramp_name = Ident::new(tramp_name.as_str(), m.span());
+
+                            class_setup.block.stmts.push(
+                                syn::parse(
+                                    quote! { #class_setup_class_var.add_method(median::method::Method::Bang(Self::#tramp_name)).unwrap(); }.into()
+                            ).expect("to create a statement"));
+                        };
+
                         syn::ImplItem::Method(m)
                     }
                     _ => item.clone(),
@@ -192,6 +268,10 @@ fn process_impls(
                 .collect();
         }
     }
+
+    the_impl.items.push(syn::ImplItem::Method(class_setup));
+
+    processed_impls.push(the_impl);
 
     Ok(ImplDetails {
         wrapper_type,
