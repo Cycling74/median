@@ -1,4 +1,5 @@
 use median::{
+    atom::Atom,
     attr::{AttrBuilder, AttrType},
     builder::MaxWrappedBuilder,
     class::Class,
@@ -9,9 +10,7 @@ use median::{
     outlet::OutList,
     post,
     symbol::SymbolRef,
-    wrapper::{
-        attr_get_tramp, attr_set_tramp, tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped,
-    },
+    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped},
 };
 
 use std::convert::{From, TryFrom};
@@ -46,8 +45,6 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            c.add_method(median::method::Method::Int(Self::int_tramp)).expect("failed to add int method");
-            c.add_method(median::method::Method::Bang(Self::bang_tramp)).expect("failed to add bang method");
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
@@ -76,14 +73,14 @@ median::external! {
     }
 
     impl Simp {
-        #[tramp]
+        #[bang]
         pub fn bang(&self) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
-        #[tramp]
+        #[int]
         pub fn int(&self, v: max_sys::t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
@@ -92,6 +89,16 @@ median::external! {
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);
             post!("from rust {} inlet {}", self.value, i);
+        }
+
+        #[list]
+        pub fn list(&self, atoms: &[Atom]) {
+            post!("got list with length {}", atoms.len());
+        }
+
+        #[any]
+        pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
+            post!("got any with sel {} and length {}", sel, atoms.len());
         }
 
         #[attr_get_tramp]
