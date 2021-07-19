@@ -3,6 +3,7 @@ use median::{
     builder::{MSPWrappedBuilder, ManagedBufferRef},
     class::Class,
     clock::ClockHandle,
+    max_sys::t_atom_long,
     num::Int64,
     object::MSPObj,
     post,
@@ -75,7 +76,7 @@ median::external! {
         }
 
         #[int]
-        pub fn int(&self, v: max_sys::t_atom_long) {
+        pub fn int(&self, v: t_atom_long) {
             self.value.set(v);
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);
@@ -87,12 +88,12 @@ median::external! {
         }
 
         #[attr_get_tramp]
-        pub fn blah(&self) -> max_sys::t_atom_long {
+        pub fn blah(&self) -> t_atom_long {
             self.value.get()
         }
 
         #[attr_set_tramp]
-        pub fn set_blah(&self, v: max_sys::t_atom_long) {
+        pub fn set_blah(&self, v: t_atom_long) {
             self.value.set(v);
         }
 

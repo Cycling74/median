@@ -5,6 +5,7 @@ use median::{
     class::Class,
     clock::ClockHandle,
     inlet::MaxInlet,
+    max_sys::t_atom_long,
     num::{Float64, Int64},
     object::MaxObj,
     outlet::OutList,
@@ -81,7 +82,7 @@ median::external! {
         }
 
         #[int]
-        pub fn int(&self, v: max_sys::t_atom_long) {
+        pub fn int(&self, v: t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
             median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
@@ -112,12 +113,12 @@ median::external! {
         }
 
         #[attr_get_tramp]
-        pub fn blah(&self) -> max_sys::t_atom_long {
+        pub fn blah(&self) -> t_atom_long {
             self.value.get()
         }
 
         #[attr_set_tramp]
-        pub fn set_blah(&self, v: max_sys::t_atom_long) {
+        pub fn set_blah(&self, v: t_atom_long) {
             self.value.set(v);
         }
 

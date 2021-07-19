@@ -22,6 +22,8 @@ pub mod wrapper;
 mod max;
 pub use self::max::*;
 
+pub use max_sys;
+
 /// Wrap the given code in ext_main
 pub use median_macros::ext_main;
 /// Create an external with the wrapped contents.
