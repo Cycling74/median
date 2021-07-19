@@ -25,7 +25,7 @@ impl Arg {
     pub fn to_sig(&self) -> proc_macro2::TokenStream {
         match self {
             Arg::Float => quote! { f64 },
-            Arg::Int => quote! { i64 },
+            Arg::Int => quote! { max_sys::t_atom_long },
             Arg::Symbol => quote! { crate::symbol::SymbolRef },
         }
     }

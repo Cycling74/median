@@ -98,11 +98,14 @@ fn process_struct(mut s: ItemStruct) -> syn::Result<StructDetails> {
     let mut class_alias = class_name.to_string().to_lowercase();
 
     //find name attribute and remove it
-    if let Some(pos) = s
-        .attrs
-        .iter()
-        .position(|a| a.path.segments.last().unwrap().ident == "name")
-    {
+    if let Some(pos) = s.attrs.iter().position(|a| {
+        a.path
+            .segments
+            .last()
+            .expect("the attribute path to have at least 1 segment")
+            .ident
+            == "name"
+    }) {
         let a = s.attrs.remove(pos);
         let n: ClassNameArgs = syn::parse2(a.tokens.clone())?;
         class_alias = n.name.value();
@@ -122,7 +125,7 @@ struct ImplDetails {
 
 fn process_impls(
     the_struct: &ItemStruct,
-    _class_name: &Ident,
+    class_name: &Ident,
     impls: Vec<ItemImpl>,
 ) -> syn::Result<ImplDetails> {
     let mut processed_impls = Vec::new();
@@ -141,8 +144,6 @@ fn process_impls(
                 the_impl = Some(i);
                 continue;
             }
-        } else {
-            //XXX extract methods etc.
         }
         processed_impls.push(i);
     }
@@ -152,9 +153,134 @@ fn process_impls(
         "Failed to find MaxObjWrapper or MSPObjWrapper",
     ))?;
 
-    let the_impl = the_impl.unwrap();
+    //find class_setup, if it exists
+    let mut the_impl = the_impl.unwrap();
 
-    //TODO actually process
+    let mut class_setup = None;
+    if let Some(pos) = the_impl.items.iter().position(|item| {
+        if let syn::ImplItem::Method(m) = item {
+            if m.sig.ident == "class_setup" {
+                class_setup = Some(m.clone());
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }) {
+        let _ = the_impl.items.remove(pos);
+    };
+
+    let mut class_setup: syn::ImplItemMethod = class_setup.unwrap_or_else(|| {
+        syn::parse(
+            quote! {
+                fn class_setup(c: &mut ::median::class::Class<::median::wrapper::#wrapper_type<Self>>) {
+                }
+            }
+            .into(),
+        )
+        .expect("to parse as method")
+    });
+
+    //get the var "c" from class setup
+    let class_setup_class_var = match class_setup.sig.inputs.first().unwrap() {
+        syn::FnArg::Receiver(_) => panic!("failed"),
+        syn::FnArg::Typed(t) => {
+            if let syn::Pat::Ident(i) = t.pat.as_ref() {
+                i.clone()
+            } else {
+                panic!("failed to get ident");
+            }
+        }
+    };
+
+    //get the setup method
+    the_impl.items = the_impl
+        .items
+        .iter()
+        .map(|item| match item {
+            syn::ImplItem::Method(m) => syn::ImplItem::Method(m.clone()),
+            _ => item.clone(),
+        })
+        .collect();
+
+    //process methods for attributes, add Type if needed
+    {
+        let attr_add_type = |a: &mut syn::Attribute| {
+            //add the wrapper type to the attribute
+            a.tokens = quote! {
+                (::median::wrapper::#wrapper_type::<#class_name>)
+            };
+        };
+        for imp in &mut processed_impls {
+            imp.items = imp
+                .items
+                .iter()
+                .map(|item| match item {
+                    syn::ImplItem::Method(m) => {
+                        let mut m = m.clone();
+
+                        //find any attributes that end with "tramp" and don't have any tokens
+                        //(tokens is the part after the attribute name, including parens)
+                        if let Some(pos) = m.attrs.iter().position(|a| {
+                            a.tokens.is_empty()
+                                && a.path
+                                    .segments
+                                    .last()
+                                    .expect("attribute path to have at least 1 segment")
+                                    .ident
+                                    .to_string()
+                                    .ends_with("tramp")
+                        }) {
+                            let mut a = m.attrs.remove(pos).clone();
+                            attr_add_type(&mut a);
+                            m.attrs.push(a);
+                        };
+
+                        //create automatic method mappings
+                        for (attr_name, var_name, attr_new_name) in &[
+                            ("bang", "Bang", "tramp"),
+                            ("int", "Int", "tramp"),
+                            ("float", "Float", "tramp"),
+                            ("sym", "Symbol", "tramp"),
+                            ("list", "List", "list_tramp"),
+                            ("any", "Anything", "sel_list_tramp"),
+                        ] {
+                            if let Some(pos) = m.attrs.iter().position(|a| {
+                                a.path
+                                    .segments
+                                    .last()
+                                    .expect("attribute path to have at least 1 segment")
+                                    .ident
+                                    == attr_name
+                            }) {
+                                //create a tramp and register the method
+                                let mut a = m.attrs.remove(pos).clone();
+                                a.path = syn::parse_str(&format!("::median::wrapper::{}", attr_new_name)).expect("to make tramp");
+                                attr_add_type(&mut a);
+
+                                let tramp_name = std::format!("{}_tramp", m.sig.ident);
+                                let tramp_name = Ident::new(tramp_name.as_str(), m.span());
+                                let var_name = Ident::new(var_name, a.span());
+
+                                class_setup.block.stmts.push(
+                                    syn::parse(
+                                        quote! { #class_setup_class_var.add_method(median::method::Method::#var_name(Self::#tramp_name)).unwrap(); }.into()
+                                    ).expect("to create a statement"));
+                                m.attrs.push(a);
+                            };
+                        }
+
+                        syn::ImplItem::Method(m)
+                    }
+                    _ => item.clone(),
+                })
+                .collect();
+        }
+    }
+
+    the_impl.items.push(syn::ImplItem::Method(class_setup));
 
     processed_impls.push(the_impl);
 

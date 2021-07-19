@@ -43,14 +43,15 @@ fn build_bindings(support_dir: &str) {
     let max: Vec<String> =
         std::fs::read_to_string(format!("{}/max-includes/c74_linker_flags.txt", support_dir))
             .expect("Something went wrong reading the file")
-            .split(" ")
+            .split(&"-Wl,-U,")
             .map(|l| {
-                //lines are in the form: '-Wl,-U,_addbang'
-                let mut e = l.split(',').last().unwrap().to_string();
-                e.remove(0); //remove _
-                e.pop(); //remove '
-                e
+                if let Some(e) = l.trim().strip_prefix('_') {
+                    e.strip_suffix('\'').unwrap_or(e).to_string()
+                } else {
+                    "".to_string()
+                }
             })
+            .filter(|s| s.len() > 0)
             .collect();
 
     builder = max.iter().fold(builder, |b, i| b.whitelist_function(i));
@@ -97,8 +98,8 @@ fn build_bindings(support_dir: &str) {
     //let out_path = std::path::PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
     let out_path = std::path::PathBuf::from("src").join(format!(
         "ffi-{}-{}.rs",
-        env::consts::OS,
-        env::consts::ARCH,
+        env::var("CARGO_CFG_TARGET_OS").expect("to get target os"),
+        env::var("CARGO_CFG_TARGET_ARCH").expect("to get target architecture"),
     ));
     bindings
         .write_to_file(out_path)

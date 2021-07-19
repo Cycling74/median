@@ -262,7 +262,7 @@ impl<T> AttrBuilder<T> {
         MaxError::from(
             unsafe {
                 match self.clip {
-                    AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as i64,
+                    AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err,
                     AttrClip::Get(c) => {
                         let p: ClipParams = c.into();
                         max_sys::attr_addfilterget_clip(

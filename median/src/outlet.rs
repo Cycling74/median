@@ -8,7 +8,7 @@ use std::ffi::c_void;
 /// Result type alias from sending data through an outlet.
 pub type SendResult = Result<(), SendError>;
 pub type OutBang = Box<dyn SendValue<()> + Sync>;
-pub type OutInt = Box<dyn SendValue<i64> + Sync>;
+pub type OutInt = Box<dyn SendValue<max_sys::t_atom_long> + Sync>;
 pub type OutFloat = Box<dyn SendValue<f64> + Sync>;
 pub type OutList = Box<dyn for<'a> SendValue<&'a [Atom]> + Sync + Send>;
 pub type OutAnything = Box<dyn for<'a> SendAnything<'a> + Sync + Send>;
@@ -24,7 +24,7 @@ pub trait SendValue<T> {
 
 /// Send any data through an outlet.
 pub trait SendAnything<'a>:
-    SendValue<()> + SendValue<i64> + SendValue<f64> + SendValue<&'a [Atom]>
+    SendValue<()> + SendValue<max_sys::t_atom_long> + SendValue<f64> + SendValue<&'a [Atom]>
 {
     fn send_anything(&self, selector: SymbolRef, value: &'a [Atom]) -> SendResult;
 }
@@ -105,9 +105,9 @@ impl SendValue<f64> for Outlet {
     }
 }
 
-impl SendValue<i64> for Outlet {
+impl SendValue<max_sys::t_atom_long> for Outlet {
     /// Send an int.
-    fn send(&self, v: i64) -> SendResult {
+    fn send(&self, v: max_sys::t_atom_long) -> SendResult {
         res_wrap(|| unsafe { max_sys::outlet_int(self.inner, v) })
     }
 }

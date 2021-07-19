@@ -46,8 +46,6 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
-            c.add_method(median::method::Method::Int(Self::int_tramp)).unwrap();
-            c.add_method(median::method::Method::Bang(Self::bang_tramp)).unwrap();
             c.add_method(median::method::Method::SelS(&"set", Self::set_tramp, 0)).unwrap();
 
             c.add_attribute(
@@ -64,22 +62,20 @@ median::external! {
         }
     }
 
-    type Wrapper = MSPObjWrapper<HelloDSP>;
-
     impl HelloDSP {
-        #[tramp(Wrapper)]
+        #[bang]
         pub fn bang(&self) {
             median::object_post!(self.as_max_obj(), "from rust {}", self.value);
             self.clock.delay(10);
         }
 
-        #[tramp(Wrapper)]
+        #[tramp]
         pub fn set(&self, name: median::symbol::SymbolRef) {
             self.buffer1.set(name);
         }
 
-        #[tramp(Wrapper)]
-        pub fn int(&self, v: i64) {
+        #[int]
+        pub fn int(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);
@@ -90,13 +86,13 @@ median::external! {
             }
         }
 
-        #[attr_get_tramp(Wrapper)]
-        pub fn blah(&self) -> i64 {
+        #[attr_get_tramp]
+        pub fn blah(&self) -> max_sys::t_atom_long {
             self.value.get()
         }
 
-        #[attr_set_tramp(Wrapper)]
-        pub fn set_blah(&self, v: i64) {
+        #[attr_set_tramp]
+        pub fn set_blah(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
         }
 

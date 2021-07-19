@@ -16,7 +16,7 @@ pub enum AtomType {
 
 /// Typed atom data.
 pub enum AtomValue {
-    Int(i64),
+    Int(max_sys::t_atom_long),
     Float(f64),
     Symbol(SymbolRef),
     Object(*mut c_void),
@@ -55,7 +55,7 @@ impl Atom {
         self.value = other.value;
     }
 
-    pub fn get_int(&self) -> i64 {
+    pub fn get_int(&self) -> max_sys::t_atom_long {
         unsafe { max_sys::atom_getlong(&self.value) }
     }
 
@@ -71,7 +71,7 @@ impl Atom {
         unsafe { max_sys::atom_getobj(&self.value) }
     }
 
-    pub fn set_int<I: Into<i64>>(&mut self, v: I) {
+    pub fn set_int<I: Into<max_sys::t_atom_long>>(&mut self, v: I) {
         unsafe {
             max_sys::atom_setlong(&mut self.value, v.into());
         }
@@ -106,7 +106,7 @@ impl From<i64> for Atom {
     fn from(v: i64) -> Self {
         unsafe {
             let mut s = Self::zeroed();
-            s.set_int(v);
+            s.set_int(v as max_sys::t_atom_long);
             s
         }
     }
@@ -114,13 +114,29 @@ impl From<i64> for Atom {
 
 impl From<&i64> for Atom {
     fn from(v: &i64) -> Self {
+        Self::from(*v as max_sys::t_atom_long)
+    }
+}
+
+impl From<max_sys::t_atom_long> for Atom {
+    fn from(v: max_sys::t_atom_long) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_int(v);
+            s
+        }
+    }
+}
+
+impl From<&max_sys::t_atom_long> for Atom {
+    fn from(v: &max_sys::t_atom_long) -> Self {
         Self::from(*v)
     }
 }
 
 impl From<&crate::num::Int64> for Atom {
     fn from(v: &crate::num::Int64) -> Self {
-        Self::from(v.get())
+        Self::from(v.get() as max_sys::t_atom_long)
     }
 }
 
@@ -191,8 +207,8 @@ impl From<AtomValue> for Atom {
     }
 }
 
-impl From<&Atom> for i64 {
-    fn from(a: &Atom) -> i64 {
+impl From<&Atom> for max_sys::t_atom_long {
+    fn from(a: &Atom) -> max_sys::t_atom_long {
         a.get_int()
     }
 }
@@ -211,7 +227,7 @@ impl From<&Atom> for SymbolRef {
 
 impl Default for Atom {
     fn default() -> Self {
-        Self::from(0i64)
+        Self::from(0 as max_sys::t_atom_long)
     }
 }
 

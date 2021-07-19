@@ -6,7 +6,7 @@ use crate::{
     wrapper::{tramp, MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
 
-use std::ffi::c_void;
+use std::ffi::{c_void, CString};
 
 struct ClockInner {
     target: Option<(*mut max_sys::t_object, Box<dyn Fn(*mut max_sys::t_object)>)>,
@@ -97,7 +97,7 @@ impl ClockHandle {
     }
 
     /// Find out the current logical time of the scheduler in milliseconds.
-    pub fn time() -> i64 {
+    pub fn time() -> max_sys::t_atom_long {
         unsafe { max_sys::gettime() as _ }
     }
 
@@ -118,6 +118,38 @@ impl ClockHandle {
                 MaxMethod,
             >(ClockInner::call_tramp)),
         );
+
+        //set the scheduler for the clock to the scheduler for the owning object
+        let sched = max_sys::scheduler_fromobject(target);
+        if !sched.is_null() {
+            let spound = CString::new("#S").unwrap();
+            max_sys::object_obex_storeflags(
+                clock,
+                max_sys::gensym(spound.as_ptr()),
+                sched as _,
+                max_sys::e_max_datastore_flags::OBJ_FLAG_DATA as _,
+            );
+        }
+
+        //set the patcher and box for the clock
+        for lookup in &["#P", "#B"] {
+            let name = CString::new(*lookup).unwrap();
+            let mut ob = std::ptr::null_mut();
+            if max_sys::object_obex_lookup(
+                target as _,
+                std::mem::transmute::<_, _>(name.as_ptr()),
+                &mut ob,
+            ) == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_atom_long
+            {
+                let _ = max_sys::object_obex_storeflags(
+                    clock,
+                    max_sys::gensym(name.as_ptr()),
+                    ob as _,
+                    max_sys::e_max_datastore_flags::OBJ_FLAG_REF as _,
+                );
+            }
+        }
+
         Self {
             _target: clock_target,
             clock,

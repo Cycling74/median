@@ -1,4 +1,5 @@
 use median::{
+    atom::Atom,
     attr::{AttrBuilder, AttrType},
     builder::MaxWrappedBuilder,
     class::Class,
@@ -9,9 +10,7 @@ use median::{
     outlet::OutList,
     post,
     symbol::SymbolRef,
-    wrapper::{
-        attr_get_tramp, attr_set_tramp, tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped,
-    },
+    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper, WrapperWrapped},
 };
 
 use std::convert::{From, TryFrom};
@@ -25,8 +24,6 @@ median::external! {
         clock: ClockHandle,
         list_out: OutList,
     }
-
-    type Wrapper = MaxObjWrapper<Simp>;
 
     impl MaxObjWrapped<Simp> for Simp {
         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
@@ -48,8 +45,6 @@ median::external! {
 
         /// Register any methods you need for your class
         fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            c.add_method(median::method::Method::Int(Self::int_tramp)).expect("failed to add int method");
-            c.add_method(median::method::Method::Bang(Self::bang_tramp)).expect("failed to add bang method");
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
@@ -78,15 +73,15 @@ median::external! {
     }
 
     impl Simp {
-        #[tramp(Wrapper)]
+        #[bang]
         pub fn bang(&self) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
-        #[tramp(Wrapper)]
-        pub fn int(&self, v: i64) {
+        #[int]
+        pub fn int(&self, v: max_sys::t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
             median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
@@ -96,23 +91,33 @@ median::external! {
             post!("from rust {} inlet {}", self.value, i);
         }
 
-        #[attr_get_tramp(Wrapper)]
+        #[list]
+        pub fn list(&self, atoms: &[Atom]) {
+            post!("got list with length {}", atoms.len());
+        }
+
+        #[any]
+        pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
+            post!("got any with sel {} and length {}", sel, atoms.len());
+        }
+
+        #[attr_get_tramp]
         pub fn foo(&self) -> f64 {
             self.fvalue.get()
         }
 
-        #[attr_set_tramp(Wrapper)]
+        #[attr_set_tramp]
         pub fn set_foo(&self, v: f64) {
             self.fvalue.set(v);
         }
 
-        #[attr_get_tramp(Wrapper)]
-        pub fn blah(&self) -> i64 {
+        #[attr_get_tramp]
+        pub fn blah(&self) -> max_sys::t_atom_long {
             self.value.get()
         }
 
-        #[attr_set_tramp(Wrapper)]
-        pub fn set_blah(&self, v: i64) {
+        #[attr_set_tramp]
+        pub fn set_blah(&self, v: max_sys::t_atom_long) {
             self.value.set(v);
         }
 

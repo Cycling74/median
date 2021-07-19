@@ -33,17 +33,9 @@ if you have more than 7 args or if you are mixing floating point and other argum
     rustup target add x86_64-pc-windows-gnu
     rustup toolchain install stable-x86_64-pc-windows-gnu
     cargo build --target x86_64-pc-windows-gnu
+
+    rustup target add aarch64-apple-darwin
+
     ```
-
-* `#S` for clock object
-
-```c
-t_scheduler *sched = scheduler_fromobject((t_object *) mainobject);
-object_obex_storeflags(child, gensym("#S"), (t_object *) sched, OBJ_FLAG_DATA);
-
-t_patcher *p=NULL;
-t_box *b=NULL;
-t_max_err err;
-err = object_obex_lookup(x, gensym("#P"), (t_object **)&p);
-err = object_obex_lookup(x, gensym("#B"), (t_object **)&b);
-```
+  * [cctools](https://github.com/tpoechtrager/cctools-port) lipo for linux
+  * `lipo -create -output libsimp.dylib target/aarch64-apple-darwin/debug/libsimp.dylib target/debug/libsimp.dylib`
