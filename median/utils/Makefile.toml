@@ -211,17 +211,6 @@ script = [
     '''
 ]
 
-[tasks.install-universal.mac]
-clear = true
-dependencies = ["build-mac-universal", "install-init"]
-script_runner = "@shell"
-script = [
-    '''
-    mkdir -p "${EXTERNAL_INSTALL_DIR}"
-    cp -r "${PROFILE_EXTERNAL_PATH}" "${EXTERNAL_INSTALL_DIR}"
-    '''
-]
-
 [tasks.install.windows]
 clear = true
 dependencies = ["package"]
@@ -240,6 +229,17 @@ script = [
 [tasks.install.mac]
 clear = true
 dependencies = ["package", "install-init"]
+script_runner = "@shell"
+script = [
+    '''
+    mkdir -p "${EXTERNAL_INSTALL_DIR}"
+    cp -r "${PROFILE_EXTERNAL_PATH}" "${EXTERNAL_INSTALL_DIR}"
+    '''
+]
+
+[tasks.install-universal.mac]
+clear = true
+dependencies = ["build-mac-universal", "install-init"]
 script_runner = "@shell"
 script = [
     '''
