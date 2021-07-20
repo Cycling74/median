@@ -178,7 +178,37 @@ run_task = [
 [tasks.package-all]
 clear = true
 run_task = [
-    { name = ["package-windows", "build-mac-universal"], condition = { platforms = ["mac"] } },
+    { name = ["package-windows", "build-mac-universal", "copy-all"], condition = { platforms = ["mac"] } },
+]
+
+[tasks.copy-all]
+private = true
+env = { "PACKAGE_DIR" = "target/${PROFILE_DIR}/${MAX_PACKAGE_NAME}" }
+run_task = [
+    { name = ["copy-all-packages", "copy-all-init"], condition = { platforms = ["mac"] } },
+]
+
+[tasks.copy-all-packages]
+private = true
+script_runner = "@shell"
+script = [
+    '''
+    mkdir -p ${PACKAGE_DIR}/externals/
+    cp -r target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxo ${PACKAGE_DIR}/externals/
+    cp -r target/${TARGET_TRIPLE_WINDOWS}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxe64 ${PACKAGE_DIR}/externals/
+    echo PACKAGE_DIR=${PACKAGE_DIR}
+    '''
+]
+
+[tasks.copy-all-init]
+private = true
+condition = { files_exist = ["${INIT_DIR}/"] }
+script_runner = "@shell"
+script = [
+    '''
+    mkdir -p ${PACKAGE_DIR}/init/
+    cp ${INIT_DIR}/* "${PACKAGE_DIR}/init/"
+    '''
 ]
 
 [tasks.install.windows]
