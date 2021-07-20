@@ -14,7 +14,7 @@ EXTERNAL_INSTALL_DIR = "${PLATFORM_INSTALL_DIR}/${MAX_PACKAGE_NAME}/externals/"
 PACKAGED_LIB_FILE_NAME = "${MAX_EXT_NAME}"
 INIT_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/init"
 TARGET_TRIPLE = "${CARGO_MAKE_RUST_TARGET_TRIPLE}"
-TARGET_TRIPLE_WINDOWS = "x86_64-pc-windows-gnu"
+TARGET_TRIPLE_WINDOWS = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "x86_64-pc-windows-gnu", mapping = { "windows" = "x86_64-pc-windows-msvc" } }
 TARGET_TRIPLE_MAC_AARCH64 = "aarch64-apple-darwin"
 TARGET_TRIPLE_MAC_X86 = "x86_64-apple-darwin"
 TARGET_TRIPLE_MAC_UNIVERSAL = "universal-apple-darwin"
