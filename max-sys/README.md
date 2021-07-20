@@ -3,6 +3,12 @@
 Automatically generated [Rust](https://www.rust-lang.org/) bindings for the [Max SDK](https://github.com/Cycling74/max-sdk).
 
 ## Regenerating the bindings
+ 
+You'll need:
+
+* [clang](https://clang.llvm.org/)
+  * on Windows I used `scoop` to install clang and then set the enviroment variable: `LIBCLANG_PATH` to `C:\Users\xnor\scoop\apps\llvm\current\bin`
+  * on Mac I think I just had it installed by default, or maybe it came with Xcode
 
 Since the SDK is rather large and doesn't change, we include the generated
 bindings in the repository.  If you make some changes to `build.rs`, the
