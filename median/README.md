@@ -2,6 +2,10 @@
 
 A Rust wrapper around the `max-sys` automatically generated bindings to the [Max SDK](https://github.com/Cycling74/max-sdk).
 
+## Disclaimer
+
+This is a work in progress.
+
 ## Dependencies
 
 * [rust](https://rustup.rs/)
