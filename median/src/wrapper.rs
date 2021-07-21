@@ -106,6 +106,12 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
         //default, do nothing
     }
+
+    /// Optionally allow Max to reuse input vectors as output vectors.
+    /// You have to be more careful about writing if you do this.
+    fn dsp_in_place() -> bool {
+        false
+    }
 }
 
 pub trait WrapperWrapped<T> {
@@ -225,6 +231,11 @@ where
         let outs: Vec<&'static mut [f64]> = (0..f.signal_outlets)
             .map(|_i| unsafe { std::slice::from_raw_parts_mut(std::ptr::null_mut(), 0) })
             .collect();
+        if !T::dsp_in_place() {
+            unsafe {
+                (*owner).z_misc |= 1; //Z_NO_INPLACE;
+            }
+        }
         Self {
             wrapped,
             ins,
