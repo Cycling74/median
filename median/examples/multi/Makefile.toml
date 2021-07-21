@@ -1,0 +1,5 @@
+extend = "../../utils/Makefile.toml"
+
+[env]
+MAX_EXT_NAME = "median.multi"
+MAX_PACKAGE_NAME = "multi"
