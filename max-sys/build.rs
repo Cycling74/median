@@ -107,14 +107,13 @@ fn build_bindings(support_dir: &str) {
 }
 
 fn main() {
+    let support_dir = "thirdparty/max-sdk/source/c74support";
     let target_os = env::var_os("CARGO_CFG_TARGET_OS").expect("failed to get target os");
 
     if target_os == "macos" {
         println!("cargo:rustc-link-lib=framework=CoreAudio");
         println!("cargo:rustc-link-lib=framework=CoreServices");
     } else if target_os == "windows" {
-        let support_dir = "thirdparty/max-sdk/source/c74support";
-
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         println!(
             "cargo:rustc-link-search={}/{}/max-includes/x64/",
