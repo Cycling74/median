@@ -17,6 +17,7 @@ use std::{
     ffi::{c_void, CString},
     marker::PhantomData,
     mem::MaybeUninit,
+    os::raw::c_long,
     sync::Mutex,
 };
 
@@ -36,7 +37,7 @@ pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 pub type DeferMethodWrapped<T> = extern "C" fn(
     wrapper: &T,
     sym: *mut max_sys::t_symbol,
-    argc: std::os::raw::c_long,
+    argc: c_long,
     argv: *const max_sys::t_atom,
 );
 
@@ -274,11 +275,11 @@ where
         &mut self,
         _dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
-        numins: i64,
+        numins: c_long,
         outs: *mut *mut f64,
-        numouts: i64,
-        sampleframes: i64,
-        _flags: i64,
+        numouts: c_long,
+        sampleframes: c_long,
+        _flags: c_long,
         _userparam: *mut c_void,
     ) {
         assert!(self.ins.len() >= numins as _);
@@ -527,8 +528,6 @@ where
     }
 }
 
-use std::os::raw::c_long;
-
 impl<T> MSPObjWrapper<T>
 where
     T: MSPObjWrapped<T> + Sync + 'static,
@@ -620,11 +619,11 @@ where
         &mut self,
         dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
-        numins: i64,
+        numins: c_long,
         outs: *mut *mut f64,
-        numouts: i64,
-        sampleframes: i64,
-        flags: i64,
+        numouts: c_long,
+        sampleframes: c_long,
+        flags: c_long,
         userparam: *mut c_void,
     ) {
         unsafe {
@@ -658,11 +657,11 @@ where
                         &mut Self,
                         dsp64: *mut max_sys::t_object,
                         ins: *const *const f64,
-                        numins: i64,
+                        numins: c_long,
                         outs: *mut *mut f64,
-                        numouts: i64,
-                        sampleframes: i64,
-                        flags: i64,
+                        numouts: c_long,
+                        sampleframes: c_long,
+                        flags: c_long,
                         userparam: *mut c_void,
                     ),
                     unsafe extern "C" fn(
