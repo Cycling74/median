@@ -12,11 +12,13 @@ fn build_bindings(support_dir: &str) {
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=framework=CoreAudio");
         println!("cargo:rustc-link-lib=framework=CoreServices");
+        println!("cargo:rustc-link-lib=framework=Carbon");
         builder = builder
         .clang_args(&[
             "-isysroot",
             "/Library/Developer/CommandLineTools/SDKs/MacOSX11.0.sdk/",
         ])
+        .clang_arg("-DMAC_VERSION")
         .clang_arg(
             "-F/Library/Developer/CommandLineTools/SDKs/MacOSX11.0.sdk/System/Library/Frameworks/",
         );
@@ -56,8 +58,8 @@ fn build_bindings(support_dir: &str) {
 
     builder = max.iter().fold(builder, |b, i| b.whitelist_function(i));
 
-    //msp
-    let msp = [
+    //msp, jitter
+    let msp_jitter = [
         "z_dsp.*",
         "dsp_.*",
         "buffer_.*",
@@ -66,8 +68,11 @@ fn build_bindings(support_dir: &str) {
         "z_jbox.*",
         "z_isconnected",
         "canvas_.*",
+        "jit_.*",
     ];
-    builder = msp.iter().fold(builder, |b, i| b.whitelist_function(i));
+    builder = msp_jitter
+        .iter()
+        .fold(builder, |b, i| b.whitelist_function(i));
 
     let enums = [
         "e_max_attrflags",
@@ -113,6 +118,7 @@ fn main() {
     if target_os == "macos" {
         println!("cargo:rustc-link-lib=framework=CoreAudio");
         println!("cargo:rustc-link-lib=framework=CoreServices");
+        println!("cargo:rustc-link-lib=framework=Carbon");
     } else if target_os == "windows" {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         println!(
@@ -134,7 +140,7 @@ fn main() {
         // Tell cargo to invalidate the built crate whenever the wrapper changes
         println!("cargo:rerun-if-changed=wrapper.h");
         println!("cargo:rerun-if-changed=wrapper-max.h");
-        //println!("cargo:rerun-if-changed=wrapper-jitter.h");
+        println!("cargo:rerun-if-changed=wrapper-jitter.h");
         build_bindings(&support_dir);
     }
 }

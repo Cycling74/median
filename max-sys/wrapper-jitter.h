@@ -1,6 +1,7 @@
 #include <jit.common.h>
 #include <jit.bin.h>
 #include <jit.byteorder.h>
+#include <jit.error.h>
 #include <jit.cpost.h>
 #include <jit.cubicspline.h>
 #include <jit.fixmath.h>
