@@ -4,6 +4,7 @@ use median::{
     wrapper::{MSPObjWrapped, MaxObjWrapped},
 };
 
+//create an external but don't implement ext_main (we do it explicitly below)
 median::external_no_main! {
     #[name="median.multi"]
     pub struct Base { }
@@ -37,6 +38,7 @@ median::external_no_main! {
     }
 }
 
+//create an ext_main, register our objects
 median::ext_main! {
     Base::register();
     Sig::register();
