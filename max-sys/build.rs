@@ -92,6 +92,13 @@ fn build_bindings(support_dir: &str) {
         "e_max_path_.*",
         "t_sysfile_.*",
         "PARAM_.*",
+        "PARAMETER_ENABLE_SAVESTATE",
+        "e_jit_state",
+        "e_view_tag",
+        "_modifiers",
+        "_jdesktopui_flags",
+        "_jgraphics_.*",
+        "_jmouse_cursortype",
     ];
 
     builder = enums.iter().fold(builder, |b, i| {
