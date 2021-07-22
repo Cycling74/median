@@ -21,9 +21,9 @@ typedef struct OpaqueMPCriticalRegionID*  MPCriticalRegionID;
 #include <ext_buffer.h>
 #include <r_pfft.h>
 
+#undef __FILES__
+
 /*********** jitter ***********/
-/* TODO
-typedef uint32_t CGDirectDisplayID;
-typedef uint16_t GLhalfNV;
+//typedef uint32_t CGDirectDisplayID;
+//typedef uint16_t GLhalfNV;
 #include "wrapper-jitter.h"
-*/

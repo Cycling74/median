@@ -44,7 +44,7 @@ If this succeeds, you should see a printout of where the externals were put.
 
 ## Resources
 
-* [writing docs in rust](https://facility9.com/2016/05/writing-documentation-in-rust/)
+* [writing docs in rust](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html)
 
 josuha
 ```
