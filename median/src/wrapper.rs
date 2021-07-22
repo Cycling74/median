@@ -1,4 +1,5 @@
-//! External MaxObjWrappers.
+//! External Max and MSP object wrappers
+//! TODO: Jitter
 
 use crate::{
     atom::Atom,
@@ -61,6 +62,11 @@ pub use median_macros::wrapped_tramp as tramp;
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
 
+/// A trait useed by both Max and MSP objects.
+///
+/// # Remarks
+/// If you're using the macro system to wrap your external and unless you need to override the
+/// `ClassType` or `handle_notification`, you might not actually implement this explicitly.
 pub trait ObjWrapped<T>: Sized + Sync + 'static {
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
@@ -77,6 +83,7 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
     fn handle_notification(&self, _notification: &Notification) {}
 }
 
+/// The trait to implement for your object to be wrapped as a Max object.
 pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     /// A constructor for your object.
     ///
@@ -91,6 +98,7 @@ pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     }
 }
 
+/// The trait to implement for your object to be wrapped as a MSP object.
 pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// A constructor for your object.
     ///
