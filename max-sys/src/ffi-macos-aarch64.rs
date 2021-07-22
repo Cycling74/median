@@ -773,6 +773,12 @@ extern "C" {
 #[doc = "@ingroup patcher"]
 pub type t_patcher = t_object;
 extern "C" {
+    pub fn swapf32(f: f32) -> f32;
+}
+extern "C" {
+    pub fn swapf64(f: f64) -> f64;
+}
+extern "C" {
     #[doc = "Allocate memory."]
     #[doc = "This function is similar to NewPtr() or malloc(). It allocates a pointer of"]
     #[doc = "a given number of bytes and returns a pointer to the memory allocated."]
@@ -42133,6 +42139,376 @@ extern "C" {
 }
 pub type t_jit_object = t_object;
 extern "C" {
+    pub fn max_jit_obex_new(
+        mc: *mut ::std::os::raw::c_void,
+        classname: *mut t_symbol,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_free(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_classex_setup(oboffset: ::std::os::raw::c_long) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_classex_addattr(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_classex_standard_wrap(
+        mclass: *mut ::std::os::raw::c_void,
+        jclass: *mut ::std::os::raw::c_void,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_addmethods(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_class_addmethods_flags(
+        x: *mut ::std::os::raw::c_void,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_attrlist2methods(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_addmethod_defer(m: method, s: *mut ::std::os::raw::c_char);
+}
+extern "C" {
+    pub fn max_addmethod_defer_low(m: method, s: *mut ::std::os::raw::c_char);
+}
+extern "C" {
+    pub fn max_addmethod_usurp(m: method, s: *mut ::std::os::raw::c_char);
+}
+extern "C" {
+    pub fn max_addmethod_usurp_low(m: method, s: *mut ::std::os::raw::c_char);
+}
+extern "C" {
+    pub fn max_jit_object_alloc(
+        mclass: *mut t_class,
+        jitter_classname: *mut t_symbol,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_object_free(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_class_obex_setup(mclass: *mut t_class, oboffset: ::std::os::raw::c_long);
+}
+extern "C" {
+    pub fn max_jit_class_addattr(
+        mclass: *mut t_class,
+        attr: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_class_wrap_standard(
+        mclass: *mut t_class,
+        jclass: *mut t_class,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_wrap_addmethods(mclass: *mut t_class, jclass: *mut t_class);
+}
+extern "C" {
+    pub fn max_jit_class_wrap_addmethods_flags(
+        mclass: *mut t_class,
+        jclass: *mut t_class,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_wrap_attrlist2methods(mclass: *mut t_class, jclass: *mut t_class);
+}
+extern "C" {
+    pub fn max_jit_class_addmethod_defer(
+        mclass: *mut t_class,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_addmethod_defer_low(
+        mclass: *mut t_class,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_addmethod_usurp(
+        mclass: *mut t_class,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_class_addmethod_usurp_low(
+        mclass: *mut t_class,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_addattr(x: *mut t_object, attr: *mut ::std::os::raw::c_void)
+        -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_object_wrap_standard(
+        mob: *mut t_object,
+        job: *mut t_object,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_wrap_complete(
+        mob: *mut t_object,
+        job: *mut t_object,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_wrap_addmethods(mob: *mut t_object, job: *mut t_object);
+}
+extern "C" {
+    pub fn max_jit_object_wrap_addmethods_flags(
+        mob: *mut t_object,
+        job: *mut t_object,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_wrap_attrlist2methods(mob: *mut t_object, job: *mut t_object);
+}
+extern "C" {
+    pub fn max_jit_object_addmethod_defer(
+        x: *mut t_object,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_addmethod_defer_low(
+        x: *mut t_object,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_addmethod_usurp(
+        x: *mut t_object,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_addmethod_usurp_low(
+        x: *mut t_object,
+        m: method,
+        s: *mut ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn max_jit_object_attr_dump(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_attr_args_offset(
+        ac: ::std::os::raw::c_short,
+        av: *mut t_atom,
+    ) -> ::std::os::raw::c_long;
+}
+extern "C" {
+    pub fn max_jit_attr_args(
+        x: *mut ::std::os::raw::c_void,
+        ac: ::std::os::raw::c_short,
+        av: *mut t_atom,
+    );
+}
+extern "C" {
+    pub fn max_jit_attr_set(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        ac: ::std::os::raw::c_short,
+        av: *mut t_atom,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_attrlist_get(x: *mut ::std::os::raw::c_void)
+        -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_attr_set(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        ac: ::std::os::raw::c_long,
+        av: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_attr_get(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        ac: *mut ::std::os::raw::c_long,
+        av: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_attr_getdump(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        argc: ::std::os::raw::c_short,
+        argv: *mut t_atom,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_set(
+        x: *mut ::std::os::raw::c_void,
+        p: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_get(x: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_jitob_get(x: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_jitob_set(
+        x: *mut ::std::os::raw::c_void,
+        jitob: *mut ::std::os::raw::c_void,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_usurplist_get(
+        x: *mut ::std::os::raw::c_void,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_usurplist_set(
+        x: *mut ::std::os::raw::c_void,
+        usurplist: *mut ::std::os::raw::c_void,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_proxylist_get(
+        x: *mut ::std::os::raw::c_void,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_proxylist_set(
+        x: *mut ::std::os::raw::c_void,
+        proxylist: *mut ::std::os::raw::c_void,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_inletnumber_get(x: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_long;
+}
+extern "C" {
+    pub fn max_jit_obex_inletnumber_set(
+        x: *mut ::std::os::raw::c_void,
+        inletnumber: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_proxy_new(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_proxy_resize(
+        x: *mut ::std::os::raw::c_void,
+        count: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_proxy_deletetail(x: *mut ::std::os::raw::c_void) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_proxy_append(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_dumpout_set(
+        x: *mut ::std::os::raw::c_void,
+        outlet: *mut ::std::os::raw::c_void,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_dumpout_get(x: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_dumpout(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        argc: ::std::os::raw::c_short,
+        argv: *mut t_atom,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_adornmentlist_get(
+        x: *mut ::std::os::raw::c_void,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_adornmentlist_set(
+        x: *mut ::std::os::raw::c_void,
+        adornmentlist: *mut ::std::os::raw::c_void,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_adornment_get(
+        x: *mut ::std::os::raw::c_void,
+        classname: *mut t_symbol,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_obex_addadornment(
+        x: *mut ::std::os::raw::c_void,
+        adornment: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_obex_gimmeback(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        ac: ::std::os::raw::c_long,
+        av: *mut t_atom,
+    );
+}
+extern "C" {
+    pub fn max_jit_obex_gimmeback_dumpout(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        ac: ::std::os::raw::c_long,
+        av: *mut t_atom,
+    );
+}
+extern "C" {
+    pub fn max_jit_method_is_attr(x: *mut ::std::os::raw::c_void, s: *mut t_symbol) -> t_atom_long;
+}
+extern "C" {
+    pub fn max_jit_method_is_undocumented(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+    ) -> t_atom_long;
+}
+extern "C" {
+    pub fn max_jit_method_is_groupreference(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+    ) -> t_atom_long;
+}
+extern "C" {
+    pub fn max_jit_getqueuestate() -> ::std::os::raw::c_long;
+}
+extern "C" {
     pub fn jit_global_critical_enter();
 }
 extern "C" {
@@ -46324,6 +46700,41 @@ extern "C" {
 }
 pub type CGDirectDisplayID = u32;
 pub type t_jit_gl_context_modifier = ::std::os::raw::c_long;
+extern "C" {
+    pub fn max_jit_class_ob3d_wrap(c: *mut t_class);
+}
+extern "C" {
+    pub fn max_jit_ob3d_attach(
+        x: *mut ::std::os::raw::c_void,
+        jit_ob: *mut t_jit_object,
+        outlet: *mut ::std::os::raw::c_void,
+    );
+}
+extern "C" {
+    pub fn max_jit_ob3d_detach(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_ob3d_assist(
+        x: *mut ::std::os::raw::c_void,
+        b: *mut ::std::os::raw::c_void,
+        m: ::std::os::raw::c_long,
+        a: ::std::os::raw::c_long,
+        s: *mut ::std::os::raw::c_char,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_ob3d_acceptsdrag(
+        x: *mut ::std::os::raw::c_void,
+        drag: *mut t_object,
+        view: *mut t_object,
+    ) -> t_atom_long;
+}
+extern "C" {
+    pub fn max_jit_ob3d_seterrorob(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_ob3d_geterrorob() -> *mut ::std::os::raw::c_void;
+}
 #[doc = " t_wind_mouse_info_struct provided by jit.window and jit.pwindow mouse events"]
 #[doc = ""]
 #[repr(C)]
@@ -67878,6 +68289,300 @@ extern "C" {
 }
 extern "C" {
     pub fn jit_window_init() -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_classex_mop_wrap(
+        mclass: *mut ::std::os::raw::c_void,
+        jclass: *mut ::std::os::raw::c_void,
+        flags: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_class_mop_wrap(
+        mclass: *mut t_class,
+        jclass: *mut t_class,
+        flags: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_classex_mop_mproc(
+        mclass: *mut ::std::os::raw::c_void,
+        jclass: *mut ::std::os::raw::c_void,
+        mproc: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_object_mop_wrap(
+        mob: *mut t_object,
+        job: *mut t_object,
+        flags: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_object_mop_mproc(
+        mob: *mut ::std::os::raw::c_void,
+        job: *mut ::std::os::raw::c_void,
+        mproc: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_setup(x: *mut ::std::os::raw::c_void) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_inputs(x: *mut ::std::os::raw::c_void) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_inputs_resize(
+        x: *mut ::std::os::raw::c_void,
+        count: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_outputs(x: *mut ::std::os::raw::c_void) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_outputs_resize(
+        x: *mut ::std::os::raw::c_void,
+        count: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_matrix_args(
+        x: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_jit_matrix(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_assist(
+        x: *mut ::std::os::raw::c_void,
+        b: *mut ::std::os::raw::c_void,
+        m: ::std::os::raw::c_long,
+        a: ::std::os::raw::c_long,
+        s: *mut ::std::os::raw::c_char,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_bang(x: *mut ::std::os::raw::c_void) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_outputmatrix(x: *mut ::std::os::raw::c_void) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_matrixout_new(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_clear(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_mop_notify(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        msg: *mut t_symbol,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_free(x: *mut ::std::os::raw::c_void);
+}
+extern "C" {
+    pub fn max_jit_mop_name(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getname(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: *mut ::std::os::raw::c_long,
+        argv: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_type(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_gettype(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: *mut ::std::os::raw::c_long,
+        argv: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_dim(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getdim(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: *mut ::std::os::raw::c_long,
+        argv: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_planecount(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getplanecount(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: *mut ::std::os::raw::c_long,
+        argv: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_parse_name(
+        name: *mut t_symbol,
+        type_: *mut ::std::os::raw::c_long,
+        idx: *mut ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_restrict_info(
+        x: *mut ::std::os::raw::c_void,
+        p: *mut ::std::os::raw::c_void,
+        info: *mut t_jit_matrix_info,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_get_io_by_name(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_mop_outputmode(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getoutputmode_attr(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: *mut ::std::os::raw::c_long,
+        argv: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_adapt(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getadapt(
+        x: *mut ::std::os::raw::c_void,
+        attr: *mut ::std::os::raw::c_void,
+        argc: *mut ::std::os::raw::c_long,
+        argv: *mut *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getinput(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_mop_getoutput(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_mop_getoutputmode(x: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_long;
+}
+extern "C" {
+    pub fn max_jit_mop_io_getoutlet(
+        mop_io: *mut ::std::os::raw::c_void,
+    ) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_mop_io_setoutlet(
+        mop_io: *mut ::std::os::raw::c_void,
+        o: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_getmproc(mop: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    pub fn max_jit_mop_adapt_matrix_all(
+        x: *mut ::std::os::raw::c_void,
+        y: *mut ::std::os::raw::c_void,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_variable_parse_sym(
+        name: *mut t_symbol,
+        msg: *mut *mut t_symbol,
+        set: *mut ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_variable_anything(
+        x: *mut ::std::os::raw::c_void,
+        s: *mut t_symbol,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_variable_addinputs(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_variable_addoutputs(
+        x: *mut ::std::os::raw::c_void,
+        c: ::std::os::raw::c_long,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_setup_simple(
+        x: *mut ::std::os::raw::c_void,
+        o: *mut ::std::os::raw::c_void,
+        argc: ::std::os::raw::c_long,
+        argv: *mut t_atom,
+    ) -> t_jit_err;
+}
+extern "C" {
+    pub fn max_jit_mop_setup_probing(mclass: *mut t_class) -> t_jit_err;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
