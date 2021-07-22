@@ -58,8 +58,8 @@ fn build_bindings(support_dir: &str) {
 
     builder = max.iter().fold(builder, |b, i| b.whitelist_function(i));
 
-    //msp, jitter
     let msp_jitter = [
+        //msp
         "z_dsp.*",
         "dsp_.*",
         "buffer_.*",
@@ -68,7 +68,12 @@ fn build_bindings(support_dir: &str) {
         "z_jbox.*",
         "z_isconnected",
         "canvas_.*",
+        //jitter
         "jit_.*",
+        "max_jit.*",
+        "max_addmethod.*",
+        "swapf32",
+        "swapf64",
     ];
     builder = msp_jitter
         .iter()
