@@ -41,6 +41,17 @@ impl<T> Attr<T> {
     }
 }
 
+/// No-op get method for attributes.
+pub extern "C" fn get_nop<T>(
+    _s: &T,
+    _attr: c_void,
+    _ac: *mut c_long,
+    _av: *mut *mut max_sys::t_atom,
+) {
+}
+/// No-op set method for attributes.
+pub extern "C" fn set_nop<T>(_s: &T, _attr: c_void, _ac: c_long, _av: *mut max_sys::t_atom) {}
+
 impl<T> AttrBuilder<T> {
     // helper method used in public impls
     fn new<I: Into<String>>(name: I, val_type: AttrType) -> Self {
@@ -113,7 +124,7 @@ impl<T> AttrBuilder<T> {
     /// # Arguments
     /// * `name` - the name of the attribute.
     /// * `val_type` - the type of the attribute.
-    /// * `get` - a set method to use with the attribute.
+    /// * `get` - a get method to use with the attribute.
     /// * `set` - a set method to use with the attribute.
     pub fn new_accessors<I: Into<String>>(
         name: I,
@@ -127,11 +138,52 @@ impl<T> AttrBuilder<T> {
         s
     }
 
+    /// Create a new builder with only a get method.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `get` - a get method to use with the attribute.
+    pub fn new_get<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        get: AttrTrampGetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new(name, val_type);
+        s.get = Some(get);
+        s.set_vis = AttrVisiblity::UserVisible;
+        s
+    }
+
+    /// Create a new builder with only a set method.
+    ///
+    /// # Arguments
+    /// * `name` - the name of the attribute.
+    /// * `val_type` - the type of the attribute.
+    /// * `set` - a set method to use with the attribute.
+    pub fn new_set<I: Into<String>>(
+        name: I,
+        val_type: AttrType,
+        set: AttrTrampSetMethod<T>,
+    ) -> Self {
+        let mut s = Self::new(name, val_type);
+        s.set = Some(set);
+        s.get_vis = AttrVisiblity::UserVisible;
+        s
+    }
+
     /// Set the visiblity for the get for this attribute.
     ///
     /// # Remarks
     /// Defaults to `Visible`.
+    ///
+    /// # Panics
+    /// Will panic if called when there is no offset or get method.
     pub fn get_vis(&mut self, v: AttrVisiblity) -> &mut Self {
+        assert!(
+            self.get.is_some() || self.offset.is_some(),
+            "to set get visibilty you must have either a get method or an offset"
+        );
         let mut n = self;
         n.get_vis = v;
         n
@@ -140,7 +192,14 @@ impl<T> AttrBuilder<T> {
     ///
     /// # Remarks
     /// Defaults to `Visible`.
+    ///
+    /// # Panics
+    /// Will panic if called when there is no offset or set method.
     pub fn set_vis(&mut self, v: AttrVisiblity) -> &mut Self {
+        assert!(
+            self.set.is_some() || self.offset.is_some(),
+            "to set set visibilty you must have either a set method or an offset"
+        );
         let mut n = self;
         n.set_vis = v;
         n
@@ -152,7 +211,7 @@ impl<T> AttrBuilder<T> {
         n
     }
 
-    pub fn build(self) -> Result<Attr<T>, String> {
+    pub fn build(&self) -> Result<Attr<T>, String> {
         if self.set.is_none() && self.get.is_none() && self.offset.is_none() {
             return Err("you must have at least 1 of get, set or offset".into());
         }
@@ -160,22 +219,41 @@ impl<T> AttrBuilder<T> {
             .map_err(|_| format!("{} failed to convert to a CString", self.name))?;
         let flags = match self.get_vis {
             AttrVisiblity::Visible => max_sys::e_max_attrflags::ATTR_FLAGS_NONE,
-            AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_GET_OPAQUE,
+            //not actually used AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_GET_OPAQUE,
             AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_GET_OPAQUE_USER,
         } | match self.set_vis {
             AttrVisiblity::Visible => max_sys::e_max_attrflags::ATTR_FLAGS_NONE,
-            AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_SET_OPAQUE,
+            //not actually used AttrVisiblity::Opaque => max_sys::e_max_attrflags::ATTR_SET_OPAQUE,
             AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_SET_OPAQUE_USER,
         };
         let inner = unsafe {
-            max_sys::attr_offset_new(
-                n.as_ptr(),
-                self.val_type.into(),
-                flags as _,
-                std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(self.get),
-                std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(self.set),
-                self.offset.unwrap_or(0) as _,
-            )
+            //assign no-ops if we need them
+            let get = std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(
+                self.get.or(Some(get_nop)),
+            );
+            let set = std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(
+                self.set.or(Some(set_nop)),
+            );
+            if let Some(offset) = self.offset {
+                max_sys::attr_offset_new(
+                    n.as_ptr(),
+                    self.val_type.into(),
+                    flags as _,
+                    get,
+                    set,
+                    offset as _,
+                )
+            } else {
+                max_sys::attribute_new(
+                    n.as_ptr(),
+                    std::mem::transmute::<*const max_sys::t_symbol, *mut max_sys::t_symbol>(
+                        self.val_type.into(),
+                    ), //should have been const in max_sys
+                    flags as _,
+                    get,
+                    set,
+                )
+            }
         };
         if inner.is_null() {
             return Err("failed to create attribute".into());
@@ -184,7 +262,7 @@ impl<T> AttrBuilder<T> {
         MaxError::from(
             unsafe {
                 match self.clip {
-                    AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as i64,
+                    AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err,
                     AttrClip::Get(c) => {
                         let p: ClipParams = c.into();
                         max_sys::attr_addfilterget_clip(
@@ -254,14 +332,14 @@ pub enum AttrClip {
     GetSet(AttrValClip),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttrVisiblity {
     /// accessable from gui and code
     Visible,
     /// only accessable from code
     UserVisible,
-    /// not accessable from code or gui
-    Opaque,
+    // not accessable from code or gui
+    // not actually usedOpaque,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -326,7 +404,7 @@ impl<T> Into<*mut max_sys::t_object> for Attr<T> {
 ///
 /// # Arguments
 /// * `owner` - the object that owns the attribute
-/// * `name` - the name of the attributes
+/// * `name` - the name of the attribute
 pub fn touch_with_name<I: Into<SymbolRef>>(
     owner: *mut max_sys::t_object,
     name: I,

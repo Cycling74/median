@@ -1,30 +1,45 @@
+//! Utilities for building objects.
 use crate::{
+    atom::Atom,
+    buffer::{BufferRef, BufferReference},
     clock::ClockHandle,
     inlet::{MSPInlet, MaxInlet, Proxy},
+    notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
+    symbol::SymbolRef,
     wrapper::{
         FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
         ObjWrapped, WrapperWrapped,
     },
 };
-use std::collections::HashMap;
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-pub struct WrappedBuilder<T, W> {
+pub struct WrappedBuilder<'a, T, W> {
     max_obj: *mut max_sys::t_object,
     msp_obj: Option<*mut max_sys::t_pxobject>,
+    sym: SymbolRef,
+    args: &'a [Atom],
     inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
+    buffer_refs: Vec<ManagedBufferRefInternal>,
     signal_outlets: usize,
     _phantom: PhantomData<(T, W)>,
 }
+
+pub type ManagedBufferRef = Arc<dyn BufferReference>;
+pub(crate) type ManagedBufferRefInternal = Arc<BufferRef>;
 
 /// Builder for your object
 ///
 /// # Remarks
 /// Unlike the Max SDK, inlets and outlets are specified from left to right.
 pub trait ObjBuilder<T> {
+    /// Get a clock object that executes `func` when triggered.
     fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
+    /// Get a clock object that executes `func` when triggered.
     fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
+    /// Get a managed buffer reference.
+    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef;
+
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang;
     /// Add an outlet that outputs floats.
@@ -35,6 +50,34 @@ pub trait ObjBuilder<T> {
     fn add_list_outlet(&mut self) -> OutList;
     /// Add an outlet that outputs anything Max supports.
     fn add_anything_outlet(&mut self) -> OutAnything;
+
+    /// Get the arguments that were passed to this object on creation.
+    fn creation_args(&self) -> &[Atom];
+
+    /// Get the symbol that were passed used when creating this object.
+    fn creation_symbol(&self) -> SymbolRef;
+
+    /// Try to your object in the given namespace with the given name;
+    fn try_register(
+        &self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Registration, RegistrationError>;
+
+    /// Attach to an object with the given name and namespace;
+    fn attach(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Attachment, AttachmentError>;
+
+    ///subscribe to attach to an object with the given name in the given namespace.
+    fn subscribe(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+        class_name: Option<SymbolRef>,
+    ) -> Subscription;
 
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
@@ -61,22 +104,28 @@ pub trait MSPWrappedBuilder<T>: ObjBuilder<T> {
     unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
 }
 
-impl<T, W> WrappedBuilder<T, W> {
-    pub fn new_max(owner: *mut max_sys::t_object) -> Self {
+impl<'a, T, W> WrappedBuilder<'a, T, W> {
+    pub fn new_max(owner: *mut max_sys::t_object, sym: SymbolRef, args: &'a [Atom]) -> Self {
         Self {
             max_obj: owner,
             msp_obj: None,
+            sym,
+            args,
             inlets: Vec::new(),
+            buffer_refs: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
         }
     }
 
-    pub fn new_msp(owner: *mut max_sys::t_pxobject) -> Self {
+    pub fn new_msp(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &'a [Atom]) -> Self {
         Self {
             max_obj: owner as _,
             msp_obj: Some(owner),
+            sym,
+            args,
             inlets: Vec::new(),
+            buffer_refs: Vec::new(),
             signal_outlets: 0,
             _phantom: PhantomData,
         }
@@ -151,7 +200,7 @@ impl<T, W> WrappedBuilder<T, W> {
     }
 }
 
-impl<T, W> ObjBuilder<T> for WrappedBuilder<T, W>
+impl<'a, T, W> ObjBuilder<T> for WrappedBuilder<'a, T, W>
 where
     T: ObjWrapped<T>,
     W: WrapperWrapped<T>,
@@ -180,6 +229,12 @@ where
             )
         }
     }
+    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef {
+        let b = Arc::new(unsafe { BufferRef::new(self.max_obj, name) });
+        self.buffer_refs.push(b.clone());
+        b
+    }
+
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang {
         Outlet::append_bang(self.max_obj)
@@ -200,13 +255,41 @@ where
     fn add_anything_outlet(&mut self) -> OutAnything {
         Outlet::append_anything(self.max_obj)
     }
+    fn creation_args(&self) -> &[Atom] {
+        self.args
+    }
+    fn creation_symbol(&self) -> SymbolRef {
+        self.sym.clone()
+    }
+    fn try_register(
+        &self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Registration, RegistrationError> {
+        unsafe { Registration::try_register(self.max_obj, namespace, name) }
+    }
+    fn attach(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+    ) -> Result<Attachment, AttachmentError> {
+        unsafe { Attachment::try_attach(self.max_obj, namespace, name) }
+    }
+    fn subscribe(
+        &mut self,
+        namespace: SymbolRef,
+        name: SymbolRef,
+        class_name: Option<SymbolRef>,
+    ) -> Subscription {
+        unsafe { Subscription::new(self.max_obj, namespace, name, class_name) }
+    }
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
         return self.max_obj;
     }
 }
 
-impl<T> MaxWrappedBuilder<T> for WrappedBuilder<T, MaxObjWrapper<T>>
+impl<'a, T> MaxWrappedBuilder<T> for WrappedBuilder<'a, T, MaxObjWrapper<T>>
 where
     T: MaxObjWrapped<T>,
 {
@@ -222,7 +305,7 @@ where
     }
 }
 
-impl<T> MSPWrappedBuilder<T> for WrappedBuilder<T, MSPObjWrapper<T>>
+impl<'a, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, T, MSPObjWrapper<T>>
 where
     T: MSPObjWrapped<T>,
 {
@@ -267,6 +350,7 @@ pub struct MaxWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
+    pub buffer_refs: Vec<ManagedBufferRefInternal>,
 }
 
 pub struct MSPWrappedBuilderFinalize<T> {
@@ -275,9 +359,10 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub callbacks_float: FloatCBHash<T>,
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
+    pub buffer_refs: Vec<ManagedBufferRefInternal>,
 }
 
-impl<T> WrappedBuilder<T, MaxObjWrapper<T>>
+impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
 where
     T: MaxObjWrapped<T>,
 {
@@ -287,11 +372,12 @@ where
             callbacks_float,
             callbacks_int,
             proxy_inlets,
+            buffer_refs: self.buffer_refs,
         }
     }
 }
 
-impl<T> WrappedBuilder<T, MSPObjWrapper<T>>
+impl<'a, T> WrappedBuilder<'a, T, MSPObjWrapper<T>>
 where
     T: MSPObjWrapped<T>,
 {
@@ -306,6 +392,7 @@ where
             callbacks_float,
             callbacks_int,
             proxy_inlets,
+            buffer_refs: self.buffer_refs,
         }
     }
 }

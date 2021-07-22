@@ -3,10 +3,9 @@
 use crate::attr::Attr;
 use crate::error::{MaxError, MaxResult};
 use crate::method::*;
-use std::ffi::c_void;
 use std::ffi::CString;
-use std::os::raw::c_long;
 use std::marker::PhantomData;
+use std::os::raw::c_long;
 
 pub struct Class<T> {
     class: *mut max_sys::t_class,
@@ -21,16 +20,12 @@ pub enum ClassType {
 
 impl Into<*mut max_sys::t_symbol> for ClassType {
     fn into(self) -> *mut max_sys::t_symbol {
-        unsafe {
-            max_sys::gensym(
-                CString::new(match self {
-                    ClassType::NoBox => "nobox",
-                    ClassType::Box => "box",
-                })
-                .unwrap()
-                .as_ptr(),
-            )
-        }
+        let t = CString::new(match self {
+            ClassType::NoBox => "nobox",
+            ClassType::Box => "box",
+        })
+        .unwrap();
+        unsafe { max_sys::gensym(t.as_ptr()) }
     }
 }
 
@@ -40,16 +35,8 @@ impl<T> Class<T> {
     }
 
     pub fn find_in_max(name: &str, class_type: ClassType) -> *mut max_sys::t_class {
-        unsafe {
-            max_sys::class_findbyname(
-                class_type.into(),
-                max_sys::gensym(
-                    CString::new(name)
-                        .expect("couldn't convert name to CString")
-                        .as_ptr(),
-                ),
-            )
-        }
+        let name = CString::new(name).expect("couldn't convert name to CString");
+        unsafe { max_sys::class_findbyname(class_type.into(), max_sys::gensym(name.as_ptr())) }
     }
 
     ///
@@ -62,18 +49,15 @@ impl<T> Class<T> {
 
     /// Create a new max class with the given name, new trampoline and optional freem trampoline.
     pub fn new(name: &str, new: MaxNew, free: Option<MaxFree<T>>) -> Self {
+        let name = CString::new(name).expect("couldn't convert name to CString");
         let class = unsafe {
             max_sys::class_new(
-                CString::new(name)
-                    .expect("couldn't convert name to CString")
-                    .as_ptr(),
-                Some(std::mem::transmute::<
-                    unsafe extern "C" fn() -> *mut c_void,
-                    MaxMethod,
-                >(new)),
+                name.as_ptr(),
+                Some(std::mem::transmute::<MaxNew, MaxMethod>(new)),
                 std::mem::transmute::<Option<MaxFree<T>>, Option<MaxMethod>>(free),
                 std::mem::size_of::<T>() as c_long,
                 None,
+                max_sys::e_max_atomtypes::A_GIMME as _,
                 0,
             )
         };
@@ -104,11 +88,11 @@ impl<T> Class<T> {
 
     fn add_sel_method(
         &self,
-        sel: CString,
+        sel: &str,
         m: Option<MaxMethod>,
         types: &mut [max_sys::e_max_atomtypes::Type],
         defaults: usize,
-    ) {
+    ) -> max_sys::t_max_err {
         //fill in defaults
         let l = types.len();
         assert!(l >= defaults);
@@ -129,49 +113,68 @@ impl<T> Class<T> {
 
         //register
         unsafe {
-            let sel = sel.as_ptr();
+            let sel =
+                std::ffi::CString::new(sel).expect("failed to create CString from selector &str");
+
             match types.len() {
-                0 => {
-                    max_sys::class_addmethod(self.class, m, sel, 0);
-                }
-                1 => {
-                    assert!(defaults <= 1);
-                    max_sys::class_addmethod(self.class, m, sel, types[0], 0);
-                }
-                2 => {
-                    assert!(defaults <= 2);
-                    max_sys::class_addmethod(self.class, m, sel, types[0], types[1], 0);
-                }
-                3 => {
-                    assert!(defaults <= 3);
-                    max_sys::class_addmethod(self.class, m, sel, types[0], types[1], types[2], 0);
-                }
-                4 => {
-                    assert!(defaults <= 4);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], 0,
-                    );
-                }
-                5 => {
-                    assert!(defaults <= 5);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4], 0,
-                    );
-                }
-                6 => {
-                    assert!(defaults <= 6);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4],
-                        types[5], 0,
-                    );
-                }
-                7 => {
-                    assert!(defaults <= 7);
-                    max_sys::class_addmethod(
-                        self.class, m, sel, types[0], types[1], types[2], types[3], types[4],
-                        types[5], types[6], 0,
-                    );
-                }
+                0 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), 0),
+                1 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), types[0], 0),
+                2 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), types[0], types[1], 0),
+                3 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    0,
+                ),
+                4 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    0,
+                ),
+                5 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    types[4],
+                    0,
+                ),
+                6 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    types[4],
+                    types[5],
+                    0,
+                ),
+                7 => max_sys::class_addmethod(
+                    self.class,
+                    m,
+                    sel.as_ptr(),
+                    types[0],
+                    types[1],
+                    types[2],
+                    types[3],
+                    types[4],
+                    types[5],
+                    types[6],
+                    0,
+                ),
                 _ => unimplemented!(),
             }
         }

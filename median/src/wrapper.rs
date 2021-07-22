@@ -1,19 +1,26 @@
-//! External MaxObjWrappers.
+//! External Max and MSP object wrappers
+//! TODO: Jitter
 
 use crate::{
-    builder::{MSPWrappedBuilder, MaxWrappedBuilder, WrappedBuilder},
+    atom::Atom,
+    buffer::BufferRef,
+    builder::{MSPWrappedBuilder, ManagedBufferRefInternal, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType},
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
+    notify::Notification,
     object::{MSPObj, MaxObj, ObjBox},
+    symbol::SymbolRef,
 };
 
-use std::collections::HashMap;
-use std::ffi::c_void;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::mem::MaybeUninit;
-use std::sync::Mutex;
+use std::{
+    collections::HashMap,
+    ffi::{c_void, CString},
+    marker::PhantomData,
+    mem::MaybeUninit,
+    os::raw::c_long,
+    sync::Mutex,
+};
 
 use lazy_static::lazy_static;
 
@@ -28,9 +35,25 @@ pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, 
 pub type FloatCBHash<T> = HashMap<usize, FloatCB<T>>;
 pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 
+pub type DeferMethodWrapped<T> = extern "C" fn(
+    wrapper: &T,
+    sym: *mut max_sys::t_symbol,
+    argc: c_long,
+    argv: *const max_sys::t_atom,
+);
+
 //reexports
+///trampoline for attribute getters
 pub use median_macros::wrapped_attr_get_tramp as attr_get_tramp;
+///trampoline for attribute setters
 pub use median_macros::wrapped_attr_set_tramp as attr_set_tramp;
+///trampoline for deffered calls
+pub use median_macros::wrapped_defer_tramp as defer_tramp;
+///trampoline for list methods (ditch selector)
+pub use median_macros::wrapped_list_tramp as list_tramp;
+///trampoline for seletor list methods
+pub use median_macros::wrapped_sel_list_tramp as sel_list_tramp;
+///general use trampoline
 pub use median_macros::wrapped_tramp as tramp;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
@@ -39,6 +62,11 @@ pub use median_macros::wrapped_tramp as tramp;
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
 
+/// A trait useed by both Max and MSP objects.
+///
+/// # Remarks
+/// If you're using the macro system to wrap your external and unless you need to override the
+/// `ClassType` or `handle_notification`, you might not actually implement this explicitly.
 pub trait ObjWrapped<T>: Sized + Sync + 'static {
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
@@ -50,8 +78,12 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
     fn class_type() -> ClassType {
         ClassType::Box
     }
+
+    /// Handle notifications that your object gets
+    fn handle_notification(&self, _notification: &Notification) {}
 }
 
+/// The trait to implement for your object to be wrapped as a Max object.
 pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     /// A constructor for your object.
     ///
@@ -66,6 +98,7 @@ pub trait MaxObjWrapped<T>: ObjWrapped<T> {
     }
 }
 
+/// The trait to implement for your object to be wrapped as a MSP object.
 pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// A constructor for your object.
     ///
@@ -81,11 +114,25 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
         //default, do nothing
     }
+
+    /// Optionally allow Max to reuse input vectors as output vectors.
+    /// You have to be more careful about writing if you do this.
+    fn dsp_in_place() -> bool {
+        false
+    }
 }
 
 pub trait WrapperWrapped<T> {
     /// Retrieve a reference to your wrapped class.
     fn wrapped(&self) -> &T;
+}
+
+/// Defer methods for wrapped objects.
+pub trait WrappedDefer<T> {
+    ///defer a tramp method with the sym and atoms args
+    fn defer(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
+    ///defer_low a tramp method with the sym and atoms args
+    fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
 }
 
 #[repr(C)]
@@ -99,6 +146,7 @@ pub struct MaxWrapperInternal<T> {
     wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
+    buffer_refs: Vec<ManagedBufferRefInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -109,6 +157,7 @@ pub struct MSPWrapperInternal<T> {
     outs: Vec<&'static mut [f64]>,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
+    buffer_refs: Vec<ManagedBufferRefInternal>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -116,11 +165,13 @@ pub struct MSPWrapperInternal<T> {
 pub trait WrapperInternal<O, T>: Sized {
     fn wrapped(&self) -> &T;
     fn wrapped_mut(&mut self) -> &mut T;
-    fn new(owner: *mut O) -> Self;
+    fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
     fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
 
     fn call_float(&self, index: usize, value: f64);
-    fn call_int(&self, index: usize, value: i64);
+    fn call_int(&self, index: usize, value: max_sys::t_atom_long);
+
+    fn handle_notification(&self, notification: &Notification);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -137,14 +188,15 @@ where
     fn wrapped_mut(&mut self) -> &mut T {
         &mut self.wrapped
     }
-    fn new(owner: *mut max_sys::t_object) -> Self {
-        let mut builder = WrappedBuilder::new_max(owner);
+    fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
+        let mut builder = WrappedBuilder::new_max(owner, sym, args);
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
         Self {
             wrapped,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
+            buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
         }
     }
@@ -156,10 +208,14 @@ where
             f(self.wrapped(), value);
         }
     }
-    fn call_int(&self, index: usize, value: i64) {
+    fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
         if let Some(f) = self.callbacks_int.get(&index) {
             f(self.wrapped(), value);
         }
+    }
+    fn handle_notification(&self, notification: &Notification) {
+        handle_buffer_ref_notifications(&self.buffer_refs, notification);
+        self.wrapped().handle_notification(notification);
     }
 }
 
@@ -173,8 +229,8 @@ where
     fn wrapped_mut(&mut self) -> &mut T {
         &mut self.wrapped
     }
-    fn new(owner: *mut max_sys::t_pxobject) -> Self {
-        let mut builder = WrappedBuilder::new_msp(owner);
+    fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
+        let mut builder = WrappedBuilder::new_msp(owner, sym, args);
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
         let ins = (0..f.signal_inlets)
@@ -183,12 +239,18 @@ where
         let outs: Vec<&'static mut [f64]> = (0..f.signal_outlets)
             .map(|_i| unsafe { std::slice::from_raw_parts_mut(std::ptr::null_mut(), 0) })
             .collect();
+        if !T::dsp_in_place() {
+            unsafe {
+                (*owner).z_misc |= 1; //Z_NO_INPLACE;
+            }
+        }
         Self {
             wrapped,
             ins,
             outs,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
+            buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
         }
     }
@@ -200,9 +262,26 @@ where
             f(self.wrapped(), value);
         }
     }
-    fn call_int(&self, index: usize, value: i64) {
+    fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
         if let Some(f) = self.callbacks_int.get(&index) {
             f(self.wrapped(), value);
+        }
+    }
+    fn handle_notification(&self, notification: &Notification) {
+        handle_buffer_ref_notifications(&self.buffer_refs, notification);
+        self.wrapped().handle_notification(notification);
+    }
+}
+
+fn handle_buffer_ref_notifications(
+    buffer_refs: &Vec<ManagedBufferRefInternal>,
+    notification: &Notification,
+) {
+    if BufferRef::is_applicable(notification) {
+        for r in buffer_refs {
+            unsafe {
+                r.notify_if_unchecked(&notification);
+            }
         }
     }
 }
@@ -215,11 +294,11 @@ where
         &mut self,
         _dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
-        numins: i64,
+        numins: c_long,
         outs: *mut *mut f64,
-        numouts: i64,
-        sampleframes: i64,
-        _flags: i64,
+        numouts: c_long,
+        sampleframes: c_long,
+        _flags: c_long,
         _userparam: *mut c_void,
     ) {
         assert!(self.ins.len() >= numins as _);
@@ -280,7 +359,7 @@ macro_rules! int_float_tramps {
     ( $( $i:literal ),+ ) => {
         $(
             paste::paste! {
-                pub extern "C" fn [<call_in $i>](&self, value: i64) {
+                pub extern "C" fn [<call_in $i>](&self, value: max_sys::t_atom_long) {
                     self.internal().call_int($i, value);
                 }
 
@@ -301,7 +380,7 @@ macro_rules! int_float_tramps {
                     );
 
                     max_sys::class_addmethod(class,
-                        Some(std::mem::transmute::<extern "C" fn(&Self, i64), crate::method::MaxMethod>(Self::[<call_in $i>])),
+                        Some(std::mem::transmute::<extern "C" fn(&Self, max_sys::t_atom_long), crate::method::MaxMethod>(Self::[<call_in $i>])),
                         std::ffi::CString::new(concat!("in", $i)).unwrap().as_ptr(),
                         max_sys::e_max_atomtypes::A_LONG, 0
                     );
@@ -334,8 +413,17 @@ where
         }
     }
 
-    fn register_common<F>(lookup_class: bool, creator: F)
-    where
+    fn register_common<F>(
+        lookup_class: bool,
+        notification_handler: extern "C" fn(
+            &Wrapper<O, I, T>,
+            sender_name: *mut max_sys::t_symbol,
+            message: *mut max_sys::t_symbol,
+            sender: *mut c_void,
+            data: *mut c_void,
+        ),
+        creator: F,
+    ) where
         F: Fn() -> Class<Self>,
     {
         let key = key::<T>();
@@ -350,6 +438,17 @@ where
             };
             let max_class = if existing.is_null() {
                 let mut c = creator();
+                let notify = std::ffi::CString::new("notify").unwrap();
+                //register notifications
+                unsafe {
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<_, MaxMethod>(notification_handler)),
+                        notify.as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
+                }
                 c.register(T::class_type())
                     .expect(format!("failed to register {}", key).as_str());
 
@@ -385,7 +484,7 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, || {
+        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
             let mut c: Class<Self> = Class::new(
                 T::class_name(),
                 Self::new_tramp,
@@ -402,24 +501,51 @@ where
     }
 
     /// A method for Max to create an instance of your class.
-    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        let o = ObjBox::into_raw(Self::new());
+    pub unsafe extern "C" fn new_tramp(
+        sym: *mut max_sys::t_symbol,
+        argc: c_long,
+        argv: *const max_sys::t_atom,
+    ) -> *mut c_void {
+        let sym: SymbolRef = sym.into();
+        let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
+        let o = ObjBox::into_raw(Self::new(sym, &args));
         assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
         std::mem::transmute::<_, _>(o)
     }
 
+    /// Create an instance of the wrapper, on the heap, with no arguments.
+    pub fn new_noargs() -> ObjBox<Self> {
+        Self::new(crate::max::common_symbols().s_nothing.into(), &[])
+    }
+
     /// Create an instance of the wrapper, on the heap.
-    pub fn new() -> ObjBox<Self> {
+    pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         new_common(key::<T>(), |max_class| unsafe {
             let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
-            let internal = MaxWrapperInternal::<T>::new(o.max_obj());
+            let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             o.wrapped = MaybeUninit::new(internal);
+            //process attribute arguments
+            //TODO optionally don't process?
+            max_sys::attr_args_process(
+                o.max_obj() as _,
+                args.len() as _,
+                std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
+            );
             o
         })
     }
-}
 
-use std::os::raw::c_long;
+    extern "C" fn handle_notification_tramp(
+        &self,
+        sender_name: *mut max_sys::t_symbol,
+        message: *mut max_sys::t_symbol,
+        sender: *mut c_void,
+        data: *mut c_void,
+    ) {
+        let notification = Notification::new(sender_name, message, sender, data);
+        self.internal().handle_notification(&notification);
+    }
+}
 
 impl<T> MSPObjWrapper<T>
 where
@@ -435,7 +561,7 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, || {
+        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
             let mut c: Class<Self> = Class::new(
                 T::class_name(),
                 Self::new_tramp,
@@ -445,6 +571,7 @@ where
             );
             //TODO somehow pass the lock so that classes can register additional classes
             MSPWrapperInternal::<T>::class_setup(&mut c);
+            let dsp64 = CString::new("dsp64").unwrap();
             max_sys::class_addmethod(
                 c.inner(),
                 Some(std::mem::transmute::<
@@ -458,7 +585,7 @@ where
                     ),
                     MaxMethod,
                 >(Self::dsp64)),
-                CString::new("dsp64").unwrap().as_ptr(),
+                dsp64.as_ptr(),
                 max_sys::e_max_atomtypes::A_CANT,
                 0,
             );
@@ -468,19 +595,32 @@ where
     }
 
     /// A method for Max to create an instance of your class.
-    pub unsafe extern "C" fn new_tramp() -> *mut c_void {
-        let o = ObjBox::into_raw(Self::new());
+    pub unsafe extern "C" fn new_tramp(
+        sym: *mut max_sys::t_symbol,
+        argc: c_long,
+        argv: *const max_sys::t_atom,
+    ) -> *mut c_void {
+        let sym: SymbolRef = sym.into();
+        let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
+        let o = ObjBox::into_raw(Self::new(sym, &args));
         assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
         std::mem::transmute::<_, _>(o)
     }
 
     /// Create an instance of the wrapper, on the heap.
-    pub fn new() -> ObjBox<Self> {
+    pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         unsafe {
             new_common(key::<T>(), |max_class| {
                 let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
-                let internal = MSPWrapperInternal::<T>::new(o.msp_obj());
+                let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 o.wrapped = MaybeUninit::new(internal);
+                //process attribute arguments
+                //TODO optionally don't process?
+                max_sys::attr_args_process(
+                    o.max_obj() as _,
+                    args.len() as _,
+                    std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
+                );
                 o
             })
         }
@@ -498,11 +638,11 @@ where
         &mut self,
         dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
-        numins: i64,
+        numins: c_long,
         outs: *mut *mut f64,
-        numouts: i64,
-        sampleframes: i64,
-        flags: i64,
+        numouts: c_long,
+        sampleframes: c_long,
+        flags: c_long,
         userparam: *mut c_void,
     ) {
         unsafe {
@@ -536,11 +676,11 @@ where
                         &mut Self,
                         dsp64: *mut max_sys::t_object,
                         ins: *const *const f64,
-                        numins: i64,
+                        numins: c_long,
                         outs: *mut *mut f64,
-                        numouts: i64,
-                        sampleframes: i64,
-                        flags: i64,
+                        numouts: c_long,
+                        sampleframes: c_long,
+                        flags: c_long,
                         userparam: *mut c_void,
                     ),
                     unsafe extern "C" fn(
@@ -559,6 +699,17 @@ where
                 std::ptr::null_mut(),
             );
         }
+    }
+
+    extern "C" fn handle_notification_tramp(
+        &self,
+        sender_name: *mut max_sys::t_symbol,
+        message: *mut max_sys::t_symbol,
+        sender: *mut c_void,
+        data: *mut c_void,
+    ) {
+        let notification = Notification::new(sender_name, message, sender, data);
+        self.internal().handle_notification(&notification);
     }
 }
 
@@ -607,3 +758,68 @@ where
         }
     }
 }
+
+impl<T> WrappedDefer<MaxObjWrapper<T>> for T
+where
+    T: MaxObjWrapped<T>,
+{
+    fn defer(&self, meth: DeferMethodWrapped<MaxObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
+        let obj = self.max_obj();
+        crate::thread::defer(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+
+    fn defer_low(
+        &self,
+        meth: DeferMethodWrapped<MaxObjWrapper<T>>,
+        sym: SymbolRef,
+        atoms: &[Atom],
+    ) {
+        let obj = self.max_obj();
+        crate::thread::defer_low(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+}
+
+impl<T> WrappedDefer<MSPObjWrapper<T>> for T
+where
+    T: MSPObjWrapped<T>,
+{
+    fn defer(&self, meth: DeferMethodWrapped<MSPObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
+        let obj = self.as_max_obj();
+        crate::thread::defer(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+
+    fn defer_low(
+        &self,
+        meth: DeferMethodWrapped<MSPObjWrapper<T>>,
+        sym: SymbolRef,
+        atoms: &[Atom],
+    ) {
+        let obj = self.as_max_obj();
+        crate::thread::defer_low(
+            unsafe { std::mem::transmute::<_, _>(meth) },
+            obj,
+            sym,
+            atoms,
+        );
+    }
+}
+
+unsafe impl<T: Send> Send for MaxObjWrapper<T> {}
+unsafe impl<T: Send> Send for MSPObjWrapper<T> {}
+unsafe impl<T: Sync> Sync for MaxObjWrapper<T> {}
+unsafe impl<T: Sync> Sync for MSPObjWrapper<T> {}

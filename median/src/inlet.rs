@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 
 pub type FloatCB<T> = Box<dyn Fn(&T, f64)>;
-pub type IntCB<T> = Box<dyn Fn(&T, i64)>;
+pub type IntCB<T> = Box<dyn Fn(&T, max_sys::t_atom_long)>;
 
 pub enum MaxInlet<T> {
     Float(FloatCB<T>),

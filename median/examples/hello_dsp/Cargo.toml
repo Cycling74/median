@@ -9,7 +9,6 @@ name = "hello_dsp_tilde"
 crate-type = ["cdylib"]
 
 [dependencies]
-max-sys = { path = "../../../max-sys/" }
 median = { path = "../../" }
 
 [profile.release]
