@@ -62,7 +62,7 @@ pub use median_macros::wrapped_tramp as tramp;
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
 
-/// A trait useed by both Max and MSP objects.
+/// A trait used by both Max and MSP objects.
 ///
 /// # Remarks
 /// If you're using the macro system to wrap your external and unless you need to override the
