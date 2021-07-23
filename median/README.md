@@ -9,11 +9,13 @@ This is a work in progress.
 ## Dependencies
 
 * [rust](https://rustup.rs/)
+* [cargo make](https://github.com/sagiegurari/cargo-make) for building examples
 
-## Examples
+## Example
 
 A very basic external the has `bang`, `int`, `list`, and `any` methods.
-*See the examples folder for more detailed examples.*
+
+See the [examples folder](examples/README.md) for more detailed examples.
 
 ```no_run
 use median::{
