@@ -15,7 +15,7 @@ This is a work in progress.
 A very basic external the has `bang`, `int`, `list`, and `any` methods.
 *See the examples folder for more detailed examples.*
 
-``rust
+```no_run
 use median::{
     atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::MaxObj, post,
     symbol::SymbolRef, wrapper::*,
@@ -55,7 +55,7 @@ median::external! {
         }
     }
 }
-``
+```
 
 ## Cross Compiling
 
