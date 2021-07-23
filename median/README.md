@@ -99,6 +99,7 @@ if you have more than 7 args or if you are mixing floating point and other argum
 ## TODO
 
 * dictionaries
+* Jitter wrapper(s)
 * cross compile on linux
   * [cctools](https://github.com/tpoechtrager/cctools-port) lipo for linux
 * [github actions](https://github.com/features/actions)
