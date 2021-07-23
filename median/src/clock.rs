@@ -1,3 +1,4 @@
+///! Clocks - interface to Max’s scheduler.
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
@@ -53,6 +54,7 @@ impl MaxObjWrapped<ClockInner> for ClockInner {
     }
 }
 
+/// A handle for a clock and the method it will trigger.
 pub struct ClockHandle {
     _target: crate::object::ObjBox<MaxObjWrapper<ClockInner>>,
     clock: *mut c_void,
