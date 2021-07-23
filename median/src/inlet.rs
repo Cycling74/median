@@ -1,4 +1,4 @@
-///! Inlets
+//! Inlets
 use std::ffi::c_void;
 
 ///Callback method for Float inlet

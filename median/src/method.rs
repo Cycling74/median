@@ -1,4 +1,4 @@
-///! Method encapsulation and type aliases
+//! Method encapsulation and type aliases
 use crate::{atom::Atom, symbol::SymbolRef};
 use std::{ffi::c_void, os::raw::c_long};
 

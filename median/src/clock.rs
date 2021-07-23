@@ -1,4 +1,4 @@
-///! Clocks - interface to Max’s scheduler.
+//! Clocks - interface to Max’s scheduler.
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
