@@ -1,6 +1,6 @@
 # Median
 
-A Rust wrapper around the `max-sys` automatically generated bindings to the [Max SDK](https://github.com/Cycling74/max-sdk).
+Ergonomic bindings for the [Max/MSP](https://cycling74.com/) [SDK](https://github.com/Cycling74/max-sdk).
 
 ## Disclaimer
 
@@ -12,7 +12,50 @@ This is a work in progress.
 
 ## Examples
 
-Checkout the examples in [examples/README.md](examples/README.md)
+A very basic external the has `bang`, `int`, `list`, and `any` methods.
+*See the examples folder for more detailed examples.*
+
+```no_run
+use median::{
+    atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::MaxObj, post,
+    symbol::SymbolRef, wrapper::*,
+};
+
+median::external! {
+    pub struct Example;
+
+    impl MaxObjWrapped<Example> for Example {
+        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+            let _ = builder.add_inlet(median::inlet::MaxInlet::Proxy);
+            Self
+        }
+    }
+
+    impl Example {
+        #[bang]
+        pub fn bang(&self) {
+            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            median::object_post!(self.max_obj(), "bang from inlet {}", i);
+        }
+
+        #[int]
+        pub fn int(&self, v: t_atom_long) {
+            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            post!("int {} from inlet {}", v, i);
+        }
+
+        #[list]
+        pub fn list(&self, atoms: &[Atom]) {
+            post!("got list with length {}", atoms.len());
+        }
+
+        #[any]
+        pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
+            post!("got any with sel {} and length {}", sel, atoms.len());
+        }
+    }
+}
+```
 
 ## Cross Compiling
 
