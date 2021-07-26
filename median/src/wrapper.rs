@@ -146,6 +146,7 @@ pub trait WrappedDefer<T> {
     fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
 }
 
+/// The actual struct that is given to max
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
     s_obj: O,
@@ -153,6 +154,7 @@ pub struct Wrapper<O, I, T> {
     _phantom: PhantomData<T>,
 }
 
+/// Inner struct for wrapping [`MaxObjWrapped`]
 pub struct MaxWrapperInternal<T> {
     wrapped: T,
     callbacks_float: FloatCBHash<T>,
@@ -162,6 +164,7 @@ pub struct MaxWrapperInternal<T> {
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
+/// Inner struct for wrapping [`MSPObjWrapped`]
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
     ins: Vec<&'static [f64]>,
