@@ -115,6 +115,17 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
         //default, do nothing
     }
 
+    /// Optionally do any setup you need just before perform is called
+    ///
+    /// # Arguments
+    /// * `sample_rate`: the audio sampling rate for the object in the DSP chain.
+    ///
+    /// # Remarks
+    /// * This will be called every time DSP is toggled on.
+    /// * Your best guess of the sample rate before DSP is toggled on is the value from [`max_sys::sys_getsr()`]
+    #[allow(unused)]
+    fn dsp_setup(&self, sample_rate: f64) {}
+
     /// Optionally allow Max to reuse input vectors as output vectors.
     /// You have to be more careful about writing if you do this.
     fn dsp_in_place() -> bool {
@@ -663,11 +674,12 @@ where
         &mut self,
         dsp64: *mut max_sys::t_object,
         _count: *mut std::os::raw::c_short,
-        _samplerate: f64,
+        samplerate: f64,
         _maxvectorsize: i64,
         _flags: i64,
     ) {
         unsafe {
+            self.wrapped().dsp_setup(samplerate);
             max_sys::dsp_add64(
                 dsp64,
                 self.max_obj(),
