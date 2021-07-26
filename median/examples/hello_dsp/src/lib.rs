@@ -36,6 +36,10 @@ median::external! {
             }
         }
 
+        fn dsp_setup(&self, sample_rate: f64) {
+            median::object_post!(self.as_max_obj(), "sample rate: {}", sample_rate);
+        }
+
         //perform the dsp
         fn perform(&self, _ins: &[&[f64]], outs: &mut [&mut [f64]], _nframes: usize) {
             let c = if self.buffer1.exists() { 1. } else { 0.} + if self.buffer2.exists() { 1. } else { 0. };
