@@ -4,7 +4,7 @@ use crate::method::MaxMethod;
 use crate::{
     builder::MaxWrappedBuilder,
     object::MaxObj,
-    wrapper::{tramp, MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
+    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
 
 use std::ffi::{c_void, CString};
@@ -24,7 +24,10 @@ impl ClockInner {
         self.target = Some((target, func));
     }
 
-    #[tramp(MaxObjWrapper<Self>)]
+    pub extern "C" fn call_tramp(wrapper: &MaxObjWrapper<Self>) {
+        wrapper.wrapped().call()
+    }
+
     fn call(&self) {
         if let Some((target, func)) = &self.target {
             (func)(*target)

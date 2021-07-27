@@ -7,9 +7,7 @@ use median::{
     num::Int64,
     object::MSPObj,
     post,
-    wrapper::{
-        attr_get_tramp, attr_set_tramp, tramp, MSPObjWrapped, MSPObjWrapper, WrapperWrapped,
-    },
+    wrapper::{attr_get_tramp, attr_set_tramp, tramp, MSPObjWrapped, MSPObjWrapper},
 };
 
 median::external! {

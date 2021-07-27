@@ -82,7 +82,7 @@ pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream
         .collect::<Result<Vec<Box<Pat>>, _>>()?;
     let expanded = quote! {
         pub extern "C" fn #tramp_name(wrapper: &#t, #(#args)*) {
-            wrapper.wrapped().#meth_name(#(#vars)*)
+            ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars)*)
         }
         #meth
     };
@@ -105,7 +105,7 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<Token
             av: *const ::median::max_sys::t_atom,
         ) {
             median::method::sel_list(sel, ac, av, |sym, atoms| {
-                wrapper.wrapped().#meth_name(&sym, atoms);
+                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
             });
         }
         #meth
@@ -127,7 +127,7 @@ pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             av: *const ::median::max_sys::t_atom,
         ) {
             median::method::sel_list(sel, ac, av, |sym, atoms| {
-                wrapper.wrapped().#meth_name(&sym, atoms);
+                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
             });
         }
         #meth
@@ -149,7 +149,7 @@ pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenS
             av: *const ::median::max_sys::t_atom,
         ) {
             median::method::sel_list(sel, ac, av, |_sym, atoms| {
-                wrapper.wrapped().#meth_name(atoms);
+                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(atoms);
             });
         }
         #meth
@@ -170,7 +170,7 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             ac: *mut ::std::os::raw::c_long,
             av: *mut *mut ::median::max_sys::t_atom,
         ) {
-            ::median::attr::get(ac, av, || wrapper.wrapped().#meth_name());
+            ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name());
         }
         #meth
     };
@@ -203,7 +203,7 @@ pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             ac: ::std::os::raw::c_long,
             av: *mut ::median::max_sys::t_atom,
         ) {
-            ::median::attr::set(ac, av, |#(#args)*| wrapper.wrapped().#meth_name(#(#vars)*));
+            ::median::attr::set(ac, av, |#(#args)*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars)*));
         }
         #meth
     };
