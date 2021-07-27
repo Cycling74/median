@@ -17,7 +17,7 @@ A very basic external the has `bang`, `int`, `list`, and `any` methods.
 
 See the [examples folder](examples/README.md) for more detailed examples.
 
-```rust
+```rust,no_run
 use median::{
     atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::MaxObj, post,
     symbol::SymbolRef, wrapper::*,
