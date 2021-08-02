@@ -103,3 +103,4 @@ if you have more than 7 args or if you are mixing floating point and other argum
 * cross compile on linux
   * [cctools](https://github.com/tpoechtrager/cctools-port) lipo for linux
 * [github actions](https://github.com/features/actions)
+* explain non mut methods and threading model and `Sync` in docs
