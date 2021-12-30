@@ -150,13 +150,13 @@ pub trait WrappedDefer<T> {
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
     s_obj: O,
-    wrapped: MaybeUninit<I>,
+    pub wrapped: MaybeUninit<I>,
     _phantom: PhantomData<T>,
 }
 
 /// Inner struct for wrapping [`MaxObjWrapped`]
 pub struct MaxWrapperInternal<T> {
-    wrapped: T,
+    pub wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
