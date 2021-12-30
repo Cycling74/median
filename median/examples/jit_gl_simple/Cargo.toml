@@ -1,0 +1,17 @@
+[package]
+name = "jit_gl_simple"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2018"
+
+[lib]
+name = "jit_gl_simple"
+crate-type = ["cdylib"]
+
+[dependencies]
+median = { path = "../../" }
+field-offset = "0.3.3"
+
+[profile.release]
+lto = true
+panic = "abort"

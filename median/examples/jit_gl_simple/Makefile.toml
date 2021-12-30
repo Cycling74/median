@@ -1,0 +1,4 @@
+extend = "../../utils/Makefile.toml"
+
+[env]
+MAX_EXT_NAME = "jit.gl.simple"
