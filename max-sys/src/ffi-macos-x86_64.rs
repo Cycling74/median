@@ -42319,6 +42319,26 @@ extern "C" {
     ) -> ::std::os::raw::c_long;
 }
 pub type t_jit_err = t_atom_long;
+pub mod t_jit_error_code {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_ERR_NONE: Type = 0;
+    pub const JIT_ERR_GENERIC: Type = 1163022162;
+    pub const JIT_ERR_INVALID_OBJECT: Type = 1229868866;
+    pub const JIT_ERR_OBJECT_BUSY: Type = 1329746777;
+    pub const JIT_ERR_OUT_OF_MEM: Type = 1330464077;
+    pub const JIT_ERR_INVALID_PTR: Type = 1229870672;
+    pub const JIT_ERR_DUPLICATE: Type = 1146441804;
+    pub const JIT_ERR_OUT_OF_BOUNDS: Type = 1329745476;
+    pub const JIT_ERR_INVALID_INPUT: Type = 1229870665;
+    pub const JIT_ERR_INVALID_OUTPUT: Type = 1229870671;
+    pub const JIT_ERR_MISMATCH_TYPE: Type = 1297306704;
+    pub const JIT_ERR_MISMATCH_PLANE: Type = 1297305676;
+    pub const JIT_ERR_MISMATCH_DIM: Type = 1297302605;
+    pub const JIT_ERR_MATRIX_UNKNOWN: Type = 1297634638;
+    pub const JIT_ERR_SUPPRESS_OUTPUT: Type = 1397772883;
+    pub const JIT_ERR_DATA_UNAVAILABLE: Type = 1146443340;
+    pub const JIT_ERR_HW_UNAVAILABLE: Type = 1213552204;
+}
 extern "C" {
     pub fn jit_object_post(x: *mut t_object, s: *mut ::std::os::raw::c_char, ...);
 }
@@ -42871,6 +42891,56 @@ extern "C" {
 }
 extern "C" {
     pub fn jit_math_fast_atan(x: f32) -> f32;
+}
+pub mod t_jit_attr_flags {
+    pub type Type = ::std::os::raw::c_uint;
+    #[doc = "< private getter (all)          @ingroup jitter"]
+    pub const JIT_ATTR_GET_OPAQUE: Type = 1;
+    #[doc = "< private setter (all)          @ingroup jitter"]
+    pub const JIT_ATTR_SET_OPAQUE: Type = 2;
+    #[doc = "< private getter (user)         @ingroup jitter"]
+    pub const JIT_ATTR_GET_OPAQUE_USER: Type = 256;
+    #[doc = "< private setter (user)         @ingroup jitter"]
+    pub const JIT_ATTR_SET_OPAQUE_USER: Type = 512;
+    #[doc = "< defer getter (deprecated)     @ingroup jitter"]
+    pub const JIT_ATTR_GET_DEFER: Type = 65536;
+    #[doc = "< usurp getter (deprecated)     @ingroup jitter"]
+    pub const JIT_ATTR_GET_USURP: Type = 131072;
+    #[doc = "< defer getter                  @ingroup jitter"]
+    pub const JIT_ATTR_GET_DEFER_LOW: Type = 262144;
+    #[doc = "< usurp getter                  @ingroup jitter"]
+    pub const JIT_ATTR_GET_USURP_LOW: Type = 524288;
+    #[doc = "< defer setter (deprecated)     @ingroup jitter"]
+    pub const JIT_ATTR_SET_DEFER: Type = 16777216;
+    #[doc = "< usurp setter (deprecated)     @ingroup jitter"]
+    pub const JIT_ATTR_SET_USURP: Type = 33554432;
+    #[doc = "< defer setter                  @ingroup jitter"]
+    pub const JIT_ATTR_SET_DEFER_LOW: Type = 67108864;
+    #[doc = "< usurp setter                  @ingroup jitter"]
+    pub const JIT_ATTR_SET_USURP_LOW: Type = 134217728;
+}
+pub mod t_jit_matrix_info_flags {
+    pub type Type = ::std::os::raw::c_uint;
+    #[doc = "< data is handle                                                   @ingroup jitter"]
+    pub const JIT_MATRIX_DATA_HANDLE: Type = 2;
+    #[doc = "< data is reference to outside memory                              @ingroup jitter"]
+    pub const JIT_MATRIX_DATA_REFERENCE: Type = 4;
+    #[doc = "< data is tightly packed (doesn't use standard 16 byte alignment)  @ingroup jitter"]
+    pub const JIT_MATRIX_DATA_PACK_TIGHT: Type = 8;
+    #[doc = "< necessary if using handle/reference data flags when creating     @ingroup jitter"]
+    #[doc = " jit_matrix, however, it is never stored in matrix"]
+    pub const JIT_MATRIX_DATA_FLAGS_USE: Type = 32768;
+}
+pub mod t_matrix_conv_info_flags {
+    pub type Type = ::std::os::raw::c_uint;
+    #[doc = "< not currently used                                               @ingroup jitter"]
+    pub const JIT_MATRIX_CONVERT_CLAMP: Type = 1;
+    #[doc = "< use interpolation                                                @ingroup jitter"]
+    pub const JIT_MATRIX_CONVERT_INTERP: Type = 2;
+    #[doc = "< use source dimensions                                            @ingroup jitter"]
+    pub const JIT_MATRIX_CONVERT_SRCDIM: Type = 4;
+    #[doc = "< use destination dimensions                                       @ingroup jitter"]
+    pub const JIT_MATRIX_CONVERT_DSTDIM: Type = 8;
 }
 pub type uchar = ::std::os::raw::c_uchar;
 #[doc = " Provides base pointer and stride for vector operator functions"]
@@ -46887,7 +46957,77 @@ extern "C" {
     ) -> t_jit_err;
 }
 pub type CGDirectDisplayID = u32;
+pub mod t_jit_gl_layer {
+    pub type Type = ::std::os::raw::c_int;
+    pub const JIT_GL_LAYER_FIRST: Type = -1000;
+    pub const JIT_GL_LAYER_DEFAULT: Type = 0;
+    pub const JIT_GL_LAYER_LAST: Type = 1000;
+}
+pub mod t_jit_gl_animator_priority {
+    pub type Type = ::std::os::raw::c_int;
+    pub const JIT_ANIMATOR_PRIORITY_FIRST: Type = -1000;
+    pub const JIT_ANIMATOR_PRIORITY_DEF: Type = 0;
+    pub const JIT_ANIMATOR_PRIORITY_PASS2: Type = 1000;
+}
+pub mod t_jit_anim_ui_priority {
+    pub type Type = ::std::os::raw::c_int;
+    pub const JIT_ANIM_UIP_FIRST: Type = -1000;
+    pub const JIT_ANIM_UIP_CORNERPIN: Type = -900;
+    pub const JIT_ANIM_UIP_PHYS: Type = -800;
+    pub const JIT_ANIM_UIP_HANDLE: Type = -700;
+    pub const JIT_ANIM_UIP_DEFAULT: Type = 0;
+    pub const JIT_ANIM_UIP_ADRIVE: Type = 900;
+    pub const JIT_ANIM_UIP_LAST: Type = 1000;
+}
+pub mod t_jit_ob3d_flags {
+    pub type Type = ::std::os::raw::c_uint;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_ROTATION_SCALE: Type = 1;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_POLY_VARS: Type = 2;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_BLEND: Type = 4;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_TEXTURE: Type = 8;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_MATRIXOUTPUT: Type = 16;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_AUTO_ONLY: Type = 32;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_DOES_UI: Type = 64;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_DEPTH: Type = 128;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_ANTIALIAS: Type = 256;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_FOG: Type = 512;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_LIGHTING_MATERIAL: Type = 1024;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_HAS_LIGHTS: Type = 2048;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_HAS_CAMERA: Type = 4096;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_IS_RENDERER: Type = 8192;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_NO_COLOR: Type = 16384;
+    #[doc = "< ob3d flag @ingroup jitter"]
+    pub const JIT_OB3D_IS_SLAB: Type = 32768;
+    pub const JIT_OB3D_NO_SHADER: Type = 65536;
+    pub const JIT_OB3D_IS_NODE: Type = 131072;
+    pub const JIT_OB3D_IS_CAMERA: Type = 262144;
+    pub const JIT_OB3D_NO_BOUNDS: Type = 524288;
+    pub const JIT_OB3D_NO_POSITION: Type = 1048576;
+}
 pub type t_jit_gl_context_modifier = ::std::os::raw::c_long;
+pub mod t_jit_gl_view_key {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_VIEW_COMMAND_KEY: Type = 1;
+    pub const JIT_GL_VIEW_SHIFT_KEY: Type = 2;
+    pub const JIT_GL_VIEW_CAPS_LOCK: Type = 4;
+    pub const JIT_GL_VIEW_ALT_KEY: Type = 8;
+    pub const JIT_GL_VIEW_CONTROL_KEY: Type = 16;
+}
 extern "C" {
     pub fn max_jit_class_ob3d_wrap(c: *mut t_class);
 }
@@ -49502,6 +49642,10 @@ fn bindgen_test_layout__jit_gl_buffer_view() {
 }
 #[doc = " Represents a view into a buffer, for use with glVertexAttribPointer etc."]
 pub type t_jit_gl_buffer_view = _jit_gl_buffer_view;
+pub mod e_buffer_data_flag {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const BUFFER_DATA_PERSISTENT: Type = 1;
+}
 #[doc = " Represents data to be stored in a buffer"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -50219,6 +50363,13 @@ extern "C" {
         vm: *mut ::std::os::raw::c_void,
         im: *mut ::std::os::raw::c_void,
     ) -> *mut t_jit_glchunk;
+}
+pub mod t_jit_gl_chunk_flags {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_CHUNK_IGNORE_TEXTURES: Type = 1;
+    pub const JIT_GL_CHUNK_IGNORE_NORMALS: Type = 2;
+    pub const JIT_GL_CHUNK_IGNORE_COLORS: Type = 4;
+    pub const JIT_GL_CHUNK_IGNORE_EDGES: Type = 8;
 }
 extern "C" {
     pub fn jit_ob3d_setup(
@@ -51296,6 +51447,49 @@ extern "C" {
 }
 extern "C" {
     pub fn jit_gl_support_free(x: *mut t_jit_gl_support);
+}
+pub mod t_jit_gl_target {
+    pub type Type = ::std::os::raw::c_int;
+    pub const JIT_GL_ARB: Type = 5;
+    pub const JIT_GL_NV: Type = 6;
+    pub const JIT_GL_APPLE: Type = 7;
+    pub const JIT_GL_EXT: Type = 8;
+    pub const JIT_GL_FBO: Type = 9;
+    pub const JIT_GL_PBUFFER: Type = 10;
+    pub const JIT_GL_NONE: Type = -1;
+    pub const JIT_GL_FLOAT_NONE: Type = 0;
+    pub const JIT_GL_FLOAT_ARB: Type = 1;
+    pub const JIT_GL_FLOAT_ATI: Type = 2;
+    pub const JIT_GL_FLOAT_NV: Type = 3;
+    pub const JIT_GL_FLOAT_APPLE: Type = 4;
+}
+pub mod t_jit_gl_flag {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_LUMINANCE: Type = 1;
+    pub const JIT_GL_INTENSITY: Type = 2;
+    pub const JIT_GL_ALPHA: Type = 4;
+    pub const JIT_GL_LUMINANCE_ALPHA: Type = 8;
+    pub const JIT_GL_RGB: Type = 16;
+    pub const JIT_GL_RGBA: Type = 32;
+    pub const JIT_GL_DEPTH: Type = 64;
+    pub const JIT_GL_UYVY: Type = 128;
+    pub const JIT_GL_FLOAT16: Type = 256;
+    pub const JIT_GL_FLOAT32: Type = 512;
+    pub const JIT_GL_DXT1: Type = 1024;
+    pub const JIT_GL_DXT3: Type = 2048;
+    pub const JIT_GL_DXT5: Type = 4096;
+    pub const JIT_GL_CLAMP: Type = 8192;
+    pub const JIT_GL_CLAMP_TO_EDGE: Type = 16384;
+    pub const JIT_GL_NEAREST: Type = 32768;
+    pub const JIT_GL_LINEAR: Type = 65536;
+    pub const JIT_GL_NEAREST_MIPMAP_NEAREST: Type = 131072;
+    pub const JIT_GL_LINEAR_MIPMAP_NEAREST: Type = 262144;
+    pub const JIT_GL_LINEAR_MIPMAP_LINEAR: Type = 524288;
+    pub const JIT_GL_ANISOTROPY1: Type = 1048576;
+    pub const JIT_GL_ANISOTROPY2: Type = 2097152;
+    pub const JIT_GL_ANISOTROPY4: Type = 4194304;
+    pub const JIT_GL_ANISOTROPY8: Type = 8388608;
+    pub const JIT_GL_ANISOTROPY16: Type = 16777216;
 }
 pub type GLhalfNV = ::std::os::raw::c_ushort;
 extern "C" {
@@ -66452,6 +66646,31 @@ fn bindgen_test_layout_t_jit_gl_extprocs() {
         )
     );
 }
+pub mod t_jit_gl_pf_target {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_PF_TARGET_DRAW_TO_WINDOW: Type = 0;
+    pub const JIT_GL_PF_TARGET_DRAW_TO_BITMAP: Type = 1;
+    pub const JIT_GL_PF_TARGET_DRAW_TO_PBUFFER: Type = 2;
+}
+pub mod t_jit_gl_pf_pixeltype {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_PF_PIXELTYPE_INDEXED: Type = 0;
+    pub const JIT_GL_PF_PIXELTYPE_R: Type = 1;
+    pub const JIT_GL_PF_PIXELTYPE_RG: Type = 2;
+    pub const JIT_GL_PF_PIXELTYPE_RGB: Type = 3;
+    pub const JIT_GL_PF_PIXELTYPE_RGBA: Type = 4;
+    pub const JIT_GL_PF_PIXELTYPE_DEPTH: Type = 5;
+}
+pub mod t_jit_gl_pf_flag {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_PF_PIXEL_FLOAT_ARB: Type = 1;
+    pub const JIT_GL_PF_PIXEL_FLOAT_NV: Type = 2;
+    pub const JIT_GL_PF_PIXEL_FLOAT_ATI: Type = 4;
+    pub const JIT_GL_PF_PIXEL_FLOAT_APPLE: Type = 8;
+    pub const JIT_GL_PF_FLAG_TEXTURE_RECTANGLE: Type = 16;
+    pub const JIT_GL_PF_FLAG_TEXTURE_DEPTH: Type = 32;
+    pub const JIT_GL_PF_FLAG_BIND_TO_TEXTURE: Type = 64;
+}
 pub type t_jit_gl_pixel_attribute = u32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -67125,6 +67344,23 @@ extern "C" {
         ext: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_char;
 }
+pub mod t_jit_gl_context_flag {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_CTX_DOUBLEBUF: Type = 1;
+    pub const JIT_GL_CTX_DEPTHBUF: Type = 2;
+    pub const JIT_GL_CTX_ACCELERATED: Type = 4;
+    pub const JIT_GL_CTX_FSAA: Type = 8;
+    pub const JIT_GL_CTX_HINT_QUALITY: Type = 16;
+    pub const JIT_GL_CTX_STEREO: Type = 32;
+}
+pub mod t_jit_gl_target_type {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_TARGET_WINDOW: Type = 0;
+    pub const JIT_GL_TARGET_MATRIX: Type = 1;
+    pub const JIT_GL_TARGET_PWINDOW: Type = 2;
+    pub const JIT_GL_TARGET_TEXTURE: Type = 3;
+    pub const JIT_GL_TARGET_ROOT_SHARED: Type = 4;
+}
 #[doc = " t_jit_gl_drawinfo struct used for tasks such as multi texture unit binding."]
 #[doc = ""]
 #[repr(C)]
@@ -67352,6 +67588,15 @@ extern "C" {
         ac: ::std::os::raw::c_long,
         av: *mut t_atom,
     ) -> t_jit_err;
+}
+pub mod t_jit_gl_mesh_cache_type {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_MESH_CACHE_NONE: Type = 0;
+    pub const JIT_GL_MESH_CACHE_AUTO: Type = 1;
+    pub const JIT_GL_MESH_CACHE_DISPLAYLIST: Type = 2;
+    pub const JIT_GL_MESH_CACHE_VERTEXARRAY: Type = 3;
+    pub const JIT_GL_MESH_CACHE_VERTEXBUFFER: Type = 4;
+    pub const JIT_GL_MESH_CACHE_DEFAULT_GROW: Type = 64;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -67691,6 +67936,12 @@ extern "C" {
     pub fn jit_gl_cache_datasize_from_datatype(e: GLenum) -> ::std::os::raw::c_long;
 }
 pub type t_jit_gl_context_status = t_atom_long;
+pub mod t_jit_gl_view_status {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_GL_VIEW_AVAILABLE: Type = 0;
+    pub const JIT_GL_VIEW_UNAVAILABLE: Type = 1;
+    pub const JIT_GL_VIEW_ERROR: Type = 2;
+}
 #[doc = " t_jit_gl_context_view object struct."]
 #[doc = ""]
 #[doc = " Manages an OpenGL context within a rectangle.  Objects that use a t_jit_gl_context_view"]
@@ -68472,11 +68723,52 @@ extern "C" {
         out_name: *mut *mut t_symbol,
     ) -> *mut ::std::os::raw::c_void;
 }
+pub mod t_jit_window_flag {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const JIT_WINDOW_USING_GL: Type = 1;
+    pub const JIT_WINDOW_NO_ACCEL: Type = 2;
+}
+pub mod t_jit_window_constants {
+    pub type Type = ::std::os::raw::c_uint;
+    pub const MIN_WIND_DIM: Type = 9;
+    pub const MAX_WIND_COORD: Type = 8192;
+}
 extern "C" {
     pub fn jit_window_dragcheck(x: *mut ::std::os::raw::c_void);
 }
 extern "C" {
     pub fn jit_window_init() -> t_jit_err;
+}
+pub mod t_max_jit_mop_flag {
+    pub type Type = ::std::os::raw::c_uint;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_NONE: Type = 0;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_ALL: Type = 268435455;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_JIT_MATRIX: Type = 1;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_BANG: Type = 2;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_OUTPUTMATRIX: Type = 4;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_NAME: Type = 8;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_TYPE: Type = 16;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_DIM: Type = 32;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_PLANECOUNT: Type = 64;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_CLEAR: Type = 128;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_NOTIFY: Type = 256;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_ADAPT: Type = 512;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_OWN_OUTPUTMODE: Type = 1024;
+    #[doc = "< mop flag @ingroup jitter"]
+    pub const MAX_JIT_MOP_FLAGS_ONLY_MATRIX_PROBE: Type = 268435456;
 }
 extern "C" {
     pub fn max_jit_classex_mop_wrap(
