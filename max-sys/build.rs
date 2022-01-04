@@ -1,5 +1,7 @@
 use std::env;
 
+const SUPPORT_DIR: &str = "thirdparty/max-sdk-base/c74support";
+
 #[cfg(feature = "build-bindings")]
 fn build_bindings(support_dir: &str) {
     let mut builder = bindgen::Builder::default()
@@ -172,7 +174,6 @@ fn build_bindings(support_dir: &str) {
 }
 
 fn main() {
-    let support_dir = "thirdparty/max-sdk/source/c74support";
     let target_os = env::var_os("CARGO_CFG_TARGET_OS").expect("failed to get target os");
 
     if target_os == "macos" {
@@ -183,11 +184,11 @@ fn main() {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         println!(
             "cargo:rustc-link-search={}/{}/max-includes/x64/",
-            manifest_dir, support_dir,
+            manifest_dir, SUPPORT_DIR,
         );
         println!(
             "cargo:rustc-link-search={}/{}/msp-includes/x64/",
-            manifest_dir, support_dir,
+            manifest_dir, SUPPORT_DIR,
         );
         println!("cargo:rustc-link-lib=MaxAPI");
         println!("cargo:rustc-link-lib=MaxAudio");
@@ -201,6 +202,6 @@ fn main() {
         println!("cargo:rerun-if-changed=wrapper.h");
         println!("cargo:rerun-if-changed=wrapper-max.h");
         println!("cargo:rerun-if-changed=wrapper-jitter.h");
-        build_bindings(&support_dir);
+        build_bindings(&SUPPORT_DIR);
     }
 }

@@ -100,6 +100,8 @@ extern "C" {
         ...
     ) -> ::std::os::raw::c_int;
 }
+#[doc = "\tFunction pointer type for generic methods."]
+#[doc = "@ingroup datatypes"]
 pub type method = ::std::option::Option<
     unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void,
 >;
@@ -3977,6 +3979,9 @@ extern "C" {
     pub fn loadbang_resume();
 }
 extern "C" {
+    pub fn noloadbangdisable_get() -> ::std::os::raw::c_char;
+}
+extern "C" {
     #[doc = "\tGet a handle to the data in a named table object."]
     #[doc = "@ingroup tables"]
     #[doc = ""]
@@ -5080,7 +5085,7 @@ extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 extern "C" {
-    pub fn atombuf_count(x: *mut t_atombuf) -> ::std::os::raw::c_short;
+    pub fn atombuf_count(x: *mut t_atombuf) -> ::std::os::raw::c_long;
 }
 extern "C" {
     pub fn atombuf_set(
@@ -32659,6 +32664,9 @@ extern "C" {
     pub fn jbox_grabfocus(b: *mut t_jbox);
 }
 extern "C" {
+    pub fn jbox_get_boxpath(b: *mut t_object) -> *mut t_symbol;
+}
+extern "C" {
     pub fn jbox_show_caption(b: *mut t_jbox);
 }
 extern "C" {
@@ -33059,9 +33067,6 @@ extern "C" {
 }
 extern "C" {
     pub fn jpatcher_inc_maxsendcontext() -> ::std::os::raw::c_long;
-}
-extern "C" {
-    pub fn jbox_get_boxpath(b: *mut t_object) -> *mut t_symbol;
 }
 extern "C" {
     pub fn jpatcher_dictionary_modernui(d: *mut t_dictionary) -> t_atom_long;
@@ -42431,6 +42436,13 @@ extern "C" {
     );
 }
 extern "C" {
+    pub fn max_jit_class_wrap_ob3d_inletinfo(
+        mclass: *mut t_class,
+        jclass: *mut t_class,
+        flags: ::std::os::raw::c_long,
+    );
+}
+extern "C" {
     pub fn max_jit_class_wrap_attrlist2methods(mclass: *mut t_class, jclass: *mut t_class);
 }
 extern "C" {
@@ -47027,6 +47039,12 @@ pub mod t_jit_gl_view_key {
     pub const JIT_GL_VIEW_CAPS_LOCK: Type = 4;
     pub const JIT_GL_VIEW_ALT_KEY: Type = 8;
     pub const JIT_GL_VIEW_CONTROL_KEY: Type = 16;
+}
+extern "C" {
+    pub fn jit_gl_initialize() -> ::std::os::raw::c_long;
+}
+extern "C" {
+    pub fn max_jit_ob3d_init();
 }
 extern "C" {
     pub fn max_jit_class_ob3d_wrap(c: *mut t_class);
