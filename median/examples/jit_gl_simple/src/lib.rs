@@ -4,7 +4,6 @@ use median::{
     max_sys,
     method::MaxMethod,
     object::MaxObj,
-    symbol::SymbolRef,
     wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped},
 };
 
@@ -15,10 +14,7 @@ use std::{
 
 const JIT_CLASS_NAME: &str = "jit_gl_simple";
 
-//you need to wrap your external in this macro to get the system to register your object and
-//automatically generate trampolines and what not.
 median::external_no_main! {
-    #[name="jit.gl.simple"]
     #[repr(C)]
     pub struct JitGLSimpleMax;
 
@@ -197,8 +193,6 @@ impl JitGLSimple {
     pub unsafe extern "C" fn new(dest_name: *mut max_sys::t_symbol) -> *mut Self {
         let x = max_sys::jit_object_alloc(JIT_GL_SIMPLE_CLASS);
         if !x.is_null() {
-            let s = SymbolRef::from(dest_name);
-            println!("dest_name {}", s);
             // create and attach ob3d
             max_sys::jit_ob3d_new(x, dest_name);
         }
