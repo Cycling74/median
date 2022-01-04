@@ -87,6 +87,14 @@ pub unsafe trait MaxObj: Sized {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self) }
     }
 
+    /// Retrieve a byte offset for the start of your wrapped struct, relative to the start of the
+    /// wrapper struct
+    fn wrapped_byte_offset() -> usize;
+
+    /// Retrieve a byte offset for the start of your wrapped struct, relative to the start of the
+    /// wrapper struct
+    fn obex_byte_offset() -> usize;
+
     impl_obj_methods!(Self::max_obj);
 }
 
@@ -100,6 +108,14 @@ pub unsafe trait MSPObj: Sized {
     fn as_max_obj(&self) -> *mut max_sys::t_object {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self.msp_obj()) }
     }
+
+    /// Retrieve a byte offset for the start of your wrapped struct, relative to the start of the
+    /// wrapper struct
+    fn wrapped_byte_offset() -> usize;
+
+    /// Retrieve a byte offset for the start of your wrapped struct, relative to the start of the
+    /// wrapper struct
+    fn obex_byte_offset() -> usize;
 
     impl_obj_methods!(Self::as_max_obj);
 }
@@ -142,6 +158,7 @@ impl<T: MaxObj> ObjBox<T> {
         //convert to t_object for debugging
         let value: *mut max_sys::t_object =
             std::mem::transmute::<_, _>(max_sys::object_alloc(class));
+
         let value = std::mem::transmute::<_, *mut T>(value);
         Self::from_raw(value)
     }

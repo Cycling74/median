@@ -81,6 +81,12 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
 
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
+
+    /// Destroy any resources that still need access to the max object or obex, called just before
+    /// drop on the wrapped object.
+    unsafe fn destroy(&mut self) {
+        //default, do nothing
+    }
 }
 
 /// The trait to implement for your object to be wrapped as a Max object.
@@ -150,13 +156,14 @@ pub trait WrappedDefer<T> {
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
     s_obj: O,
-    pub wrapped: MaybeUninit<I>,
+    obex: MaybeUninit<*mut c_void>,
+    wrapped: MaybeUninit<I>,
     _phantom: PhantomData<T>,
 }
 
 /// Inner struct for wrapping [`MaxObjWrapped`]
 pub struct MaxWrapperInternal<T> {
-    pub wrapped: T,
+    wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
@@ -188,9 +195,30 @@ pub trait WrapperInternal<O, T>: Sized {
     fn handle_notification(&self, notification: &Notification);
 }
 
-unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
-unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {}
-unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
+unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {
+    fn wrapped_byte_offset() -> usize {
+        field_offset::offset_of!(Self => wrapped).get_byte_offset()
+    }
+    fn obex_byte_offset() -> usize {
+        field_offset::offset_of!(Self => obex).get_byte_offset()
+    }
+}
+unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {
+    fn wrapped_byte_offset() -> usize {
+        field_offset::offset_of!(Self => wrapped).get_byte_offset()
+    }
+    fn obex_byte_offset() -> usize {
+        field_offset::offset_of!(Self => obex).get_byte_offset()
+    }
+}
+unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {
+    fn wrapped_byte_offset() -> usize {
+        field_offset::offset_of!(Self => wrapped).get_byte_offset()
+    }
+    fn obex_byte_offset() -> usize {
+        field_offset::offset_of!(Self => obex).get_byte_offset()
+    }
+}
 
 impl<T> WrapperInternal<max_sys::t_object, T> for MaxWrapperInternal<T>
 where
@@ -419,10 +447,11 @@ where
     }
 
     extern "C" fn free_wrapped(&mut self) {
-        //free wrapped
-        let mut wrapped = MaybeUninit::uninit();
-        std::mem::swap(&mut self.wrapped, &mut wrapped);
         unsafe {
+            self.wrapped_mut().destroy();
+            //free wrapped
+            let mut wrapped = MaybeUninit::uninit();
+            std::mem::swap(&mut self.wrapped, &mut wrapped);
             std::mem::drop(wrapped.assume_init());
         }
     }
@@ -755,6 +784,15 @@ where
             )
         }
     }
+    fn wrapped_byte_offset() -> usize {
+        let off1 = field_offset::offset_of!(Wrapper::<max_sys::t_object, MaxWrapperInternal<T>, T> => wrapped);
+        let off2 = field_offset::offset_of!(MaxWrapperInternal::<T> => wrapped);
+        off1.get_byte_offset() + off2.get_byte_offset()
+    }
+    fn obex_byte_offset() -> usize {
+        field_offset::offset_of!(Wrapper::<max_sys::t_object, MaxWrapperInternal<T>, T> => obex)
+            .get_byte_offset()
+    }
 }
 
 unsafe impl<T> MSPObj for T
@@ -771,6 +809,15 @@ where
                 ptr.offset(-((off1.get_byte_offset() + off2.get_byte_offset()) as isize)),
             )
         }
+    }
+    fn wrapped_byte_offset() -> usize {
+        let off1 = field_offset::offset_of!(Wrapper::<max_sys::t_pxobject, MSPWrapperInternal<T>, T> => wrapped);
+        let off2 = field_offset::offset_of!(MSPWrapperInternal::<T> => wrapped);
+        off1.get_byte_offset() + off2.get_byte_offset()
+    }
+    fn obex_byte_offset() -> usize {
+        field_offset::offset_of!(Wrapper::<max_sys::t_pxobject, MSPWrapperInternal<T>, T> => obex)
+            .get_byte_offset()
     }
 }
 
