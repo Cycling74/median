@@ -160,6 +160,13 @@ fn build_bindings(support_dir: &str) {
         b.whitelist_type(i).constified_enum_module(i)
     });
 
+    let vars = [
+        //jitter
+        "_jit_sym_.*",
+    ];
+
+    builder = vars.iter().fold(builder, |b, i| b.whitelist_var(i));
+
     let bindings = builder.generate().expect("Unable to generate bindings");
 
     //let out_path = std::path::PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
