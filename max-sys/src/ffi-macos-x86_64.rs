@@ -108,10 +108,6 @@ pub type method = ::std::option::Option<
 pub type t_intmethod = ::std::option::Option<
     unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_long,
 >;
-#[doc = " The atomarray object. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup atomarray"]
 pub type t_atomarray = _atomarray;
 pub type t_outlet = ::std::os::raw::c_void;
 pub type t_inlet = ::std::os::raw::c_void;
@@ -170,14 +166,6 @@ fn bindgen_test_layout_symbol() {
         )
     );
 }
-#[doc = " The symbol."]
-#[doc = ""]
-#[doc = "Note: You should <em>never</em> manipulate the s_name field of the #t_symbol directly!"]
-#[doc = "Doing so will corrupt Max's symbol table."]
-#[doc = "Instead, <em>always</em> use gensym() to get a symbol with the desired string"]
-#[doc = "contents for the s_name field."]
-#[doc = ""]
-#[doc = "@ingroup symbol"]
 pub type t_symbol = symbol;
 extern "C" {
     #[doc = " function version of NOGOOD test is potentially more reliable"]
@@ -239,9 +227,6 @@ fn bindgen_test_layout_messlist() {
         )
     );
 }
-#[doc = " A list of symbols and their corresponding methods,"]
-#[doc = "complete with typechecking information."]
-#[doc = "@ingroup obj"]
 pub type t_messlist = messlist;
 #[doc = " The structure for the head of any object which wants to have inlets or outlets,"]
 #[doc = "or support attributes."]
@@ -311,9 +296,6 @@ fn bindgen_test_layout_object() {
         )
     );
 }
-#[doc = " The structure for the head of any object which wants to have inlets or outlets,"]
-#[doc = "or support attributes."]
-#[doc = "@ingroup obj"]
 pub type t_object = object;
 #[doc = "The data structure for a Max class. This struct is provided for debugging convenience,"]
 #[doc = "but should be considered opaque and is subject to change without notice."]
@@ -558,10 +540,6 @@ fn bindgen_test_layout_maxclass() {
         )
     );
 }
-#[doc = "The data structure for a Max class. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup class"]
 pub type t_class = maxclass;
 pub mod e_max_class_flags {
     #[doc = " Class flags. If not box or polyglot, class is only accessible in C via known interface"]
@@ -760,8 +738,6 @@ fn bindgen_test_layout_atom() {
         concat!("Offset of field: ", stringify!(atom), "::", stringify!(a_w))
     );
 }
-#[doc = " An atom is a typed datum."]
-#[doc = "@ingroup atom"]
 pub type t_atom = atom;
 extern "C" {
     pub fn stdinletinfo(
@@ -1317,8 +1293,6 @@ fn bindgen_test_layout__datetime() {
         )
     );
 }
-#[doc = "The Systime data structure."]
-#[doc = "@ingroup systime"]
 pub type t_datetime = _datetime;
 pub mod e_max_dateflags {
     #[doc = "\tFlags for the sysdateformat_formatdatetime() function."]
@@ -1543,8 +1517,6 @@ fn bindgen_test_layout_ex_ex() {
         )
     );
 }
-#[doc = "\tex_ex."]
-#[doc = "@ingroup expr"]
 pub type t_ex_ex = ex_ex;
 #[doc = "\tStruct for an instance of expr."]
 #[doc = "@ingroup expr"]
@@ -1621,8 +1593,6 @@ fn bindgen_test_layout_expr() {
         )
     );
 }
-#[doc = "\tStruct for an instance of expr."]
-#[doc = "@ingroup expr"]
 pub type t_expr = expr;
 extern "C" {
     #[doc = "\tCreate a new expr object."]
@@ -1860,8 +1830,6 @@ fn bindgen_test_layout__fileinfo() {
         )
     );
 }
-#[doc = "Information about a file."]
-#[doc = "@ingroup files"]
 pub type t_fileinfo = _fileinfo;
 #[doc = " The pathlink data structure. This struct is provided for debugging convenience,"]
 #[doc = "but should be considered opaque and is subject to change without notice."]
@@ -1949,9 +1917,6 @@ fn bindgen_test_layout__pathlink() {
         )
     );
 }
-#[doc = " The pathlink data structure. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = "@ingroup files"]
 pub type t_pathlink = _pathlink;
 pub mod e_max_searchpath_flags {
     pub type Type = ::std::os::raw::c_uint;
@@ -5038,8 +5003,6 @@ fn bindgen_test_layout_atombuf() {
         )
     );
 }
-#[doc = " The atombuf struct provides a way to pass a collection of atoms."]
-#[doc = "@ingroup atombuf"]
 pub type t_atombuf = atombuf;
 extern "C" {
     #[doc = "Use atombuf_new() to create a new Atombuf from an array of t_atoms."]
@@ -5194,10 +5157,6 @@ fn bindgen_test_layout__string() {
         )
     );
 }
-#[doc = "The string object. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup string"]
 pub type t_string = _string;
 extern "C" {
     #[doc = "Create a new string object."]
@@ -5316,11 +5275,6 @@ fn bindgen_test_layout__llelem() {
         )
     );
 }
-#[doc = " A linklist element. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup linklist"]
-#[doc = "@see t_linklist"]
 pub type t_llelem = _llelem;
 #[doc = " The linklist object. This struct is provided for debugging convenience,"]
 #[doc = "but should be considered opaque and is subject to change without notice."]
@@ -5476,11 +5430,6 @@ fn bindgen_test_layout__linklist() {
         )
     );
 }
-#[doc = " The linklist object. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup linklist"]
-#[doc = "@see t_llelem"]
 pub type t_linklist = _linklist;
 extern "C" {
     #[doc = "Create a new linklist object."]
@@ -6223,11 +6172,6 @@ fn bindgen_test_layout__hashtab_entry() {
         )
     );
 }
-#[doc = " A hashtab entry. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup hashtab"]
-#[doc = "@see t_hashtab"]
 pub type t_hashtab_entry = _hashtab_entry;
 #[doc = " The hashtab object. This struct is provided for debugging convenience,"]
 #[doc = "but should be considered opaque and is subject to change without notice."]
@@ -6317,11 +6261,6 @@ fn bindgen_test_layout__hashtab() {
         )
     );
 }
-#[doc = " The hashtab object. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup hashtab"]
-#[doc = "@see t_hashtab"]
 pub type t_hashtab = _hashtab;
 extern "C" {
     #[doc = "Create a new hashtab object."]
@@ -6817,11 +6756,6 @@ fn bindgen_test_layout__dictionary_entry() {
         )
     );
 }
-#[doc = " A dictionary entry. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup dictionary"]
-#[doc = "@see t_dictionary"]
 pub type t_dictionary_entry = _dictionary_entry;
 #[doc = " The dictionary object. This struct is provided for debugging convenience,"]
 #[doc = "but should be considered opaque and is subject to change without notice."]
@@ -6900,11 +6834,6 @@ fn bindgen_test_layout__dictionary() {
         )
     );
 }
-#[doc = " The dictionary object. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup dictionary"]
-#[doc = "@see t_dictionary"]
 pub type t_dictionary = _dictionary;
 extern "C" {
     #[doc = "Create a new dictionary object."]
@@ -30429,8 +30358,6 @@ pub mod _modifiers {
     #[doc = "< Key is generated by key press auto-repeat"]
     pub const eAutoRepeat: Type = 512;
 }
-#[doc = "\tBit mask values for various meta-key presses on the keyboard."]
-#[doc = "@ingroup\tjmouse"]
 pub use self::_modifiers::Type as t_modifiers;
 extern "C" {
     pub fn fontmap_getmapping(
@@ -30506,10 +30433,6 @@ fn bindgen_test_layout__rect() {
         )
     );
 }
-#[doc = "Coordinates for specifying a rectangular region."]
-#[doc = "@ingroup \tdatatypes"]
-#[doc = "@see\t\tt_pt"]
-#[doc = "@see\t\tt_size"]
 pub type t_rect = _rect;
 #[doc = "Coordinates for specifying a point."]
 #[doc = "@ingroup \tdatatypes"]
@@ -30546,10 +30469,6 @@ fn bindgen_test_layout__pt() {
         concat!("Offset of field: ", stringify!(_pt), "::", stringify!(y))
     );
 }
-#[doc = "Coordinates for specifying a point."]
-#[doc = "@ingroup \tdatatypes"]
-#[doc = "@see\t\tt_rect"]
-#[doc = "@see\t\tt_size"]
 pub type t_pt = _pt;
 #[doc = "Coordinates for specifying the size of a region."]
 #[doc = "@ingroup \tdatatypes"]
@@ -30596,10 +30515,6 @@ fn bindgen_test_layout__size() {
         )
     );
 }
-#[doc = "Coordinates for specifying the size of a region."]
-#[doc = "@ingroup \tdatatypes"]
-#[doc = "@see\t\tt_rect"]
-#[doc = "@see\t\tt_pt"]
 pub type t_size = _size;
 #[doc = "\tA color composed of red, green, blue, and alpha components."]
 #[doc = "@ingroup color"]
@@ -30667,8 +30582,6 @@ fn bindgen_test_layout__jrgba() {
         )
     );
 }
-#[doc = "\tA color composed of red, green, blue, and alpha components."]
-#[doc = "@ingroup color"]
 pub type t_jrgba = _jrgba;
 #[doc = " The t_jbox struct provides the header for a Max user-interface object."]
 #[doc = "This struct should be considered opaque and is subject to change without notice."]
@@ -31209,11 +31122,6 @@ fn bindgen_test_layout__jbox() {
         )
     );
 }
-#[doc = " The t_jbox struct provides the header for a Max user-interface object."]
-#[doc = "This struct should be considered opaque and is subject to change without notice."]
-#[doc = "Do not access it's members directly any code."]
-#[doc = ""]
-#[doc = "@ingroup patcher"]
 pub type t_jbox = _jbox;
 extern "C" {
     #[doc = "\tGets the value of a #t_rect attribute, given its parent object and name."]
@@ -32900,8 +32808,6 @@ pub mod _jmouse_cursortype {
     #[doc = "< Bottom-Right Corner"]
     pub const JMOUSE_CURSOR_RESIZE_BOTTOMRIGHTCORNER: Type = 18;
 }
-#[doc = "\tMouse cursor types."]
-#[doc = "@ingroup jmouse"]
 pub use self::_jmouse_cursortype::Type as t_jmouse_cursortype;
 extern "C" {
     #[doc = "\tSet the mouse cursor."]
@@ -33500,8 +33406,6 @@ pub mod _jgraphics_format {
     #[doc = "< The color is represented only as an 8-bit alpha mask."]
     pub const JGRAPHICS_FORMAT_A8: Type = 2;
 }
-#[doc = "\tEnumeration of color formats used by jgraphics surfaces."]
-#[doc = "@ingroup\tjgraphics"]
 pub use self::_jgraphics_format::Type as t_jgraphics_format;
 pub mod _jgraphics_fileformat {
     #[doc = "\tEnumeration of file formats usable for jgraphics surfaces."]
@@ -34396,8 +34300,6 @@ pub mod _jgraphics_font_slant {
     #[doc = "< Italic slanting"]
     pub const JGRAPHICS_FONT_SLANT_ITALIC: Type = 1;
 }
-#[doc = "\tEnumeration of slanting options for font display."]
-#[doc = "@ingroup\tjfont"]
 pub use self::_jgraphics_font_slant::Type as t_jgraphics_font_slant;
 pub mod _jgraphics_font_weight {
     #[doc = "\tEnumeration of font weight options for font display."]
@@ -34408,8 +34310,6 @@ pub mod _jgraphics_font_weight {
     #[doc = "< Bold font weight"]
     pub const JGRAPHICS_FONT_WEIGHT_BOLD: Type = 1;
 }
-#[doc = "\tEnumeration of font weight options for font display."]
-#[doc = "@ingroup\tjfont"]
 pub use self::_jgraphics_font_weight::Type as t_jgraphics_font_weight;
 extern "C" {
     #[doc = "\tSpecify a font for a graphics context."]
@@ -34544,9 +34444,6 @@ fn bindgen_test_layout__jgraphics_font_extents() {
         )
     );
 }
-#[doc = "\tA structure for holding information related to how much space the rendering of a given font will use."]
-#[doc = "The units for these measurements is in pixels."]
-#[doc = "@ingroup\tjgraphics"]
 pub type t_jgraphics_font_extents = _jgraphics_font_extents;
 extern "C" {
     #[doc = "\tReturn the extents of the currently selected font for a given graphics context."]
@@ -34834,8 +34731,6 @@ pub mod _jgraphics_text_justification {
     #[doc = "< Shortcut for Centering both vertically and horizontally"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_CENTERED: Type = 36;
 }
-#[doc = "\tEnumeration of text justification options, which are specified as a bitmask."]
-#[doc = "@ingroup\tjgraphics"]
 pub use self::_jgraphics_text_justification::Type as t_jgraphics_text_justification;
 pub mod _jgraphics_textlayout_flags {
     #[doc = "\tFlags for setting text layout options."]
@@ -34846,8 +34741,6 @@ pub mod _jgraphics_textlayout_flags {
     #[doc = "< show ... if a line doesn't fit (implies NOWRAP too)"]
     pub const JGRAPHICS_TEXTLAYOUT_USEELLIPSIS: Type = 3;
 }
-#[doc = "\tFlags for setting text layout options."]
-#[doc = "@ingroup\ttextlayout"]
 pub use self::_jgraphics_textlayout_flags::Type as t_jgraphics_textlayout_flags;
 extern "C" {
     #[doc = "\tSet the text and attributes of a textlayout object."]
@@ -38435,10 +38328,6 @@ fn bindgen_test_layout__quickmap() {
         )
     );
 }
-#[doc = " The quickmap object. This struct is provided for debugging convenience,"]
-#[doc = "but should be considered opaque and is subject to change without notice."]
-#[doc = ""]
-#[doc = "@ingroup quickmap"]
 pub type t_quickmap = _quickmap;
 extern "C" {
     #[doc = "Create a new quickmap object."]
@@ -41131,8 +41020,6 @@ fn bindgen_test_layout__signal() {
         )
     );
 }
-#[doc = " The signal data structure."]
-#[doc = "@ingroup\tmsp"]
 pub type t_signal = _signal;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -41991,9 +41878,6 @@ fn bindgen_test_layout__pxjbox() {
         )
     );
 }
-#[doc = "\tHeader for any ui signal processing object."]
-#[doc = "For non-ui objects use #t_pxobject."]
-#[doc = "@ingroup\tmsp"]
 pub type t_pxjbox = _pxjbox;
 extern "C" {
     pub fn z_jbox_dsp_setup(x: *mut t_pxjbox, nsignals: ::std::os::raw::c_long);
@@ -42137,10 +42021,6 @@ fn bindgen_test_layout__buffer_info() {
         )
     );
 }
-#[doc = "\tCommon buffer~ data/metadata."]
-#[doc = "This info can be retreived from a buffer~ using the buffer_getinfo() call."]
-#[doc = ""]
-#[doc = "@ingroup buffers"]
 pub type t_buffer_info = _buffer_info;
 extern "C" {
     #[doc = "\tCreate a reference to a buffer~ object by name."]
@@ -42904,6 +42784,429 @@ extern "C" {
 extern "C" {
     pub fn jit_math_fast_atan(x: f32) -> f32;
 }
+extern "C" {
+    pub static mut _jit_sym_nothing: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_new: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_free: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_classname: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getname: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getmethod: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_get: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_set: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_register: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_char: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_long: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_float32: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_float64: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_symbol: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_pointer: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_object: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_atom: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_list: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_type: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_dim: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_planecount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_val: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_plane: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_cell: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_matrix: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_class_jit_matrix: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_togworld: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_fromgworld: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_frommatrix: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_class_jit_attribute: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_attribute: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_attr_offset: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_attr_offset_array: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_rebuilding: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_modified: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_lock: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_setinfo: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_setinfo_ex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getinfo: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_data: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getdata: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_outputmatrix: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_clear: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_clear_custom: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_err_calculate: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_max_jit_classex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_setall: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_chuck: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getsize: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getindex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_objptr2index: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_append: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_insertindex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_deleteindex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_chuckindex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_makearray: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_reverse: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_rotate: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_shuffle: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_swap: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_findfirst: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_findall: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_methodall: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_methodindex: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_sort: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_matrix_calc: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_genframe: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_filter: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_mop: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_newcopy: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_linklist: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_inputcount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_outputcount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getinput: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getoutput: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getinputlist: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getoutputlist: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_ioname: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_matrixname: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_outputmode: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_matrix: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getmatrix: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_typelink: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_dimlink: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_planelink: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_restrict_type: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_restrict_planecount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_restrict_dim: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_special: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getspecial: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_adapt: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_decorator: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_frommatrix_trunc: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_ioproc: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_getioproc: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_name: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_types: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_minplanecount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_maxplanecount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_mindimcount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_maxdimcount: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_mindim: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_maxdim: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_points: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_point_sprite: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_lines: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_line_strip: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_line_loop: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_triangles: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_tri_strip: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_tri_fan: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_quads: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_quad_strip: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_polygon: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_tri_grid: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gl_quad_grid: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_err_lockout_stack: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_class_jit_namespace: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_jit_namespace: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_findsize: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_attach: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_detach: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_add: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_replace: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_gettype: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_ob_sym: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_resolve_name: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_resolve_raw: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_notifyall: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_block: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_unblock: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_position: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_rotatexyz: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_scale: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_quat: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_direction: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_lookat: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_anim: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_bounds: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_boundcalc: *mut t_symbol;
+}
+extern "C" {
+    pub static mut _jit_sym_calcbounds: *mut t_symbol;
+}
 pub mod t_jit_attr_flags {
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< private getter (all)          @ingroup jitter"]
@@ -42997,7 +43300,6 @@ fn bindgen_test_layout__jit_op_info() {
         )
     );
 }
-#[doc = " Provides base pointer and stride for vector operator functions"]
 pub type t_jit_op_info = _jit_op_info;
 pub type t_jit_op_fn = ::std::option::Option<unsafe extern "C" fn(arg1: ::std::os::raw::c_long)>;
 #[repr(C)]
@@ -45502,10 +45804,6 @@ fn bindgen_test_layout__jit_matrix_info() {
         )
     );
 }
-#[doc = " Matrix information struct."]
-#[doc = " Used to get/set multiple matrix attributes at once."]
-#[doc = ""]
-#[doc = " @ingroup matrixfun"]
 pub type t_jit_matrix_info = _jit_matrix_info;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -49658,7 +49956,6 @@ fn bindgen_test_layout__jit_gl_buffer_view() {
         )
     );
 }
-#[doc = " Represents a view into a buffer, for use with glVertexAttribPointer etc."]
 pub type t_jit_gl_buffer_view = _jit_gl_buffer_view;
 pub mod e_buffer_data_flag {
     pub type Type = ::std::os::raw::c_uint;
@@ -49761,7 +50058,6 @@ fn bindgen_test_layout__jit_gl_buffer_data() {
         )
     );
 }
-#[doc = " Represents data to be stored in a buffer"]
 pub type t_jit_gl_buffer_data = _jit_gl_buffer_data;
 pub mod e_view_tag {
     #[doc = " Create a buffer data object with a format specified by tags"]
@@ -50346,9 +50642,6 @@ fn bindgen_test_layout__jit_glchunk() {
         )
     );
 }
-#[doc = " t_jit_glchunk is a public structure to store one gl-command's-worth of data,"]
-#[doc = " in a format which can be passed easily to glDrawRangeElements, and matrixoutput."]
-#[doc = ""]
 pub type t_jit_glchunk = _jit_glchunk;
 extern "C" {
     pub fn jit_glchunk_new(
@@ -67434,8 +67727,6 @@ fn bindgen_test_layout__jit_gl_drawinfo() {
         )
     );
 }
-#[doc = " t_jit_gl_drawinfo struct used for tasks such as multi texture unit binding."]
-#[doc = ""]
 pub type t_jit_gl_drawinfo = _jit_gl_drawinfo;
 extern "C" {
     pub fn jit_gl_drawinfo_setup(
@@ -68409,16 +68700,6 @@ fn bindgen_test_layout__jit_gl_context_view() {
         )
     );
 }
-#[doc = " t_jit_gl_context_view object struct."]
-#[doc = ""]
-#[doc = " Manages an OpenGL context within a rectangle.  Objects that use a t_jit_gl_context_view"]
-#[doc = " to manage an OpenGL context should attach themselves to the object for its lifetime"]
-#[doc = " and implement an \"update\" method in order to handle modifications to the"]
-#[doc = " t_jit_gl_context_view that may require a rebuild or further response within the embedding"]
-#[doc = " object."]
-#[doc = ""]
-#[doc = " @ingroup gl"]
-#[doc = ""]
 pub type t_jit_gl_context_view = _jit_gl_context_view;
 extern "C" {
     pub fn jit_gl_context_view_are_shared(
