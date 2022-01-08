@@ -67,6 +67,9 @@ pub mod symbol;
 pub mod thread;
 pub mod wrapper;
 
+//jitter
+pub mod jit;
+
 //re-exports
 mod max;
 pub use self::max::*;
