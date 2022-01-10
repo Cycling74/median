@@ -62,6 +62,7 @@ mod atomic64 {
     //we assume that the following types are atomic on the platform we run on so we wrap them in a
     //type that codifies that for rust
     impl_atomic!(f64, Float64);
+    impl_atomic!(f32, Float32);
     impl_atomic!(max_sys::t_atom_long, Int64);
 
     impl From<i64> for Int64 {
@@ -98,12 +99,14 @@ mod tests {
 
     #[test]
     fn sizes() {
+        assert_eq!(std::mem::size_of::<f32>(), std::mem::size_of::<Float32>());
         assert_eq!(std::mem::size_of::<f64>(), std::mem::size_of::<Float64>());
         assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Int64>());
     }
 
     #[test]
     fn align() {
+        assert_eq!(std::mem::align_of::<f32>(), std::mem::align_of::<Float32>());
         assert_eq!(std::mem::align_of::<f64>(), std::mem::align_of::<Float64>());
         assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Int64>());
     }
