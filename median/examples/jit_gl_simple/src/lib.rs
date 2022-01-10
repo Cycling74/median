@@ -1,6 +1,7 @@
 use median::{
     builder::MaxWrappedBuilder,
     class::Class,
+    jit::ob3d::{JitObj, WrappedDraw, Wrapper},
     max_sys,
     method::MaxMethod,
     object::MaxObj,
@@ -103,121 +104,28 @@ median::external_no_main! {
     }
 }
 
-#[repr(C)]
-pub struct JitGLSimple {
-    ob: max_sys::t_jit_object,
-    ob3d: *mut c_void,
-}
+pub struct JitGLSimple;
 
-static mut JIT_GL_SIMPLE_CLASS: *mut c_void = std::ptr::null_mut();
+impl WrappedDraw for JitGLSimple {
+    type Wrapper = Wrapper<Self>;
 
-impl JitGLSimple {
-    pub unsafe fn init() -> max_sys::t_jit_err {
-        let ob3d_flags: c_long = max_sys::t_jit_ob3d_flags::JIT_OB3D_NO_MATRIXOUTPUT as _; // no matrix output
-
-        let name = CString::new(JIT_CLASS_NAME).expect("couldn't convert name to CString");
-        JIT_GL_SIMPLE_CLASS = max_sys::jit_class_new(
-            name.as_ptr(),
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(*mut max_sys::t_symbol) -> *mut Self,
-                MaxMethod,
-            >(Self::new)),
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(*mut Self),
-                MaxMethod,
-            >(Self::free)),
-            std::mem::size_of::<Self>() as c_long,
-            max_sys::e_max_atomtypes::A_DEFSYM as c_long,
-            0,
-        );
-
-        let _ob3d = max_sys::jit_ob3d_setup(
-            JIT_GL_SIMPLE_CLASS,
-            field_offset::offset_of!(Self => ob3d).get_byte_offset() as _,
-            ob3d_flags,
-        );
-
-        let name = CString::new("ob3d_draw").unwrap();
-        max_sys::jit_class_addmethod(
-            JIT_GL_SIMPLE_CLASS,
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(*mut Self) -> max_sys::t_jit_err,
-                MaxMethod,
-            >(Self::draw)),
-            name.as_ptr(),
-            max_sys::e_max_atomtypes::A_CANT as c_long,
-            0,
-        );
-
-        let name = CString::new("dest_closing").unwrap();
-        max_sys::jit_class_addmethod(
-            JIT_GL_SIMPLE_CLASS,
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(*mut Self) -> max_sys::t_jit_err,
-                MaxMethod,
-            >(Self::dest_closing)),
-            name.as_ptr(),
-            max_sys::e_max_atomtypes::A_CANT as c_long,
-            0,
-        );
-
-        let name = CString::new("dest_changed").unwrap();
-        max_sys::jit_class_addmethod(
-            JIT_GL_SIMPLE_CLASS,
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(*mut Self) -> max_sys::t_jit_err,
-                MaxMethod,
-            >(Self::dest_changed)),
-            name.as_ptr(),
-            max_sys::e_max_atomtypes::A_CANT as c_long,
-            0,
-        );
-
-        let name = CString::new("register").unwrap();
-        max_sys::jit_class_addmethod(
-            JIT_GL_SIMPLE_CLASS,
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(*mut c_void, *mut max_sys::t_symbol) -> *mut c_void,
-                MaxMethod,
-            >(max_sys::jit_object_register)),
-            name.as_ptr(),
-            max_sys::e_max_atomtypes::A_CANT as c_long,
-            0,
-        );
-
-        max_sys::jit_class_register(JIT_GL_SIMPLE_CLASS);
-
-        max_sys::t_jit_error_code::JIT_ERR_NONE as _
+    fn new() -> Self {
+        Self
     }
 
-    pub unsafe extern "C" fn new(dest_name: *mut max_sys::t_symbol) -> *mut Self {
-        let x = max_sys::jit_object_alloc(JIT_GL_SIMPLE_CLASS);
-        if !x.is_null() {
-            // create and attach ob3d
-            max_sys::jit_ob3d_new(x, dest_name);
+    fn class_name() -> &'static str {
+        &"jit_gl_simple"
+    }
+
+    fn draw(&self) -> max_sys::t_jit_err {
+        unsafe {
+            max_sys::jit_gl_immediate_begin(max_sys::e_jit_state::JIT_STATE_QUADS);
+            max_sys::jit_gl_immediate_vertex3f(-1., -1., 0.);
+            max_sys::jit_gl_immediate_vertex3f(-1., 1., 0.);
+            max_sys::jit_gl_immediate_vertex3f(1., 1., 0.);
+            max_sys::jit_gl_immediate_vertex3f(1., -1., 0.);
+            max_sys::jit_gl_immediate_end();
         }
-        x as _
-    }
-
-    pub unsafe extern "C" fn free(x: *mut Self) {
-        max_sys::jit_ob3d_free(x as _);
-    }
-
-    pub unsafe extern "C" fn draw(_x: *mut Self) -> max_sys::t_jit_err {
-        max_sys::jit_gl_immediate_begin(max_sys::e_jit_state::JIT_STATE_QUADS);
-        max_sys::jit_gl_immediate_vertex3f(-1., -1., 0.);
-        max_sys::jit_gl_immediate_vertex3f(-1., 1., 0.);
-        max_sys::jit_gl_immediate_vertex3f(1., 1., 0.);
-        max_sys::jit_gl_immediate_vertex3f(1., -1., 0.);
-        max_sys::jit_gl_immediate_end();
-        max_sys::t_jit_error_code::JIT_ERR_NONE as _
-    }
-
-    pub unsafe extern "C" fn dest_closing(_x: *mut Self) -> max_sys::t_jit_err {
-        max_sys::t_jit_error_code::JIT_ERR_NONE as _
-    }
-
-    pub unsafe extern "C" fn dest_changed(_x: *mut Self) -> max_sys::t_jit_err {
         max_sys::t_jit_error_code::JIT_ERR_NONE as _
     }
 }
