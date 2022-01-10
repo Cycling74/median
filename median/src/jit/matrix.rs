@@ -391,6 +391,7 @@ where
         }
     }
 
+    //XXX should we lock the vectors?? can this be called from multiple threads?
     fn calc(&mut self, inputs: *mut c_void, outputs: *mut c_void) -> t_jit_err {
         unsafe {
             //populate input and output vectors
