@@ -11,17 +11,6 @@ pub struct Class {
     pub inner: *mut std::ffi::c_void,
 }
 
-pub trait Object: Sync + Send {
-    /// Creation
-    fn new() -> Self;
-
-    /// The name of your jitter class.
-    fn class_name() -> &'static str;
-
-    /// Setup your class after creation, before registration
-    fn class_setup(_class: &Class) {}
-}
-
 unsafe impl Sync for Class {}
 unsafe impl Send for Class {}
 

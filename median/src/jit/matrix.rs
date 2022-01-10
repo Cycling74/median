@@ -1,6 +1,6 @@
 //! Jitter Matrix Operator
 
-use super::{Class, Object, CLASSES};
+use super::{Class, CLASSES};
 use crate::{method::MaxMethod, symbol::SymbolRef};
 use max_sys::{t_jit_err, t_jit_matrix_info, t_jit_object};
 
@@ -49,8 +49,17 @@ pub struct MatrixData<'a, 'b> {
 }
 
 /// Trait for a Wrapped Matrix operator
-pub trait WrappedMatrixOp: Object {
+pub trait WrappedMatrixOp: Sync + Send {
     type Wrapper;
+
+    /// Creation
+    fn new() -> Self;
+
+    /// The name of your jitter class.
+    fn class_name() -> &'static str;
+
+    /// Setup your class after creation, before registration
+    fn class_setup(_class: &Class) {}
 
     /// Get the matrix IO Counts
     fn io_count() -> IOCount;
@@ -449,6 +458,9 @@ impl Into<(c_long, c_long)> for IOCount {
 pub unsafe trait JitObj: Sized {
     /// Get the jitter object pointer
     fn jit_obj(&self) -> *mut max_sys::t_jit_object;
+
+    /// Initialize/register your jitter object.
+    fn init();
 }
 
 unsafe impl<T> JitObj for T
@@ -462,6 +474,12 @@ where
         unsafe {
             let ptr: *mut u8 = std::mem::transmute::<_, *mut u8>(self as *const T);
             std::mem::transmute::<_, *mut max_sys::t_jit_object>(ptr.offset(-(off as isize)))
+        }
+    }
+
+    fn init() {
+        unsafe {
+            Wrapper::<T>::init();
         }
     }
 }
