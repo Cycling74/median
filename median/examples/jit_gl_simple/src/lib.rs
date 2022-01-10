@@ -13,10 +13,7 @@ use std::{
     os::raw::{c_char, c_long},
 };
 
-const JIT_CLASS_NAME: &str = "jit_gl_simple";
-
 median::external_no_main! {
-    #[repr(C)]
     pub struct JitGLSimpleMax;
 
     //implement the max object wrapper
@@ -25,7 +22,7 @@ median::external_no_main! {
         //setup inlets/outlets and clocks
         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
             unsafe {
-                let name = CString::new(JIT_CLASS_NAME).unwrap();
+                let name = CString::new(JitGLSimple::class_name()).unwrap();
                 let x = builder.max_obj();
                 {
                     assert_ne!(x, std::ptr::null_mut());
@@ -71,7 +68,7 @@ median::external_no_main! {
             unsafe {
                 max_sys::max_jit_class_obex_setup(c.inner(), Self::obex_byte_offset() as _);
 
-                let name = CString::new(JIT_CLASS_NAME).unwrap();
+                let name = CString::new(JitGLSimple::class_name()).unwrap();
                 let jitclass = max_sys::jit_class_findbyname(max_sys::gensym(name.as_ptr())) as _;
                 max_sys::max_jit_class_wrap_standard(c.inner(), jitclass, 0);
 
