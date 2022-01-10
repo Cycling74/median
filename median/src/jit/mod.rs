@@ -11,7 +11,7 @@ pub struct Class {
     pub inner: *mut std::ffi::c_void,
 }
 
-pub trait Object {
+pub trait Object: Sync + Send {
     /// Creation
     fn new() -> Self;
 

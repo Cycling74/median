@@ -1,6 +1,6 @@
 //! Jitter OpenGL, which we refer to as OB3Ds.
 
-use super::{Class, Object, CLASSES};
+use super::{Class, CLASSES};
 use crate::method::MaxMethod;
 use max_sys::{t_jit_err, t_jit_ob3d_flags::Type as FlagType};
 
@@ -11,8 +11,17 @@ use std::{
 };
 
 /// Trait to implement Jitter OB3D object.
-pub trait WrappedDraw: Object {
+pub trait WrappedDraw: Send + Sync {
     type Wrapper;
+
+    /// Creation
+    fn new() -> Self;
+
+    /// The name of your jitter class.
+    fn class_name() -> &'static str;
+
+    /// Setup your class after creation, before registration
+    fn class_setup(_class: &Class) {}
 
     /// Define your OB3D draw method. Called in automatic mode by jit.gl.render or otherwise
     /// through ob3d when banged.
@@ -180,12 +189,21 @@ where
 pub unsafe trait JitObj: Sized {
     /// Get the jitter object pointer
     fn jit_obj(&self) -> *mut max_sys::t_jit_object;
+
+    /// Initialize/register your jitter object.
+    fn init();
 }
 
 unsafe impl<T> JitObj for T
 where
     T: WrappedDraw<Wrapper = Wrapper<T>>,
 {
+    fn init() {
+        unsafe {
+            Wrapper::<T>::init();
+        }
+    }
+
     fn jit_obj(&self) -> *mut max_sys::t_jit_object {
         let off = field_offset::offset_of!(Wrapper<T> => wrapped).get_byte_offset();
 
