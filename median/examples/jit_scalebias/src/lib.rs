@@ -199,6 +199,7 @@ impl WrappedMatrixOp for JitScaleBias {
             }
 
             unsafe {
+                /*
                 self.compute_matrix(
                     dimcount as _,
                     dim.as_ptr(),
@@ -208,15 +209,8 @@ impl WrappedMatrixOp for JitScaleBias {
                     std::mem::transmute(&outputi),
                     outputd.inner(),
                 );
+                */
 
-                //XXX how to make dim live long enough?
-                dim[1] = 2;
-                let _ = inputd.inner();
-                let _ = outputd.inner();
-                let _ = inputi.dim_count();
-                let _ = outputi.dim_count();
-
-                /*
                 max_sys::jit_parallel_ndim_simplecalc2(
                     Some(std::mem::transmute::<
                         fn(
@@ -242,7 +236,13 @@ impl WrappedMatrixOp for JitScaleBias {
                     0, /* flags1 */
                     0, /* flags2 */
                 );
-                    */
+
+                //XXX how to make dim live long enough?
+                dim[1] = 2;
+                let _ = inputd.inner();
+                let _ = outputd.inner();
+                let _ = inputi.dim_count();
+                let _ = outputi.dim_count();
             }
             Ok(())
         }
