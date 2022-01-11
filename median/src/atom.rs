@@ -162,6 +162,28 @@ impl From<&crate::num::Float64> for Atom {
     }
 }
 
+impl From<f32> for Atom {
+    fn from(v: f32) -> Self {
+        unsafe {
+            let mut s = Self::zeroed();
+            s.set_float(v as f64);
+            s
+        }
+    }
+}
+
+impl From<&f32> for Atom {
+    fn from(v: &f32) -> Self {
+        Self::from(*v)
+    }
+}
+
+impl From<&crate::num::Float32> for Atom {
+    fn from(v: &crate::num::Float32) -> Self {
+        Self::from(v.get())
+    }
+}
+
 impl From<SymbolRef> for Atom {
     fn from(v: SymbolRef) -> Self {
         unsafe {
@@ -216,6 +238,12 @@ impl From<&Atom> for max_sys::t_atom_long {
 impl From<&Atom> for f64 {
     fn from(a: &Atom) -> f64 {
         a.get_float()
+    }
+}
+
+impl From<&Atom> for f32 {
+    fn from(a: &Atom) -> f32 {
+        a.get_float() as f32
     }
 }
 
