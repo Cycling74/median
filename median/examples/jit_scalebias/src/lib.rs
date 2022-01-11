@@ -5,7 +5,10 @@ use median::{
     jit::{
         attr,
         attr::Attr,
-        matrix::{Count, IOCount, JitObj, Matrix, WrappedMatrixOp, Wrapper},
+        matrix::{
+            Count, IOCount, JitObj, Matrix, MatrixInfo, WrappedMatrixOp, Wrapper,
+            JIT_MATRIX_MAX_DIMCOUNT,
+        },
     },
     max_sys,
     method::MaxMethod,
@@ -173,10 +176,10 @@ impl WrappedMatrixOp for JitScaleBias {
         } else if inputi.plane_count() != 4 || outputi.plane_count() != 4 {
             Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE)
         } else {
-            let inputd = inputl
+            let mut inputd = inputl
                 .data()
                 .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
-            let outputd = outputl
+            let mut outputd = outputl
                 .data()
                 .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_OUTPUT)?;
 
@@ -185,7 +188,7 @@ impl WrappedMatrixOp for JitScaleBias {
             let planecount = outputi.plane_count();
 
             // if input and output are not matched in size, use the intersection of the two
-            let mut dim: [c_long; 32] = [0; 32];
+            let mut dim: [c_long; JIT_MATRIX_MAX_DIMCOUNT] = [0; JIT_MATRIX_MAX_DIMCOUNT];
             for (d, i, o, _) in itertools::multizip((
                 &mut dim,
                 inputi.dim_sizes(),
@@ -195,6 +198,52 @@ impl WrappedMatrixOp for JitScaleBias {
                 *d = std::cmp::min(*i, *o);
             }
 
+            unsafe {
+                self.compute_matrix(
+                    dimcount as _,
+                    dim.as_ptr(),
+                    planecount as _,
+                    std::mem::transmute(&inputi),
+                    inputd.inner(),
+                    std::mem::transmute(&outputi),
+                    outputd.inner(),
+                );
+
+                //XXX how to make dim live long enough?
+                dim[1] = 2;
+                let _ = inputd.inner();
+                let _ = outputd.inner();
+                let _ = inputi.dim_count();
+                let _ = outputi.dim_count();
+
+                /*
+                max_sys::jit_parallel_ndim_simplecalc2(
+                    Some(std::mem::transmute::<
+                        fn(
+                            &Self,
+                            c_long,
+                            *const c_long,
+                            c_long,
+                            &MatrixInfo,
+                            *mut c_char,
+                            &MatrixInfo,
+                            *mut c_char,
+                        ),
+                        MaxMethod,
+                    >(Self::compute_matrix)),
+                    self as *const Self as _,
+                    dimcount as _,
+                    dim.as_mut_ptr(),
+                    planecount as _,
+                    std::mem::transmute(&inputi),
+                    inputd.inner(),
+                    std::mem::transmute(&outputi),
+                    outputd.inner(),
+                    0, /* flags1 */
+                    0, /* flags2 */
+                );
+                    */
+            }
             Ok(())
         }
     }
@@ -404,6 +453,99 @@ impl JitScaleBias {
         }
     }
 
+    fn compute_matrix(
+        &self,
+        dimcount: c_long,
+        dim: *const c_long,
+        planecount: c_long,
+        inputi: &MatrixInfo,
+        bip: *mut c_char,
+        outputi: &MatrixInfo,
+        bop: *mut c_char,
+    ) {
+        let dims: &[c_long] = unsafe { std::slice::from_raw_parts(dim, JIT_MATRIX_MAX_DIMCOUNT) };
+        if dimcount == 0 {
+            return;
+        } else if dimcount > 2 {
+            //recurse
+            let dimn = (dimcount - 1) as usize;
+            let dimc = dims[dimn];
+
+            let istride = inputi.dim_strides()[dimn];
+            let ostride = outputi.dim_strides()[dimn];
+
+            for i in 0..dimc {
+                unsafe {
+                    self.compute_matrix(
+                        dimn as _,
+                        dim,
+                        planecount,
+                        inputi,
+                        bip.offset((i * istride) as isize),
+                        outputi,
+                        bop.offset((i * ostride) as isize),
+                    );
+                }
+            }
+        } else {
+            let width: usize = dims[0] as _;
+            let height: usize = if dimcount == 1 { 1 } else { dims[1] as _ };
+
+            let mut scale: [c_long; 4] = [0; 4];
+            let mut bias: [c_long; 4] = [0; 4];
+            let mut sumbias: c_long = 0;
+            let mode = self.mode.load(Ordering::Relaxed);
+
+            for (s, b, i) in
+                itertools::multizip((scale.iter_mut(), bias.iter_mut(), self.channels.iter()))
+            {
+                *s = (i.scale.get() * 256.0) as _;
+                *b = (i.bias.get() * 256.0) as _;
+                sumbias += *b;
+            }
+
+            for h in 0..height {
+                let (ip, op): (&[c_char], &mut [c_char]) = unsafe {
+                    (
+                        std::mem::transmute(std::slice::from_raw_parts_mut(
+                            bip.offset(h as isize * inputi.dim_strides()[1] as isize),
+                            width * planecount as usize,
+                        )),
+                        std::mem::transmute(std::slice::from_raw_parts_mut(
+                            bop.offset(h as isize * outputi.dim_strides()[1] as isize),
+                            width * planecount as usize,
+                        )),
+                    )
+                };
+                if mode {
+                    // sum together, clamping to the range 0-255
+                    // and set all output planes
+                    for (o, i) in op.chunks_mut(4).zip(ip.chunks(4)) {
+                        let mut tmp: c_long = 0;
+                        for (x, s) in i.iter().zip(scale.iter()) {
+                            tmp = tmp.saturating_add((*x as c_long).saturating_mul(*s));
+                        }
+                        let tmp = num::clamp((tmp >> 8).saturating_add(sumbias), 0, 255) as c_char;
+                        for x in o.iter_mut() {
+                            *x = tmp;
+                        }
+                    }
+                } else {
+                    // apply to each plane individually
+                    // clamping to the range 0-255
+                    for (o, i) in op.chunks_mut(4).zip(ip.chunks(4)) {
+                        for (o, i, s, b) in
+                            itertools::multizip((o.iter_mut(), i.iter(), scale.iter(), bias.iter()))
+                        {
+                            *o = num::clamp(((*i as c_long).saturating_mul(*s) >> 8) + b, 0, 255)
+                                as c_char;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn attr_scale(&self, attr: &Attr) -> f32 {
         let name = attr.name();
         let index = Self::scale_index(name.clone());
@@ -446,7 +588,7 @@ impl JitScaleBias {
         self.mode.load(Ordering::Acquire) as _
     }
 
-    fn set_attr_mode(&self, attr: &Attr, v: max_sys::t_atom_long) {
+    fn set_attr_mode(&self, _attr: &Attr, v: max_sys::t_atom_long) {
         self.mode.store(v != 0, Ordering::Release);
     }
 
