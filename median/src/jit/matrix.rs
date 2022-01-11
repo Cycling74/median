@@ -68,7 +68,11 @@ pub trait WrappedMatrixOp: Sync + Send {
     fn mop_setup(_mop: *mut t_jit_object) {}
 
     /// Calculate your matrices
-    fn calc(&self, inputs: &[Matrix], outputs: &[Matrix]) -> Result<(), t_jit_err>;
+    fn calc(
+        &self,
+        inputs: &[Matrix],
+        outputs: &[Matrix],
+    ) -> Result<(), max_sys::t_jit_error_code::Type>;
 }
 
 struct WrapperInner<T> {
@@ -93,7 +97,7 @@ impl Matrix {
         Self { inner }
     }
 
-    pub fn lock(&mut self) -> MatrixGuard<'_> {
+    pub fn lock(&self) -> MatrixGuard<'_> {
         let lock =
             unsafe { max_sys::jit_object_method(self.inner, max_sys::_jit_sym_lock, 1) as _ };
         MatrixGuard { matrix: self, lock }
@@ -102,7 +106,7 @@ impl Matrix {
 
 impl<'a> MatrixGuard<'a> {
     /// Get the Matrix info
-    pub fn info(&mut self) -> MatrixInfo {
+    pub fn info(&self) -> MatrixInfo {
         unsafe {
             let mut info: MaybeUninit<t_jit_matrix_info> = MaybeUninit::uninit();
             max_sys::jit_object_method(
@@ -434,7 +438,7 @@ where
             .calc(self.inputs.as_slice(), self.outputs.as_slice())
         {
             Ok(()) => max_sys::t_jit_error_code::JIT_ERR_NONE as _,
-            Err(e) => e,
+            Err(e) => e as _,
         }
     }
 }
