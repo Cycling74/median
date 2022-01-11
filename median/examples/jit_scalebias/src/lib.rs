@@ -1,5 +1,4 @@
 use median::{
-    atom::Atom,
     builder::MaxWrappedBuilder,
     class::Class,
     jit,
@@ -19,6 +18,7 @@ use median::{
 use std::{
     ffi::{c_void, CString},
     os::raw::{c_char, c_long},
+    sync::atomic::{AtomicBool, Ordering},
 };
 lazy_static::lazy_static! {
     static ref SCALE: SymbolRef = SymbolRef::try_from("scale").unwrap();
@@ -107,6 +107,7 @@ median::external_no_main! {
 
 pub struct JitScaleBias {
     channels: [Channel; 4],
+    mode: AtomicBool,
 }
 
 const A: usize = 0;
@@ -134,6 +135,7 @@ impl WrappedMatrixOp for JitScaleBias {
     fn new() -> Self {
         Self {
             channels: Default::default(),
+            mode: AtomicBool::new(false),
         }
     }
 
@@ -148,8 +150,53 @@ impl WrappedMatrixOp for JitScaleBias {
         }
     }
 
-    fn calc(&self, inputs: &[Matrix], outputs: &[Matrix]) -> Result<(), max_sys::t_jit_err> {
-        Ok(())
+    fn calc(
+        &self,
+        inputs: &[Matrix],
+        outputs: &[Matrix],
+    ) -> Result<(), max_sys::t_jit_error_code::Type> {
+        let input = inputs
+            .first()
+            .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
+        let output = outputs
+            .first()
+            .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_OUTPUT)?;
+
+        let mut inputl = input.lock();
+        let mut outputl = output.lock();
+
+        let inputi = inputl.info();
+        let outputi = outputl.info();
+
+        if !inputi.is_char() || !outputi.is_char() {
+            Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_TYPE)
+        } else if inputi.plane_count() != 4 || outputi.plane_count() != 4 {
+            Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE)
+        } else {
+            let inputd = inputl
+                .data()
+                .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
+            let outputd = outputl
+                .data()
+                .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_OUTPUT)?;
+
+            //DO THE WORK
+            let dimcount = outputi.dim_count();
+            let planecount = outputi.plane_count();
+
+            // if input and output are not matched in size, use the intersection of the two
+            let mut dim: [c_long; 32] = [0; 32];
+            for (d, i, o, _) in itertools::multizip((
+                &mut dim,
+                inputi.dim_sizes(),
+                outputi.dim_sizes(),
+                (0..dimcount),
+            )) {
+                *d = std::cmp::min(*i, *o);
+            }
+
+            Ok(())
+        }
     }
 
     fn mop_setup(mop: *mut max_sys::t_jit_object) {
@@ -236,6 +283,35 @@ impl WrappedMatrixOp for JitScaleBias {
                     label.as_ptr(),
                 );
             }
+
+            let name = CString::new("mode").unwrap();
+            let label = CString::new("Mode").unwrap();
+
+            let attr = max_sys::jit_object_new(
+                max_sys::_jit_sym_jit_attr_offset,
+                name.as_ptr(),
+                max_sys::_jit_sym_long,
+                attrflags,
+                std::mem::transmute::<
+                    Option<attr::AttrTrampGetMethod<Self::Wrapper>>,
+                    Option<MaxMethod>,
+                >(Some(Self::attr_mode_tramp)),
+                std::mem::transmute::<
+                    Option<attr::AttrTrampSetMethod<Self::Wrapper>>,
+                    Option<MaxMethod>,
+                >(Some(Self::set_attr_mode_tramp)),
+                0,
+            );
+            max_sys::jit_attr_addfilterset_clip(attr, 0.0, 1.0, 1, 1); //clip to 0-1
+            max_sys::jit_class_addattr(class.inner(), attr as _);
+
+            max_sys::object_addattr_parse(
+                attr as _,
+                label_lit.as_ptr(),
+                max_sys::_jit_sym_symbol,
+                0,
+                label.as_ptr(),
+            );
 
             //setter only
 
@@ -366,6 +442,14 @@ impl JitScaleBias {
         }
     }
 
+    fn attr_mode(&self, _attr: &Attr) -> max_sys::t_atom_long {
+        self.mode.load(Ordering::Acquire) as _
+    }
+
+    fn set_attr_mode(&self, attr: &Attr, v: max_sys::t_atom_long) {
+        self.mode.store(v != 0, Ordering::Release);
+    }
+
     extern "C" fn attr_scale_tramp(
         x: *mut Wrapper<Self>,
         attr: *mut c_void,
@@ -407,6 +491,28 @@ impl JitScaleBias {
         let x = unsafe { Wrapper::wrapped(x) };
         attr::set(attr, ac, av, |attr, v: f32| {
             x.set_attr_bias(attr, v);
+        })
+    }
+
+    extern "C" fn attr_mode_tramp(
+        x: *mut Wrapper<Self>,
+        attr: *mut c_void,
+        ac: *mut c_long,
+        av: *mut *mut max_sys::t_atom,
+    ) -> max_sys::t_jit_err {
+        let x = unsafe { Wrapper::wrapped(x) };
+        attr::get(attr, ac, av, |attr| x.attr_mode(attr))
+    }
+
+    extern "C" fn set_attr_mode_tramp(
+        x: *mut Wrapper<Self>,
+        attr: *mut c_void,
+        ac: c_long,
+        av: *mut max_sys::t_atom,
+    ) -> max_sys::t_jit_err {
+        let x = unsafe { Wrapper::wrapped(x) };
+        attr::set(attr, ac, av, |attr, v: max_sys::t_atom_long| {
+            x.set_attr_mode(attr, v);
         })
     }
 }

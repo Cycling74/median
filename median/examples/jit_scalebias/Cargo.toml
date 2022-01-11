@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 median = { path = "../../" }
 field-offset = "0.3.3"
 lazy_static = "1.4.0"
+itertools = "0.10.0"
 
 [profile.release]
 lto = true
