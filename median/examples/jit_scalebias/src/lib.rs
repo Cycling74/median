@@ -488,6 +488,7 @@ impl JitScaleBias {
                 }
             }
         } else {
+            let planecount = planecount as usize;
             let width: usize = dims[0] as _;
             let height: usize = if dimcount == 1 { 1 } else { dims[1] as _ };
 
@@ -505,7 +506,7 @@ impl JitScaleBias {
             }
 
             for h in 0..height {
-                let (ip, op): (&[c_char], &mut [c_char]) = unsafe {
+                let (ip, op): (&[u8], &mut [u8]) = unsafe {
                     (
                         std::mem::transmute(std::slice::from_raw_parts_mut(
                             bip.offset(h as isize * inputi.dim_strides()[1] as isize),
@@ -520,12 +521,12 @@ impl JitScaleBias {
                 if mode {
                     // sum together, clamping to the range 0-255
                     // and set all output planes
-                    for (o, i) in op.chunks_mut(4).zip(ip.chunks(4)) {
+                    for (o, i) in op.chunks_mut(planecount).zip(ip.chunks(planecount)) {
                         let mut tmp: c_long = 0;
                         for (x, s) in i.iter().zip(scale.iter()) {
                             tmp = tmp.saturating_add((*x as c_long).saturating_mul(*s));
                         }
-                        let tmp = num::clamp((tmp >> 8).saturating_add(sumbias), 0, 255) as c_char;
+                        let tmp = num::clamp((tmp >> 8).saturating_add(sumbias), 0, 255) as u8;
                         for x in o.iter_mut() {
                             *x = tmp;
                         }
@@ -533,12 +534,12 @@ impl JitScaleBias {
                 } else {
                     // apply to each plane individually
                     // clamping to the range 0-255
-                    for (o, i) in op.chunks_mut(4).zip(ip.chunks(4)) {
+                    for (o, i) in op.chunks_mut(planecount).zip(ip.chunks(planecount)) {
                         for (o, i, s, b) in
                             itertools::multizip((o.iter_mut(), i.iter(), scale.iter(), bias.iter()))
                         {
                             *o = num::clamp(((*i as c_long).saturating_mul(*s) >> 8) + b, 0, 255)
-                                as c_char;
+                                as u8;
                         }
                     }
                 }
