@@ -10,7 +10,8 @@ use std::{
     os::raw::{c_char, c_long},
 };
 
-const JIT_MATRIX_MAX_PLANECOUNT: usize = 32;
+pub const JIT_MATRIX_MAX_PLANECOUNT: usize = 32;
+pub const JIT_MATRIX_MAX_DIMCOUNT: usize = 32;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Count {
@@ -39,6 +40,7 @@ pub struct MatrixGuard<'a> {
     lock: c_long,
 }
 
+#[repr(transparent)]
 pub struct MatrixInfo {
     inner: t_jit_matrix_info,
 }
