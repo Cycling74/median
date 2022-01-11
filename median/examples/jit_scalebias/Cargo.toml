@@ -1,0 +1,18 @@
+[package]
+name = "jit_scalebias"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2018"
+
+[lib]
+name = "jit_scalebias"
+crate-type = ["cdylib"]
+
+[dependencies]
+median = { path = "../../" }
+field-offset = "0.3.3"
+lazy_static = "1.4.0"
+
+[profile.release]
+lto = true
+panic = "abort"
