@@ -236,13 +236,6 @@ impl WrappedMatrixOp for JitScaleBias {
                     0, /* flags1 */
                     0, /* flags2 */
                 );
-
-                //XXX how to make dim live long enough?
-                dim[1] = 2;
-                let _ = inputd.inner();
-                let _ = outputd.inner();
-                let _ = inputi.dim_count();
-                let _ = outputi.dim_count();
             }
             Ok(())
         }
