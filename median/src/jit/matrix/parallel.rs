@@ -4,14 +4,14 @@ pub type MatrixDataInfo<'a> = (&'a MatrixInfo, &'a MatrixData<'a>);
 
 struct ParallelCalcHolder<F, const N: usize>
 where
-    F: Send + Sync + Fn(usize, &[c_long], usize, &[MatrixDataInfo<'_>; N]),
+    F: Send + Sync + Fn(usize, &[c_long; JIT_MATRIX_MAX_DIMCOUNT], usize, &[MatrixDataInfo<'_>; N]),
 {
     func: F,
 }
 
 impl<F> ParallelCalcHolder<F, 2>
 where
-    F: Send + Sync + Fn(usize, &[c_long], usize, &[MatrixDataInfo<'_>; 2]),
+    F: Send + Sync + Fn(usize, &[c_long; JIT_MATRIX_MAX_DIMCOUNT], usize, &[MatrixDataInfo<'_>; 2]),
 {
     extern "C" fn compute_matrix(
         &self,
@@ -27,7 +27,7 @@ where
             (
                 MatrixData::new(m0),
                 MatrixData::new(m1),
-                std::slice::from_raw_parts(dim, JIT_MATRIX_MAX_DIMCOUNT),
+                std::mem::transmute(dim),
             )
         };
         (self.func)(
@@ -41,7 +41,7 @@ where
 
 impl<F> ParallelCalcHolder<F, 3>
 where
-    F: Send + Sync + Fn(usize, &[c_long], usize, &[MatrixDataInfo<'_>; 3]),
+    F: Send + Sync + Fn(usize, &[c_long; JIT_MATRIX_MAX_DIMCOUNT], usize, &[MatrixDataInfo<'_>; 3]),
 {
     extern "C" fn compute_matrix(
         &self,
@@ -67,7 +67,7 @@ pub fn calc2<'a, F>(
     flags: &[c_long; 2],
     func: F,
 ) where
-    F: Send + Sync + Fn(usize, &[c_long], usize, &[MatrixDataInfo<'_>; 2]),
+    F: Send + Sync + Fn(usize, &[c_long; JIT_MATRIX_MAX_DIMCOUNT], usize, &[MatrixDataInfo<'_>; 2]),
 {
     let holder: ParallelCalcHolder<F, 2> = ParallelCalcHolder { func };
     unsafe {
@@ -107,7 +107,7 @@ pub fn calc3<'a, F>(
     flags: &[c_long; 3],
     func: F,
 ) where
-    F: Send + Sync + Fn(usize, &[c_long], usize, &[MatrixDataInfo<'_>; 3]),
+    F: Send + Sync + Fn(usize, &[c_long; JIT_MATRIX_MAX_DIMCOUNT], usize, &[MatrixDataInfo<'_>; 3]),
 {
     let holder: ParallelCalcHolder<F, 3> = ParallelCalcHolder { func };
     unsafe {
