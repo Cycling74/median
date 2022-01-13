@@ -6,8 +6,8 @@ use median::{
         attr,
         attr::Attr,
         matrix::{
-            Count, IOCount, JitObj, Matrix, MatrixInfo, WrappedMatrixOp, Wrapper,
-            JIT_MATRIX_MAX_DIMCOUNT,
+            iter::Matrix2DEntryIter, Count, IOCount, JitObj, Matrix, MatrixInfo, WrappedMatrixOp,
+            Wrapper, JIT_MATRIX_MAX_DIMCOUNT,
         },
     },
     max_sys,
@@ -526,6 +526,13 @@ impl JitScaleBias {
             let width: usize = dims[0] as _;
             let height: usize = if dimcount == 1 { 1 } else { dims[1] as _ };
 
+            let (ini, outi): (Matrix2DEntryIter<u8>, Matrix2DEntryIter<u8>) = unsafe {
+                (
+                    Matrix2DEntryIter::new(bip, inputi).unwrap(),
+                    Matrix2DEntryIter::new(bop, outputi).unwrap(),
+                )
+            };
+
             let mut scale: [c_long; 4] = [0; 4];
             let mut bias: [c_long; 4] = [0; 4];
             let mut sumbias: c_long = 0;
@@ -539,6 +546,32 @@ impl JitScaleBias {
                 sumbias += *b;
             }
 
+            if mode {
+                // sum together, clamping to the range 0-255
+                // and set all output planes
+                for (o, i) in outi.zip(ini) {
+                    let mut tmp: c_long = 0;
+                    for (x, s) in i.iter().zip(scale.iter()) {
+                        tmp = tmp.saturating_add((*x as c_long).saturating_mul(*s));
+                    }
+                    let tmp = num::clamp((tmp >> 8).saturating_add(sumbias), 0, 255) as u8;
+                    for x in o.iter_mut() {
+                        *x = tmp;
+                    }
+                }
+            } else {
+                // apply to each plane individually
+                // clamping to the range 0-255
+                for (o, i) in outi.zip(ini) {
+                    for (o, i, s, b) in
+                        itertools::multizip((o.iter_mut(), i.iter(), scale.iter(), bias.iter()))
+                    {
+                        *o = num::clamp(((*i as c_long).saturating_mul(*s) >> 8) + b, 0, 255) as u8;
+                    }
+                }
+            }
+
+            /*
             for h in 0..height {
                 let (ip, op): (&[u8], &mut [u8]) = unsafe {
                     (
@@ -578,6 +611,7 @@ impl JitScaleBias {
                     }
                 }
             }
+            */
         }
     }
 
