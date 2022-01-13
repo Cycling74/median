@@ -6,9 +6,12 @@ use max_sys::{t_jit_err, t_jit_matrix_info, t_jit_object};
 
 use std::{
     ffi::{c_void, CString},
+    marker::PhantomData,
     mem::MaybeUninit,
     os::raw::{c_char, c_long},
 };
+
+pub mod parallel;
 
 pub const JIT_MATRIX_MAX_PLANECOUNT: usize = 32;
 pub const JIT_MATRIX_MAX_DIMCOUNT: usize = 32;
@@ -45,9 +48,33 @@ pub struct MatrixInfo {
     inner: t_jit_matrix_info,
 }
 
-pub struct MatrixData<'a, 'b> {
+pub struct MatrixData<'a> {
     inner: *mut c_char,
-    _guard: &'b MatrixGuard<'a>,
+    _phantom: PhantomData<&'a ()>,
+}
+
+//iterator types can be u8, f32, f64, t_atom_long
+
+//iterators could pad with zeros if the requested size is bigger than the data size
+//need to allow for mut versions
+
+// iterate over the 2d segements of the matrix
+// simulates the recursive reduction
+pub struct Matrix2dIter<T> {
+    _phantom: T,
+}
+
+// iterate over each entry in the matrix;
+// simulates the recursive reduction and supplies a plane iterator per entry (aka pixel)
+pub struct MatrixEntryIter<T> {
+    _phantom: T,
+}
+
+impl<T> Iterator for MatrixEntryIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 /// Trait for a Wrapped Matrix operator
@@ -122,8 +149,19 @@ impl<'a> MatrixGuard<'a> {
         }
     }
 
+    /// Set/overwrite the info for this matrix
+    pub fn set_info(&mut self, info: MatrixInfo) {
+        unsafe {
+            max_sys::jit_object_method(
+                self.matrix.inner(),
+                max_sys::_jit_sym_setinfo_ex,
+                info.inner(),
+            );
+        }
+    }
+
     /// Get the Matrix Data, if there is any
-    pub fn data(&mut self) -> Option<MatrixData<'a, '_>> {
+    pub fn data(&mut self) -> Option<MatrixData<'_>> {
         unsafe {
             let mut p: MaybeUninit<*mut c_char> = MaybeUninit::zeroed();
             max_sys::jit_object_method(
@@ -138,9 +176,16 @@ impl<'a> MatrixGuard<'a> {
             } else {
                 Some(MatrixData {
                     inner,
-                    _guard: self,
+                    _phantom: Default::default(),
                 })
             }
+        }
+    }
+
+    /// Set the data for this matrix
+    pub fn set_data(&mut self, data: &MatrixData<'_>) {
+        unsafe {
+            max_sys::jit_object_method(self.matrix.inner(), max_sys::_jit_sym_data, data.inner());
         }
     }
 }
@@ -153,9 +198,16 @@ impl<'a> Drop for MatrixGuard<'a> {
     }
 }
 
-impl<'a, 'b> MatrixData<'a, 'b> {
+impl<'a> MatrixData<'a> {
+    unsafe fn new(inner: *mut c_char) -> Self {
+        Self {
+            inner,
+            _phantom: Default::default(),
+        }
+    }
+
     /// Get a raw pointer to the matrix data.
-    pub fn inner(&mut self) -> *mut c_char {
+    pub fn inner(&self) -> *mut c_char {
         self.inner
     }
 }
@@ -241,6 +293,7 @@ impl MatrixInfo {
         self.inner.dimcount as _
     }
 
+    /// Se the number of dimensions
     pub fn set_dim_count(&mut self, v: usize) {
         self.inner.dimcount = v as _;
     }
@@ -269,6 +322,11 @@ impl MatrixInfo {
     /// Set the number of planes
     pub fn set_plane_count(&mut self, v: usize) {
         self.inner.planecount = v as _;
+    }
+
+    /// Get a raw pointer to the inner `max_sys::t_jit_matrix_info` struct
+    pub fn inner(&self) -> *const t_jit_matrix_info {
+        &self.inner as _
     }
 }
 
