@@ -5,6 +5,8 @@ use crate::jit::JitResult;
 
 use std::any::TypeId;
 
+const MATRIX_2D_REDUCE_DIM_COUNT: usize = JIT_MATRIX_MAX_DIMCOUNT as usize - 2;
+
 //iterator types can be u8, f32, f64, t_atom_long
 //iterators could pad with zeros if the requested size is bigger than the data size
 
@@ -55,6 +57,29 @@ pub struct Matrix2DEntryIter<'a, T> {
 
     plane_count: usize,
     rows_stride: isize,
+    _phantom: PhantomData<&'a T>,
+}
+
+struct ChunkIterData {
+    ptr: *mut c_char,
+    stride: isize,
+    len: usize,
+    index: usize,
+}
+
+/// A 2D chunk of a matrix
+pub struct Matrix2DChunk<'a, T> {
+    inner: *mut c_char,
+    info: MatrixInfo,
+    _phantom: PhantomData<&'a T>,
+}
+
+/// Iterate over a Matrix in 2D chunks
+pub struct Matrix2DChunkIter<'a, T> {
+    _inner: *mut c_char,
+    info: MatrixInfo,
+    dims: [ChunkIterData; MATRIX_2D_REDUCE_DIM_COUNT],
+    count: usize, //how many dimensions total (not including 2d)
     _phantom: PhantomData<&'a T>,
 }
 
@@ -134,3 +159,168 @@ where
         self.rows * self.cols
     }
 }
+
+impl ChunkIterData {
+    fn done(&self) -> bool {
+        self.index >= self.len
+    }
+    fn reset(&mut self, p: *mut c_char) {
+        self.ptr = p;
+        self.index = 0;
+    }
+    //incr and indicate overflow
+    fn incr(&mut self) -> bool {
+        self.index += 1;
+        unsafe {
+            self.ptr = self.ptr.offset(self.stride);
+        }
+        self.index >= self.len
+    }
+    fn ptr(&self) -> *mut c_char {
+        self.ptr
+    }
+}
+
+impl Default for ChunkIterData {
+    fn default() -> Self {
+        Self {
+            ptr: std::ptr::null_mut(),
+            index: 0,
+            len: 0,
+            stride: 0,
+        }
+    }
+}
+
+impl<'a, T> Matrix2DChunk<'a, T>
+where
+    T: JitEntryType,
+{
+    pub unsafe fn new(inner: *mut c_char, info: MatrixInfo) -> JitResult<Self> {
+        assert_type::<T>(&info)?;
+
+        //XXX assert details
+        Ok(Self {
+            inner,
+            info,
+            _phantom: Default::default(),
+        })
+    }
+
+    /// Get an interator to each entry in the Matrix
+    pub fn entry_iter(&self) -> Matrix2DEntryIter<'_, T> {
+        unsafe { Matrix2DEntryIter::new(self.inner, &self.info).unwrap() }
+    }
+}
+
+impl<'a, T> Matrix2DChunkIter<'a, T>
+where
+    T: JitEntryType,
+{
+    pub unsafe fn new(
+        dimcount: usize,
+        dim: &[c_long; JIT_MATRIX_MAX_DIMCOUNT],
+        planecount: usize,
+        info: &MatrixInfo,
+        inner: *mut c_char,
+    ) -> JitResult<Self> {
+        assert!(dimcount > 0 && dimcount < JIT_MATRIX_MAX_DIMCOUNT);
+        assert!(planecount > 0);
+        assert_type::<T>(info)?;
+
+        //update some items here
+        let mut info = info.clone();
+        info.set_plane_count(planecount);
+
+        //clamp to thet smallest dimension
+        for (o, i) in info.dim_sizes_mut().iter_mut().zip(dim.iter()) {
+            *o = std::cmp::min(*i, *o);
+        }
+
+        let mut dims: [ChunkIterData; MATRIX_2D_REDUCE_DIM_COUNT] = Default::default();
+        let mut count = 1;
+        //if there are fewer than 3 dimensions, add a single 3d entry so we have a length of 1
+        if dimcount < 3 {
+            let mut first = &mut dims[0];
+            first.ptr = inner;
+            first.index = 0;
+            first.len = 1;
+            first.stride = 0; //doesn't matter
+
+            //1d special case.. needed?
+            if dimcount < 2 {
+                info.dim_sizes_mut()[1] = 1;
+            }
+        } else {
+            count = dimcount - 2;
+            let indim = dim;
+            for (o, d, s) in itertools::multizip((
+                dims.iter_mut(),
+                indim[2..=dimcount].iter(),
+                info.dim_strides()[2..=dimcount].iter(),
+            )) {
+                assert!(*d > 0);
+                assert!(*s > 0);
+                o.index = 0;
+                o.ptr = inner;
+                o.len = *d as _;
+                o.stride = *s as isize;
+            }
+        }
+
+        Ok(Self {
+            _inner: inner,
+            info,
+            dims,
+            count,
+            _phantom: Default::default(),
+        })
+    }
+}
+
+impl<'a, T> Iterator for Matrix2DChunkIter<'a, T>
+where
+    T: JitEntryType,
+{
+    type Item = Matrix2DChunk<'a, T>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.dims[self.count - 1].done() {
+            None
+        } else {
+            //get
+            let first = &self.dims[0];
+            let cur: Self::Item =
+                unsafe { Matrix2DChunk::new(first.ptr, self.info.clone()).expect("type match") };
+            //iterate dimensions.. if there is an overflow, check the next, if it doesn't then
+            //reset all the previous with the next's ptr
+            if self.dims[0].incr() {
+                let mut reset: Option<(*mut c_char, usize)> = None;
+                for (i, d) in self.dims[1..self.count].iter_mut().enumerate() {
+                    if !d.incr() {
+                        reset = Some((d.ptr(), i + 2)); //we skip the first entry
+                        break;
+                    }
+                }
+                if let Some((reset, end)) = reset {
+                    for d in self.dims[0..end].iter_mut() {
+                        d.reset(reset)
+                    }
+                } else {
+                    //TODO assert last is done?
+                }
+            }
+
+            Some(cur)
+        }
+    }
+}
+
+/* TODO
+impl<'a, T> ExactSizeIterator for Matrix2DChunkIter<'a, T>
+where
+    T: JitEntryType,
+{
+    fn len(&self) -> usize {
+    }
+}
+*/

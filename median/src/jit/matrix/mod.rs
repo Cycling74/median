@@ -45,6 +45,7 @@ pub struct MatrixGuard<'a> {
 }
 
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct MatrixInfo {
     inner: t_jit_matrix_info,
 }
