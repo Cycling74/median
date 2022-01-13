@@ -18,7 +18,7 @@ impl JitEntryType for f32 {}
 impl JitEntryType for f64 {}
 impl JitEntryType for max_sys::t_atom_long {}
 
-fn assert_type<T: JitEntryType>(info: &MatrixInfo) -> JitResult<()> {
+pub fn assert_type<T: JitEntryType>(info: &MatrixInfo) -> JitResult<()> {
     //assert that we have the correct size
     let id = if info.is_char() {
         TypeId::of::<u8>()

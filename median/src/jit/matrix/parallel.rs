@@ -1,4 +1,6 @@
+use super::iter::Matrix2DChunkIter;
 use super::*;
+use crate::jit::JitResult;
 
 pub type MatrixDataInfo<'a> = (&'a MatrixInfo, &'a MatrixData<'a>);
 
@@ -97,6 +99,62 @@ pub fn calc2<'a, F>(
             flags[1],
         );
     }
+}
+
+pub fn calc2_intersection<'a, F>(matrix: &[MatrixDataInfo<'a>; 2], flags: &[c_long; 2], func: F)
+where
+    F: Send + Sync + Fn(usize, &[c_long; JIT_MATRIX_MAX_DIMCOUNT], usize, &[MatrixDataInfo<'_>; 2]),
+{
+    let dim_count = std::cmp::min(matrix[0].0.dim_count(), matrix[1].0.dim_count());
+    let plane_count = std::cmp::min(matrix[0].0.plane_count(), matrix[1].0.plane_count());
+    let mut dim: [c_long; JIT_MATRIX_MAX_DIMCOUNT] = [0; JIT_MATRIX_MAX_DIMCOUNT];
+    for (d, i, o, _) in itertools::multizip((
+        &mut dim,
+        matrix[0].0.dim_sizes(),
+        matrix[1].0.dim_sizes(),
+        (0..dim_count),
+    )) {
+        *d = std::cmp::min(*i, *o);
+    }
+    calc2(dim_count, &dim, plane_count, matrix, flags, func);
+}
+
+pub fn calc2_intersection2d<'a, F, T0, T1>(
+    matrix: &[MatrixDataInfo<'a>; 2],
+    flags: &[c_long; 2],
+    func: F,
+) -> JitResult<()>
+where
+    F: Send + Sync + Fn(Matrix2DChunkIter<'_, T0>, Matrix2DChunkIter<'_, T1>),
+    T0: iter::JitEntryType,
+    T1: iter::JitEntryType,
+{
+    iter::assert_type::<T0>(matrix[0].0)?;
+    iter::assert_type::<T1>(matrix[1].0)?;
+    calc2_intersection(matrix, flags, |dimcount, dims, planes, matrices| {
+        let m0: Matrix2DChunkIter<'_, T0> = unsafe {
+            Matrix2DChunkIter::new(
+                dimcount as _,
+                dims,
+                planes as _,
+                matrices[0].0,
+                matrices[0].1.inner(),
+            )
+            .unwrap()
+        };
+        let m1: Matrix2DChunkIter<'_, T1> = unsafe {
+            Matrix2DChunkIter::new(
+                dimcount as _,
+                dims,
+                planes as _,
+                matrices[1].0,
+                matrices[1].1.inner(),
+            )
+            .unwrap()
+        };
+        func(m0, m1);
+    });
+    Ok(())
 }
 
 pub fn calc3<'a, F>(
