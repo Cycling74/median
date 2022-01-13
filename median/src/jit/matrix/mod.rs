@@ -11,6 +11,7 @@ use std::{
     os::raw::{c_char, c_long},
 };
 
+pub mod iter;
 pub mod parallel;
 
 pub const JIT_MATRIX_MAX_PLANECOUNT: usize = 32;
@@ -51,30 +52,6 @@ pub struct MatrixInfo {
 pub struct MatrixData<'a> {
     inner: *mut c_char,
     _phantom: PhantomData<&'a ()>,
-}
-
-//iterator types can be u8, f32, f64, t_atom_long
-
-//iterators could pad with zeros if the requested size is bigger than the data size
-//need to allow for mut versions
-
-// iterate over the 2d segements of the matrix
-// simulates the recursive reduction
-pub struct Matrix2dIter<T> {
-    _phantom: T,
-}
-
-// iterate over each entry in the matrix;
-// simulates the recursive reduction and supplies a plane iterator per entry (aka pixel)
-pub struct MatrixEntryIter<T> {
-    _phantom: T,
-}
-
-impl<T> Iterator for MatrixEntryIter<T> {
-    type Item = T;
-    fn next(&mut self) -> Option<Self::Item> {
-        None
-    }
 }
 
 /// Trait for a Wrapped Matrix operator
