@@ -177,27 +177,12 @@ impl WrappedMatrixOp for JitScaleBias {
         } else if inputi.plane_count() != 4 || outputi.plane_count() != 4 {
             Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE)
         } else {
-            let mut inputd = inputl
+            let inputd = inputl
                 .data()
                 .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
-            let mut outputd = outputl
+            let outputd = outputl
                 .data()
                 .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_OUTPUT)?;
-
-            //DO THE WORK
-            let dimcount = outputi.dim_count();
-            let planecount = outputi.plane_count();
-
-            // if input and output are not matched in size, use the intersection of the two
-            let mut dim: [c_long; JIT_MATRIX_MAX_DIMCOUNT] = [0; JIT_MATRIX_MAX_DIMCOUNT];
-            for (d, i, o, _) in itertools::multizip((
-                &mut dim,
-                inputi.dim_sizes(),
-                outputi.dim_sizes(),
-                (0..dimcount),
-            )) {
-                *d = std::cmp::min(*i, *o);
-            }
 
             let mut scale: [c_long; 4] = [0; 4];
             let mut bias: [c_long; 4] = [0; 4];
@@ -212,36 +197,15 @@ impl WrappedMatrixOp for JitScaleBias {
                 sumbias += *b;
             }
 
-            jit::matrix::parallel::calc2(
-                dimcount,
-                &dim,
-                planecount,
-                &[(&inputi, &inputd), (&outputi, &outputd)],
-                &[0, 0],
-                |dimcount, dims, planes, matrices| {
-                    let outs: Matrix2DChunkIter<'_, u8> = unsafe {
-                        Matrix2DChunkIter::new(
-                            dimcount as _,
-                            dims,
-                            planes as _,
-                            matrices[1].0,
-                            matrices[1].1.inner(),
-                        )
-                        .unwrap()
-                    };
-                    let ins: Matrix2DChunkIter<'_, u8> = unsafe {
-                        Matrix2DChunkIter::new(
-                            dimcount as _,
-                            dims,
-                            planes as _,
-                            matrices[0].0,
-                            matrices[0].1.inner(),
-                        )
-                        .unwrap()
-                    };
+            let matrices = [(&outputi, &outputd), (&inputi, &inputd)];
+            let flags = [0, 0];
 
-                    for (o, i) in outs.zip(ins) {
-                        if mode {
+            if mode {
+                jit::matrix::parallel::calc2_intersection2d::<_, u8, u8>(
+                    &matrices,
+                    &flags,
+                    |outs, ins| {
+                        for (o, i) in outs.zip(ins) {
                             // sum together, clamping to the range 0-255
                             // and set all output planes
                             for (o, i) in o.entry_iter().zip(i.entry_iter()) {
@@ -255,7 +219,15 @@ impl WrappedMatrixOp for JitScaleBias {
                                     *x = tmp;
                                 }
                             }
-                        } else {
+                        }
+                    },
+                )
+            } else {
+                jit::matrix::parallel::calc2_intersection2d::<_, u8, u8>(
+                    &matrices,
+                    &flags,
+                    |outs, ins| {
+                        for (o, i) in outs.zip(ins) {
                             // apply to each plane individually
                             // clamping to the range 0-255
                             for (o, i) in o.entry_iter().zip(i.entry_iter()) {
@@ -273,10 +245,9 @@ impl WrappedMatrixOp for JitScaleBias {
                                 }
                             }
                         }
-                    }
-                },
-            );
-            Ok(())
+                    },
+                )
+            }
         }
     }
 
