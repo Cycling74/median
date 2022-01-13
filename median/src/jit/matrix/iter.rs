@@ -1,27 +1,39 @@
 //! Matrix iterators
 
 use super::*;
+use crate::jit::JitResult;
+
+use std::any::TypeId;
 
 //iterator types can be u8, f32, f64, t_atom_long
 //iterators could pad with zeros if the requested size is bigger than the data size
 
-fn assert_size<T>(info: &MatrixInfo) -> Result<(), ()> {
+/// Marker type for jitter matrix entries
+pub trait JitEntryType: 'static {}
+
+impl JitEntryType for u8 {}
+impl JitEntryType for f32 {}
+impl JitEntryType for f64 {}
+impl JitEntryType for max_sys::t_atom_long {}
+
+fn assert_type<T: JitEntryType>(info: &MatrixInfo) -> JitResult<()> {
     //assert that we have the correct size
-    let s = if info.is_char() {
-        std::mem::size_of::<u8>()
+    let id = if info.is_char() {
+        TypeId::of::<u8>()
     } else if info.is_f32() {
-        std::mem::size_of::<f32>()
+        TypeId::of::<f32>()
     } else if info.is_f64() {
-        std::mem::size_of::<f64>()
+        TypeId::of::<f64>()
     } else if info.is_long() {
-        std::mem::size_of::<max_sys::t_atom_long>()
+        TypeId::of::<max_sys::t_atom_long>()
     } else {
+        //shouldn't ever happen because of JitEntryType
         panic!("unsupported type");
     };
-    if s == std::mem::size_of::<T>() {
+    if id == TypeId::of::<T>() {
         Ok(())
     } else {
-        Err(())
+        Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_TYPE)
     }
 }
 
@@ -46,10 +58,13 @@ pub struct Matrix2DEntryIter<'a, T> {
     _phantom: PhantomData<&'a T>,
 }
 
-impl<'a, T> Matrix2DEntryIter<'a, T> {
-    pub unsafe fn new(inner: *mut c_char, info: &MatrixInfo) -> Result<Self, ()> {
-        //assert that we have the correct size
-        assert_size::<T>(info)?;
+impl<'a, T> Matrix2DEntryIter<'a, T>
+where
+    T: JitEntryType,
+{
+    pub unsafe fn new(inner: *mut c_char, info: &MatrixInfo) -> JitResult<Self> {
+        //assert that we have the correct type
+        assert_type::<T>(info)?;
 
         assert!(!inner.is_null());
         assert!(info.dim_count() > 0);
@@ -79,7 +94,10 @@ impl<'a, T> Matrix2DEntryIter<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for Matrix2DEntryIter<'a, T> {
+impl<'a, T> Iterator for Matrix2DEntryIter<'a, T>
+where
+    T: JitEntryType,
+{
     type Item = &'a mut [T];
     fn next(&mut self) -> Option<Self::Item> {
         if self.indexr < self.rows {
@@ -108,7 +126,10 @@ impl<'a, T> Iterator for Matrix2DEntryIter<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for Matrix2DEntryIter<'a, T> {
+impl<'a, T> ExactSizeIterator for Matrix2DEntryIter<'a, T>
+where
+    T: JitEntryType,
+{
     fn len(&self) -> usize {
         self.rows * self.cols
     }
