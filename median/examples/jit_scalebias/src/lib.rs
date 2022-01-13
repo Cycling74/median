@@ -197,9 +197,19 @@ impl WrappedMatrixOp for JitScaleBias {
             )) {
                 *d = std::cmp::min(*i, *o);
             }
+            jit::matrix::parallel::calc2(
+                dimcount,
+                &dim,
+                planecount,
+                &[(&inputi, &inputd), (&outputi, &outputd)],
+                &[0, 0],
+                |dimcount, dims, planes, matrices| {
+                    self.compute_matrixa(dimcount, dims, planes, matrices);
+                },
+            );
+            /*
 
             unsafe {
-                /*
                 self.compute_matrix(
                     dimcount as _,
                     dim.as_ptr(),
@@ -209,7 +219,6 @@ impl WrappedMatrixOp for JitScaleBias {
                     std::mem::transmute(&outputi),
                     outputd.inner(),
                 );
-                */
 
                 max_sys::jit_parallel_ndim_simplecalc2(
                     Some(std::mem::transmute::<
@@ -237,6 +246,7 @@ impl WrappedMatrixOp for JitScaleBias {
                     0, /* flags2 */
                 );
             }
+                */
             Ok(())
         }
     }
@@ -422,6 +432,8 @@ impl WrappedMatrixOp for JitScaleBias {
 
 use std::convert::TryFrom;
 
+use jit::matrix::parallel::MatrixDataInfo;
+
 impl JitScaleBias {
     fn scale_index(name: SymbolRef) -> usize {
         if name == *R_SCALE {
@@ -446,6 +458,24 @@ impl JitScaleBias {
         }
     }
 
+    fn compute_matrixa(
+        &self,
+        dimcount: usize,
+        dim: &[c_long],
+        planecount: usize,
+        matrices: &[MatrixDataInfo<'_>; 2],
+    ) {
+        self.compute_matrix(
+            dimcount as _,
+            dim.as_ptr(),
+            planecount as _,
+            matrices[0].0,
+            matrices[0].1.inner(),
+            matrices[1].0,
+            matrices[1].1.inner(),
+        )
+    }
+
     fn compute_matrix(
         &self,
         dimcount: c_long,
@@ -457,6 +487,17 @@ impl JitScaleBias {
         bop: *mut c_char,
     ) {
         let dims: &[c_long] = unsafe { std::slice::from_raw_parts(dim, JIT_MATRIX_MAX_DIMCOUNT) };
+
+        //recursive function is basically segmenting the chunks..
+        //3 dimensions -> [size h, size w, size z]
+        //0..z offset by stride
+        //then compute 2d
+        //
+        //4 dimensions -> [size h, size w, size z, size p]
+        //0..p offset by stride
+        //0..z offset by stride
+        //compute 2d
+
         if dimcount == 0 {
             return;
         } else if dimcount > 2 {
