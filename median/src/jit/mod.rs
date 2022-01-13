@@ -6,6 +6,9 @@ pub mod attr;
 pub mod matrix;
 pub mod ob3d;
 
+pub type JitError = max_sys::t_jit_error_code::Type;
+pub type JitResult<T> = Result<T, JitError>;
+
 /// Wrap the Jitter class pointer so we can use it across threads
 #[repr(transparent)]
 pub struct Class {
