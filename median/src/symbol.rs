@@ -92,6 +92,12 @@ impl From<*mut max_sys::t_symbol> for SymbolRef {
     }
 }
 
+impl From<&SymbolRef> for SymbolRef {
+    fn from(v: &SymbolRef) -> Self {
+        unsafe { SymbolRef::new(v.inner()) }
+    }
+}
+
 impl From<&CStr> for SymbolRef {
     fn from(v: &CStr) -> Self {
         unsafe { SymbolRef::new(max_sys::gensym(v.as_ptr())) }

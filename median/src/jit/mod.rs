@@ -27,3 +27,11 @@ unsafe impl Send for Class {}
 lazy_static::lazy_static! {
     pub(crate) static ref CLASSES: Mutex<HashMap<&'static str, Class>> = Mutex::new(HashMap::new());
 }
+
+pub fn result_wrap<T>(code: max_sys::t_jit_error_code::Type, v: T) -> JitResult<T> {
+    if code == max_sys::t_jit_error_code::JIT_ERR_NONE {
+        Ok(v)
+    } else {
+        Err(code)
+    }
+}
