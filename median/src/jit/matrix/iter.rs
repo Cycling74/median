@@ -226,6 +226,7 @@ where
     ) -> JitResult<Self> {
         assert!(dimcount > 0 && dimcount < JIT_MATRIX_MAX_DIMCOUNT);
         assert!(planecount > 0);
+        assert_ne!(inner, std::ptr::null_mut());
         assert_type::<T>(info)?;
 
         //update some items here
@@ -256,8 +257,8 @@ where
             let indim = dim;
             for (o, d, s) in itertools::multizip((
                 dims.iter_mut(),
-                indim[2..=dimcount].iter(),
-                info.dim_strides()[2..=dimcount].iter(),
+                indim[2..dimcount].iter(),
+                info.dim_strides()[2..dimcount].iter(),
             )) {
                 assert!(*d > 0);
                 assert!(*s > 0);
@@ -297,7 +298,8 @@ where
                 let mut reset: Option<(*mut c_char, usize)> = None;
                 for (i, d) in self.dims[1..self.count].iter_mut().enumerate() {
                     if !d.incr() {
-                        reset = Some((d.ptr(), i + 2)); //we skip the first entry
+                        //we skip the first entry and we don't want to reset this entry again
+                        reset = Some((d.ptr(), i + 1));
                         break;
                     }
                 }
