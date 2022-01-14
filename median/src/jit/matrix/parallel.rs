@@ -120,7 +120,8 @@ where
 }
 
 pub fn calc2_intersection2d<'a, F, T0, T1>(
-    matrix: &[MatrixDataInfo<'a>; 2],
+    m0: &mut MatrixGuard<'a>,
+    m1: &mut MatrixGuard<'a>,
     flags: &[c_long; 2],
     func: F,
 ) -> JitResult<()>
@@ -129,9 +130,22 @@ where
     T0: iter::JitEntryType,
     T1: iter::JitEntryType,
 {
-    iter::assert_type::<T0>(matrix[0].0)?;
-    iter::assert_type::<T1>(matrix[1].0)?;
-    calc2_intersection(matrix, flags, |dimcount, dims, planes, matrices| {
+    let m0i = m0.info();
+    let m1i = m0.info();
+
+    iter::assert_type::<T0>(&m0i)?;
+    iter::assert_type::<T1>(&m1i)?;
+
+    let m0d = m0
+        .data()
+        .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
+    let m1d = m1
+        .data()
+        .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
+
+    let matrix = [(&m0i, &m0d), (&m1i, &m1d)];
+
+    calc2_intersection(&matrix, flags, |dimcount, dims, planes, matrices| {
         let m0: Matrix2DChunkIter<'_, T0> = unsafe {
             Matrix2DChunkIter::new(
                 dimcount as _,
