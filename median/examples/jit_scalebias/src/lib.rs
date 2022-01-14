@@ -4,12 +4,8 @@ use median::{
     jit,
     jit::{
         attr,
-        attr::Attr,
-        matrix::{
-            iter::{Matrix2DChunkIter, Matrix2DEntryIter},
-            Count, IOCount, JitObj, Matrix, MatrixInfo, WrappedMatrixOp, Wrapper,
-            JIT_MATRIX_MAX_DIMCOUNT,
-        },
+        attr::{Attr, AttrBuilder, AttrClip, AttrType, AttrValClip},
+        matrix::{Count, IOCount, JitObj, Matrix, WrappedMatrixOp, Wrapper},
     },
     max_sys,
     method::MaxMethod,
@@ -259,173 +255,77 @@ impl WrappedMatrixOp for JitScaleBias {
     }
 
     fn class_setup(class: &jit::Class) {
-        let attrflags: c_long = (max_sys::t_jit_attr_flags::JIT_ATTR_GET_DEFER_LOW
-            | max_sys::t_jit_attr_flags::JIT_ATTR_SET_USURP_LOW)
-            as _;
+        for (name, label) in [
+            ("ascale", "Alpha"),
+            ("rscale", "Red"),
+            ("gscale", "Green"),
+            ("bscale", "Blue"),
+        ] {
+            let label = format!("\"{} Scale\"", label);
+            let attr = AttrBuilder::new_accessors(
+                name,
+                AttrType::Float32,
+                Self::attr_scale_tramp,
+                Self::set_attr_scale_tramp,
+            )
+            .label(label.as_str())
+            .build()
+            .unwrap();
+            unsafe {
+                max_sys::jit_class_addattr(class.inner(), attr.inner() as _);
+            }
+        }
 
+        for (name, label) in [
+            ("abias", "Alpha"),
+            ("rbias", "Red"),
+            ("gbias", "Green"),
+            ("bbias", "Blue"),
+        ] {
+            let label = format!("\"{} Bias\"", label);
+            let attr = AttrBuilder::new_accessors(
+                name,
+                AttrType::Float32,
+                Self::attr_bias_tramp,
+                Self::set_attr_bias_tramp,
+            )
+            .label(label.as_str())
+            .build()
+            .unwrap();
+            unsafe {
+                max_sys::jit_class_addattr(class.inner(), attr.inner() as _);
+            }
+        }
+
+        let attr = AttrBuilder::new_accessors(
+            "mode",
+            AttrType::Int64,
+            Self::attr_mode_tramp,
+            Self::set_attr_mode_tramp,
+        )
+        .clip(AttrClip::Set(AttrValClip::MinMax(0.0, 1.0)))
+        .label("Mode")
+        .build()
+        .unwrap();
         unsafe {
-            let label_lit = CString::new("label").unwrap();
+            max_sys::jit_class_addattr(class.inner(), attr.inner() as _);
+        }
 
-            for (name, label) in [
-                ("ascale", "Alpha"),
-                ("rscale", "Red"),
-                ("gscale", "Green"),
-                ("bscale", "Blue"),
-            ] {
-                let name = CString::new(name).unwrap();
-                let label = CString::new(format!("\"{} Scale\"", label)).unwrap();
+        //setter only
+        let attr = AttrBuilder::new_set("scale", AttrType::Float32, Self::set_attr_scale_tramp)
+            .label("Scale")
+            .build()
+            .unwrap();
+        unsafe {
+            max_sys::jit_class_addattr(class.inner(), attr.inner() as _);
+        }
 
-                let attr = max_sys::jit_object_new(
-                    max_sys::_jit_sym_jit_attr_offset,
-                    name.as_ptr(),
-                    max_sys::_jit_sym_float32,
-                    attrflags,
-                    Some(std::mem::transmute::<
-                        attr::AttrTrampGetMethod<Self::Wrapper>,
-                        MaxMethod,
-                    >(Self::attr_scale_tramp)),
-                    Some(std::mem::transmute::<
-                        attr::AttrTrampSetMethod<Self::Wrapper>,
-                        MaxMethod,
-                    >(Self::set_attr_scale_tramp)),
-                    0,
-                );
-                max_sys::jit_class_addattr(class.inner(), attr as _);
-
-                max_sys::object_addattr_parse(
-                    attr as _,
-                    label_lit.as_ptr(),
-                    max_sys::_jit_sym_symbol,
-                    0,
-                    label.as_ptr(),
-                );
-            }
-
-            for (name, label) in [
-                ("abias", "Alpha"),
-                ("rbias", "Red"),
-                ("gbias", "Green"),
-                ("bbias", "Blue"),
-            ] {
-                let name = CString::new(name).unwrap();
-                let label = CString::new(format!("\"{} Bias\"", label)).unwrap();
-
-                let attr = max_sys::jit_object_new(
-                    max_sys::_jit_sym_jit_attr_offset,
-                    name.as_ptr(),
-                    max_sys::_jit_sym_float32,
-                    attrflags,
-                    Some(std::mem::transmute::<
-                        attr::AttrTrampGetMethod<Self::Wrapper>,
-                        MaxMethod,
-                    >(Self::attr_bias_tramp)),
-                    Some(std::mem::transmute::<
-                        attr::AttrTrampSetMethod<Self::Wrapper>,
-                        MaxMethod,
-                    >(Self::set_attr_bias_tramp)),
-                    0,
-                );
-                max_sys::jit_class_addattr(class.inner(), attr as _);
-
-                max_sys::object_addattr_parse(
-                    attr as _,
-                    label_lit.as_ptr(),
-                    max_sys::_jit_sym_symbol,
-                    0,
-                    label.as_ptr(),
-                );
-            }
-
-            let name = CString::new("mode").unwrap();
-            let label = CString::new("Mode").unwrap();
-
-            let attr = max_sys::jit_object_new(
-                max_sys::_jit_sym_jit_attr_offset,
-                name.as_ptr(),
-                max_sys::_jit_sym_long,
-                attrflags,
-                std::mem::transmute::<
-                    Option<attr::AttrTrampGetMethod<Self::Wrapper>>,
-                    Option<MaxMethod>,
-                >(Some(Self::attr_mode_tramp)),
-                std::mem::transmute::<
-                    Option<attr::AttrTrampSetMethod<Self::Wrapper>>,
-                    Option<MaxMethod>,
-                >(Some(Self::set_attr_mode_tramp)),
-                0,
-            );
-            max_sys::jit_attr_addfilterset_clip(attr, 0.0, 1.0, 1, 1); //clip to 0-1
-            max_sys::jit_class_addattr(class.inner(), attr as _);
-
-            max_sys::object_addattr_parse(
-                attr as _,
-                label_lit.as_ptr(),
-                max_sys::_jit_sym_symbol,
-                0,
-                label.as_ptr(),
-            );
-
-            //setter only
-
-            let attrflags: c_long = (max_sys::t_jit_attr_flags::JIT_ATTR_GET_OPAQUE_USER
-                | max_sys::t_jit_attr_flags::JIT_ATTR_SET_USURP_LOW)
-                as _;
-
-            let name = CString::new("scale").unwrap();
-            let label = CString::new("Scale").unwrap();
-
-            let attr = max_sys::jit_object_new(
-                max_sys::_jit_sym_jit_attr_offset,
-                name.as_ptr(),
-                max_sys::_jit_sym_float32,
-                attrflags,
-                Some(std::mem::transmute::<
-                    attr::AttrTrampGetMethod<Self::Wrapper>,
-                    MaxMethod,
-                >(attr::get_nop)),
-                Some(std::mem::transmute::<
-                    attr::AttrTrampSetMethod<Self::Wrapper>,
-                    MaxMethod,
-                >(Self::set_attr_scale_tramp)),
-                0,
-            );
-            max_sys::jit_class_addattr(class.inner(), attr as _);
-
-            max_sys::object_addattr_parse(
-                attr as _,
-                label_lit.as_ptr(),
-                max_sys::_jit_sym_symbol,
-                0,
-                label.as_ptr(),
-            );
-
-            let name = CString::new("bias").unwrap();
-            let label = CString::new("Bias").unwrap();
-
-            let attr = max_sys::jit_object_new(
-                max_sys::_jit_sym_jit_attr_offset,
-                name.as_ptr(),
-                max_sys::_jit_sym_float32,
-                attrflags,
-                std::mem::transmute::<
-                    Option<attr::AttrTrampGetMethod<Self::Wrapper>>,
-                    Option<MaxMethod>,
-                >(Some(attr::get_nop)),
-                std::mem::transmute::<
-                    Option<attr::AttrTrampSetMethod<Self::Wrapper>>,
-                    Option<MaxMethod>,
-                >(Some(Self::set_attr_bias_tramp)),
-                0,
-            );
-            max_sys::jit_class_addattr(class.inner(), attr as _);
-
-            max_sys::object_addattr_parse(
-                attr as _,
-                label_lit.as_ptr(),
-                max_sys::_jit_sym_symbol,
-                0,
-                label.as_ptr(),
-            );
+        let attr = AttrBuilder::new_set("bias", AttrType::Float32, Self::set_attr_bias_tramp)
+            .label("Bias")
+            .build()
+            .unwrap();
+        unsafe {
+            max_sys::jit_class_addattr(class.inner(), attr.inner() as _);
         }
     }
 }
@@ -456,18 +356,21 @@ impl JitScaleBias {
         }
     }
 
-    fn attr_scale(&self, attr: &Attr) -> f32 {
+    fn attr_scale(&self, attr: &Attr<Self>) -> f32 {
         let name = attr.name();
         let index = Self::scale_index(name.clone());
         self.channels[index].scale.get()
     }
 
-    fn set_attr_scale(&self, attr: &Attr, v: f32) {
+    fn set_attr_scale(&self, attr: &Attr<Self>, v: f32) {
         let f = v as f32;
         let name = attr.name();
         if name == *SCALE {
             for c in self.channels.iter() {
                 c.scale.set(f);
+            }
+            for n in &[&*R_SCALE, &*G_SCALE, &*B_SCALE] {
+                let _ = attr::touch_with_name(self.jit_obj(), *n);
             }
         } else {
             let index = Self::scale_index(name.clone());
@@ -475,18 +378,21 @@ impl JitScaleBias {
         }
     }
 
-    fn attr_bias(&self, attr: &Attr) -> f32 {
+    fn attr_bias(&self, attr: &Attr<Self>) -> f32 {
         let name = attr.name();
         let index = Self::bias_index(name.clone());
         self.channels[index].bias.get()
     }
 
-    fn set_attr_bias(&self, attr: &Attr, v: f32) {
+    fn set_attr_bias(&self, attr: &Attr<Self>, v: f32) {
         let f = v as f32;
         let name = attr.name();
         if name == *BIAS {
             for c in self.channels.iter() {
                 c.bias.set(f);
+            }
+            for n in &[&*R_BIAS, &*G_BIAS, &*B_BIAS] {
+                let _ = attr::touch_with_name(self.jit_obj(), *n);
             }
         } else {
             let index = Self::bias_index(name.clone());
@@ -494,11 +400,11 @@ impl JitScaleBias {
         }
     }
 
-    fn attr_mode(&self, _attr: &Attr) -> max_sys::t_atom_long {
+    fn attr_mode(&self, _attr: &Attr<Self>) -> max_sys::t_atom_long {
         self.mode.load(Ordering::Acquire) as _
     }
 
-    fn set_attr_mode(&self, _attr: &Attr, v: max_sys::t_atom_long) {
+    fn set_attr_mode(&self, _attr: &Attr<Self>, v: max_sys::t_atom_long) {
         self.mode.store(v != 0, Ordering::Release);
     }
 
