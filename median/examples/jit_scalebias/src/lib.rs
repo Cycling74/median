@@ -169,18 +169,9 @@ impl WrappedMatrixOp for JitScaleBias {
         let inputi = inputl.info();
         let outputi = outputl.info();
 
-        if !inputi.is_char() || !outputi.is_char() {
-            Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_TYPE)
-        } else if inputi.plane_count() != 4 || outputi.plane_count() != 4 {
+        if inputi.plane_count() != 4 || outputi.plane_count() != 4 {
             Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE)
         } else {
-            let inputd = inputl
-                .data()
-                .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_INPUT)?;
-            let outputd = outputl
-                .data()
-                .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_OUTPUT)?;
-
             let mut scale: [c_long; 4] = [0; 4];
             let mut bias: [c_long; 4] = [0; 4];
             let mut sumbias: c_long = 0;
@@ -194,12 +185,12 @@ impl WrappedMatrixOp for JitScaleBias {
                 sumbias += *b;
             }
 
-            let matrices = [(&outputi, &outputd), (&inputi, &inputd)];
             let flags = [0, 0];
 
             if mode {
                 jit::matrix::parallel::calc2_intersection2d::<_, u8, u8>(
-                    &matrices,
+                    &mut outputl,
+                    &mut inputl,
                     &flags,
                     |outs, ins| {
                         for (o, i) in outs.zip(ins) {
@@ -221,7 +212,8 @@ impl WrappedMatrixOp for JitScaleBias {
                 )
             } else {
                 jit::matrix::parallel::calc2_intersection2d::<_, u8, u8>(
-                    &matrices,
+                    &mut outputl,
+                    &mut inputl,
                     &flags,
                     |outs, ins| {
                         for (o, i) in outs.zip(ins) {
