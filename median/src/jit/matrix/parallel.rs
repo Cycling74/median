@@ -119,7 +119,7 @@ where
     calc2(dim_count, &dim, plane_count, matrix, flags, func);
 }
 
-pub fn calc2_intersection2d<'a, F, T0, T1>(
+pub fn calc2_intersection2d<'a, F, T0, T1, const P0: usize, const P1: usize>(
     m0: &mut MatrixGuard<'a>,
     m1: &mut MatrixGuard<'a>,
     flags: &[c_long; 2],
@@ -135,6 +135,12 @@ where
 
     iter::assert_type::<T0>(&m0i)?;
     iter::assert_type::<T1>(&m1i)?;
+    if P0 > 0 && m0i.plane_count() != P0 {
+        return Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE);
+    }
+    if P1 > 0 && m1i.plane_count() != P1 {
+        return Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE);
+    }
 
     let m0d = m0
         .data()
