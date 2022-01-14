@@ -16,6 +16,7 @@ use median::{
 };
 
 use std::{
+    convert::TryFrom,
     ffi::{c_void, CString},
     os::raw::{c_char, c_long},
     sync::atomic::{AtomicBool, Ordering},
@@ -329,8 +330,6 @@ impl WrappedMatrixOp for JitScaleBias {
         }
     }
 }
-
-use std::convert::TryFrom;
 
 impl JitScaleBias {
     fn scale_index(name: SymbolRef) -> usize {
