@@ -163,80 +163,73 @@ impl WrappedMatrixOp for JitScaleBias {
             .first()
             .ok_or(max_sys::t_jit_error_code::JIT_ERR_INVALID_OUTPUT)?;
 
+        const PLANE_COUNT: usize = 4;
+
+        let mut scale: [c_long; PLANE_COUNT] = [0; PLANE_COUNT];
+        let mut bias: [c_long; PLANE_COUNT] = [0; PLANE_COUNT];
+        let mut sumbias: c_long = 0;
+        let mode = self.mode.load(Ordering::Relaxed);
+
+        for (s, b, i) in
+            itertools::multizip((scale.iter_mut(), bias.iter_mut(), self.channels.iter()))
+        {
+            *s = (i.scale.get() * 256.0) as _;
+            *b = (i.bias.get() * 256.0) as _;
+            sumbias += *b;
+        }
+
         let mut inputl = input.lock();
         let mut outputl = output.lock();
+        let flags = [0, 0];
 
-        let inputi = inputl.info();
-        let outputi = outputl.info();
-
-        if inputi.plane_count() != 4 || outputi.plane_count() != 4 {
-            Err(max_sys::t_jit_error_code::JIT_ERR_MISMATCH_PLANE)
+        if mode {
+            jit::matrix::parallel::calc2_intersection2d::<_, u8, u8, PLANE_COUNT, PLANE_COUNT>(
+                &mut outputl,
+                &mut inputl,
+                &flags,
+                |outs, ins| {
+                    for (o, i) in outs.zip(ins) {
+                        // sum together, clamping to the range 0-255
+                        // and set all output planes
+                        for (o, i) in o.entry_iter().zip(i.entry_iter()) {
+                            let mut tmp: c_long = 0;
+                            for (x, s) in i.iter().zip(scale.iter()) {
+                                tmp = tmp.saturating_add((*x as c_long).saturating_mul(*s));
+                            }
+                            let tmp = num::clamp((tmp >> 8).saturating_add(sumbias), 0, 255) as u8;
+                            for x in o.iter_mut() {
+                                *x = tmp;
+                            }
+                        }
+                    }
+                },
+            )
         } else {
-            let mut scale: [c_long; 4] = [0; 4];
-            let mut bias: [c_long; 4] = [0; 4];
-            let mut sumbias: c_long = 0;
-            let mode = self.mode.load(Ordering::Relaxed);
-
-            for (s, b, i) in
-                itertools::multizip((scale.iter_mut(), bias.iter_mut(), self.channels.iter()))
-            {
-                *s = (i.scale.get() * 256.0) as _;
-                *b = (i.bias.get() * 256.0) as _;
-                sumbias += *b;
-            }
-
-            let flags = [0, 0];
-
-            if mode {
-                jit::matrix::parallel::calc2_intersection2d::<_, u8, u8>(
-                    &mut outputl,
-                    &mut inputl,
-                    &flags,
-                    |outs, ins| {
-                        for (o, i) in outs.zip(ins) {
-                            // sum together, clamping to the range 0-255
-                            // and set all output planes
-                            for (o, i) in o.entry_iter().zip(i.entry_iter()) {
-                                let mut tmp: c_long = 0;
-                                for (x, s) in i.iter().zip(scale.iter()) {
-                                    tmp = tmp.saturating_add((*x as c_long).saturating_mul(*s));
-                                }
-                                let tmp =
-                                    num::clamp((tmp >> 8).saturating_add(sumbias), 0, 255) as u8;
-                                for x in o.iter_mut() {
-                                    *x = tmp;
-                                }
+            jit::matrix::parallel::calc2_intersection2d::<_, u8, u8, PLANE_COUNT, PLANE_COUNT>(
+                &mut outputl,
+                &mut inputl,
+                &flags,
+                |outs, ins| {
+                    for (o, i) in outs.zip(ins) {
+                        // apply to each plane individually
+                        // clamping to the range 0-255
+                        for (o, i) in o.entry_iter().zip(i.entry_iter()) {
+                            for (o, i, s, b) in itertools::multizip((
+                                o.iter_mut(),
+                                i.iter(),
+                                scale.iter(),
+                                bias.iter(),
+                            )) {
+                                *o = num::clamp(
+                                    ((*i as c_long).saturating_mul(*s) >> 8) + b,
+                                    0,
+                                    255,
+                                ) as u8;
                             }
                         }
-                    },
-                )
-            } else {
-                jit::matrix::parallel::calc2_intersection2d::<_, u8, u8>(
-                    &mut outputl,
-                    &mut inputl,
-                    &flags,
-                    |outs, ins| {
-                        for (o, i) in outs.zip(ins) {
-                            // apply to each plane individually
-                            // clamping to the range 0-255
-                            for (o, i) in o.entry_iter().zip(i.entry_iter()) {
-                                for (o, i, s, b) in itertools::multizip((
-                                    o.iter_mut(),
-                                    i.iter(),
-                                    scale.iter(),
-                                    bias.iter(),
-                                )) {
-                                    *o = num::clamp(
-                                        ((*i as c_long).saturating_mul(*s) >> 8) + b,
-                                        0,
-                                        255,
-                                    ) as u8;
-                                }
-                            }
-                        }
-                    },
-                )
-            }
+                    }
+                },
+            )
         }
     }
 
