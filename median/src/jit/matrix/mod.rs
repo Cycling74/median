@@ -1,6 +1,6 @@
 //! Jitter Matrix Operator
 
-use super::{Class, CLASSES};
+use super::{result_unwrap, Class, JitResult, CLASSES};
 use crate::{method::MaxMethod, symbol::SymbolRef};
 use max_sys::{t_jit_err, t_jit_matrix_info, t_jit_object};
 
@@ -75,11 +75,7 @@ pub trait WrappedMatrixOp: Sync + Send {
     fn mop_setup(_mop: *mut t_jit_object) {}
 
     /// Calculate your matrices
-    fn calc(
-        &self,
-        inputs: &[Matrix],
-        outputs: &[Matrix],
-    ) -> Result<(), max_sys::t_jit_error_code::Type>;
+    fn calc(&self, inputs: &[Matrix], outputs: &[Matrix]) -> JitResult<()>;
 }
 
 struct WrapperInner<T> {
@@ -471,13 +467,10 @@ where
             }
         }
 
-        match self
-            .wrapped
-            .calc(self.inputs.as_slice(), self.outputs.as_slice())
-        {
-            Ok(()) => max_sys::t_jit_error_code::JIT_ERR_NONE as _,
-            Err(e) => e as _,
-        }
+        result_unwrap(
+            self.wrapped
+                .calc(self.inputs.as_slice(), self.outputs.as_slice()),
+        )
     }
 }
 

@@ -1,8 +1,8 @@
 //! Jitter OpenGL, which we refer to as OB3Ds.
 
-use super::{Class, CLASSES};
+use super::{result_unwrap, Class, JitResult, CLASSES};
 use crate::method::MaxMethod;
-use max_sys::{t_jit_err, t_jit_ob3d_flags::Type as FlagType};
+use max_sys::t_jit_ob3d_flags::Type as FlagType;
 
 use std::{
     ffi::{c_void, CString},
@@ -25,18 +25,18 @@ pub trait WrappedDraw: Send + Sync {
 
     /// Define your OB3D draw method. Called in automatic mode by jit.gl.render or otherwise
     /// through ob3d when banged.
-    fn draw(&self) -> t_jit_err;
+    fn draw(&self) -> JitResult<()>;
 
     /// Customize your object, see [`max_sys::jit_ob3d_setup`]
     fn flags() -> FlagType {
         0
     }
 
-    fn dest_changed(&self) -> t_jit_err {
-        max_sys::t_jit_error_code::JIT_ERR_NONE as _
+    fn dest_changed(&self) -> JitResult<()> {
+        Ok(())
     }
-    fn dest_closing(&self) -> t_jit_err {
-        max_sys::t_jit_error_code::JIT_ERR_NONE as _
+    fn dest_closing(&self) -> JitResult<()> {
+        Ok(())
     }
 }
 
@@ -173,15 +173,15 @@ where
     }
 
     unsafe extern "C" fn draw(x: *mut Self) -> max_sys::t_jit_err {
-        Self::wrapped(x).draw()
+        result_unwrap(Self::wrapped(x).draw())
     }
 
     unsafe extern "C" fn dest_closing(x: *mut Self) -> max_sys::t_jit_err {
-        Self::wrapped(x).dest_closing()
+        result_unwrap(Self::wrapped(x).dest_closing())
     }
 
     unsafe extern "C" fn dest_changed(x: *mut Self) -> max_sys::t_jit_err {
-        Self::wrapped(x).dest_changed()
+        result_unwrap(Self::wrapped(x).dest_changed())
     }
 }
 

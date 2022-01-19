@@ -33,10 +33,19 @@ lazy_static::lazy_static! {
     pub(crate) static ref CLASSES: Mutex<HashMap<&'static str, Class>> = Mutex::new(HashMap::new());
 }
 
+/// Convert a value and an error code into a JitResult<T>
 pub fn result_wrap<T>(code: max_sys::t_jit_error_code::Type, v: T) -> JitResult<T> {
     if code == max_sys::t_jit_error_code::JIT_ERR_NONE {
         Ok(v)
     } else {
         Err(code)
+    }
+}
+
+/// Convert a JitResult<()> into an error code for max
+pub fn result_unwrap(result: JitResult<()>) -> max_sys::t_jit_err {
+    match result {
+        Ok(()) => max_sys::t_jit_error_code::JIT_ERR_NONE as _,
+        Err(e) => e as _,
     }
 }
