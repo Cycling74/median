@@ -46,6 +46,18 @@ pub fn wrapped_attr_set_tramp(attr: TokenStream, item: TokenStream) -> TokenStre
     crate::error::wrap(wrapped_attr_set_tramp_with_type(wrapper, meth))
 }
 
+pub fn wrapped_jit_attr_get_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
+    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    crate::error::wrap(wrapped_jit_attr_get_tramp_with_type(wrapper, meth))
+}
+
+pub fn wrapped_jit_attr_set_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
+    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    crate::error::wrap(wrapped_jit_attr_set_tramp_with_type(wrapper, meth))
+}
+
 struct Names {
     meth_name: Ident,
     tramp_name: Ident,
@@ -177,6 +189,28 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     Ok(expanded.into())
 }
 
+pub fn wrapped_jit_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+    let Names {
+        meth_name,
+        tramp_name,
+    } = get_names(&meth);
+    //TODO check signature to make sure it has no inputs and returns a type we support
+    let expanded = quote! {
+        pub extern "C" fn #tramp_name(
+            wrapper: *mut #t,
+            attr: *mut ::std::ffi::c_void,
+            ac: *mut ::std::os::raw::c_long,
+            av: *mut *mut ::median::max_sys::t_atom,
+        ) -> ::median::max_sys::t_jit_err {
+            //TODO why doesn't #::wrapped(wrapper) work?
+            let x = unsafe { Wrapper::wrapped(wrapper) };
+            ::median::jit::attr::get(attr, ac, av, |attr| x.#meth_name(attr))
+        }
+        #meth
+    };
+    Ok(expanded.into())
+}
+
 pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
     let Names {
         meth_name,
@@ -204,6 +238,30 @@ pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             av: *mut ::median::max_sys::t_atom,
         ) {
             ::median::attr::set(ac, av, |#(#args)*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars)*));
+        }
+        #meth
+    };
+    Ok(expanded.into())
+}
+
+pub fn wrapped_jit_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+    let Names {
+        meth_name,
+        tramp_name,
+    } = get_names(&meth);
+    //TODO check signature to make sure it has 1 input and returns with the type we support
+    let expanded = quote! {
+        pub extern "C" fn #tramp_name(
+            wrapper: *mut #t,
+            attr: *mut ::std::ffi::c_void,
+            ac: ::std::os::raw::c_long,
+            av: *mut ::median::max_sys::t_atom,
+        ) -> ::median::max_sys::t_jit_err {
+            //TODO why doesn't #::wrapped(wrapper) work?
+            let x = unsafe { Wrapper::wrapped(wrapper) };
+            ::median::jit::attr::set(attr, ac, av, |attr, v| {
+                x.#meth_name(attr, v)
+            })
         }
         #meth
     };

@@ -9,6 +9,11 @@ pub mod ob3d;
 pub type JitError = max_sys::t_jit_error_code::Type;
 pub type JitResult<T> = Result<T, JitError>;
 
+///trampoline for attribute getters
+pub use median_macros::wrapped_jit_attr_get_tramp as attr_get_tramp;
+///trampoline for attribute setters
+pub use median_macros::wrapped_jit_attr_set_tramp as attr_set_tramp;
+
 /// Wrap the Jitter class pointer so we can use it across threads
 #[repr(transparent)]
 pub struct Class {
