@@ -1,7 +1,10 @@
 use median::{
     builder::MaxWrappedBuilder,
     class::Class,
-    jit::ob3d::{JitObj, WrappedDraw, Wrapper},
+    jit::{
+        ob3d::{JitObj, WrappedDraw, Wrapper},
+        JitResult,
+    },
     max_sys,
     method::MaxMethod,
     object::MaxObj,
@@ -114,7 +117,7 @@ impl WrappedDraw for JitGLSimple {
         &"jit_gl_simple"
     }
 
-    fn draw(&self) -> max_sys::t_jit_err {
+    fn draw(&self) -> JitResult<()> {
         unsafe {
             max_sys::jit_gl_immediate_begin(max_sys::e_jit_state::JIT_STATE_QUADS);
             max_sys::jit_gl_immediate_vertex3f(-1., -1., 0.);
@@ -123,7 +126,7 @@ impl WrappedDraw for JitGLSimple {
             max_sys::jit_gl_immediate_vertex3f(1., -1., 0.);
             max_sys::jit_gl_immediate_end();
         }
-        max_sys::t_jit_error_code::JIT_ERR_NONE as _
+        Ok(())
     }
 }
 
