@@ -6,7 +6,7 @@ use median::{
         attr,
         attr::{Attr, AttrBuilder, AttrClip, AttrType, AttrValClip},
         attr_get_tramp, attr_set_tramp,
-        matrix::{Count, IOCount, JitObj, Matrix, WrappedMatrixOp, Wrapper},
+        matrix::{Count, IOCount, JitObj, Matrix, MatrixDataType, WrappedMatrixOp, Wrapper, MOP},
     },
     max_sys,
     method::MaxMethod,
@@ -234,11 +234,9 @@ impl WrappedMatrixOp for JitScaleBias {
         }
     }
 
-    fn mop_setup(mop: *mut max_sys::t_jit_object) {
-        unsafe {
-            max_sys::jit_mop_single_type(mop as _, max_sys::_jit_sym_char);
-            max_sys::jit_mop_single_planecount(mop as _, 4);
-        }
+    fn mop_setup(mop: &mut MOP) {
+        mop.single_type(MatrixDataType::Char);
+        mop.single_plane_count(4);
     }
 
     fn class_setup(class: &jit::Class) {

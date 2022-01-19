@@ -30,6 +30,14 @@ pub enum MatrixSize {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum MatrixDataType {
+    Char,
+    Int64, //long
+    Float32,
+    Float64,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct IOCount {
     pub inputs: Count,
     pub outputs: Count,
@@ -55,6 +63,10 @@ pub struct MatrixData<'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
+pub struct MOP {
+    inner: *mut t_jit_object,
+}
+
 /// Trait for a Wrapped Matrix operator
 pub trait WrappedMatrixOp: Sync + Send {
     type Wrapper;
@@ -72,7 +84,7 @@ pub trait WrappedMatrixOp: Sync + Send {
     fn io_count() -> IOCount;
 
     /// Setup your MOP before adornment
-    fn mop_setup(_mop: *mut t_jit_object) {}
+    fn mop_setup(_mop: &mut MOP) {}
 
     /// Calculate your matrices
     fn calc(&self, inputs: &[Matrix], outputs: &[Matrix]) -> JitResult<()>;
@@ -316,6 +328,41 @@ impl Default for MatrixInfo {
     }
 }
 
+impl MOP {
+    /// Creation
+    pub unsafe fn new(inner: *mut t_jit_object) -> Self {
+        Self { inner }
+    }
+
+    /// Get the raw pointer
+    pub fn inner(&self) -> *mut t_jit_object {
+        self.inner
+    }
+
+    /// Set the type attribute for all MOP inputs and outputs
+    pub fn single_type(&mut self, t: &MatrixDataType) {
+        unsafe {
+            let sym = match t {
+                MatrixDataType::Char => max_sys::_jit_sym_char,
+                MatrixDataType::Float32 => max_sys::_jit_sym_float32,
+                MatrixDataType::Float64 => max_sys::_jit_sym_float64,
+                MatrixDataType::Int64 => max_sys::_jit_sym_long,
+            };
+            max_sys::jit_mop_single_type(self.inner as _, sym);
+        }
+    }
+
+    /// Set the planecount attribute for all MOP inputs and outputs
+    pub fn single_plane_count(&mut self, p: usize) {
+        assert_ne!(0, p);
+        unsafe {
+            max_sys::jit_mop_single_planecount(self.inner as _, p as _);
+        }
+    }
+
+    //TODO more wrapping
+}
+
 impl<T> Wrapper<T>
 where
     T: WrappedMatrixOp<Wrapper = Self>,
@@ -338,9 +385,10 @@ where
         );
 
         let (inputs, outputs): (c_long, c_long) = T::io_count().into();
-        let mop = max_sys::jit_object_new(max_sys::_jit_sym_jit_mop, inputs, outputs) as _;
-        T::mop_setup(mop);
-        max_sys::jit_class_addadornment(class, mop);
+        let mut mop =
+            MOP::new(max_sys::jit_object_new(max_sys::_jit_sym_jit_mop, inputs, outputs) as _);
+        T::mop_setup(&mut mop);
+        max_sys::jit_class_addadornment(class, mop.inner());
 
         let name = CString::new("matrix_calc").unwrap();
         max_sys::jit_class_addmethod(
