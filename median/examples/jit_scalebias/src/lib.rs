@@ -5,6 +5,7 @@ use median::{
     jit::{
         attr,
         attr::{Attr, AttrBuilder, AttrClip, AttrType, AttrValClip},
+        attr_get_tramp, attr_set_tramp,
         matrix::{Count, IOCount, JitObj, Matrix, WrappedMatrixOp, Wrapper},
     },
     max_sys,
@@ -340,12 +341,14 @@ impl JitScaleBias {
         }
     }
 
+    #[attr_get_tramp(Wrapper<Self>)]
     fn attr_scale(&self, attr: &Attr<Self>) -> f32 {
         let name = attr.name();
         let index = Self::scale_index(name.clone());
         self.channels[index].scale.get()
     }
 
+    #[attr_set_tramp(Wrapper<Self>)]
     fn set_attr_scale(&self, attr: &Attr<Self>, v: f32) {
         let f = v as f32;
         let name = attr.name();
@@ -362,12 +365,14 @@ impl JitScaleBias {
         }
     }
 
+    #[attr_get_tramp(Wrapper<Self>)]
     fn attr_bias(&self, attr: &Attr<Self>) -> f32 {
         let name = attr.name();
         let index = Self::bias_index(name.clone());
         self.channels[index].bias.get()
     }
 
+    #[attr_set_tramp(Wrapper<Self>)]
     fn set_attr_bias(&self, attr: &Attr<Self>, v: f32) {
         let f = v as f32;
         let name = attr.name();
@@ -384,78 +389,14 @@ impl JitScaleBias {
         }
     }
 
+    #[attr_get_tramp(Wrapper<Self>)]
     fn attr_mode(&self, _attr: &Attr<Self>) -> max_sys::t_atom_long {
         self.mode.load(Ordering::Acquire) as _
     }
 
+    #[attr_set_tramp(Wrapper<Self>)]
     fn set_attr_mode(&self, _attr: &Attr<Self>, v: max_sys::t_atom_long) {
         self.mode.store(v != 0, Ordering::Release);
-    }
-
-    extern "C" fn attr_scale_tramp(
-        x: *mut Wrapper<Self>,
-        attr: *mut c_void,
-        ac: *mut c_long,
-        av: *mut *mut max_sys::t_atom,
-    ) -> max_sys::t_jit_err {
-        let x = unsafe { Wrapper::wrapped(x) };
-        attr::get(attr, ac, av, |attr| x.attr_scale(attr))
-    }
-
-    extern "C" fn set_attr_scale_tramp(
-        x: *mut Wrapper<Self>,
-        attr: *mut c_void,
-        ac: c_long,
-        av: *mut max_sys::t_atom,
-    ) -> max_sys::t_jit_err {
-        let x = unsafe { Wrapper::wrapped(x) };
-        attr::set(attr, ac, av, |attr, v: f32| {
-            x.set_attr_scale(attr, v);
-        })
-    }
-
-    extern "C" fn attr_bias_tramp(
-        x: *mut Wrapper<Self>,
-        attr: *mut c_void,
-        ac: *mut c_long,
-        av: *mut *mut max_sys::t_atom,
-    ) -> max_sys::t_jit_err {
-        let x = unsafe { Wrapper::wrapped(x) };
-        attr::get(attr, ac, av, |attr| x.attr_bias(attr))
-    }
-
-    extern "C" fn set_attr_bias_tramp(
-        x: *mut Wrapper<Self>,
-        attr: *mut c_void,
-        ac: c_long,
-        av: *mut max_sys::t_atom,
-    ) -> max_sys::t_jit_err {
-        let x = unsafe { Wrapper::wrapped(x) };
-        attr::set(attr, ac, av, |attr, v: f32| {
-            x.set_attr_bias(attr, v);
-        })
-    }
-
-    extern "C" fn attr_mode_tramp(
-        x: *mut Wrapper<Self>,
-        attr: *mut c_void,
-        ac: *mut c_long,
-        av: *mut *mut max_sys::t_atom,
-    ) -> max_sys::t_jit_err {
-        let x = unsafe { Wrapper::wrapped(x) };
-        attr::get(attr, ac, av, |attr| x.attr_mode(attr))
-    }
-
-    extern "C" fn set_attr_mode_tramp(
-        x: *mut Wrapper<Self>,
-        attr: *mut c_void,
-        ac: c_long,
-        av: *mut max_sys::t_atom,
-    ) -> max_sys::t_jit_err {
-        let x = unsafe { Wrapper::wrapped(x) };
-        attr::set(attr, ac, av, |attr, v: max_sys::t_atom_long| {
-            x.set_attr_mode(attr, v);
-        })
     }
 }
 
