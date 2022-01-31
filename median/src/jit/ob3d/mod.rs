@@ -10,6 +10,10 @@ use std::{
     os::raw::c_long,
 };
 
+pub mod buffer;
+pub mod chunk;
+pub mod geometry;
+
 /// Trait to implement Jitter OB3D object.
 pub trait WrappedDraw: Send + Sync {
     type Wrapper;
