@@ -63,7 +63,7 @@ median::external! {
 
 If you use the [utils/Makefile.toml](utils/Makefile.toml) setup, like the
 [examples](examples/README.md), you should be able to build, package and
-install with:
+install by running the following commands from your external project folder:
 
 ```
 cargo make build
@@ -72,6 +72,12 @@ cargo make install
 ```
 
 **NOTE**: Each subsequent task initiates the previous so you can simply do `cargo make install` and it will build and package for you.
+
+For example:
+
+```shell
+cd examples/simp/ && cargo make install
+```
 
 ### Release Builds
 
