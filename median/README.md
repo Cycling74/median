@@ -59,6 +59,30 @@ median::external! {
 }
 ```
 
+## Building Externals
+
+If you use the [utils/Makefile.toml](utils/Makefile.toml) setup, like the
+[examples](examples/README.md), you should be able to build, package and
+install with:
+
+```
+cargo make build
+cargo make package
+cargo make install
+```
+
+**NOTE**: Each subsequent task initiates the previous so you can simply do `cargo make install` and it will build and package for you.
+
+### Release Builds
+
+Add `--profile release` to create optimized release builds:
+
+```
+cargo make build --profile release
+cargo make package --profile release
+cargo make install --profile release
+```
+
 ## Cross Compiling
 
 Currently this is only enabled for Mac OS, but with a little bit of work we should be able to cross compile on Linux.
