@@ -18,7 +18,7 @@ cd my-project
 
 ```
 cargo install cargo-make
-cargo make
+cargo make package
 ```
 
 Read more about building in the [median README.md](../median/README.md#building-externals)

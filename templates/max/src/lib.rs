@@ -9,20 +9,20 @@ use median::{
     wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper},
 };
 
-use std::convert::{From, TryFrom};
-
 //you need to wrap your external in this macro to get the system to register your object and
 //automatically generate trampolines and what not.
 median::external! {
     #[name="{{crate_name}}"]
-    pub struct MaxExtern { }
+    pub struct MaxExtern {
+        fvalue: Float64
+    }
 
     //implement the max object wrapper
     impl MaxObjWrapped<MaxExtern> for MaxExtern {
         //create an instance of your object
         //setup inlets/outlets and clocks
         fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            Self { }
+            Self { fvalue: Float64::new(0.0) }
         }
 
         // Register any methods you need for your class
@@ -49,8 +49,7 @@ median::external! {
         #[bang]
         pub fn bang(&self) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
-            median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
-            self.clock.delay(10);
+            median::object_post!(self.max_obj(), "bang inlet {}", i);
         }
 
         //create an "int" method and automatically register it.
@@ -59,7 +58,7 @@ median::external! {
         #[int]
         pub fn int(&self, v: t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
-            post!("from rust {} inlet {}", v, i);
+            post!("int {} inlet {}", v, i);
         }
 
         //create a float attribute getter trampoline (see registration in class setup)
