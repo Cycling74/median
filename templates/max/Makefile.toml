@@ -1,1 +1,4 @@
 extend = "./utils/Makefile.toml"
+
+[env]
+MAX_PACKAGE_NAME = "{{username | snake_case}}"
