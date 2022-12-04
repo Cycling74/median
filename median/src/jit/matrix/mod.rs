@@ -340,7 +340,7 @@ impl MOP {
     }
 
     /// Set the type attribute for all MOP inputs and outputs
-    pub fn single_type(&mut self, t: &MatrixDataType) {
+    pub fn single_type(&mut self, t: MatrixDataType) {
         unsafe {
             let sym = match t {
                 MatrixDataType::Char => max_sys::_jit_sym_char,
