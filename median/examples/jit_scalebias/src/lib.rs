@@ -71,6 +71,7 @@ median::external_no_main! {
         fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
             unsafe {
                 let jitclass = max_sys::jit_class_findbyname(JIT_CLASS_NAME.inner()) as _;
+                assert_ne!(jitclass, std::ptr::null_mut());
 
                 max_sys::max_jit_class_obex_setup(c.inner(), Self::obex_byte_offset() as _);
                 max_sys::max_jit_class_mop_wrap(c.inner(), jitclass, 0);
