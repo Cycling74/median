@@ -230,32 +230,23 @@ script = [
 
 [tasks.install.mac]
 clear = true
-dependencies = ["package", "install-init"]
-script_runner = "@shell"
-script = [
-    '''
-    mkdir -p "${EXTERNAL_INSTALL_DIR}"
-    cp -r "${PROFILE_EXTERNAL_PATH}" "${EXTERNAL_INSTALL_DIR}"
-    '''
-]
+dependencies = ["package", "install-copy"]
+
+[tasks.install-all.mac]
+clear = true
+dependencies = ["package-all", "install-copy"]
 
 [tasks.install-universal.mac]
 clear = true
-dependencies = ["build-mac-universal", "install-init"]
-script_runner = "@shell"
-script = [
-    '''
-    mkdir -p "${EXTERNAL_INSTALL_DIR}"
-    cp -r "${PROFILE_EXTERNAL_PATH}" "${EXTERNAL_INSTALL_DIR}"
-    '''
-]
+dependencies = ["build-mac-universal", "install-copy"]
 
-[tasks.install-init.mac]
-condition = { files_exist = ["${INIT_DIR}/"] }
+[tasks.install-copy.mac]
 script_runner = "@shell"
 script = [
     '''
     mkdir -p "${INIT_INSTALL_DIR}"
-    cp ${INIT_DIR}/* "${INIT_INSTALL_DIR}"
+    if [ -e "${INIT_DIR}" ]; then cp ${INIT_DIR}/* "${INIT_INSTALL_DIR}"; fi
+    cp -r ${PACKAGE_DIR}/externals/ "${EXTERNAL_INSTALL_DIR}"
+    echo "Installed to ${EXTERNAL_INSTALL_DIR}"
     '''
 ]
