@@ -22,7 +22,7 @@ If you'd like to install the built object into Max, run:
 
 ```sh
 cargo make install # creates and installs a development build
-cargo make --profile release package # creates and installs a production build
+cargo make --profile release install # creates and installs a production build
 ```
 
 ## Cross Compiling
