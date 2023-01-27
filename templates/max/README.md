@@ -1,4 +1,4 @@
-# {{package-name}}
+# {{project-name}}
 
 This is a simple Max external with a few methods and attributes.
 
