@@ -26,10 +26,12 @@ IS_TILDE = false #will be overridden
 [env.development]
 BUILD_ARGS = "build"
 PROFILE_DIR = "debug"
+PACKAGE_DIR = "target/${PROFILE_DIR}/${MAX_PACKAGE_NAME}"
 
 [env.release]
 BUILD_ARGS = "build|--release"
 PROFILE_DIR = "release"
+PACKAGE_DIR = "target/${PROFILE_DIR}/${MAX_PACKAGE_NAME}"
 
 
 ## Build Tasks
@@ -184,7 +186,6 @@ run_task = [
 
 [tasks.copy-all]
 private = true
-env = { PACKAGE_DIR = "target/${PROFILE_DIR}/${MAX_PACKAGE_NAME}" }
 run_task = [
     { name = ["copy-all-packages", "copy-all-init"], condition = { platforms = ["mac"] } },
 ]
