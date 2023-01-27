@@ -9,8 +9,8 @@ MAX_PACKAGE_NAME = { value = "median", condition = { env_not_set = ["MAX_PACKAGE
 MAX_EXT_NAME = { value = "${CARGO_MAKE_CRATE_FS_NAME}", condition = { env_not_set = ["MAX_EXT_NAME"] } }
 MAX_EXT_BASE_NAME = "${MAX_EXT_NAME}"
 PLATFORM_INSTALL_DIR = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = { macos = "${HOME}/Documents/Max 8/Packages", windows = "${USERPROFILE}/Documents/Max 8/Packages" } }
-INIT_INSTALL_DIR = "${PLATFORM_INSTALL_DIR}/${MAX_PACKAGE_NAME}/init/"
-EXTERNAL_INSTALL_DIR = "${PLATFORM_INSTALL_DIR}/${MAX_PACKAGE_NAME}/externals/"
+INSTALL_DIR = "${PLATFORM_INSTALL_DIR}/${MAX_PACKAGE_NAME}"
+EXTERNAL_INSTALL_DIR = "${INSTALL_DIR}/externals/"
 PACKAGED_LIB_FILE_NAME = "${MAX_EXT_NAME}"
 INIT_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/init"
 TARGET_TRIPLE = "${CARGO_MAKE_RUST_TARGET_TRIPLE}"
@@ -135,7 +135,6 @@ echo TARGET_OS: ${CARGO_MAKE_RUST_TARGET_OS}
 echo TARGET_TRIPLE: ${CARGO_MAKE_RUST_TARGET_TRIPLE}
 echo PROFILE_EXTERNAL_PATH: ${PROFILE_EXTERNAL_PATH}
 echo INIT_DIR: ${INIT_DIR}
-echo INIT_INSTALL_DIR: ${INIT_INSTALL_DIR}
 echo EXTERNAL_INSTALL_DIR: ${EXTERNAL_INSTALL_DIR}
 echo CARGO_MAKE_PROJECT_NAME: ${CARGO_MAKE_PROJECT_NAME}
 echo LIB_FILE_NAME: ${LIB_FILE_NAME}
@@ -244,9 +243,9 @@ dependencies = ["build-mac-universal", "install-copy"]
 script_runner = "@shell"
 script = [
     '''
-    mkdir -p "${INIT_INSTALL_DIR}"
-    if [ -e "${INIT_DIR}" ]; then cp ${INIT_DIR}/* "${INIT_INSTALL_DIR}"; fi
-    cp -r ${PACKAGE_DIR}/externals/ "${EXTERNAL_INSTALL_DIR}"
-    echo "Installed to ${EXTERNAL_INSTALL_DIR}"
+    mkdir -p "${INSTALL_DIR}"
+    if [ -e "${INIT_DIR}" ]; then cp "${INIT_DIR}" "${INSTALL_DIR}"; fi
+    cp -r "${PACKAGE_DIR}/externals" "${INSTALL_DIR}"
+    echo "Installed to ${INSTALL_DIR}"
     '''
 ]
