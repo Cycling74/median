@@ -81,8 +81,8 @@ pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream
         })
         .collect::<Result<Vec<Box<Pat>>, _>>()?;
     let expanded = quote! {
-        pub extern "C" fn #tramp_name(wrapper: &#t, #(#args)*) {
-            ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars)*)
+        pub extern "C" fn #tramp_name(wrapper: &#t, #(#args),*) {
+            ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*)
         }
         #meth
     };
@@ -203,7 +203,7 @@ pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             ac: ::std::os::raw::c_long,
             av: *mut ::median::max_sys::t_atom,
         ) {
-            ::median::attr::set(ac, av, |#(#args)*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars)*));
+            ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*));
         }
         #meth
     };
