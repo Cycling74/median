@@ -105,3 +105,8 @@ if you have more than 7 args or if you are mixing floating point and other argum
   * [cctools](https://github.com/tpoechtrager/cctools-port) lipo for linux
 * [github actions](https://github.com/features/actions)
 * explain non mut methods and threading model and `Sync` in docs
+
+## Bugs
+
+* jitter matrix op crash with 0 output matricies
+* jitter matrix op get only attribute doesn't show up in max
