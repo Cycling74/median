@@ -15,7 +15,7 @@ use crate::{
 
 use std::{
     collections::HashMap,
-    ffi::{c_void, CString},
+    ffi::{c_char, c_void, CStr, CString},
     marker::PhantomData,
     mem::MaybeUninit,
     os::raw::c_long,
@@ -29,6 +29,8 @@ lazy_static! {
     static ref CLASSES: Mutex<HashMap<&'static str, ClassMaxObjWrapper>> = Mutex::new(HashMap::new());
 }
 
+const ASSIST_MAX: i64 = 512;
+
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
 pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
 
@@ -41,6 +43,12 @@ pub type DeferMethodWrapped<T> = extern "C" fn(
     argc: c_long,
     argv: *const max_sys::t_atom,
 );
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum AssistIOlet {
+    Inlet(usize),
+    Outlet(usize),
+}
 
 //reexports
 ///trampoline for attribute getters
@@ -81,6 +89,16 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
 
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
+
+    /// Provide assistance
+    fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
+        let v = CString::new(match iolet {
+            AssistIOlet::Inlet(i) => format!("inlet {}", i + 1),
+            AssistIOlet::Outlet(i) => format!("outlet {}", i + 1),
+        })
+        .unwrap();
+        render(v.as_c_str());
+    }
 }
 
 /// The trait to implement for your object to be wrapped as a Max object.
@@ -186,6 +204,7 @@ pub trait WrapperInternal<O, T>: Sized {
     fn call_int(&self, index: usize, value: max_sys::t_atom_long);
 
     fn handle_notification(&self, notification: &Notification);
+    fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -230,6 +249,18 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
+    }
+
+    fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
+        let v = match io {
+            1 => AssistIOlet::Inlet(index as usize),
+            2 => AssistIOlet::Outlet(index as usize),
+            _ => return,
+        };
+        self.wrapped().assist(v, |src: &CStr| unsafe {
+            let _ =
+                ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
+        });
     }
 }
 
@@ -284,6 +315,17 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
+    }
+    fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
+        let v = match io {
+            1 => AssistIOlet::Inlet(index as usize),
+            2 => AssistIOlet::Outlet(index as usize),
+            _ => return,
+        };
+        self.wrapped().assist(v, |src: &CStr| unsafe {
+            let _ =
+                ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
+        });
     }
 }
 
@@ -442,6 +484,13 @@ where
             sender: *mut c_void,
             data: *mut c_void,
         ),
+        assist_tramp: extern "C" fn(
+            &Wrapper<O, I, T>,
+            _b: *mut c_void,
+            io: c_long,
+            index: c_long,
+            s: *mut c_char,
+        ),
         creator: F,
     ) where
         F: Fn() -> Class<Self>,
@@ -459,12 +508,21 @@ where
             let max_class = if existing.is_null() {
                 let mut c = creator();
                 let notify = std::ffi::CString::new("notify").unwrap();
-                //register notifications
+                let assist = std::ffi::CString::new("assist").unwrap();
                 unsafe {
+                    //register notifications
                     max_sys::class_addmethod(
                         c.inner(),
                         Some(std::mem::transmute::<_, MaxMethod>(notification_handler)),
                         notify.as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
+                    //assist
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<_, MaxMethod>(assist_tramp)),
+                        assist.as_ptr(),
                         max_sys::e_max_atomtypes::A_CANT,
                         0,
                     );
@@ -504,20 +562,25 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
-            let mut c: Class<Self> = Class::new(
-                T::class_name(),
-                Self::new_tramp,
-                Some(
-                    std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
-                        Self::free_wrapped,
+        Self::register_common(
+            lookup_class,
+            Self::handle_notification_tramp,
+            Self::assist_tramp,
+            || {
+                let mut c: Class<Self> = Class::new(
+                    T::class_name(),
+                    Self::new_tramp,
+                    Some(
+                        std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
+                            Self::free_wrapped,
+                        ),
                     ),
-                ),
-            );
-            //TODO somehow pass the lock so that classes can register additional classes
-            MaxWrapperInternal::<T>::class_setup(&mut c);
-            c
-        });
+                );
+                //TODO somehow pass the lock so that classes can register additional classes
+                MaxWrapperInternal::<T>::class_setup(&mut c);
+                c
+            },
+        );
     }
 
     /// A method for Max to create an instance of your class.
@@ -565,6 +628,10 @@ where
         let notification = Notification::new(sender_name, message, sender, data);
         self.internal().handle_notification(&notification);
     }
+
+    extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
+        self.internal().assist(io, index, s);
+    }
 }
 
 impl<T> MSPObjWrapper<T>
@@ -581,37 +648,44 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
-            let mut c: Class<Self> = Class::new(
-                T::class_name(),
-                Self::new_tramp,
-                Some(
-                    std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free_msp),
-                ),
-            );
-            //TODO somehow pass the lock so that classes can register additional classes
-            MSPWrapperInternal::<T>::class_setup(&mut c);
-            let dsp64 = CString::new("dsp64").unwrap();
-            max_sys::class_addmethod(
-                c.inner(),
-                Some(std::mem::transmute::<
-                    extern "C" fn(
-                        &mut Self,
-                        dsp64: *mut max_sys::t_object,
-                        count: *mut std::os::raw::c_short,
-                        samplerate: f64,
-                        maxvectorsize: i64,
-                        flags: i64,
+        Self::register_common(
+            lookup_class,
+            Self::handle_notification_tramp,
+            Self::assist_tramp,
+            || {
+                let mut c: Class<Self> = Class::new(
+                    T::class_name(),
+                    Self::new_tramp,
+                    Some(
+                        std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
+                            Self::free_msp,
+                        ),
                     ),
-                    MaxMethod,
-                >(Self::dsp64)),
-                dsp64.as_ptr(),
-                max_sys::e_max_atomtypes::A_CANT,
-                0,
-            );
-            max_sys::class_dspinit(c.inner());
-            c
-        });
+                );
+                //TODO somehow pass the lock so that classes can register additional classes
+                MSPWrapperInternal::<T>::class_setup(&mut c);
+                let dsp64 = CString::new("dsp64").unwrap();
+                max_sys::class_addmethod(
+                    c.inner(),
+                    Some(std::mem::transmute::<
+                        extern "C" fn(
+                            &mut Self,
+                            dsp64: *mut max_sys::t_object,
+                            count: *mut std::os::raw::c_short,
+                            samplerate: f64,
+                            maxvectorsize: i64,
+                            flags: i64,
+                        ),
+                        MaxMethod,
+                    >(Self::dsp64)),
+                    dsp64.as_ptr(),
+                    max_sys::e_max_atomtypes::A_CANT,
+                    0,
+                );
+                max_sys::class_dspinit(c.inner());
+                c
+            },
+        );
     }
 
     /// A method for Max to create an instance of your class.
@@ -731,6 +805,10 @@ where
     ) {
         let notification = Notification::new(sender_name, message, sender, data);
         self.internal().handle_notification(&notification);
+    }
+
+    extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
+        self.internal().assist(io, index, s);
     }
 }
 
