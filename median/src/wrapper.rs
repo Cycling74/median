@@ -167,8 +167,8 @@ pub struct MaxWrapperInternal<T> {
 /// Inner struct for wrapping [`MSPObjWrapped`]
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
-    ins: Vec<&'static [f64]>,
-    outs: Vec<&'static mut [f64]>,
+    ins: Vec<MaybeUninit<&'static [f64]>>,
+    outs: Vec<MaybeUninit<&'static mut [f64]>>,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
@@ -247,11 +247,11 @@ where
         let mut builder = WrappedBuilder::new_msp(owner, sym, args);
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
-        let ins = (0..f.signal_inlets)
-            .map(|_i| unsafe { std::slice::from_raw_parts(std::ptr::null(), 0) })
+        let ins: Vec<MaybeUninit<&'static [f64]>> = (0..f.signal_inlets)
+            .map(|_i| MaybeUninit::uninit())
             .collect();
-        let outs: Vec<&'static mut [f64]> = (0..f.signal_outlets)
-            .map(|_i| unsafe { std::slice::from_raw_parts_mut(std::ptr::null_mut(), 0) })
+        let outs: Vec<MaybeUninit<&'static mut [f64]>> = (0..f.signal_outlets)
+            .map(|_i| MaybeUninit::uninit())
             .collect();
         if !T::dsp_in_place() {
             unsafe {
@@ -317,27 +317,33 @@ where
     ) {
         assert!(self.ins.len() >= numins as _);
         assert!(self.outs.len() >= numouts as _);
+
         let nframes = sampleframes as usize;
 
         //convert into slices
         let ins = unsafe { std::slice::from_raw_parts(ins, numins as _) };
         for (i, ip) in self.ins.iter_mut().zip(ins) {
             unsafe {
-                *i = std::slice::from_raw_parts(*ip, nframes);
+                i.write(std::slice::from_raw_parts(*ip, nframes));
             }
         }
         let outs = unsafe { std::slice::from_raw_parts_mut(outs, numouts as _) };
         for (o, op) in self.outs.iter_mut().zip(outs) {
             unsafe {
-                *o = std::slice::from_raw_parts_mut(*op, nframes);
+                o.write(std::slice::from_raw_parts_mut(*op, nframes));
             }
         }
 
         //do a dance so we can access an immutable and a mutable at the same time
         let mut ins = std::mem::take(&mut self.ins);
         let mut outs = std::mem::take(&mut self.outs);
-        self.wrapped()
-            .perform(ins.as_slice(), outs.as_mut_slice(), nframes);
+        unsafe {
+            self.wrapped().perform(
+                std::mem::transmute::<_, &[&[f64]]>(ins.as_slice()),
+                std::mem::transmute::<_, &mut [&mut [f64]]>(outs.as_mut_slice()),
+                nframes,
+            );
+        }
         std::mem::swap(&mut self.ins, &mut ins);
         std::mem::swap(&mut self.outs, &mut outs);
     }
