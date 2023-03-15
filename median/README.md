@@ -84,9 +84,9 @@ cd examples/simp/ && cargo make install
 Add `--profile release` to create optimized release builds:
 
 ```
-cargo make build --profile release
-cargo make package --profile release
-cargo make install --profile release
+cargo make --profile release build
+cargo make --profile release package 
+cargo make --profile release install 
 ```
 
 ## Cross Compiling
@@ -112,7 +112,7 @@ rustup toolchain install stable-x86_64-pc-windows-gnu
 
 Then should be able to build all the externals with:
 
-`cargo make package-all` or `cargo make package-all --profile release`
+`cargo make package-all` or `cargo make --profile release package-all`
 
 If this succeeds, you should see a printout of where the externals were put.
 
