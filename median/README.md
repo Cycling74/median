@@ -65,7 +65,7 @@ If you use the [utils/Makefile.toml](utils/Makefile.toml) setup, like the
 [examples](examples/README.md) or projects based off the [median templates](../templates),
 you should be able to build, package and install with [cargo-make](https://sagiegurari.github.io/cargo-make/).
 
-First, Make sure you have [cargo-make](https://sagiegurari.github.io/cargo-make/) installed on your system:
+First, make sure you have [cargo-make](https://sagiegurari.github.io/cargo-make/) installed on your system:
 
 ```sh
 cargo install cargo-make
