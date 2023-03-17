@@ -9,7 +9,7 @@ This is a work in progress.
 ## Dependencies
 
 * [rust](https://rustup.rs/)
-* [cargo make](https://github.com/sagiegurari/cargo-make) for building examples
+* [cargo make](https://github.com/sagiegurari/cargo-make) for building examples and template projects
 
 ## Example
 
@@ -62,31 +62,27 @@ median::external! {
 ## Building Externals
 
 If you use the [utils/Makefile.toml](utils/Makefile.toml) setup, like the
-[examples](examples/README.md), you should be able to build, package and
-install by running the following commands from your external project folder:
+[examples](examples/README.md) or projects based off the [median templates](../templates),
+you should be able to build, package and install with [cargo-make](https://sagiegurari.github.io/cargo-make/).
 
-```
-cargo make build
-cargo make package
-cargo make install
-```
+First, Make sure you have [cargo-make](https://sagiegurari.github.io/cargo-make/) installed on your system:
 
-**NOTE**: Each subsequent task initiates the previous so you can simply do `cargo make install` and it will build and package for you.
-
-For example:
-
-```shell
-cd examples/simp/ && cargo make install
+```sh
+cargo install cargo-make
 ```
 
-### Release Builds
+You can then build the package for your current platform:
 
-Add `--profile release` to create optimized release builds:
-
+```sh
+cargo make package # creates a development build
+cargo make --profile release package # creates a production build
 ```
-cargo make --profile release build
-cargo make --profile release package 
-cargo make --profile release install 
+
+If you'd like to install the built object into Max, run:
+
+```sh
+cargo make install # creates and installs a development build
+cargo make --profile release install # creates and installs a production build
 ```
 
 ## Cross Compiling
