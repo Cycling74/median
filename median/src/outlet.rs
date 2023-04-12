@@ -82,12 +82,12 @@ impl Outlet {
     }
 }
 
-/// wrap the result, all the outlet methods return null for success, 1 for stack overflow
+/// wrap the result, all the outlet methods return 1 for success, null for stack overflow
 fn res_wrap<F: FnOnce() -> *mut c_void>(func: F) -> SendResult {
     if func().is_null() {
-        Ok(())
-    } else {
         Err(SendError::StackOverflow)
+    } else {
+        Ok(())
     }
 }
 
