@@ -164,6 +164,7 @@ script = [
     mkdir -p ${PROFILE_EXTERNAL_PATH}/Contents/MacOS/
     cp "${PROFILE_TARGET_DIR}/${LIB_FILE_NAME}" "${PROFILE_EXTERNAL_PATH}/Contents/MacOS/${PACKAGED_LIB_FILE_NAME}"
     cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_EXTERNAL_PATH}/Contents/"
+    codesign -f -s - "${PROFILE_EXTERNAL_PATH}"
     '''
 ]
 
