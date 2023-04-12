@@ -90,7 +90,7 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
 
-    /// Provide assistance
+    /// Provide assistance in the case that you don't provide it along with your i/o creation
     fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
         let v = CString::new(match iolet {
             AssistIOlet::Inlet(i) => format!("inlet {}", i + 1),
@@ -178,6 +178,8 @@ pub struct MaxWrapperInternal<T> {
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    assist_ins: HashMap<usize, CString>,
+    assist_outs: HashMap<usize, CString>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -190,6 +192,8 @@ pub struct MSPWrapperInternal<T> {
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    assist_ins: HashMap<usize, CString>,
+    assist_outs: HashMap<usize, CString>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -231,6 +235,8 @@ where
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
+            assist_ins: std::mem::take(&mut f.assist_ins),
+            assist_outs: std::mem::take(&mut f.assist_outs),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -250,17 +256,34 @@ where
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
     }
-
     fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
-        let v = match io {
-            1 => AssistIOlet::Inlet(index as usize),
-            2 => AssistIOlet::Outlet(index as usize),
-            _ => return,
-        };
-        self.wrapped().assist(v, |src: &CStr| unsafe {
+        let render = |src: &CStr| unsafe {
             let _ =
                 ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
-        });
+        };
+
+        //lookup assist string, if we don't have one, call wrapper method
+        let iolet = match io {
+            1 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_ins.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Inlet(index)
+            }
+            2 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_outs.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Outlet(index)
+            }
+            _ => return,
+        };
+
+        self.wrapped().assist(iolet, render);
     }
 }
 
@@ -297,6 +320,8 @@ where
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
+            assist_ins: std::mem::take(&mut f.assist_ins),
+            assist_outs: std::mem::take(&mut f.assist_outs),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -317,15 +342,33 @@ where
         self.wrapped().handle_notification(notification);
     }
     fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
-        let v = match io {
-            1 => AssistIOlet::Inlet(index as usize),
-            2 => AssistIOlet::Outlet(index as usize),
-            _ => return,
-        };
-        self.wrapped().assist(v, |src: &CStr| unsafe {
+        let render = |src: &CStr| unsafe {
             let _ =
                 ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
-        });
+        };
+
+        //lookup assist string, if we don't have one, call wrapper method
+        let iolet = match io {
+            1 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_ins.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Inlet(index)
+            }
+            2 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_outs.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Outlet(index)
+            }
+            _ => return,
+        };
+
+        self.wrapped().assist(iolet, render);
     }
 }
 
