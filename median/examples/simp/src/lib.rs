@@ -33,21 +33,21 @@ median::external! {
         //create an instance of your object
         //setup inlets/outlets and clocks
         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            builder.with_default_inlet_assist(&"first inlet");
+            builder.with_default_inlet_assist("first inlet");
 
             //can call closure
             builder.add_inlet_with_assist(MaxInlet::Float(Box::new(|_s, v| {
                 post!("got float {}", v);
-            })), &"my float inlet");
+            })), "my float inlet");
             //also can call method
             builder.add_inlet(MaxInlet::Int(Box::new(Self::int))); //default assist
-            let _ = builder.add_inlet_with_assist(MaxInlet::Proxy, &"my proxy inlet");
+            let _ = builder.add_inlet_with_assist(MaxInlet::Proxy, "my proxy inlet");
             Self {
                 value: Default::default(),
                 fvalue: Default::default(),
                 _v: String::from("blah"),
                 clock: builder.with_clockfn(Self::clocked),
-                list_out: builder.add_list_outlet_with_assist(&"my list out"),
+                list_out: builder.add_list_outlet_with_assist("my list out"),
             }
         }
 
