@@ -3,7 +3,7 @@ use std::ffi::c_void;
 
 ///Callback method for Float inlet
 pub type FloatCB<T> = Box<dyn Fn(&T, f64)>;
-///Callback method for Int inletk
+///Callback method for Int inlet
 pub type IntCB<T> = Box<dyn Fn(&T, max_sys::t_atom_long)>;
 
 /// Inlets for Max objects

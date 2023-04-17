@@ -23,8 +23,9 @@ median::external! {
     impl MSPObjWrapped<HelloDSP> for HelloDSP {
         //create some signal i/o
         fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self {
-            builder.add_signal_inlets(2);
-            builder.add_signal_outlets(2);
+            builder.add_signal_inlets_with_assist(&["in left", "in right"]);
+            //without assist it would be builder.add_signal_inlets(2);
+            builder.add_signal_outlets_with_assist(&["out left", "out right"]);
             Self {
                 value: Int64::new(0),
                 _v: String::from("blah"),
@@ -52,7 +53,7 @@ median::external! {
         // Register any methods you need for your class
         fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
             //explicitly create a "set" selector method with a single symbol argument
-            c.add_method(median::method::Method::SelS(&"set", Self::set_tramp, 0)).unwrap();
+            c.add_method(median::method::Method::SelS("set", Self::set_tramp, 0)).unwrap();
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
