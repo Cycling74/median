@@ -57,7 +57,7 @@ fn append_perms(types: &[Arg], perms: &mut Vec<Vec<Arg>>, recurse: usize) {
     }
 }
 
-fn type_alias_name(perm: &Vec<Arg>) -> String {
+fn type_alias_name(perm: &[Arg]) -> String {
     perm.iter()
         .map(Arg::to_string)
         .collect::<Vec<String>>()
@@ -71,7 +71,7 @@ fn sel_variant_name(type_alias: &String) -> syn::Ident {
     )
 }
 
-fn gen_method(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
+fn gen_method(perms: &[Vec<Arg>]) -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("method-gen.rs");
     let mut f = File::create(&dest_path)?;
@@ -80,7 +80,7 @@ fn gen_method(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
     let mut variants = Vec::new();
     for p in perms.iter() {
         //build type alias
-        let alias = type_alias_name(&p);
+        let alias = type_alias_name(p);
         let t = syn::Ident::new(&alias, proc_macro2::Span::call_site());
         let v = sel_variant_name(&alias);
 
@@ -124,7 +124,7 @@ fn gen_method(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
+fn gen_class(perms: &[Vec<Arg>]) -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("class-gen.rs");
     let mut f = File::create(&dest_path)?;
@@ -224,7 +224,7 @@ fn gen_class(perms: &Vec<Vec<Arg>>) -> Result<(), Box<dyn std::error::Error>> {
         },
     ];
     for p in perms.iter() {
-        let alias = type_alias_name(&p);
+        let alias = type_alias_name(p);
         let t = syn::Ident::new(&alias, proc_macro2::Span::call_site());
         let v = sel_variant_name(&alias);
         let args = p.iter().map(Arg::to_arg);

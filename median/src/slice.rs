@@ -50,6 +50,10 @@ impl<T> Slice<T> {
         self.inner.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     pub fn as_ref(&self) -> &[T] {
         self.inner
     }
@@ -66,7 +70,7 @@ where
     fn default() -> Self {
         unsafe {
             Self {
-                inner: slice::from_raw_parts_mut(std::ptr::null_mut(), 0),
+                inner: slice::from_raw_parts_mut(core::ptr::NonNull::dangling().as_ptr(), 0),
             }
         }
     }
@@ -74,10 +78,10 @@ where
 
 impl<T> Drop for Slice<T> {
     fn drop(&mut self) {
-        if self.inner.len() > 0 {
+        if !self.inner.is_empty() {
             unsafe {
                 max_sys::sysmem_freeptr(self.inner.as_mut_ptr() as _);
-                self.inner = slice::from_raw_parts_mut(std::ptr::null_mut(), 0);
+                self.inner = slice::from_raw_parts_mut(core::ptr::NonNull::dangling().as_ptr(), 0);
             }
         }
     }

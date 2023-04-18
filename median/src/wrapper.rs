@@ -379,7 +379,7 @@ fn handle_buffer_ref_notifications(
     if BufferRef::is_applicable(notification) {
         for r in buffer_refs {
             unsafe {
-                r.notify_if_unchecked(&notification);
+                r.notify_if_unchecked(notification);
             }
         }
     }
@@ -506,7 +506,7 @@ where
 
     /// Retrieve a mutable reference to your wrapped class.
     pub fn wrapped_mut(&mut self) -> &mut T {
-        unsafe { (&mut *self.wrapped.as_mut_ptr()).wrapped_mut() }
+        unsafe { (*self.wrapped.as_mut_ptr()).wrapped_mut() }
     }
 
     extern "C" fn free_wrapped(&mut self) {
@@ -571,7 +571,7 @@ where
                     );
                 }
                 c.register(T::class_type())
-                    .expect(format!("failed to register {}", key).as_str());
+                    .unwrap_or_else(|_| panic!("failed to register {}", key));
 
                 //register our ft1, ft2.. in1, in2.. tramps
                 Self::register_ft_in(c.inner());
@@ -634,8 +634,8 @@ where
     ) -> *mut c_void {
         let sym: SymbolRef = sym.into();
         let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
-        let o = ObjBox::into_raw(Self::new(sym, &args));
-        assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
+        let o = ObjBox::into_raw(Self::new(sym, args));
+        assert_eq!((*o).max_obj(), (*o).wrapped().max_obj());
         std::mem::transmute::<_, _>(o)
     }
 
@@ -739,8 +739,8 @@ where
     ) -> *mut c_void {
         let sym: SymbolRef = sym.into();
         let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
-        let o = ObjBox::into_raw(Self::new(sym, &args));
-        assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
+        let o = ObjBox::into_raw(Self::new(sym, args));
+        assert_eq!((*o).msp_obj(), (*o).wrapped().msp_obj());
         std::mem::transmute::<_, _>(o)
     }
 
@@ -783,7 +783,7 @@ where
         userparam: *mut c_void,
     ) {
         unsafe {
-            (&mut *self.wrapped.as_mut_ptr()).perform64(
+            (*self.wrapped.as_mut_ptr()).perform64(
                 dsp64,
                 ins,
                 numins,
@@ -862,7 +862,7 @@ where
     fn drop(&mut self) {
         unsafe {
             //use Max's object_free which will call the wrapper's "free" method.
-            max_sys::object_free(std::mem::transmute::<_, _>(&self.s_obj));
+            max_sys::object_free(&self.s_obj as *const O as *mut std::ffi::c_void);
         }
     }
 }

@@ -84,7 +84,7 @@ macro_rules! impl_obj_methods {
 /// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
 pub unsafe trait MaxObj: Sized {
     fn max_obj(&self) -> *mut max_sys::t_object {
-        unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self) }
+        self as *const Self as *mut max_sys::object
     }
 
     impl_obj_methods!(Self::max_obj);
@@ -94,7 +94,7 @@ pub unsafe trait MaxObj: Sized {
 /// must be `#[repr(C)]` and have a `max_sys::t_pxobject` as its first member.
 pub unsafe trait MSPObj: Sized {
     fn msp_obj(&self) -> *mut max_sys::t_pxobject {
-        unsafe { std::mem::transmute::<_, *mut max_sys::t_pxobject>(self) }
+        self as *const Self as *mut max_sys::t_pxobject
     }
     /// any MSP object can be safely cast to and used as a max_sys::t_object
     fn as_max_obj(&self) -> *mut max_sys::t_object {

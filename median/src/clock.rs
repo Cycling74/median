@@ -98,7 +98,7 @@ impl ClockHandle {
         unsafe {
             max_sys::clock_getftime(&mut v);
         }
-        return v;
+        v
     }
 
     /// Find out the current logical time of the scheduler in milliseconds.

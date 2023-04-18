@@ -18,9 +18,9 @@ pub enum ClassType {
     NoBox,
 }
 
-impl Into<*mut max_sys::t_symbol> for ClassType {
-    fn into(self) -> *mut max_sys::t_symbol {
-        let t = CString::new(match self {
+impl From<ClassType> for *mut max_sys::t_symbol {
+    fn from(val: ClassType) -> Self {
+        let t = CString::new(match val {
             ClassType::NoBox => "nobox",
             ClassType::Box => "box",
         })

@@ -1,6 +1,6 @@
 //! Data access to MSP buffer~ object data.
 use crate::{notify::Notification, symbol::SymbolRef};
-use core::ffi::c_void;
+
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::ops::{DerefMut, Index, IndexMut};
@@ -125,7 +125,7 @@ impl BufferRef {
         max_sys::object_method(
             notification.data(),
             GET_NAME.inner(),
-            std::mem::transmute::<_, *mut c_void>(&name),
+            &name as *const *mut max_sys::symbol as *mut std::ffi::c_void,
         );
         self.with_lock(|inner| {
             //if the name matches our buffer's name, send notification
@@ -147,9 +147,9 @@ impl BufferRef {
     /// * It should be okay to send notifications that are intended for other objects, including
     /// other buffer references.
     pub fn notify_if(&mut self, notification: &Notification) {
-        if Self::is_applicable(&notification) {
+        if Self::is_applicable(notification) {
             unsafe {
-                self.notify_if_unchecked(&notification);
+                self.notify_if_unchecked(notification);
             }
         }
     }
@@ -249,7 +249,7 @@ impl BufferLocked {
             let frames = self.frames();
             unsafe {
                 Some(std::slice::from_raw_parts(
-                    self.samples.offset((channel * frames) as _),
+                    self.samples.add(channel * frames),
                     frames,
                 ))
             }
@@ -268,7 +268,7 @@ impl BufferLocked {
             self.dirty = true;
             unsafe {
                 Some(std::slice::from_raw_parts_mut(
-                    self.samples.offset((channel * frames) as _),
+                    self.samples.add(channel * frames),
                     frames,
                 ))
             }
@@ -348,9 +348,7 @@ impl<'a> Iterator for BufferChannelIter<'a> {
         if self.offset < self.end {
             let offset = self.offset;
             self.offset += self.frames;
-            Some(unsafe {
-                std::slice::from_raw_parts(self.samples.offset(offset as _), self.frames)
-            })
+            Some(unsafe { std::slice::from_raw_parts(self.samples.add(offset), self.frames) })
         } else {
             None
         }
@@ -361,9 +359,7 @@ impl<'a> DoubleEndedIterator for BufferChannelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.offset < self.end {
             self.end -= self.frames;
-            Some(unsafe {
-                std::slice::from_raw_parts(self.samples.offset(self.end as _), self.frames)
-            })
+            Some(unsafe { std::slice::from_raw_parts(self.samples.add(self.end), self.frames) })
         } else {
             None
         }
@@ -383,9 +379,7 @@ impl<'a> Iterator for BufferChannelIterMut<'a> {
         if self.offset < self.end {
             let offset = self.offset;
             self.offset += self.frames;
-            Some(unsafe {
-                std::slice::from_raw_parts_mut(self.samples.offset(offset as _), self.frames)
-            })
+            Some(unsafe { std::slice::from_raw_parts_mut(self.samples.add(offset), self.frames) })
         } else {
             None
         }
@@ -396,9 +390,7 @@ impl<'a> DoubleEndedIterator for BufferChannelIterMut<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.offset < self.end {
             self.end -= self.frames;
-            Some(unsafe {
-                std::slice::from_raw_parts_mut(self.samples.offset(self.end as _), self.frames)
-            })
+            Some(unsafe { std::slice::from_raw_parts_mut(self.samples.add(self.end), self.frames) })
         } else {
             None
         }

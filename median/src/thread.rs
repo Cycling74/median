@@ -15,10 +15,10 @@ pub struct SysThread;
 /// scheduler thread.
 ///
 /// # Arguments
-///	* `method` - The method to be called.
-///	* `obj` - First argument passed to the method when it executes.
-///	* `sym` - The symbol to pass method when it executes.
-/// * `args` - Additional args to pass to the method when it executes. Will make a copy.
+///     * `method` - The method to be called.
+///	    * `obj` - First argument passed to the method when it executes.
+///	    * `sym` - The symbol to pass method when it executes.
+///     * `args` - Additional args to pass to the method when it executes. Will make a copy.
 ///
 /// # Remarks
 /// This function uses the isr() routine to determine whether you're at the Max timer interrupt

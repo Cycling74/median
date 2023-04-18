@@ -65,9 +65,9 @@ impl Hash for SymbolRef {
 unsafe impl Send for SymbolRef {}
 unsafe impl Sync for SymbolRef {}
 
-impl Into<*mut max_sys::t_symbol> for SymbolRef {
-    fn into(self) -> *mut max_sys::t_symbol {
-        unsafe { self.inner() }
+impl From<SymbolRef> for *mut max_sys::t_symbol {
+    fn from(val: SymbolRef) -> Self {
+        unsafe { val.inner() }
     }
 }
 
@@ -76,7 +76,7 @@ impl TryInto<String> for SymbolRef {
     fn try_into(self) -> Result<String, Self::Error> {
         let c: CString = unsafe { CStr::from_ptr(self.inner_ref().s_name).into() };
         match c.into_string() {
-            Ok(s) => Ok(s.to_string()),
+            Ok(s) => Ok(s),
             Err(e) => Err(e),
         }
     }
@@ -116,7 +116,7 @@ impl TryFrom<&str> for SymbolRef {
     fn try_from(v: &str) -> Result<Self, Self::Error> {
         match CString::new(v) {
             Ok(s) => Ok(Self::from(s)),
-            Err(_) => Err(&"couldn't create CString"),
+            Err(_) => Err("couldn't create CString"),
         }
     }
 }

@@ -350,40 +350,40 @@ struct ClipParams {
     pub use_max: c_long,
 }
 
-impl Into<*const max_sys::t_symbol> for AttrType {
-    fn into(self) -> *const max_sys::t_symbol {
+impl From<AttrType> for *const max_sys::t_symbol {
+    fn from(val: AttrType) -> Self {
         let sym = common_symbols();
-        match self {
-            Self::Char => sym.s_char,
-            Self::Int64 => sym.s_long,
-            Self::Float32 => sym.s_float32,
-            Self::Float64 => sym.s_float64,
-            Self::AtomPtr => sym.s_atom,
-            Self::SymbolRef => sym.s_symbol,
-            Self::Ptr => sym.s_pointer,
-            Self::ObjectPtr => sym.s_object,
+        match val {
+            AttrType::Char => sym.s_char,
+            AttrType::Int64 => sym.s_long,
+            AttrType::Float32 => sym.s_float32,
+            AttrType::Float64 => sym.s_float64,
+            AttrType::AtomPtr => sym.s_atom,
+            AttrType::SymbolRef => sym.s_symbol,
+            AttrType::Ptr => sym.s_pointer,
+            AttrType::ObjectPtr => sym.s_object,
         }
     }
 }
 
-impl Into<ClipParams> for AttrValClip {
-    fn into(self) -> ClipParams {
+impl From<AttrValClip> for ClipParams {
+    fn from(value: AttrValClip) -> Self {
         let mut p = ClipParams {
             min: 0f64,
             max: 0f64,
             use_min: 0,
             use_max: 0,
         };
-        match self {
-            Self::Min(v) => {
+        match value {
+            AttrValClip::Min(v) => {
                 p.min = v;
                 p.use_min = 1;
             }
-            Self::Max(v) => {
+            AttrValClip::Max(v) => {
                 p.max = v;
                 p.use_max = 1;
             }
-            Self::MinMax(min, max) => {
+            AttrValClip::MinMax(min, max) => {
                 p.min = min;
                 p.max = max;
                 p.use_min = 1;
@@ -394,9 +394,9 @@ impl Into<ClipParams> for AttrValClip {
     }
 }
 
-impl<T> Into<*mut max_sys::t_object> for Attr<T> {
-    fn into(self) -> *mut max_sys::t_object {
-        self.inner
+impl<T> From<Attr<T>> for *mut max_sys::t_object {
+    fn from(value: Attr<T>) -> Self {
+        value.inner
     }
 }
 
@@ -430,7 +430,7 @@ where
                 return max_sys::e_max_errorcodes::MAX_ERR_OUT_OF_MEM as _;
             }
         }
-        let s: &mut Atom = std::mem::transmute::<_, _>(*av);
+        let s = &mut *(*av as *mut Atom);
         s.assign(getter().into());
     }
     max_sys::e_max_errorcodes::MAX_ERR_NONE as _

@@ -231,7 +231,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
 
         //reverse because max allocs inlets right to left
         for (mut index, inlet) in inlets.into_iter().enumerate().rev() {
-            index = index + 1; //TODO allow for no default inlet
+            index += 1; //TODO allow for no default inlet
             match inlet {
                 MSPInlet::Float(cb) => unsafe {
                     assert!(index > 0 && index < 10, "index out of range");
@@ -293,7 +293,7 @@ where
                 // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
                 self.max_obj(),
                 Box::new(move |wrapper| {
-                    let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
+                    let wrapper: &W = &*wrapper.cast::<W>();
                     func(wrapper.wrapped());
                 }),
             )
@@ -305,7 +305,7 @@ where
                 // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
                 self.max_obj(),
                 Box::new(move |wrapper| {
-                    let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
+                    let wrapper: &W = &*wrapper.cast::<W>();
                     func(wrapper.wrapped());
                 }),
             )
@@ -402,7 +402,7 @@ where
     }
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
-        return self.max_obj;
+        self.max_obj
     }
 }
 
@@ -448,7 +448,7 @@ where
         let start = self.outlet_count;
         self.add_signal_outlets(assist.len());
         for (i, s) in assist.iter().enumerate() {
-            self.add_out_assist(i + start, *s);
+            self.add_out_assist(i + start, s);
         }
     }
 
@@ -473,7 +473,7 @@ where
         let start = self.inlets.len();
         self.add_signal_inlets(assist.len());
         for (i, s) in assist.iter().enumerate() {
-            self.add_in_assist(i + start, *s);
+            self.add_in_assist(i + start, s);
         }
     }
 

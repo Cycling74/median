@@ -89,7 +89,7 @@ impl Atom {
         }
     }
 
-    pub fn set_obj(&mut self, v: *mut c_void) {
+    pub unsafe fn set_obj(&mut self, v: *mut c_void) {
         unsafe {
             max_sys::atom_setobj(&mut self.value, v);
         }
