@@ -1,6 +1,6 @@
 # Median
 
-A Rust wrapper around the `max-sys` automatically generated bindings to the [Max SDK](https://github.com/Cycling74/max-sdk).
+Ergonomic bindings for the [Max/MSP](https://cycling74.com/) [SDK](https://github.com/Cycling74/max-sdk).
 
 ## Disclaimer
 
@@ -9,10 +9,81 @@ This is a work in progress.
 ## Dependencies
 
 * [rust](https://rustup.rs/)
+* [cargo make](https://github.com/sagiegurari/cargo-make) for building examples and template projects
 
-## Examples
+## Example
 
-Checkout the examples in [examples/README.md](examples/README.md)
+A very basic external that has `bang`, `int`, `list`, and `any` methods.
+
+See the [examples folder](examples/README.md) for more detailed examples.
+
+```rust,no_run
+use median::{
+    atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::MaxObj, post,
+    symbol::SymbolRef, wrapper::*,
+};
+
+median::external! {
+    pub struct Example;
+
+    impl MaxObjWrapped<Example> for Example {
+        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+            let _ = builder.add_inlet(median::inlet::MaxInlet::Proxy);
+            Self
+        }
+    }
+
+    impl Example {
+        #[bang]
+        pub fn bang(&self) {
+            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            median::object_post!(self.max_obj(), "bang from inlet {}", i);
+        }
+
+        #[int]
+        pub fn int(&self, v: t_atom_long) {
+            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            post!("int {} from inlet {}", v, i);
+        }
+
+        #[list]
+        pub fn list(&self, atoms: &[Atom]) {
+            post!("got list with length {}", atoms.len());
+        }
+
+        #[any]
+        pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
+            post!("got any with sel {} and length {}", sel, atoms.len());
+        }
+    }
+}
+```
+
+## Building Externals
+
+If you use the [utils/Makefile.toml](utils/Makefile.toml) setup, like the
+[examples](examples/README.md) or projects based off the [median templates](../templates),
+you should be able to build, package and install with [cargo-make](https://sagiegurari.github.io/cargo-make/).
+
+First, make sure you have [cargo-make](https://sagiegurari.github.io/cargo-make/) installed on your system:
+
+```sh
+cargo install cargo-make
+```
+
+You can then build the package for your current platform:
+
+```sh
+cargo make package # creates a development build
+cargo make --profile release package # creates a production build
+```
+
+If you'd like to install the built object into Max, run:
+
+```sh
+cargo make install # creates and installs a development build
+cargo make --profile release install # creates and installs a production build
+```
 
 ## Cross Compiling
 
@@ -37,7 +108,7 @@ rustup toolchain install stable-x86_64-pc-windows-gnu
 
 Then should be able to build all the externals with:
 
-`cargo make package-all` or `cargo make package-all --profile release`
+`cargo make package-all` or `cargo make --profile release package-all`
 
 If this succeeds, you should see a printout of where the externals were put.
 
@@ -54,5 +125,8 @@ if you have more than 7 args or if you are mixing floating point and other argum
 ## TODO
 
 * dictionaries
+* Jitter wrapper(s)
 * cross compile on linux
   * [cctools](https://github.com/tpoechtrager/cctools-port) lipo for linux
+* [github actions](https://github.com/features/actions)
+* explain non mut methods and threading model and `Sync` in docs

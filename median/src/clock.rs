@@ -1,9 +1,10 @@
+//! Clocks - interface to Max’s scheduler.
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
     builder::MaxWrappedBuilder,
     object::MaxObj,
-    wrapper::{tramp, MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
+    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
 };
 
 use std::ffi::{c_void, CString};
@@ -23,7 +24,10 @@ impl ClockInner {
         self.target = Some((target, func));
     }
 
-    #[tramp(MaxObjWrapper<Self>)]
+    pub extern "C" fn call_tramp(wrapper: &MaxObjWrapper<Self>) {
+        wrapper.wrapped().call()
+    }
+
     fn call(&self) {
         if let Some((target, func)) = &self.target {
             (func)(*target)
@@ -53,6 +57,7 @@ impl MaxObjWrapped<ClockInner> for ClockInner {
     }
 }
 
+/// A handle for a clock and the method it will trigger.
 pub struct ClockHandle {
     _target: crate::object::ObjBox<MaxObjWrapper<ClockInner>>,
     clock: *mut c_void,

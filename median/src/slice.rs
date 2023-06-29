@@ -1,3 +1,4 @@
+//! Max memory allocated slice
 use std::convert::{From, Into};
 use std::slice;
 

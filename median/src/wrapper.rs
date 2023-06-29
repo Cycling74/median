@@ -15,7 +15,7 @@ use crate::{
 
 use std::{
     collections::HashMap,
-    ffi::{c_void, CString},
+    ffi::{c_char, c_void, CStr, CString},
     marker::PhantomData,
     mem::MaybeUninit,
     os::raw::c_long,
@@ -29,6 +29,8 @@ lazy_static! {
     static ref CLASSES: Mutex<HashMap<&'static str, ClassMaxObjWrapper>> = Mutex::new(HashMap::new());
 }
 
+const ASSIST_MAX: i64 = 512;
+
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
 pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
 
@@ -41,6 +43,12 @@ pub type DeferMethodWrapped<T> = extern "C" fn(
     argc: c_long,
     argv: *const max_sys::t_atom,
 );
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum AssistIOlet {
+    Inlet(usize),
+    Outlet(usize),
+}
 
 //reexports
 ///trampoline for attribute getters
@@ -62,7 +70,7 @@ pub use median_macros::wrapped_tramp as tramp;
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
 
-/// A trait useed by both Max and MSP objects.
+/// A trait used by both Max and MSP objects.
 ///
 /// # Remarks
 /// If you're using the macro system to wrap your external and unless you need to override the
@@ -81,6 +89,16 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
 
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
+
+    /// Provide assistance in the case that you don't provide it along with your i/o creation
+    fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
+        let v = CString::new(match iolet {
+            AssistIOlet::Inlet(i) => format!("inlet {}", i + 1),
+            AssistIOlet::Outlet(i) => format!("outlet {}", i + 1),
+        })
+        .unwrap();
+        render(v.as_c_str());
+    }
 }
 
 /// The trait to implement for your object to be wrapped as a Max object.
@@ -115,6 +133,17 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
         //default, do nothing
     }
 
+    /// Optionally do any setup you need just before perform is called
+    ///
+    /// # Arguments
+    /// * `sample_rate`: the audio sampling rate for the object in the DSP chain.
+    ///
+    /// # Remarks
+    /// * This will be called every time DSP is toggled on.
+    /// * Your best guess of the sample rate before DSP is toggled on is the value from [`max_sys::sys_getsr()`]
+    #[allow(unused)]
+    fn dsp_setup(&self, sample_rate: f64) {}
+
     /// Optionally allow Max to reuse input vectors as output vectors.
     /// You have to be more careful about writing if you do this.
     fn dsp_in_place() -> bool {
@@ -135,6 +164,7 @@ pub trait WrappedDefer<T> {
     fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
 }
 
+/// The actual struct that is given to max
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
     s_obj: O,
@@ -142,22 +172,28 @@ pub struct Wrapper<O, I, T> {
     _phantom: PhantomData<T>,
 }
 
+/// Inner struct for wrapping [`MaxObjWrapped`]
 pub struct MaxWrapperInternal<T> {
     wrapped: T,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    assist_ins: HashMap<usize, CString>,
+    assist_outs: HashMap<usize, CString>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
+/// Inner struct for wrapping [`MSPObjWrapped`]
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
-    ins: Vec<&'static [f64]>,
-    outs: Vec<&'static mut [f64]>,
+    ins: Vec<MaybeUninit<&'static [f64]>>,
+    outs: Vec<MaybeUninit<&'static mut [f64]>>,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    assist_ins: HashMap<usize, CString>,
+    assist_outs: HashMap<usize, CString>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
@@ -172,6 +208,7 @@ pub trait WrapperInternal<O, T>: Sized {
     fn call_int(&self, index: usize, value: max_sys::t_atom_long);
 
     fn handle_notification(&self, notification: &Notification);
+    fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -198,6 +235,8 @@ where
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
+            assist_ins: std::mem::take(&mut f.assist_ins),
+            assist_outs: std::mem::take(&mut f.assist_outs),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -217,6 +256,35 @@ where
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
     }
+    fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
+        let render = |src: &CStr| unsafe {
+            let _ =
+                ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
+        };
+
+        //lookup assist string, if we don't have one, call wrapper method
+        let iolet = match io {
+            1 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_ins.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Inlet(index)
+            }
+            2 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_outs.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Outlet(index)
+            }
+            _ => return,
+        };
+
+        self.wrapped().assist(iolet, render);
+    }
 }
 
 impl<T> WrapperInternal<max_sys::t_pxobject, T> for MSPWrapperInternal<T>
@@ -233,11 +301,11 @@ where
         let mut builder = WrappedBuilder::new_msp(owner, sym, args);
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
-        let ins = (0..f.signal_inlets)
-            .map(|_i| unsafe { std::slice::from_raw_parts(std::ptr::null(), 0) })
+        let ins: Vec<MaybeUninit<&'static [f64]>> = (0..f.signal_inlets)
+            .map(|_i| MaybeUninit::uninit())
             .collect();
-        let outs: Vec<&'static mut [f64]> = (0..f.signal_outlets)
-            .map(|_i| unsafe { std::slice::from_raw_parts_mut(std::ptr::null_mut(), 0) })
+        let outs: Vec<MaybeUninit<&'static mut [f64]>> = (0..f.signal_outlets)
+            .map(|_i| MaybeUninit::uninit())
             .collect();
         if !T::dsp_in_place() {
             unsafe {
@@ -252,6 +320,8 @@ where
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
+            assist_ins: std::mem::take(&mut f.assist_ins),
+            assist_outs: std::mem::take(&mut f.assist_outs),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -270,6 +340,35 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
+    }
+    fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
+        let render = |src: &CStr| unsafe {
+            let _ =
+                ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
+        };
+
+        //lookup assist string, if we don't have one, call wrapper method
+        let iolet = match io {
+            1 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_ins.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Inlet(index)
+            }
+            2 => {
+                let index = index as usize;
+                if let Some(s) = self.assist_outs.get(&index) {
+                    render(s.as_c_str());
+                    return;
+                }
+                AssistIOlet::Outlet(index)
+            }
+            _ => return,
+        };
+
+        self.wrapped().assist(iolet, render);
     }
 }
 
@@ -303,27 +402,33 @@ where
     ) {
         assert!(self.ins.len() >= numins as _);
         assert!(self.outs.len() >= numouts as _);
+
         let nframes = sampleframes as usize;
 
         //convert into slices
         let ins = unsafe { std::slice::from_raw_parts(ins, numins as _) };
         for (i, ip) in self.ins.iter_mut().zip(ins) {
             unsafe {
-                *i = std::slice::from_raw_parts(*ip, nframes);
+                i.write(std::slice::from_raw_parts(*ip, nframes));
             }
         }
         let outs = unsafe { std::slice::from_raw_parts_mut(outs, numouts as _) };
         for (o, op) in self.outs.iter_mut().zip(outs) {
             unsafe {
-                *o = std::slice::from_raw_parts_mut(*op, nframes);
+                o.write(std::slice::from_raw_parts_mut(*op, nframes));
             }
         }
 
         //do a dance so we can access an immutable and a mutable at the same time
         let mut ins = std::mem::take(&mut self.ins);
         let mut outs = std::mem::take(&mut self.outs);
-        self.wrapped()
-            .perform(ins.as_slice(), outs.as_mut_slice(), nframes);
+        unsafe {
+            self.wrapped().perform(
+                std::mem::transmute::<_, &[&[f64]]>(ins.as_slice()),
+                std::mem::transmute::<_, &mut [&mut [f64]]>(outs.as_mut_slice()),
+                nframes,
+            );
+        }
         std::mem::swap(&mut self.ins, &mut ins);
         std::mem::swap(&mut self.outs, &mut outs);
     }
@@ -422,6 +527,13 @@ where
             sender: *mut c_void,
             data: *mut c_void,
         ),
+        assist_tramp: extern "C" fn(
+            &Wrapper<O, I, T>,
+            _b: *mut c_void,
+            io: c_long,
+            index: c_long,
+            s: *mut c_char,
+        ),
         creator: F,
     ) where
         F: Fn() -> Class<Self>,
@@ -439,12 +551,21 @@ where
             let max_class = if existing.is_null() {
                 let mut c = creator();
                 let notify = std::ffi::CString::new("notify").unwrap();
-                //register notifications
+                let assist = std::ffi::CString::new("assist").unwrap();
                 unsafe {
+                    //register notifications
                     max_sys::class_addmethod(
                         c.inner(),
                         Some(std::mem::transmute::<_, MaxMethod>(notification_handler)),
                         notify.as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
+                    //assist
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<_, MaxMethod>(assist_tramp)),
+                        assist.as_ptr(),
                         max_sys::e_max_atomtypes::A_CANT,
                         0,
                     );
@@ -484,20 +605,25 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
-            let mut c: Class<Self> = Class::new(
-                T::class_name(),
-                Self::new_tramp,
-                Some(
-                    std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
-                        Self::free_wrapped,
+        Self::register_common(
+            lookup_class,
+            Self::handle_notification_tramp,
+            Self::assist_tramp,
+            || {
+                let mut c: Class<Self> = Class::new(
+                    T::class_name(),
+                    Self::new_tramp,
+                    Some(
+                        std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
+                            Self::free_wrapped,
+                        ),
                     ),
-                ),
-            );
-            //TODO somehow pass the lock so that classes can register additional classes
-            MaxWrapperInternal::<T>::class_setup(&mut c);
-            c
-        });
+                );
+                //TODO somehow pass the lock so that classes can register additional classes
+                MaxWrapperInternal::<T>::class_setup(&mut c);
+                c
+            },
+        );
     }
 
     /// A method for Max to create an instance of your class.
@@ -545,6 +671,10 @@ where
         let notification = Notification::new(sender_name, message, sender, data);
         self.internal().handle_notification(&notification);
     }
+
+    extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
+        self.internal().assist(io, index, s);
+    }
 }
 
 impl<T> MSPObjWrapper<T>
@@ -561,37 +691,44 @@ where
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
     pub unsafe fn register(lookup_class: bool) {
-        Self::register_common(lookup_class, Self::handle_notification_tramp, || {
-            let mut c: Class<Self> = Class::new(
-                T::class_name(),
-                Self::new_tramp,
-                Some(
-                    std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(Self::free_msp),
-                ),
-            );
-            //TODO somehow pass the lock so that classes can register additional classes
-            MSPWrapperInternal::<T>::class_setup(&mut c);
-            let dsp64 = CString::new("dsp64").unwrap();
-            max_sys::class_addmethod(
-                c.inner(),
-                Some(std::mem::transmute::<
-                    extern "C" fn(
-                        &mut Self,
-                        dsp64: *mut max_sys::t_object,
-                        count: *mut std::os::raw::c_short,
-                        samplerate: f64,
-                        maxvectorsize: i64,
-                        flags: i64,
+        Self::register_common(
+            lookup_class,
+            Self::handle_notification_tramp,
+            Self::assist_tramp,
+            || {
+                let mut c: Class<Self> = Class::new(
+                    T::class_name(),
+                    Self::new_tramp,
+                    Some(
+                        std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
+                            Self::free_msp,
+                        ),
                     ),
-                    MaxMethod,
-                >(Self::dsp64)),
-                dsp64.as_ptr(),
-                max_sys::e_max_atomtypes::A_CANT,
-                0,
-            );
-            max_sys::class_dspinit(c.inner());
-            c
-        });
+                );
+                //TODO somehow pass the lock so that classes can register additional classes
+                MSPWrapperInternal::<T>::class_setup(&mut c);
+                let dsp64 = CString::new("dsp64").unwrap();
+                max_sys::class_addmethod(
+                    c.inner(),
+                    Some(std::mem::transmute::<
+                        extern "C" fn(
+                            &mut Self,
+                            dsp64: *mut max_sys::t_object,
+                            count: *mut std::os::raw::c_short,
+                            samplerate: f64,
+                            maxvectorsize: i64,
+                            flags: i64,
+                        ),
+                        MaxMethod,
+                    >(Self::dsp64)),
+                    dsp64.as_ptr(),
+                    max_sys::e_max_atomtypes::A_CANT,
+                    0,
+                );
+                max_sys::class_dspinit(c.inner());
+                c
+            },
+        );
     }
 
     /// A method for Max to create an instance of your class.
@@ -663,11 +800,12 @@ where
         &mut self,
         dsp64: *mut max_sys::t_object,
         _count: *mut std::os::raw::c_short,
-        _samplerate: f64,
+        samplerate: f64,
         _maxvectorsize: i64,
         _flags: i64,
     ) {
         unsafe {
+            self.wrapped().dsp_setup(samplerate);
             max_sys::dsp_add64(
                 dsp64,
                 self.max_obj(),
@@ -710,6 +848,10 @@ where
     ) {
         let notification = Notification::new(sender_name, message, sender, data);
         self.internal().handle_notification(&notification);
+    }
+
+    extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
+        self.internal().assist(io, index, s);
     }
 }
 
@@ -818,8 +960,3 @@ where
         );
     }
 }
-
-unsafe impl<T: Send> Send for MaxObjWrapper<T> {}
-unsafe impl<T: Send> Send for MSPObjWrapper<T> {}
-unsafe impl<T: Sync> Sync for MaxObjWrapper<T> {}
-unsafe impl<T: Sync> Sync for MSPObjWrapper<T> {}
