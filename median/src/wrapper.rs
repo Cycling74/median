@@ -484,15 +484,17 @@ macro_rules! int_float_tramps {
             unsafe {
             $(
                 paste::paste! {
+                    let name = std::ffi::CString::new(concat!("ft", $i)).unwrap();
                     max_sys::class_addmethod(class,
                         Some(std::mem::transmute::<extern "C" fn(&Self, f64), crate::method::MaxMethod>(Self::[<call_ft $i>])),
-                        std::ffi::CString::new(concat!("ft", $i)).unwrap().as_ptr(),
+                        name.as_ptr(),
                         max_sys::e_max_atomtypes::A_FLOAT, 0
                     );
 
+                    let name = std::ffi::CString::new(concat!("in", $i)).unwrap();
                     max_sys::class_addmethod(class,
                         Some(std::mem::transmute::<extern "C" fn(&Self, max_sys::t_atom_long), crate::method::MaxMethod>(Self::[<call_in $i>])),
-                        std::ffi::CString::new(concat!("in", $i)).unwrap().as_ptr(),
+                        name.as_ptr(),
                         max_sys::e_max_atomtypes::A_LONG, 0
                     );
                 })*
