@@ -258,8 +258,11 @@ where
     }
     fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
         let render = |src: &CStr| unsafe {
-            let _ =
-                ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
+            let _ = ::max_sys::strncpy_zero(
+                dest,
+                src.to_bytes_with_nul().as_ptr() as _,
+                ASSIST_MAX as _,
+            );
         };
 
         //lookup assist string, if we don't have one, call wrapper method
@@ -343,8 +346,11 @@ where
     }
     fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
         let render = |src: &CStr| unsafe {
-            let _ =
-                ::max_sys::strncpy_zero(dest, src.to_bytes_with_nul().as_ptr() as _, ASSIST_MAX);
+            let _ = ::max_sys::strncpy_zero(
+                dest,
+                src.to_bytes_with_nul().as_ptr() as _,
+                ASSIST_MAX as _,
+            );
         };
 
         //lookup assist string, if we don't have one, call wrapper method
