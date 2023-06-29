@@ -11,7 +11,7 @@ use median::{
     outlet::OutList,
     post,
     symbol::SymbolRef,
-    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper},
+    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper, ObjWrapped},
 };
 
 use std::convert::{From, TryFrom};

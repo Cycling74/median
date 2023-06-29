@@ -99,6 +99,11 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
         .unwrap();
         render(v.as_c_str());
     }
+
+    /// Indicate that an inlet is cold, by default, all but the zeroth index is cold
+    fn inlet_cold(&self, index: usize) -> bool {
+        index != 0
+    }
 }
 
 /// The trait to implement for your object to be wrapped as a Max object.
@@ -209,6 +214,7 @@ pub trait WrapperInternal<O, T>: Sized {
 
     fn handle_notification(&self, notification: &Notification);
     fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
+    fn inlet_cold(&self, index: usize) -> bool;
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -287,6 +293,9 @@ where
         };
 
         self.wrapped().assist(iolet, render);
+    }
+    fn inlet_cold(&self, index: usize) -> bool {
+        self.wrapped().inlet_cold(index)
     }
 }
 
@@ -375,6 +384,9 @@ where
         };
 
         self.wrapped().assist(iolet, render);
+    }
+    fn inlet_cold(&self, index: usize) -> bool {
+        self.wrapped().inlet_cold(index)
     }
 }
 
@@ -542,6 +554,12 @@ where
             index: c_long,
             s: *mut c_char,
         ),
+        inlet_info_tramp: extern "C" fn(
+            &Wrapper<O, I, T>,
+            _b: *mut c_void,
+            index: c_long,
+            s: *mut c_char,
+        ),
         creator: F,
     ) where
         F: Fn() -> Class<Self>,
@@ -617,6 +635,7 @@ where
             lookup_class,
             Self::handle_notification_tramp,
             Self::assist_tramp,
+            Self::inlet_info_tramp,
             || {
                 let mut c: Class<Self> = Class::new(
                     T::class_name(),
@@ -683,6 +702,14 @@ where
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
         self.internal().assist(io, index, s);
     }
+
+    extern "C" fn inlet_info_tramp(&self, _b: *mut c_void, index: c_long, s: *mut c_char) {
+        if !s.is_null() && index >= 0 && self.internal().inlet_cold(index as usize) {
+            unsafe {
+                *s = 1; //only need to set cold inlets to 1
+            }
+        }
+    }
 }
 
 impl<T> MSPObjWrapper<T>
@@ -703,6 +730,7 @@ where
             lookup_class,
             Self::handle_notification_tramp,
             Self::assist_tramp,
+            Self::inlet_info_tramp,
             || {
                 let mut c: Class<Self> = Class::new(
                     T::class_name(),
@@ -860,6 +888,14 @@ where
 
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
         self.internal().assist(io, index, s);
+    }
+
+    extern "C" fn inlet_info_tramp(&self, _b: *mut c_void, index: c_long, s: *mut c_char) {
+        if !s.is_null() && index >= 0 && self.internal().inlet_cold(index as usize) {
+            unsafe {
+                *s = 1; //only need to set cold inlets to 1
+            }
+        }
     }
 }
 
