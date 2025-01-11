@@ -1,11 +1,11 @@
 [package]
-name = "{{project-name}}"
+name = "project-name"
 version = "0.1.0"
-authors = [ "{{ authors }}" ]
+authors = [ "authors" ]
 edition = "2018"
 
 [lib]
-name = "{{crate_name}}"
+name = "crate_name"
 crate-type = ["cdylib"]
 
 [dependencies]
