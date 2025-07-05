@@ -76,7 +76,7 @@ env = { "TARGET_TRIPLE" = "${TARGET_TRIPLE_MAC_UNIVERSAL}", "PROFILE_EXTERNAL_PA
 script_runner = "@shell"
 script = [
     '''
-    mkdir -p ${PROFILE_EXTERNAL_PATH}/Contents/MacOS/
+    mkdir -p "${PROFILE_EXTERNAL_PATH}/Contents/MacOS/"
     cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_EXTERNAL_PATH}/Contents/"
     lipo -create -output "${PROFILE_EXTERNAL_PATH}/Contents/MacOS/${PACKAGED_LIB_FILE_NAME}" "target/${TARGET_TRIPLE_MAC_X86}/${PROFILE_DIR}/${LIB_FILE_NAME}" "target/${TARGET_TRIPLE_MAC_AARCH64}/${PROFILE_DIR}/${LIB_FILE_NAME}"
     '''
@@ -194,9 +194,9 @@ private = true
 script_runner = "@shell"
 script = [
     '''
-    mkdir -p ${PACKAGE_DIR}/externals/
-    cp -r target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxo ${PACKAGE_DIR}/externals/
-    cp -r target/${TARGET_TRIPLE_WINDOWS}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxe64 ${PACKAGE_DIR}/externals/
+    mkdir -p "${PACKAGE_DIR}/externals/"
+    cp -r "target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxo" "${PACKAGE_DIR}/externals/"
+    cp -r "target/${TARGET_TRIPLE_WINDOWS}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxe64" "${PACKAGE_DIR}/externals/"
     echo PACKAGE_DIR=${PACKAGE_DIR}
     '''
 ]
@@ -207,8 +207,8 @@ condition = { files_exist = ["${INIT_DIR}/"] }
 script_runner = "@shell"
 script = [
     '''
-    mkdir -p ${PACKAGE_DIR}/init/
-    cp ${INIT_DIR}/* "${PACKAGE_DIR}/init/"
+    mkdir -p "${PACKAGE_DIR}/init/"
+    cp "${INIT_DIR}/"* "${PACKAGE_DIR}/init/"
     '''
 ]
 
@@ -255,6 +255,6 @@ script_runner = "@shell"
 script = [
     '''
     mkdir -p "${INIT_INSTALL_DIR}"
-    cp ${INIT_DIR}/* "${INIT_INSTALL_DIR}"
+    cp "${INIT_DIR}/"* "${INIT_INSTALL_DIR}"
     '''
 ]
