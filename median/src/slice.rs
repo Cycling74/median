@@ -65,12 +65,7 @@ where
     T: 'static + Sized,
 {
     fn default() -> Self {
-        unsafe {
-            Self {
-                //XXX unsound
-                inner: slice::from_raw_parts_mut(std::ptr::null_mut(), 0),
-            }
-        }
+        Self { inner: &mut [] }
     }
 }
 
@@ -79,9 +74,8 @@ impl<T> Drop for Slice<T> {
         if self.inner.len() > 0 {
             unsafe {
                 max_sys::sysmem_freeptr(self.inner.as_mut_ptr() as _);
-                //XXX unsound
-                self.inner = slice::from_raw_parts_mut(std::ptr::null_mut(), 0);
             }
+            self.inner = &mut [];
         }
     }
 }
@@ -123,5 +117,8 @@ mod test {
 
         let s = Slice::from_raw_parts_mut(p, l);
         assert_eq!(2, s.len());
+
+        let s: Slice<Atom> = Default::default();
+        assert_eq!(0, s.len());
     }
 }
