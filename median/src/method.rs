@@ -30,11 +30,15 @@ pub fn sel_list<F>(
     F: Fn(SymbolRef, &[Atom]),
 {
     let sym = SymbolRef::from(sym);
-    let atoms = unsafe {
-        std::slice::from_raw_parts(
-            std::mem::transmute::<*const ::max_sys::t_atom, *const Atom>(av),
-            ac as _,
-        )
+    let atoms = if ac > 0 && !av.is_null() {
+        unsafe {
+            std::slice::from_raw_parts(
+                std::mem::transmute::<*const ::max_sys::t_atom, *const Atom>(av),
+                ac as _,
+            )
+        } 
+    } else {
+        &[]
     };
     f(sym, atoms);
 }

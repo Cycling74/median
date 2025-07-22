@@ -12,6 +12,7 @@ where
     T: 'static + Sized + Default,
 {
     pub fn new_with_length(len: usize) -> Self {
+        assert_ne!(len, 0);
         let inner = unsafe {
             let ptr = max_sys::sysmem_newptr((std::mem::size_of::<T>() * len) as _);
             if ptr.is_null() {
@@ -66,6 +67,7 @@ where
     fn default() -> Self {
         unsafe {
             Self {
+                //XXX unsound
                 inner: slice::from_raw_parts_mut(std::ptr::null_mut(), 0),
             }
         }
@@ -77,6 +79,7 @@ impl<T> Drop for Slice<T> {
         if self.inner.len() > 0 {
             unsafe {
                 max_sys::sysmem_freeptr(self.inner.as_mut_ptr() as _);
+                //XXX unsound
                 self.inner = slice::from_raw_parts_mut(std::ptr::null_mut(), 0);
             }
         }

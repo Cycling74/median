@@ -412,13 +412,21 @@ where
         let nframes = sampleframes as usize;
 
         //convert into slices
-        let ins = unsafe { std::slice::from_raw_parts(ins, numins as _) };
+        let ins = if numins > 0 && !ins.is_null()  {
+            unsafe { std::slice::from_raw_parts(ins, numins as _) } 
+        } else {
+            &[]
+        };
         for (i, ip) in self.ins.iter_mut().zip(ins) {
             unsafe {
                 i.write(std::slice::from_raw_parts(*ip, nframes));
             }
         }
-        let outs = unsafe { std::slice::from_raw_parts_mut(outs, numouts as _) };
+        let outs = if numouts > 0 && !outs.is_null() {
+            unsafe { std::slice::from_raw_parts_mut(outs, numouts as _) }
+        } else {
+            &mut []
+        };
         for (o, op) in self.outs.iter_mut().zip(outs) {
             unsafe {
                 o.write(std::slice::from_raw_parts_mut(*op, nframes));
@@ -641,8 +649,13 @@ where
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
         let sym: SymbolRef = sym.into();
-        let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
+        let args = if argc > 0 && !argv.is_null() {
+            std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
+        } else {
+            &[]
+        };
         let o = ObjBox::into_raw(Self::new(sym, &args));
+
         assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
         std::mem::transmute::<_, _>(o)
     }
@@ -746,7 +759,11 @@ where
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
         let sym: SymbolRef = sym.into();
-        let args = std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize);
+        let args = if argc > 0 && !argv.is_null() {
+            std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
+        } else {
+            &[]
+        };
         let o = ObjBox::into_raw(Self::new(sym, &args));
         assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
         std::mem::transmute::<_, _>(o)
