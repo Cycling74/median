@@ -12,5 +12,5 @@ pub unsafe extern "C" fn sysmem_newptr(size: c_long) -> max_sys::t_ptr {
 
 #[no_mangle]
 pub unsafe extern "C" fn sysmem_freeptr(ptr: *mut c_void) {
-    Box::from_raw(ptr);
+    let _ = Box::from_raw(ptr);
 }

@@ -184,7 +184,7 @@ impl<T> AttrBuilder<T> {
             self.get.is_some() || self.offset.is_some(),
             "to set get visibilty you must have either a get method or an offset"
         );
-        let mut n = self;
+        let n = self;
         n.get_vis = v;
         n
     }
@@ -200,13 +200,13 @@ impl<T> AttrBuilder<T> {
             self.set.is_some() || self.offset.is_some(),
             "to set set visibilty you must have either a set method or an offset"
         );
-        let mut n = self;
+        let n = self;
         n.set_vis = v;
         n
     }
     /// Set the optional clip for this attribute.
     pub fn clip(&mut self, v: AttrClip) -> &mut Self {
-        let mut n = self;
+        let n = self;
         n.clip = v;
         n
     }
