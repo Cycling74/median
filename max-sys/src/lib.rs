@@ -19,14 +19,18 @@ include!("./ffi-macos-aarch64.rs");
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 include!("./ffi-windows-x86_64.rs");
 
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+include!("./ffi-linux-x86_64.rs");
+
 #[cfg(not(any(
     all(target_os = "windows", target_arch = "x86_64"),
+    all(target_os = "linux", target_arch = "x86_64"),
     all(
         target_os = "macos",
         any(target_arch = "x86_64", target_arch = "aarch64")
     )
 )))]
-compile_error!("x84_64 on windows or mac are they only supported platforms so far");
+compile_error!("x84_64 on windows/linux or mac are they only supported platforms so far");
 
 //pointer to a t_pxobject can be savely turned into a t_object
 impl std::convert::From<&mut crate::t_pxobject> for &mut crate::object {

@@ -38,6 +38,8 @@ fn build_bindings(support_dir: &str) {
         );
         println!("cargo:rustc-link-lib=static=MaxAPI");
         println!("cargo:rustc-link-lib=static=MaxAudio");
+    } else if cfg!(target_os = "linux") {
+        builder = builder.clang_arg("-DLINUX_VERSION");
     }
 
     //windows is really spammy so, we just parse the link flags to figure out what we want to include
@@ -145,7 +147,7 @@ fn build_bindings(support_dir: &str) {
 }
 
 fn main() {
-    let support_dir = "thirdparty/max-sdk/source/c74support";
+    let support_dir = "thirdparty/max-sdk-base/c74support";
     let target_os = env::var_os("CARGO_CFG_TARGET_OS").expect("failed to get target os");
 
     if target_os == "macos" {
@@ -164,6 +166,8 @@ fn main() {
         );
         println!("cargo:rustc-link-lib=MaxAPI");
         println!("cargo:rustc-link-lib=MaxAudio");
+    } else if target_os == "linux" {
+        //are there any libs we need to link on linux?
     } else {
         panic!("{:?} is not a supported target os", target_os);
     }

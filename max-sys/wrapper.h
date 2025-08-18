@@ -24,6 +24,10 @@ typedef struct OpaqueMPCriticalRegionID*  MPCriticalRegionID;
 #undef __FILES__
 
 /*********** jitter ***********/
+
+// the public headers don't seem to support linux yet, ignoring jitter for now
+#ifndef LINUX_VERSION
 //typedef uint32_t CGDirectDisplayID;
 //typedef uint16_t GLhalfNV;
 #include "wrapper-jitter.h"
+#endif
