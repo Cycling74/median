@@ -5,10 +5,11 @@ additional_profiles = [ "release" ]
 ## Environment setup, some will get overridden in other tasks
 
 [env]
+MAX_VERSION = "Max 9"
 MAX_PACKAGE_NAME = { value = "median", condition = { env_not_set = ["MAX_PACKAGE_NAME"] } }
 MAX_EXT_NAME = { value = "${CARGO_MAKE_CRATE_FS_NAME}", condition = { env_not_set = ["MAX_EXT_NAME"] } }
 MAX_EXT_BASE_NAME = "${MAX_EXT_NAME}"
-PLATFORM_INSTALL_DIR = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "ERROR", mapping = {"macos" = "${HOME}/Documents/Max 8/Packages", windows = "${USERPROFILE}/Documents/Max 8/Packages" } }
+PLATFORM_INSTALL_DIR = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "${HOME}/Documents/${MAX_VERSION}/Packages", mapping = {windows = "${USERPROFILE}/Documents/${MAX_VERSION}/Packages" } }
 INIT_INSTALL_DIR = "${PLATFORM_INSTALL_DIR}/${MAX_PACKAGE_NAME}/init/"
 EXTERNAL_INSTALL_DIR = "${PLATFORM_INSTALL_DIR}/${MAX_PACKAGE_NAME}/externals/"
 PACKAGED_LIB_FILE_NAME = "${MAX_EXT_NAME}"
@@ -18,9 +19,11 @@ TARGET_TRIPLE_WINDOWS = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value
 TARGET_TRIPLE_MAC_AARCH64 = "aarch64-apple-darwin"
 TARGET_TRIPLE_MAC_X86 = "x86_64-apple-darwin"
 TARGET_TRIPLE_MAC_UNIVERSAL = "universal-apple-darwin"
+TARGET_TRIPLE_LINUX_X86 = "x86_64-unknown-linux-gnu"
 IS_MAC_AARCH64 = { source = "${CARGO_MAKE_RUST_TARGET_TRIPLE}", default_value = "false", mapping = { "aarch64-apple-darwin" = "true" } }
 IS_MAC_X86 = { source = "${CARGO_MAKE_RUST_TARGET_TRIPLE}", default_value = "false", mapping = { "x86_64-apple-darwin" = "true" } }
 IS_WIN_X86 = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "false", mapping = { "windows" = "true" } }
+IS_LINUX_X86 = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "false", mapping = { "linux" = "true" } }
 IS_TILDE = false #will be overridden
 
 [env.development]
@@ -82,6 +85,11 @@ script = [
     '''
 ]
 
+[tasks.build-linux]
+dependencies = ["env-linux"]
+env = { "TARGET_TRIPLE" = "${TARGET_TRIPLE_LINUX_X86}" }
+run_task = "build-target"
+
 
 ## Pre build Setup
 
@@ -95,6 +103,11 @@ private = true
 env = { "PLATFORM_DYLIB_EXT" = "dll", "PLATFORM_EXTERNAL_EXT" = "mxe64", "PLATFORM_DYLIB_PREFIX" = "" }
 run_task = "env-common"
 
+[tasks.env-linux]
+private = true
+env = { "PLATFORM_DYLIB_EXT" = "so", "PLATFORM_EXTERNAL_EXT" = "mxl_x86_64", "PLATFORM_DYLIB_PREFIX" = "lib" }
+run_task = "env-common"
+
 [tasks.env-common]
 private = true
 env = { "LIB_FILE_NAME" = "${PLATFORM_DYLIB_PREFIX}${CARGO_MAKE_CRATE_FS_NAME}.${PLATFORM_DYLIB_EXT}", "LIB_TILDE_FILE_NAME" = "${PLATFORM_DYLIB_PREFIX}${CARGO_MAKE_CRATE_FS_NAME}_tilde.${PLATFORM_DYLIB_EXT}" }
@@ -102,7 +115,8 @@ env = { "LIB_FILE_NAME" = "${PLATFORM_DYLIB_PREFIX}${CARGO_MAKE_CRATE_FS_NAME}.$
 [tasks.setup]
 run_task = [
     { name = "env-windows", condition = { platforms = ["windows"] } },
-    { name = "env-mac", condition = { platforms = ["mac"] } }
+    { name = "env-mac", condition = { platforms = ["mac"] } },
+    { name = "env-linux", condition = { platforms = ["linux"] } },
 ]
 
 ## Post build setup
@@ -139,6 +153,7 @@ echo LIB_FILE_NAME: ${LIB_FILE_NAME}
 echo IS_MAC_X86: ${IS_MAC_X86}
 echo IS_MAC_AARCH64: ${IS_MAC_AARCH64}
 echo IS_WIN_X86: ${IS_WIN_X86}
+echo IS_LINUX_X86: ${IS_LINUX_X86}
 '''
 ]
 
@@ -168,25 +183,37 @@ script = [
     '''
 ]
 
+[tasks.package-linux]
+dependencies = ["build-linux", "name-env"]
+private = true
+clear = true
+script_runner = "@shell"
+script = [
+    '''
+    cp "${PROFILE_TARGET_DIR}/${LIB_FILE_NAME}" "${PROFILE_EXTERNAL_PATH}"
+    '''
+]
+
 [tasks.package]
 dependencies = ["build", "name-env"]
 clear = true
 run_task = [
     { name = "package-mac", condition = { platforms = ["mac"] } },
     { name = "package-windows", condition = { platforms = ["windows"] } },
+    { name = "package-linux", condition = { platforms = ["linux"] } },
 ]
 
 [tasks.package-all]
 clear = true
 run_task = [
-    { name = ["package-windows", "build-mac-universal", "copy-all"], condition = { platforms = ["mac"] } },
+    { name = ["package-windows", "package-linux", "build-mac-universal", "copy-all"], condition = { platforms = ["mac", "linux"] } },
 ]
 
 [tasks.copy-all]
 private = true
 env = { "PACKAGE_DIR" = "target/${PROFILE_DIR}/${MAX_PACKAGE_NAME}" }
 run_task = [
-    { name = ["copy-all-packages", "copy-all-init"], condition = { platforms = ["mac"] } },
+    { name = ["copy-all-packages", "copy-all-init"], condition = { platforms = ["mac", "linux"] } },
 ]
 
 [tasks.copy-all-packages]
@@ -197,6 +224,7 @@ script = [
     mkdir -p "${PACKAGE_DIR}/externals/"
     cp -r "target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxo" "${PACKAGE_DIR}/externals/"
     cp -r "target/${TARGET_TRIPLE_WINDOWS}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxe64" "${PACKAGE_DIR}/externals/"
+    cp -r "target/${TARGET_TRIPLE_LINUX_X86}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxl_x86_64" "${PACKAGE_DIR}/externals/"
     echo PACKAGE_DIR=${PACKAGE_DIR}
     '''
 ]
@@ -249,7 +277,7 @@ script = [
     '''
 ]
 
-[tasks.install-init.mac]
+[tasks.install-init]
 condition = { files_exist = ["${INIT_DIR}/"] }
 script_runner = "@shell"
 script = [
@@ -258,3 +286,15 @@ script = [
     cp "${INIT_DIR}/"* "${INIT_INSTALL_DIR}"
     '''
 ]
+
+[tasks.install.linux]
+clear = true
+dependencies = ["package", "install-init"]
+script_runner = "@shell"
+script = [
+    '''
+    mkdir -p "${EXTERNAL_INSTALL_DIR}"
+    cp -r "${PROFILE_EXTERNAL_PATH}" "${EXTERNAL_INSTALL_DIR}"
+    '''
+]
+
