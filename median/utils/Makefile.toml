@@ -161,7 +161,6 @@ echo IS_LINUX_X86: ${IS_LINUX_X86}
 
 [tasks.package-windows]
 dependencies = ["build-windows", "name-env"]
-private = true
 clear = true
 script_runner = "@shell"
 script = [
@@ -171,7 +170,6 @@ script = [
 ]
 
 [tasks.package-mac]
-private = true
 clear = true
 script_runner = "@shell"
 script = [
@@ -185,7 +183,6 @@ script = [
 
 [tasks.package-linux]
 dependencies = ["build-linux", "name-env"]
-private = true
 clear = true
 script_runner = "@shell"
 script = [
@@ -210,7 +207,6 @@ run_task = [
 ]
 
 [tasks.copy-all]
-private = true
 env = { "PACKAGE_DIR" = "target/${PROFILE_DIR}/${MAX_PACKAGE_NAME}" }
 run_task = [
     { name = ["copy-all-packages", "copy-all-init"], condition = { platforms = ["mac", "linux"] } },
