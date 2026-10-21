@@ -1,6 +1,11 @@
 //! Method encapsulation and type aliases
-use crate::{atom::Atom, symbol::SymbolRef};
-use std::{ffi::c_void, os::raw::c_long};
+use crate::{
+    atom::Atom,
+    object::{MaxObj, ObjRef},
+    symbol::SymbolRef,
+    wrapper::{ObjWrapped, WrapperWrapped},
+};
+use std::{ffi::c_void, fmt::Display, os::raw::c_long};
 
 pub type MaxNew = unsafe extern "C" fn(
     sym: *mut max_sys::t_symbol,
@@ -54,3 +59,416 @@ pub unsafe fn sel_list<F>(
 }
 
 include!(concat!(env!("OUT_DIR"), "/method-gen.rs"));
+
+//
+// Typed, macro-free method registration (see `Class::add_bang` and friends).
+//
+// The user passes a zero-sized `Copy` callable (a fn item or a non-capturing closure). Its type
+// is the only thing the trampoline needs: the trampoline is a generic `extern "C" fn` that
+// fabricates the callable with `zst` and calls it with the converted arguments, inside the
+// panic guard.
+//
+
+/// Fabricate a value of the zero-sized type `F`, which is how a trampoline gets hold of the
+/// callable that was passed at registration time: there is nowhere to store it, and a zero-sized
+/// type carries no data, so a "new" value is as good as the original.
+///
+/// `F: Copy` is required (and not just `size_of::<F>() == 0`) because zero size alone doesn't
+/// rule out a closure that captured a zero-sized value with a `Drop` impl. Fabricating such a
+/// closure and dropping it after every call would run that `Drop` again and again for a value
+/// that was never created. `Copy` types can't have a `Drop` impl, closures are `Copy` only when
+/// all of their captures are, and fn items are always `Copy`, so `F: Fn(..) + Copy` is exactly a
+/// "stateless callable".
+///
+/// A callable that is not zero-sized (a closure that captures something) is rejected when the
+/// trampoline is instantiated, with a compile error.
+///
+/// # Safety
+/// `F` must be a type that can be created from nothing: it can be zero-sized and `Copy` (checked
+/// here) but must also have no invariant that its single value must be created by some
+/// particular code. That holds for fn items and closures without captures.
+pub(crate) unsafe fn zst<F: Copy>() -> F {
+    const {
+        assert!(
+            std::mem::size_of::<F>() == 0,
+            "callback must be a non-capturing closure or fn item"
+        )
+    };
+    // SAFETY: `F` is zero-sized, so there are no bytes to be uninitialised, and the caller
+    // guarantees that it has no further invariant. (The lint is about types that have bytes.)
+    #[allow(clippy::uninit_assumed_init)]
+    unsafe {
+        std::mem::MaybeUninit::<F>::uninit().assume_init()
+    }
+}
+
+/// Erase the type of a trampoline's fn pointer so it can be passed to `class_addmethod`.
+///
+/// # Safety
+/// `P` must be an `extern "C"` fn pointer type, whose first argument is the object pointer.
+pub(crate) unsafe fn erase<P: Copy>(p: P) -> MaxMethod {
+    const {
+        assert!(std::mem::size_of::<P>() == std::mem::size_of::<MaxMethod>());
+    };
+    // SAFETY: the caller guarantees that `P` is a fn pointer, which has the size (checked
+    // above) and representation of any other. Max calls it with the arguments registered.
+    unsafe { std::mem::transmute_copy::<P, MaxMethod>(&p) }
+}
+
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for () {}
+    impl<E> Sealed for Result<(), E> {}
+}
+
+/// What a method registered with `Class::add_*` may return: `()` or `Result<(), E>` where
+/// `E: Display`. On `Err` the trampoline calls [`ObjWrapped::report_error`], which by default
+/// posts the error to the Max console for the object, so `?` works in methods.
+///
+/// This trait is sealed.
+pub trait MethodResult: sealed::Sealed {
+    /// If this is an error, give it to `report`.
+    #[doc(hidden)]
+    fn report_if_err(self, report: &mut dyn FnMut(&dyn Display));
+}
+
+impl MethodResult for () {
+    fn report_if_err(self, _report: &mut dyn FnMut(&dyn Display)) {}
+}
+
+impl<E: Display> MethodResult for Result<(), E> {
+    fn report_if_err(self, report: &mut dyn FnMut(&dyn Display)) {
+        if let Err(e) = self {
+            report(&e);
+        }
+    }
+}
+
+/// Run `f` on the object's `T` inside the panic guard, giving an `Err` result to
+/// [`ObjWrapped::report_error`].
+fn run<W, T, R>(w: &W, what: &str, f: impl FnOnce(&T) -> R)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    R: MethodResult,
+{
+    crate::ffi::guard(w, what, || {
+        let t = w.wrapped();
+        f(t).report_if_err(&mut |err| {
+            // `max_obj` is derived from a reference, so it is not null
+            if let Some(ptr) = std::ptr::NonNull::new(w.max_obj()) {
+                // SAFETY: `w` is the live Max object this method was called on, and the handle
+                // is dropped when this closure returns, so it can't outlive the call
+                let obj = unsafe { ObjRef::from_raw(ptr) };
+                t.report_error(&obj, err);
+            }
+        });
+    })
+}
+
+/// Build a `&[Atom]` from the `argc`/`argv` Max passes to an `A_GIMME` method.
+///
+/// # Safety
+/// If `ac > 0`, `av` must point to `ac` valid atoms that live as long as `'a`.
+unsafe fn atoms<'a>(ac: c_long, av: *const max_sys::t_atom) -> &'a [Atom] {
+    if ac > 0 && !av.is_null() {
+        // SAFETY: guaranteed by the caller, and `Atom` is `repr(transparent)` over `t_atom`
+        unsafe { std::slice::from_raw_parts(av.cast::<Atom>(), ac as usize) }
+    } else {
+        &[]
+    }
+}
+
+pub(crate) extern "C" fn bang_tramp<W, T, F, R>(w: &W)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    run(w, "bang", |t| (unsafe { zst::<F>() })(t));
+}
+
+pub(crate) extern "C" fn int_tramp<W, T, F, R>(w: &W, v: max_sys::t_atom_long)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, max_sys::t_atom_long) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    run(w, "int", |t| (unsafe { zst::<F>() })(t, v));
+}
+
+pub(crate) extern "C" fn float_tramp<W, T, F, R>(w: &W, v: f64)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, f64) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    run(w, "float", |t| (unsafe { zst::<F>() })(t, v));
+}
+
+pub(crate) extern "C" fn sym_tramp<W, T, F, R>(w: &W, s: *mut max_sys::t_symbol)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, SymbolRef) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`; Max passes a valid symbol (or
+    // null, which `from_raw` maps to the empty symbol) for an `A_SYM` argument
+    run(w, "symbol", |t| {
+        (unsafe { zst::<F>() })(t, unsafe { SymbolRef::from_raw(s) })
+    });
+}
+
+pub(crate) extern "C" fn list_tramp<W, T, F, R>(
+    w: &W,
+    _sel: *mut max_sys::t_symbol,
+    ac: c_long,
+    av: *const max_sys::t_atom,
+) where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, &[Atom]) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`; Max passes `ac` valid atoms
+    // that live for the call for an `A_GIMME` method
+    run(w, "list", |t| {
+        (unsafe { zst::<F>() })(t, unsafe { atoms(ac, av) })
+    });
+}
+
+pub(crate) extern "C" fn any_tramp<W, T, F, R>(
+    w: &W,
+    sel: *mut max_sys::t_symbol,
+    ac: c_long,
+    av: *const max_sys::t_atom,
+) where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`; Max passes a valid selector and
+    // `ac` valid atoms that live for the call for an `A_GIMME` method
+    run(w, "anything", |t| {
+        let sel = unsafe { SymbolRef::from_raw(sel) };
+        (unsafe { zst::<F>() })(t, &sel, unsafe { atoms(ac, av) })
+    });
+}
+
+/// A type that can be an argument of a typed selector method (`Class::add_sel`): `f64`
+/// (`A_FLOAT`), `t_atom_long` (`A_LONG`) or [`SymbolRef`] (`A_SYM`).
+pub trait SelArg: Sized {
+    /// How Max passes the argument to the method.
+    type C;
+    /// The atom type to register the argument as.
+    const ATOM_TYPE: max_sys::e_max_atomtypes::Type;
+    /// Convert from the argument as Max passed it.
+    ///
+    /// # Safety
+    /// `c` must be what Max passed for an argument registered as `ATOM_TYPE`.
+    unsafe fn from_c(c: Self::C) -> Self;
+}
+
+impl SelArg for f64 {
+    type C = f64;
+    const ATOM_TYPE: max_sys::e_max_atomtypes::Type = max_sys::e_max_atomtypes::A_FLOAT;
+    unsafe fn from_c(c: f64) -> f64 {
+        c
+    }
+}
+
+impl SelArg for max_sys::t_atom_long {
+    type C = max_sys::t_atom_long;
+    const ATOM_TYPE: max_sys::e_max_atomtypes::Type = max_sys::e_max_atomtypes::A_LONG;
+    unsafe fn from_c(c: max_sys::t_atom_long) -> max_sys::t_atom_long {
+        c
+    }
+}
+
+impl SelArg for SymbolRef {
+    type C = *mut max_sys::t_symbol;
+    const ATOM_TYPE: max_sys::e_max_atomtypes::Type = max_sys::e_max_atomtypes::A_SYM;
+    unsafe fn from_c(c: *mut max_sys::t_symbol) -> SymbolRef {
+        // SAFETY: the caller guarantees `c` is what Max passed for an `A_SYM` argument: a valid
+        // symbol (null is mapped to the empty symbol)
+        unsafe { SymbolRef::from_raw(c) }
+    }
+}
+
+/// A callable that can be registered as a typed selector method with `Class::add_sel`: a
+/// zero-sized `Copy` `Fn(&T, A1, .., An) -> R`, with up to 7 arguments that are each `f64`,
+/// `t_atom_long` or [`SymbolRef`]. Implemented for all such callables, not meant to be
+/// implemented by hand.
+///
+/// `Args` is the tuple of the argument types and `R` the return type; they only exist to let
+/// one impl per arity coexist, and are inferred.
+pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static {
+    /// The atom type of each argument.
+    #[doc(hidden)]
+    const TYPES: &'static [max_sys::e_max_atomtypes::Type];
+
+    /// The trampoline for this callable on the wrapper `W`, as registered with Max.
+    #[doc(hidden)]
+    fn trampoline<W>() -> MaxMethod
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: ObjWrapped<T>;
+}
+
+macro_rules! sel_fn_arity {
+    ($tramp:ident; $($A:ident $a:ident),*) => {
+        extern "C" fn $tramp<W, T, F, R, $($A),*>(w: &W, $($a: <$A as SelArg>::C),*)
+        where
+            W: WrapperWrapped<T> + MaxObj,
+            T: ObjWrapped<T>,
+            F: Fn(&T, $($A),*) -> R + Copy,
+            R: MethodResult,
+            $($A: SelArg),*
+        {
+            // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`; Max passes the arguments
+            // as they were registered (`SelArg::ATOM_TYPE`)
+            run(w, "method", |t| {
+                (unsafe { zst::<F>() })(t, $(unsafe { <$A as SelArg>::from_c($a) }),*)
+            });
+        }
+
+        impl<T, F, R, $($A),*> SelFn<T, ($($A,)*), R> for F
+        where
+            F: Fn(&T, $($A),*) -> R + Copy + Send + Sync + 'static,
+            R: MethodResult,
+            $($A: SelArg),*
+        {
+            const TYPES: &'static [max_sys::e_max_atomtypes::Type] = &[$(<$A as SelArg>::ATOM_TYPE),*];
+
+            fn trampoline<W>() -> MaxMethod
+            where
+                W: WrapperWrapped<T> + MaxObj,
+                T: ObjWrapped<T>,
+            {
+                let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = $tramp::<W, T, F, R, $($A),*>;
+                // SAFETY: `p` is an `extern "C"` fn whose first argument is the object, which
+                // is how Max calls a method registered with the argument types in `TYPES`
+                unsafe { erase(p) }
+            }
+        }
+    };
+}
+
+sel_fn_arity!(sel_tramp0;);
+sel_fn_arity!(sel_tramp1; A1 a1);
+sel_fn_arity!(sel_tramp2; A1 a1, A2 a2);
+sel_fn_arity!(sel_tramp3; A1 a1, A2 a2, A3 a3);
+sel_fn_arity!(sel_tramp4; A1 a1, A2 a2, A3 a3, A4 a4);
+sel_fn_arity!(sel_tramp5; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5);
+sel_fn_arity!(sel_tramp6; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6);
+sel_fn_arity!(sel_tramp7; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6, A7 a7);
+
+pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R>(
+    w: &W,
+    sel: *mut max_sys::t_symbol,
+    ac: c_long,
+    av: *const max_sys::t_atom,
+) where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: as `any_tramp`
+    run(w, "method", |t| {
+        let sel = unsafe { SymbolRef::from_raw(sel) };
+        (unsafe { zst::<F>() })(t, &sel, unsafe { atoms(ac, av) })
+    });
+}
+
+// The trampoline of each typed method as Max wants it. `Class::add_*` registers these, and the
+// tests call them without a class.
+
+pub(crate) fn bang_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object, as registered for `bang`
+    unsafe { erase(bang_tramp::<W, T, F, R> as extern "C" fn(&W)) }
+}
+
+pub(crate) fn int_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, max_sys::t_atom_long) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object and a `t_atom_long`, as registered for `int`
+    unsafe { erase(int_tramp::<W, T, F, R> as extern "C" fn(&W, max_sys::t_atom_long)) }
+}
+
+pub(crate) fn float_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, f64) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object and a double, as registered for `float`
+    unsafe { erase(float_tramp::<W, T, F, R> as extern "C" fn(&W, f64)) }
+}
+
+pub(crate) fn sym_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, SymbolRef) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object and a symbol, as registered for `symbol`
+    unsafe { erase(sym_tramp::<W, T, F, R> as extern "C" fn(&W, *mut max_sys::t_symbol)) }
+}
+
+pub(crate) fn list_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, &[Atom]) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object and a selector and atoms, as registered for an
+    // `A_GIMME` method
+    unsafe { erase(list_tramp::<W, T, F, R> as GimmeTramp<W>) }
+}
+
+pub(crate) fn any_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: as `list_method`
+    unsafe { erase(any_tramp::<W, T, F, R> as GimmeTramp<W>) }
+}
+
+pub(crate) fn sel_gimme_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: ObjWrapped<T>,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: as `list_method`
+    unsafe { erase(sel_gimme_tramp::<W, T, F, R> as GimmeTramp<W>) }
+}
+
+/// The signature of a trampoline for an `A_GIMME` method.
+type GimmeTramp<W> = extern "C" fn(&W, *mut max_sys::t_symbol, c_long, *const max_sys::t_atom);

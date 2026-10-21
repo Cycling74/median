@@ -7,7 +7,7 @@ use median::{
     num::Int64,
     object::ObjRef,
     post,
-    wrapper::{attr_get_tramp, attr_set_tramp, tramp, MSPObjWrapped, MSPObjWrapper},
+    wrapper::{attr_get_tramp, attr_set_tramp, MSPObjWrapped, MSPObjWrapper},
 };
 
 median::external! {
@@ -54,8 +54,9 @@ median::external! {
 
         // Register any methods you need for your class
         fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
-            //explicitly create a "set" selector method with a single symbol argument
-            c.add_method(median::method::Method::SelS("set", Self::set_tramp, 0)).unwrap();
+            //explicitly create a "set" selector method with a single symbol argument. `Self::set`
+            //is a plain method: median builds the trampoline that Max calls from its type.
+            c.add_sel(c"set", Self::set, 0).unwrap();
 
             c.add_attribute(
                 AttrBuilder::new_accessors(
@@ -78,12 +79,7 @@ median::external! {
             self.clock.delay(10);
         }
 
-        //create a trampoline for the c.add_method in `class_setup` above.
-        //Max doesn't accept methods direct to your rust struct, you need to create a "trampoline"
-        //that it uses instead. This "trampoline" is a C method that is called on a wrapper struct
-        //that in turn calls this "set" method on your wrapped object.
-        //The trampoline methods are named with `_tramp` appended to the end.
-        #[tramp]
+        //registered with `c.add_sel` in `class_setup` above
         pub fn set(&self, name: median::symbol::SymbolRef) {
             self.buffer1.set(name);
         }

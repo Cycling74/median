@@ -382,7 +382,21 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `&ObjRef` only (not `AsRef<ObjRef>`); `object_warn!` is new. `field-offset` is removed. The
   "object pointer mismatch" sanity checks are removed. `multi` was left as is (its objects
   don't use a handle).
-- [ ] 2. `Class<W>::add_*`
+- [x] 2. `Class<W>::add_*`, typed ZST registration (macro-free). Public: `add_bang`, `add_int`,
+  `add_float`, `add_sym`, `add_list`, `add_any`, `add_sel(sel: &CStr, f, defaults)`,
+  `add_sel_gimme(sel: &CStr, f)`, all `-> MaxResult<()>`, plus the sealed `MethodResult` and the
+  `SelArg`/`SelFn` traits (`macro_rules!` over arities 0..=7; `build.rs` generation and the old
+  `Method` enum / `add_method` / `external!` are untouched). Differences from section C:
+  `ObjWrapped::report_error` is `(&self, obj: &ObjRef, err: &dyn Display)` (not
+  `(&self, &dyn Display)`): the default needs the object and `T` need not store an `ObjRef`; the
+  trampoline builds the `&ObjRef` from the wrapper's own pointer for the call only. Registration
+  needs `T: ObjWrapped<T>` as well as `W: WrapperWrapped<T> + MaxObj` (for `report_error`), until
+  the redundant `T` parameter goes in step 3. `add_sel` returns an error (not a panic) when
+  `defaults` exceeds the arity. Trampolines cannot know the selector, so a panic in a typed
+  selector method is posted as "panic in method". A closure whose return type is `!` (it always
+  panics) needs `-> ()` written out. The doctest on `Class` that checks the capturing-closure
+  error carries its own Max stubs, since `compile_fail` can't tell a compile error from a link
+  error. `hello_dsp` uses `c.add_sel(c"set", Self::set, 0)` and moved to edition 2021 for `c"..."`.
 - [ ] 3. derive + `#[methods]`, `simp` ported
 - [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
 - [ ] 5. Fallible `new`

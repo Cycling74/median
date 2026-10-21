@@ -10,12 +10,13 @@ use crate::{
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
     notify::Notification,
-    object::{MSPObj, MaxObj, ObjBox},
+    object::{MSPObj, MaxObj, ObjBox, ObjRef},
     symbol::SymbolRef,
 };
 
 use std::{
     collections::HashMap,
+    fmt::Display,
     ffi::{c_char, c_void, CStr, CString},
     marker::PhantomData,
     mem::MaybeUninit,
@@ -93,6 +94,17 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
 
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
+
+    /// Called when a method registered with `Class::add_*` (`add_bang`, `add_int`, `add_sel`, ...)
+    /// returns `Err`, with the error. By default it is posted to the Max console as an error for
+    /// the object. Override it to route errors elsewhere, to a status outlet or a logger for
+    /// example.
+    ///
+    /// `obj` is the handle of the object the method was called on, valid for the call only. It is
+    /// passed in because your struct may not keep an [`ObjRef`].
+    fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
+        obj.error(err);
+    }
 
     /// Provide assistance in the case that you don't provide it along with your i/o creation
     fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {

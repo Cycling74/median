@@ -2,7 +2,7 @@
 name = "hello_dsp"
 version = "0.1.0"
 authors = ["Alex Norman <xnor@cycling74.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "hello_dsp_tilde"
