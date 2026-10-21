@@ -166,11 +166,11 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     let expanded = quote! {
         pub extern "C" fn #tramp_name(
             wrapper: &#t,
-            _attr: ::std::ffi::c_void,
+            _attr: *mut ::std::ffi::c_void,
             ac: *mut ::std::os::raw::c_long,
             av: *mut *mut ::median::max_sys::t_atom,
-        ) {
-            ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name());
+        ) -> ::median::max_sys::t_max_err {
+            ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name())
         }
         #meth
     };
@@ -199,11 +199,11 @@ pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     let expanded = quote! {
         pub extern "C" fn #tramp_name(
             wrapper: &#t,
-            _attr: ::std::ffi::c_void,
+            _attr: *mut ::std::ffi::c_void,
             ac: ::std::os::raw::c_long,
             av: *mut ::median::max_sys::t_atom,
-        ) {
-            ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*));
+        ) -> ::median::max_sys::t_max_err {
+            ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*))
         }
         #meth
     };

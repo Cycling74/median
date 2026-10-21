@@ -10,10 +10,18 @@ use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::os::raw::c_long;
 
-pub type AttrTrampGetMethod<T> =
-    extern "C" fn(s: &T, attr: c_void, ac: *mut c_long, av: *mut *mut max_sys::t_atom);
-pub type AttrTrampSetMethod<T> =
-    extern "C" fn(s: &T, attr: c_void, ac: c_long, av: *mut max_sys::t_atom);
+pub type AttrTrampGetMethod<T> = extern "C" fn(
+    s: &T,
+    attr: *mut c_void,
+    ac: *mut c_long,
+    av: *mut *mut max_sys::t_atom,
+) -> max_sys::t_max_err;
+pub type AttrTrampSetMethod<T> = extern "C" fn(
+    s: &T,
+    attr: *mut c_void,
+    ac: c_long,
+    av: *mut max_sys::t_atom,
+) -> max_sys::t_max_err;
 
 /// A wrapper for a max attribute. `T` refers to the object that the attribute is attributed to.
 pub struct Attr<T> {
@@ -44,13 +52,21 @@ impl<T> Attr<T> {
 /// No-op get method for attributes.
 pub extern "C" fn get_nop<T>(
     _s: &T,
-    _attr: c_void,
+    _attr: *mut c_void,
     _ac: *mut c_long,
     _av: *mut *mut max_sys::t_atom,
-) {
+) -> max_sys::t_max_err {
+    max_sys::e_max_errorcodes::MAX_ERR_NONE as _
 }
 /// No-op set method for attributes.
-pub extern "C" fn set_nop<T>(_s: &T, _attr: c_void, _ac: c_long, _av: *mut max_sys::t_atom) {}
+pub extern "C" fn set_nop<T>(
+    _s: &T,
+    _attr: *mut c_void,
+    _ac: c_long,
+    _av: *mut max_sys::t_atom,
+) -> max_sys::t_max_err {
+    max_sys::e_max_errorcodes::MAX_ERR_NONE as _
+}
 
 impl<T> AttrBuilder<T> {
     // helper method used in public impls
