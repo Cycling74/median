@@ -23,7 +23,7 @@ mod atomic64 {
     use std::sync::atomic::{AtomicI64, AtomicU32, AtomicU64};
 
     macro_rules! impl_atomic {
-        ($t:ty, $a:ident, $store:ty, $atomic:ty, $to:expr, $from:expr) => {
+        ($t:ty, $a:ident, $store:ty, $atomic:ty, $to:expr_2021, $from:expr_2021) => {
             #[derive(Default)]
             #[repr(transparent)]
             pub struct $a {

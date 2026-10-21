@@ -4,45 +4,45 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    FnArg, Ident, ImplItemMethod, Pat, Type,
+    FnArg, Ident, ImplItemFn, Pat, Type,
 };
 
 type Res<T> = syn::parse::Result<T>;
 
 pub fn wrapped_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_tramp_with_type(wrapper, meth))
 }
 
 pub fn defer_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_defer_tramp_with_type(wrapper, meth))
 }
 
 pub fn wrapped_sel_list_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_sel_list_tramp_with_type(wrapper, meth))
 }
 
 // tramp still has selector, but it isn't passed on to wrapped method
 pub fn wrapped_list_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_list_tramp_with_type(wrapper, meth))
 }
 
 pub fn wrapped_attr_get_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_attr_get_tramp_with_type(wrapper, meth))
 }
 
 pub fn wrapped_attr_set_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemMethod = parse_macro_input!(item as ImplItemMethod);
+    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_attr_set_tramp_with_type(wrapper, meth))
 }
 
@@ -51,7 +51,7 @@ struct Names {
     tramp_name: Ident,
 }
 
-fn get_names(meth: &ImplItemMethod) -> Names {
+fn get_names(meth: &ImplItemFn) -> Names {
     let meth_name = meth.sig.ident.clone();
     let tramp_name = Ident::new(
         &format!("{}_tramp", meth_name.to_string()),
@@ -63,7 +63,7 @@ fn get_names(meth: &ImplItemMethod) -> Names {
     }
 }
 
-pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
     let Names {
         meth_name,
         tramp_name,
@@ -92,7 +92,7 @@ pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream
     Ok(expanded.into())
 }
 
-pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
     let Names {
         meth_name,
         tramp_name,
@@ -123,7 +123,7 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<Token
     Ok(expanded.into())
 }
 
-pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
     let Names {
         meth_name,
         tramp_name,
@@ -152,7 +152,7 @@ pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     Ok(expanded.into())
 }
 
-pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
     let Names {
         meth_name,
         tramp_name,
@@ -181,7 +181,7 @@ pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenS
     Ok(expanded.into())
 }
 
-pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
     let Names {
         meth_name,
         tramp_name,
@@ -213,7 +213,7 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     Ok(expanded.into())
 }
 
-pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream> {
+pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
     let Names {
         meth_name,
         tramp_name,

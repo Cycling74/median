@@ -1,8 +1,9 @@
 [package]
 name = "median_macros"
-version = "0.2.0"
+version = "0.3.0-dev"
 authors = ["Alex Norman <xnor@cycling74.com>"]
-edition = "2018"
+edition = "2024"
+rust-version = "1.85"
 license = "MIT"
 
 [lib]
@@ -10,5 +11,5 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.7"
-syn = { version = "1.0.48", features = ["full"] }
+syn = { version = "2", features = ["full"] }
 proc-macro2 = "1.0.24"

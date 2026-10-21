@@ -3,7 +3,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    Ident, Item, ItemImpl, ItemStruct, LitStr, Token,
+    Expr, ExprLit, Ident, Item, ItemImpl, ItemStruct, Lit, LitStr, Meta, MetaNameValue,
 };
 
 struct Parsed {
@@ -44,7 +44,7 @@ pub fn parse_and_build(input: proc_macro::TokenStream, with_main: bool) -> proc_
 
 pub fn ext_main(tokens: proc_macro2::TokenStream) -> syn::Result<proc_macro2::TokenStream> {
     Ok(quote! {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
             //a panic is posted to the Max console; never take Max down by exiting
             ::median::ffi::guard_ext_main(::std::env!("CARGO_PKG_NAME"), || {
@@ -65,7 +65,7 @@ pub fn ext_main_classes(class_names: &[Ident]) -> syn::Result<proc_macro2::Token
         })
         .collect();
     Ok(quote! {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
             //each class registers on its own, a panic is posted to the Max console and never
             //takes Max down by exiting
@@ -81,26 +81,13 @@ struct StructDetails {
     class_alias: String,
 }
 
-//an attribute to specify the name of the class
-struct ClassNameArgs {
-    pub name: LitStr,
-}
-
-impl Parse for ClassNameArgs {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        let _: Token![=] = input.parse()?;
-        let name: LitStr = input.parse()?;
-        Ok(Self { name })
-    }
-}
-
 fn process_struct(mut s: ItemStruct) -> syn::Result<StructDetails> {
     let class_name = s.ident.clone();
     let mut class_alias = class_name.to_string().to_lowercase();
 
     //find name attribute and remove it
     if let Some(pos) = s.attrs.iter().position(|a| {
-        a.path
+        a.path()
             .segments
             .last()
             .expect("the attribute path to have at least 1 segment")
@@ -108,8 +95,23 @@ fn process_struct(mut s: ItemStruct) -> syn::Result<StructDetails> {
             == "name"
     }) {
         let a = s.attrs.remove(pos);
-        let n: ClassNameArgs = syn::parse2(a.tokens.clone())?;
-        class_alias = n.name.value();
+        //the attribute has the form: #[name = "the name"]
+        class_alias = match &a.meta {
+            Meta::NameValue(MetaNameValue {
+                value:
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(name),
+                        ..
+                    }),
+                ..
+            }) => name.value(),
+            _ => {
+                return Err(syn::Error::new(
+                    a.span(),
+                    "expected the form #[name = \"class name\"]",
+                ));
+            }
+        };
     }
 
     Ok(StructDetails {
@@ -159,7 +161,7 @@ fn process_impls(
 
     let mut class_setup = None;
     if let Some(pos) = the_impl.items.iter().position(|item| {
-        if let syn::ImplItem::Method(m) = item {
+        if let syn::ImplItem::Fn(m) = item {
             if m.sig.ident == "class_setup" {
                 class_setup = Some(m.clone());
                 true
@@ -173,7 +175,7 @@ fn process_impls(
         let _ = the_impl.items.remove(pos);
     };
 
-    let mut class_setup: syn::ImplItemMethod = class_setup.unwrap_or_else(|| {
+    let mut class_setup: syn::ImplItemFn = class_setup.unwrap_or_else(|| {
         syn::parse(
             quote! {
                 fn class_setup(c: &mut ::median::class::Class<::median::wrapper::#wrapper_type<Self>>) {
@@ -201,32 +203,32 @@ fn process_impls(
         .items
         .iter()
         .map(|item| match item {
-            syn::ImplItem::Method(m) => syn::ImplItem::Method(m.clone()),
+            syn::ImplItem::Fn(m) => syn::ImplItem::Fn(m.clone()),
             _ => item.clone(),
         })
         .collect();
 
     //process methods for attributes, add Type if needed
     {
-        let attr_add_type = |a: &mut syn::Attribute| {
-            //add the wrapper type to the attribute
-            a.tokens = quote! {
-                (::median::wrapper::#wrapper_type::<#class_name>)
-            };
+        //build an attribute with the given path and the wrapper type as its argument
+        let attr_with_type = |path: &syn::Path| -> syn::Attribute {
+            syn::parse_quote! {
+                #[#path(::median::wrapper::#wrapper_type::<#class_name>)]
+            }
         };
         for imp in &mut processed_impls {
             imp.items = imp
                 .items
                 .iter()
                 .map(|item| match item {
-                    syn::ImplItem::Method(m) => {
+                    syn::ImplItem::Fn(m) => {
                         let mut m = m.clone();
 
-                        //find any attributes that end with "tramp" and don't have any tokens
-                        //(tokens is the part after the attribute name, including parens)
+                        //find any attributes that end with "tramp" and don't have any arguments
+                        //(a bare path, as opposed to a list or a name = value)
                         if let Some(pos) = m.attrs.iter().position(|a| {
-                            a.tokens.is_empty()
-                                && a.path
+                            matches!(a.meta, Meta::Path(_))
+                                && a.path()
                                     .segments
                                     .last()
                                     .expect("attribute path to have at least 1 segment")
@@ -234,9 +236,8 @@ fn process_impls(
                                     .to_string()
                                     .ends_with("tramp")
                         }) {
-                            let mut a = m.attrs.remove(pos).clone();
-                            attr_add_type(&mut a);
-                            m.attrs.push(a);
+                            let a = m.attrs.remove(pos);
+                            m.attrs.push(attr_with_type(a.path()));
                         };
 
                         //create automatic method mappings
@@ -249,7 +250,7 @@ fn process_impls(
                             ("any", "Anything", "sel_list_tramp"),
                         ] {
                             if let Some(pos) = m.attrs.iter().position(|a| {
-                                a.path
+                                a.path()
                                     .segments
                                     .last()
                                     .expect("attribute path to have at least 1 segment")
@@ -257,13 +258,13 @@ fn process_impls(
                                     == attr_name
                             }) {
                                 //create a tramp and register the method
-                                let mut a = m.attrs.remove(pos).clone();
-                                a.path = syn::parse_str(&format!("::median::wrapper::{}", attr_new_name)).expect("to make tramp");
-                                attr_add_type(&mut a);
+                                let old = m.attrs.remove(pos);
+                                let path: syn::Path = syn::parse_str(&format!("::median::wrapper::{}", attr_new_name)).expect("to make tramp");
+                                let a = attr_with_type(&path);
 
                                 let tramp_name = std::format!("{}_tramp", m.sig.ident);
                                 let tramp_name = Ident::new(tramp_name.as_str(), m.span());
-                                let var_name = Ident::new(var_name, a.span());
+                                let var_name = Ident::new(var_name, old.span());
 
                                 class_setup.block.stmts.push(
                                     syn::parse(
@@ -273,7 +274,7 @@ fn process_impls(
                             };
                         }
 
-                        syn::ImplItem::Method(m)
+                        syn::ImplItem::Fn(m)
                     }
                     _ => item.clone(),
                 })
@@ -281,7 +282,7 @@ fn process_impls(
         }
     }
 
-    the_impl.items.push(syn::ImplItem::Method(class_setup));
+    the_impl.items.push(syn::ImplItem::Fn(class_setup));
 
     processed_impls.push(the_impl);
 

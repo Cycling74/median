@@ -131,7 +131,7 @@ macro_rules! error {
 /// when you are posting for `self`.
 #[macro_export]
 macro_rules! object_post {
-    ($obj:expr, $($arg:tt)*) => {{
+    ($obj:expr_2021, $($arg:tt)*) => {{
         //evaluated outside of the `unsafe` block so that `$obj` can't smuggle in unsafe operations
         let obj: *mut $crate::max_sys::t_object = $obj;
         let msg = ::std::format!($($arg)*);
@@ -171,7 +171,7 @@ macro_rules! object_post {
 /// when you are posting for `self`.
 #[macro_export]
 macro_rules! object_error {
-    ($obj:expr, $($arg:tt)*) => {{
+    ($obj:expr_2021, $($arg:tt)*) => {{
         //evaluated outside of the `unsafe` block so that `$obj` can't smuggle in unsafe operations
         let obj: *mut $crate::max_sys::t_object = $obj;
         let msg = ::std::format!($($arg)*);

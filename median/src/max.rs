@@ -3,7 +3,7 @@ use std::ffi::CString;
 use std::os::raw::c_char;
 
 /// The printf format used to pass user text to the console; user text is never the format.
-const FMT_S: *const c_char = b"%s\0".as_ptr() as *const c_char;
+const FMT_S: *const c_char = c"%s".as_ptr();
 const CSTRING_ERR: &[u8] = b"failed to create CString\0";
 
 /// Get a reference to the common symbols table

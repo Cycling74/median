@@ -8,7 +8,7 @@ use crate::{
 use std::convert::TryInto;
 
 macro_rules! impl_obj_methods {
-    ($o:expr) => {
+    ($o:expr_2021) => {
         /// Post a message to max.
         fn post<M: Into<Vec<u8>>>(&self, msg: M) {
             // SAFETY: `$o(self)` is a pointer to this live object
@@ -114,7 +114,7 @@ use std::ptr::NonNull;
 use std::os::raw::c_char;
 
 /// The printf format used to pass user text to the console; user text is never the format.
-const FMT_S: *const c_char = b"%s\0".as_ptr() as *const c_char;
+const FMT_S: *const c_char = c"%s".as_ptr();
 const CSTRING_ERR: &[u8] = b"failed to create CString\0";
 
 /// Post a message to the Max console, associated with the given object.

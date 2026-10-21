@@ -13,7 +13,7 @@ fn layout_for(user_size: usize) -> Option<Layout> {
     Layout::from_size_align(user_size.checked_add(HEADER)?, ALIGN).ok()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sysmem_newptr(size: max_sys::t_ptr_size) -> max_sys::t_ptr {
     let size = size as usize;
     let layout = match layout_for(size) {
@@ -30,7 +30,7 @@ pub unsafe extern "C" fn sysmem_newptr(size: max_sys::t_ptr_size) -> max_sys::t_
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sysmem_ptrsize(ptr: *mut c_void) -> max_sys::t_ptr_size {
     if ptr.is_null() {
         return 0;
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn sysmem_ptrsize(ptr: *mut c_void) -> max_sys::t_ptr_size
     unsafe { ((ptr as *mut u8).sub(HEADER) as *mut usize).read() as _ }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sysmem_resizeptr(
     ptr: *mut c_void,
     newsize: max_sys::t_ptr_size,
@@ -63,7 +63,7 @@ pub unsafe extern "C" fn sysmem_resizeptr(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sysmem_freeptr(ptr: *mut c_void) {
     if ptr.is_null() {
         return;

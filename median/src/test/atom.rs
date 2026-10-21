@@ -1,4 +1,4 @@
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn atom_setfloat(a: *mut max_sys::t_atom, b: f64) -> max_sys::t_max_err {
     if a.is_null() {
         max_sys::e_max_errorcodes::MAX_ERR_GENERIC as _
@@ -12,7 +12,7 @@ pub unsafe extern "C" fn atom_setfloat(a: *mut max_sys::t_atom, b: f64) -> max_s
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn atom_setlong(
     a: *mut max_sys::t_atom,
     b: max_sys::t_atom_long,
