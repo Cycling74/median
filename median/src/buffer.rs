@@ -121,11 +121,12 @@ impl BufferRef {
     /// other buffer references.
     pub unsafe fn notify_if_unchecked(&self, notification: &Notification) {
         //try to get the name of the buffer
+        // Max writes the symbol through this pointer, so it must be derived from a mutable place.
         let mut name: *mut max_sys::t_symbol = std::ptr::null_mut();
         max_sys::object_method(
             notification.data(),
             GET_NAME.inner(),
-            &mut name as *mut *mut max_sys::t_symbol as *mut c_void,
+            &raw mut name as *mut c_void,
         );
         self.with_lock(|inner| {
             //if the name matches our buffer's name, send notification
@@ -146,7 +147,7 @@ impl BufferRef {
     /// # Remarks
     /// * It should be okay to send notifications that are intended for other objects, including
     /// other buffer references.
-    pub fn notify_if(&mut self, notification: &Notification) {
+    pub fn notify_if(&self, notification: &Notification) {
         if Self::is_applicable(&notification) {
             unsafe {
                 self.notify_if_unchecked(&notification);
