@@ -369,7 +369,8 @@ without Max.
 Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short series) per item of
 "Order of implementation"; each records here what it did and where it differs from the text above.
 
-- [ ] 0. Toolchain
+- [x] 0. Toolchain (2eb44da). `ext_main` now emits `#[unsafe(no_mangle)]`, accepted by 2018 user
+  crates too. The examples and template stay on edition 2018 until they are ported.
 - [ ] 1. `ObjRef`, blanket `MaxObj`/`MSPObj` removed
 - [ ] 2. `Class<W>::add_*`
 - [ ] 3. derive + `#[methods]`, `simp` ported
