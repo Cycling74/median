@@ -160,16 +160,14 @@ pub struct ObjBox<T: MaxObj> {
 }
 
 impl<T: MaxObj> ObjBox<T> {
-    /// Allocate an instance of `class` with `object_alloc`.
+    /// Allocate an instance of `class` with `object_alloc`. Returns `None` if Max returns null.
     ///
     /// # Safety
-    /// `class` must be a valid, registered class whose instances are laid out as `T`, and
-    /// `object_alloc` must succeed (a null result is not handled).
-    pub unsafe fn alloc(class: *mut max_sys::t_class) -> Self {
-        //convert to t_object for debugging
-        let value: *mut max_sys::t_object =
-            unsafe { std::mem::transmute::<_, _>(max_sys::object_alloc(class)) };
-        unsafe { Self::from_raw(std::mem::transmute::<_, *mut T>(value)) }
+    /// `class` must be a valid, registered class whose instances are laid out as `T`.
+    pub unsafe fn alloc(class: *mut max_sys::t_class) -> Option<Self> {
+        // SAFETY: the caller guarantees `class` is valid
+        let value = unsafe { max_sys::object_alloc(class) } as *mut T;
+        NonNull::new(value).map(|value| Self { value })
     }
 
     /// Take ownership of a Max object.

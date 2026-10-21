@@ -432,8 +432,8 @@ where
                     obj,
                     format!(
                         "median: at most {} signal inlets and outlets are supported, \
-                         this object has {} and {}; the extra inlets are ignored and the extra \
-                         outlets are silent",
+                         this object has {} and {}; its perform method will not be called \
+                         and its outlets are silent",
                         MAX_SIGNAL_IO, self.signal_inlets, self.signal_outlets
                     ),
                 );
@@ -476,44 +476,43 @@ where
             &mut []
         };
 
+        //more i/o than we have room for: don't call user code at all (it would see fewer
+        //buffers than it declared), silence every outlet. The error was posted by dsp64.
+        if ins.len() > MAX_SIGNAL_IO || outs.len() > MAX_SIGNAL_IO {
+            for op in outs.iter() {
+                // SAFETY: Max passes `nframes` valid samples for each output
+                unsafe { std::ptr::write_bytes(*op, 0, nframes) };
+            }
+            return;
+        }
+
         let mut in_slices: [&[f64]; MAX_SIGNAL_IO] = [&[]; MAX_SIGNAL_IO];
         let mut out_slices: [&mut [f64]; MAX_SIGNAL_IO] = std::array::from_fn(|_| &mut [][..]);
 
-        //clamp to what we have room for
-        let n_in = ins.len().min(MAX_SIGNAL_IO);
-        let n_out = outs.len().min(MAX_SIGNAL_IO);
-
-        for (slice, ip) in in_slices.iter_mut().zip(ins.iter().take(n_in)) {
+        for (slice, ip) in in_slices.iter_mut().zip(ins.iter()) {
             // SAFETY: Max passes `nframes` valid samples for each input
             *slice = unsafe { std::slice::from_raw_parts(*ip, nframes) };
         }
-        for (slice, op) in out_slices.iter_mut().zip(outs.iter().take(n_out)) {
+        for (slice, op) in out_slices.iter_mut().zip(outs.iter()) {
             // SAFETY: Max passes `nframes` valid, unaliased (Z_NO_INPLACE) samples per output
             *slice = unsafe { std::slice::from_raw_parts_mut(*op, nframes) };
         }
 
-        //outlets we can't hand to user code are silent
-        for op in outs.iter().skip(n_out) {
-            // SAFETY: as above
-            unsafe { std::ptr::write_bytes(*op, 0, nframes) };
-        }
-
         self.wrapped()
-            .perform(&in_slices[..n_in], &mut out_slices[..n_out], nframes);
+            .perform(&in_slices[..ins.len()], &mut out_slices[..outs.len()], nframes);
     }
 }
 
-fn new_common<F, O>(key: &'static str, func: F) -> O
+/// Look up the registered class for `key` and call `func` with it. `None` if the class isn't
+/// registered (or `func` returns `None`, e.g. because allocation failed).
+fn new_common<F, O>(key: &'static str, func: F) -> Option<O>
 where
-    F: Fn(*mut max_sys::t_class) -> O,
+    F: Fn(*mut max_sys::t_class) -> Option<O>,
 {
     //unlock the mutex so we can register in the object init
     let max_class = {
-        let g = CLASSES.lock().expect("couldn't lock CLASSES mutex");
-        match g.get(key) {
-            Some(class) => class.0,
-            None => panic!("class {} not registered", key),
-        }
+        let g = CLASSES.lock().ok()?;
+        g.get(key)?.0
     };
     func(max_class)
 }
@@ -704,21 +703,42 @@ where
         } else {
             &[]
         };
-        let o = ObjBox::into_raw(Self::new(sym, &args));
-
-        assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
-        std::mem::transmute::<_, _>(o)
+        match Self::try_new(sym, &args) {
+            Some(o) => {
+                let o = ObjBox::into_raw(o);
+                assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
+                std::mem::transmute::<_, _>(o)
+            }
+            None => {
+                crate::max::error(format!("median: failed to create {}", key::<T>()));
+                std::ptr::null_mut()
+            }
+        }
     }
 
     /// Create an instance of the wrapper, on the heap, with no arguments.
+    ///
+    /// # Panics
+    /// If the class isn't registered or Max fails to allocate the object.
     pub fn new_noargs() -> ObjBox<Self> {
         Self::new(SymbolRef::default(), &[])
     }
 
     /// Create an instance of the wrapper, on the heap.
+    ///
+    /// # Panics
+    /// If the class isn't registered or Max fails to allocate the object.
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
+        match Self::try_new(sym, args) {
+            Some(o) => o,
+            None => panic!("failed to create {}", key::<T>()),
+        }
+    }
+
+    /// Like `new`, but `None` if the class isn't registered or Max fails to allocate.
+    fn try_new(sym: SymbolRef, args: &[Atom]) -> Option<ObjBox<Self>> {
         new_common(key::<T>(), |max_class| unsafe {
-            let o: ObjBox<Self> = ObjBox::alloc(max_class);
+            let o: ObjBox<Self> = ObjBox::alloc(max_class)?;
             let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
             // `wrapped` field is uninitialised, so write without dropping the old value
@@ -730,7 +750,7 @@ where
                 args.len() as _,
                 std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
             );
-            o
+            Some(o)
         })
     }
 
@@ -818,16 +838,35 @@ where
         } else {
             &[]
         };
-        let o = ObjBox::into_raw(Self::new(sym, &args));
-        assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
-        std::mem::transmute::<_, _>(o)
+        match Self::try_new(sym, &args) {
+            Some(o) => {
+                let o = ObjBox::into_raw(o);
+                assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
+                std::mem::transmute::<_, _>(o)
+            }
+            None => {
+                crate::max::error(format!("median: failed to create {}", key::<T>()));
+                std::ptr::null_mut()
+            }
+        }
     }
 
     /// Create an instance of the wrapper, on the heap.
+    ///
+    /// # Panics
+    /// If the class isn't registered or Max fails to allocate the object.
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
+        match Self::try_new(sym, args) {
+            Some(o) => o,
+            None => panic!("failed to create {}", key::<T>()),
+        }
+    }
+
+    /// Like `new`, but `None` if the class isn't registered or Max fails to allocate.
+    fn try_new(sym: SymbolRef, args: &[Atom]) -> Option<ObjBox<Self>> {
         unsafe {
             new_common(key::<T>(), |max_class| {
-                let o: ObjBox<Self> = ObjBox::alloc(max_class);
+                let o: ObjBox<Self> = ObjBox::alloc(max_class)?;
                 let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
                 // `wrapped` field is uninitialised, so write without dropping the old value
@@ -839,7 +878,7 @@ where
                     args.len() as _,
                     std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
                 );
-                o
+                Some(o)
             })
         }
     }
