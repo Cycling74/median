@@ -6,6 +6,7 @@ use crate::{
     buffer::BufferRef,
     builder::{MSPWrappedBuilder, ManagedBufferRefInternal, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType},
+    clock::ClockShared,
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
     notify::Notification,
@@ -19,7 +20,7 @@ use std::{
     marker::PhantomData,
     mem::MaybeUninit,
     os::raw::c_long,
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use lazy_static::lazy_static;
@@ -172,6 +173,8 @@ pub struct MaxWrapperInternal<T> {
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    //disabled in `Drop`, before `wrapped` is dropped
+    clocks: Vec<Arc<ClockShared>>,
     assist_ins: HashMap<usize, CString>,
     assist_outs: HashMap<usize, CString>,
     //we just hold onto these so they don't get deallocated until later
@@ -186,15 +189,38 @@ pub struct MSPWrapperInternal<T> {
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    //disabled in `Drop`, before `wrapped` is dropped
+    clocks: Vec<Arc<ClockShared>>,
     assist_ins: HashMap<usize, CString>,
     assist_outs: HashMap<usize, CString>,
     //we just hold onto these so they don't get deallocated until later
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
+/// Disable the clocks created for an object. Must run before the object's `T` is dropped: it
+/// waits for any in-flight clock callback and makes later ones no-ops.
+fn release_clocks(clocks: &[Arc<ClockShared>]) {
+    for c in clocks {
+        c.clear();
+    }
+}
+
+impl<T> Drop for MaxWrapperInternal<T> {
+    fn drop(&mut self) {
+        //runs before the fields (including `wrapped`) are dropped
+        release_clocks(&self.clocks);
+    }
+}
+
+impl<T> Drop for MSPWrapperInternal<T> {
+    fn drop(&mut self) {
+        //runs before the fields (including `wrapped`) are dropped
+        release_clocks(&self.clocks);
+    }
+}
+
 pub(crate) trait WrapperInternal<O, T>: Sized {
     fn wrapped(&self) -> &T;
-    fn wrapped_mut(&mut self) -> &mut T;
     /// # Safety
     /// `owner` must point to a valid, newly allocated object of type `O` that is being
     /// constructed and that will outlive the returned value.
@@ -222,9 +248,6 @@ where
     fn wrapped(&self) -> &T {
         &self.wrapped
     }
-    fn wrapped_mut(&mut self) -> &mut T {
-        &mut self.wrapped
-    }
     unsafe fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
         // SAFETY: the caller guarantees `owner` is valid and under construction
         let mut builder = unsafe { WrappedBuilder::new_max(owner, sym, args) };
@@ -235,6 +258,7 @@ where
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
+            clocks: std::mem::take(&mut f.clocks),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
             assist_ins: std::mem::take(&mut f.assist_ins),
             assist_outs: std::mem::take(&mut f.assist_outs),
@@ -298,9 +322,6 @@ where
     fn wrapped(&self) -> &T {
         &self.wrapped
     }
-    fn wrapped_mut(&mut self) -> &mut T {
-        &mut self.wrapped
-    }
     unsafe fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
         // SAFETY: the caller guarantees `owner` is valid and under construction
         let mut builder = unsafe { WrappedBuilder::new_msp(owner, sym, args) };
@@ -319,6 +340,7 @@ where
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
+            clocks: std::mem::take(&mut f.clocks),
             _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
             assist_ins: std::mem::take(&mut f.assist_ins),
             assist_outs: std::mem::take(&mut f.assist_outs),
@@ -551,16 +573,6 @@ where
 {
     fn internal(&self) -> &I {
         unsafe { &*self.wrapped.as_ptr() }
-    }
-
-    /// Retrieve a mutable reference to your wrapped class.
-    ///
-    /// # Safety
-    /// The wrapper must be fully constructed, and no other reference to it or to the wrapped
-    /// value may exist or be created while the returned reference is live; in particular Max
-    /// must not be able to call into the object yet.
-    pub(crate) unsafe fn wrapped_mut(&mut self) -> &mut T {
-        unsafe { (&mut *self.wrapped.as_mut_ptr()).wrapped_mut() }
     }
 
     extern "C" fn free_wrapped(&mut self) {

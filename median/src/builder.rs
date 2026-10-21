@@ -2,7 +2,7 @@
 use crate::{
     atom::Atom,
     buffer::{BufferRef, BufferReference},
-    clock::ClockHandle,
+    clock::{ClockHandle, ClockShared},
     inlet::{MSPInlet, MaxInlet, Proxy},
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
@@ -21,6 +21,7 @@ pub struct WrappedBuilder<'a, T, W> {
     args: &'a [Atom],
     inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
     buffer_refs: Vec<ManagedBufferRefInternal>,
+    clocks: Vec<Arc<ClockShared>>,
     assist_ins: HashMap<usize, CString>,
     assist_outs: HashMap<usize, CString>,
     outlet_count: usize,
@@ -177,6 +178,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             args,
             inlets: Vec::new(),
             buffer_refs: Vec::new(),
+            clocks: Vec::new(),
             signal_outlets: 0,
             outlet_count: 0,
             _phantom: PhantomData,
@@ -199,6 +201,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
             args,
             inlets: Vec::new(),
             buffer_refs: Vec::new(),
+            clocks: Vec::new(),
             signal_outlets: 0,
             outlet_count: 0,
             _phantom: PhantomData,
@@ -301,28 +304,33 @@ where
     }
 
     fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
-        unsafe {
+        // SAFETY: `max_obj` is valid for the life of the object; the wrapper clears the clock's
+        // target (via `clocks`) before it drops `T`, so the callback never sees a freed owner.
+        let clock = unsafe {
             ClockHandle::new(
-                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
                 self.max_obj(),
                 Box::new(move |wrapper| {
                     let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
                     func(wrapper.wrapped());
                 }),
             )
-        }
+        };
+        self.clocks.push(clock.shared());
+        clock
     }
     fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle {
-        unsafe {
+        // SAFETY: as in `with_clockfn`
+        let clock = unsafe {
             ClockHandle::new(
-                // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..
                 self.max_obj(),
                 Box::new(move |wrapper| {
                     let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
                     func(wrapper.wrapped());
                 }),
             )
-        }
+        };
+        self.clocks.push(clock.shared());
+        clock
     }
     fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef {
         let b = Arc::new(unsafe { BufferRef::new(self.max_obj, name) });
@@ -522,6 +530,7 @@ pub struct MaxWrappedBuilderFinalize<T> {
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
     pub buffer_refs: Vec<ManagedBufferRefInternal>,
+    pub(crate) clocks: Vec<Arc<ClockShared>>,
     pub assist_ins: HashMap<usize, CString>,
     pub assist_outs: HashMap<usize, CString>,
 }
@@ -533,6 +542,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
     pub callbacks_int: IntCBHash<T>,
     pub proxy_inlets: Vec<Proxy>,
     pub buffer_refs: Vec<ManagedBufferRefInternal>,
+    pub(crate) clocks: Vec<Arc<ClockShared>>,
     pub assist_ins: HashMap<usize, CString>,
     pub assist_outs: HashMap<usize, CString>,
 }
@@ -548,6 +558,7 @@ where
             callbacks_int,
             proxy_inlets,
             buffer_refs: self.buffer_refs,
+            clocks: self.clocks,
             assist_ins: self.assist_ins,
             assist_outs: self.assist_outs,
         }
@@ -570,6 +581,7 @@ where
             callbacks_int,
             proxy_inlets,
             buffer_refs: self.buffer_refs,
+            clocks: self.clocks,
             assist_ins: self.assist_ins,
             assist_outs: self.assist_outs,
         }
