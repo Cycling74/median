@@ -132,8 +132,11 @@ macro_rules! error {
 #[macro_export]
 macro_rules! object_post {
     ($obj:expr, $($arg:tt)*) => {{
+        //evaluated outside of the `unsafe` block so that `$obj` can't smuggle in unsafe operations
+        let obj: *mut $crate::max_sys::t_object = $obj;
+        let msg = ::std::format!($($arg)*);
         // SAFETY: the caller promises `$obj` is a valid object pointer, see the macro docs
-        unsafe { $crate::object::post($obj, ::std::format!($($arg)*)) }
+        unsafe { $crate::object::post(obj, msg) }
     }}
 }
 
@@ -169,8 +172,11 @@ macro_rules! object_post {
 #[macro_export]
 macro_rules! object_error {
     ($obj:expr, $($arg:tt)*) => {{
+        //evaluated outside of the `unsafe` block so that `$obj` can't smuggle in unsafe operations
+        let obj: *mut $crate::max_sys::t_object = $obj;
+        let msg = ::std::format!($($arg)*);
         // SAFETY: the caller promises `$obj` is a valid object pointer, see the macro docs
-        unsafe { $crate::object::error($obj, ::std::format!($($arg)*)) }
+        unsafe { $crate::object::error(obj, msg) }
     }}
 }
 

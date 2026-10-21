@@ -10,7 +10,10 @@ use crate::{
 use parking_lot::Mutex;
 use std::{
     ffi::{c_void, CString},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 /// A raw `t_object` pointer that may be stored in the (shared) clock target.
@@ -30,6 +33,10 @@ unsafe impl<T> Sync for SyncPtr<T> {}
 /// This is shared (`Arc`) between the clock's Max object, the [`ClockHandle`], and the owning
 /// wrapper (which gets it from the builder). Lifetime protocol:
 ///
+/// * The callback does nothing until the target is *armed*. Clocks created by the builder run
+///   inside `T::new`, before the wrapped value is initialised (a `delay` in `new` can fire on the
+///   scheduler thread right away), so the owning wrapper arms them once construction is done.
+///   A callback that fires before that is skipped.
 /// * The clock callback holds `target`'s lock for the whole call.
 /// * The owning wrapper calls [`ClockShared::clear`] *before* it drops the user's `T`. That
 ///   waits for an in-flight callback to finish and makes every later callback a no-op, so
@@ -41,14 +48,22 @@ unsafe impl<T> Sync for SyncPtr<T> {}
 /// call `clear`, which would try to take the lock the callback already holds on the same thread
 /// and deadlock. Defer such work (e.g. `defer_low`) instead.
 pub(crate) struct ClockShared {
+    armed: AtomicBool,
     target: Mutex<Option<(SyncPtr<max_sys::t_object>, ClockFn)>>,
 }
 
 impl ClockShared {
     fn new() -> Self {
         Self {
+            armed: AtomicBool::new(false),
             target: Mutex::new(None),
         }
+    }
+
+    /// Allow the callback to run. Release pairs with the Acquire in `call`, so everything
+    /// written before arming (the owner's initialised state) is visible to the callback.
+    pub(crate) fn arm(&self) {
+        self.armed.store(true, Ordering::Release);
     }
 
     fn set(&self, target: *mut max_sys::t_object, func: ClockFn) {
@@ -56,8 +71,11 @@ impl ClockShared {
         drop(old);
     }
 
-    /// Run the callback, if the target is still set. Holds the lock for the duration.
+    /// Run the callback, if the target is armed and still set. Holds the lock for the duration.
     fn call(&self) {
+        if !self.armed.load(Ordering::Acquire) {
+            return;
+        }
         let guard = self.target.lock();
         if let Some((target, func)) = &*guard {
             (func)(target.0)
@@ -181,6 +199,22 @@ impl ClockHandle {
         target: *mut max_sys::t_object,
         func: Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>,
     ) -> Self {
+        // SAFETY: the caller guarantees the contract of `new_unarmed` and, by calling this,
+        // that `target` is ready to be called back immediately
+        let handle = unsafe { Self::new_unarmed(target, func) };
+        handle.shared().arm();
+        handle
+    }
+
+    /// Like `new`, but the callback does nothing until `shared().arm()` is called. Used by the
+    /// builder, whose owner arms its clocks when construction has finished.
+    ///
+    /// # Safety
+    /// As `new`.
+    pub(crate) unsafe fn new_unarmed(
+        target: *mut max_sys::t_object,
+        func: Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>,
+    ) -> Self {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
         //this clock?
@@ -247,9 +281,28 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
+    fn unarmed_callback_does_not_run() {
+        let count = Arc::new(AtomicUsize::new(0));
+        let shared = ClockShared::new();
+        let c = count.clone();
+        shared.set(
+            std::ptr::null_mut(),
+            Box::new(move |_| {
+                c.fetch_add(1, Ordering::SeqCst);
+            }),
+        );
+        shared.call();
+        assert_eq!(count.load(Ordering::SeqCst), 0);
+        shared.arm();
+        shared.call();
+        assert_eq!(count.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
     fn clear_disables_callback() {
         let count = Arc::new(AtomicUsize::new(0));
         let shared = ClockShared::new();
+        shared.arm();
         let c = count.clone();
         shared.set(
             std::ptr::null_mut(),
@@ -269,6 +322,7 @@ mod tests {
         let done = Arc::new(AtomicUsize::new(0));
         let started = Arc::new(AtomicUsize::new(0));
         let shared = Arc::new(ClockShared::new());
+        shared.arm();
         let (d, s) = (done.clone(), started.clone());
         shared.set(
             std::ptr::null_mut(),
@@ -292,6 +346,7 @@ mod tests {
     #[test]
     fn panicking_callback_releases_lock() {
         let shared = ClockShared::new();
+        shared.arm();
         shared.set(std::ptr::null_mut(), Box::new(|_| panic!("callback failed")));
         let r = crate::ffi::catch(|| shared.call());
         assert_eq!(r, Err("callback failed".to_string()));

@@ -43,8 +43,14 @@ pub trait ObjBuilder<T> {
     fn with_default_inlet_assist(&mut self, assist: &str);
 
     /// Get a clock object that executes `func` when triggered.
+    ///
+    /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)` in
+    /// `new`), the callback is skipped.
     fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
     /// Get a clock object that executes `func` when triggered.
+    ///
+    /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)` in
+    /// `new`), the callback is skipped.
     fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle;
     /// Get a managed buffer reference.
     fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef;
@@ -307,7 +313,7 @@ where
         // SAFETY: `max_obj` is valid for the life of the object; the wrapper clears the clock's
         // target (via `clocks`) before it drops `T`, so the callback never sees a freed owner.
         let clock = unsafe {
-            ClockHandle::new(
+            ClockHandle::new_unarmed(
                 self.max_obj(),
                 Box::new(move |wrapper| {
                     let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
@@ -321,7 +327,7 @@ where
     fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle {
         // SAFETY: as in `with_clockfn`
         let clock = unsafe {
-            ClockHandle::new(
+            ClockHandle::new_unarmed(
                 self.max_obj(),
                 Box::new(move |wrapper| {
                     let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);

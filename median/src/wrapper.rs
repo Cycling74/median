@@ -157,9 +157,19 @@ pub trait WrapperWrapped<T> {
 /// Defer methods for wrapped objects.
 pub trait WrappedDefer<T> {
     ///defer a tramp method with the sym and atoms args
-    fn defer(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
+    ///
+    /// # Safety
+    /// The object must stay alive until the deferred call has run: Max does not keep it alive,
+    /// and the deferred call receives a pointer to it. For example, the object must not be freed
+    /// (the box deleted) before then.
+    unsafe fn defer(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
     ///defer_low a tramp method with the sym and atoms args
-    fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
+    ///
+    /// # Safety
+    /// The object must stay alive until the deferred call has run: Max does not keep it alive,
+    /// and the deferred call receives a pointer to it. For example, the object must not be freed
+    /// (the box deleted) before then.
+    unsafe fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
 }
 
 /// The actual struct that is given to max
@@ -180,7 +190,7 @@ pub struct MaxWrapperInternal<T> {
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
-    //disabled in `Drop`, before `wrapped` is dropped
+    //disabled by `free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     clocks: Vec<Arc<ClockShared>>,
     assist_ins: HashMap<usize, CString>,
     assist_outs: HashMap<usize, CString>,
@@ -199,7 +209,7 @@ pub struct MSPWrapperInternal<T> {
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
-    //disabled in `Drop`, before `wrapped` is dropped
+    //disabled by `free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     clocks: Vec<Arc<ClockShared>>,
     assist_ins: HashMap<usize, CString>,
     assist_outs: HashMap<usize, CString>,
@@ -207,8 +217,9 @@ pub struct MSPWrapperInternal<T> {
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
-/// Disable the clocks created for an object. Must run before the object's `T` is dropped: it
-/// waits for any in-flight clock callback and makes later ones no-ops.
+/// Disable the clocks created for an object. Must run before the object's `T` is dropped (and
+/// before anything else about the object is torn down or moved): it waits for any in-flight
+/// clock callback and makes later ones no-ops. Idempotent.
 fn release_clocks(clocks: &[Arc<ClockShared>]) {
     for c in clocks {
         c.clear();
@@ -217,20 +228,24 @@ fn release_clocks(clocks: &[Arc<ClockShared>]) {
 
 impl<T> Drop for MaxWrapperInternal<T> {
     fn drop(&mut self) {
-        //runs before the fields (including `wrapped`) are dropped
+        //`free_wrapped` has already done this, before it started to tear the object down; this
+        //is a harmless second clear that keeps the invariant local to the type
         release_clocks(&self.clocks);
     }
 }
 
 impl<T> Drop for MSPWrapperInternal<T> {
     fn drop(&mut self) {
-        //runs before the fields (including `wrapped`) are dropped
+        //`free_wrapped` has already done this, before it started to tear the object down; this
+        //is a harmless second clear that keeps the invariant local to the type
         release_clocks(&self.clocks);
     }
 }
 
 pub(crate) trait WrapperInternal<O, T>: Sized {
     fn wrapped(&self) -> &T;
+    /// The clocks created for this object by the builder.
+    fn clocks(&self) -> &[Arc<ClockShared>];
     /// # Safety
     /// `owner` must point to a valid, newly allocated object of type `O` that is being
     /// constructed and that will outlive the returned value.
@@ -257,6 +272,9 @@ where
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
+    }
+    fn clocks(&self) -> &[Arc<ClockShared>] {
+        &self.clocks
     }
     unsafe fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
         // SAFETY: the caller guarantees `owner` is valid and under construction
@@ -331,6 +349,9 @@ where
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
+    }
+    fn clocks(&self) -> &[Arc<ClockShared>] {
+        &self.clocks
     }
     unsafe fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
         // SAFETY: the caller guarantees `owner` is valid and under construction
@@ -616,19 +637,42 @@ where
         }
     }
 
-    extern "C" fn free_wrapped(&mut self) {
+    /// Let the object's clocks fire. Called once the wrapped value is initialised.
+    ///
+    /// # Safety
+    /// `this` must point to a wrapper whose `wrapped` field is initialised.
+    unsafe fn arm_clocks(this: *mut Self) {
+        // SAFETY: guaranteed by the caller; `MaybeUninit<I>` has the layout of `I`
+        let internal = unsafe { &*std::ptr::addr_of!((*this).wrapped).cast::<I>() };
+        for c in internal.clocks() {
+            c.arm();
+        }
+    }
+
+    /// The `free` method Max calls when the object is deleted (also for an object whose
+    /// construction failed). Last call Max makes on the object.
+    ///
+    /// Takes a raw pointer: clock callbacks may still be running on the scheduler thread with
+    /// references into the object, so no `&mut` may exist until they are shut out.
+    extern "C" fn free_wrapped(this: *mut Self) {
         crate::ffi::guard_global("free", (), || {
-            //construction didn't finish (`T::new` panicked), there is nothing to drop
-            if !self.constructed {
-                return;
-            }
-            self.constructed = false;
-            let mut wrapped = MaybeUninit::uninit();
-            std::mem::swap(&mut self.wrapped, &mut wrapped);
-            // SAFETY: `constructed` was set, so `wrapped` was initialised, and it was
-            // replaced by uninit above so it can't be dropped twice
+            // SAFETY: Max passes the object it is freeing, `this` is valid until we return
             unsafe {
-                std::mem::drop(wrapped.assume_init());
+                //construction didn't finish (`T::new` panicked), there is nothing to drop
+                if !(*this).constructed {
+                    return;
+                }
+                //(a) shut out the clocks first: this waits for a callback that is running (it
+                //holds `&T` into the object) and makes every later one a no-op. Only a shared
+                //borrow of the internals exists meanwhile.
+                {
+                    let internal = &*std::ptr::addr_of!((*this).wrapped).cast::<I>();
+                    release_clocks(internal.clocks());
+                }
+                //(b) nothing else can reach the internals now, drop them in place (no moving,
+                //no swapping with uninit: the memory stays initialised until dropped)
+                (*this).constructed = false;
+                std::ptr::drop_in_place(std::ptr::addr_of_mut!((*this).wrapped).cast::<I>());
             }
         });
     }
@@ -729,9 +773,7 @@ where
                     T::class_name(),
                     Self::new_tramp,
                     Some(
-                        std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
-                            Self::free_wrapped,
-                        ),
+                        Self::free_wrapped as MaxFree<Self>,
                     ),
                 );
                 //TODO somehow pass the lock so that classes can register additional classes
@@ -807,6 +849,8 @@ where
             let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
             std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(true);
+            //only now that `wrapped` is initialised may clock callbacks run
+            Self::arm_clocks(o.as_ptr());
             //process attribute arguments
             //TODO optionally don't process?
             max_sys::attr_args_process(
@@ -863,9 +907,7 @@ where
                     T::class_name(),
                     Self::new_tramp,
                     Some(
-                        std::mem::transmute::<extern "C" fn(&mut Self), MaxFree<Self>>(
-                            Self::free_msp,
-                        ),
+                        Self::free_msp as MaxFree<Self>,
                     ),
                 );
                 //TODO somehow pass the lock so that classes can register additional classes
@@ -953,6 +995,8 @@ where
                 let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
                 std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(true);
+                //only now that `wrapped` is initialised may clock callbacks run
+                Self::arm_clocks(o.as_ptr());
                 //process attribute arguments
                 //TODO optionally don't process?
                 max_sys::attr_args_process(
@@ -965,14 +1009,18 @@ where
         }
     }
 
-    extern "C" fn free_msp(&mut self) {
-        //free dsp first, unless construction didn't get as far as setting it up
-        if self.constructed {
+    extern "C" fn free_msp(this: *mut Self) {
+        // SAFETY: Max passes the object it is freeing
+        let constructed = unsafe { (*this).constructed };
+        //free dsp first (this takes the object out of the dsp chain, so `perform` can't run
+        //afterwards), unless construction didn't get as far as setting it up. Clocks don't
+        //touch the dsp state, so it doesn't matter that they are shut out after this.
+        if constructed {
             unsafe {
-                max_sys::z_dsp_free(self.msp_obj());
+                max_sys::z_dsp_free(this as *mut max_sys::t_pxobject);
             }
         }
-        self.free_wrapped();
+        Self::free_wrapped(this);
     }
 
     extern "C" fn perform64(
@@ -1113,22 +1161,24 @@ impl<T> WrappedDefer<MaxObjWrapper<T>> for T
 where
     T: MaxObjWrapped<T>,
 {
-    fn defer(&self, meth: DeferMethodWrapped<MaxObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
+    unsafe fn defer(&self, meth: DeferMethodWrapped<MaxObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
         let obj = self.max_obj();
-        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
+        // guarantees that the object outlives the deferred call
         unsafe {
             crate::thread::defer(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
         }
     }
 
-    fn defer_low(
+    unsafe fn defer_low(
         &self,
         meth: DeferMethodWrapped<MaxObjWrapper<T>>,
         sym: SymbolRef,
         atoms: &[Atom],
     ) {
         let obj = self.max_obj();
-        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
+        // guarantees that the object outlives the deferred call
         unsafe {
             crate::thread::defer_low(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
         }
@@ -1139,22 +1189,24 @@ impl<T> WrappedDefer<MSPObjWrapper<T>> for T
 where
     T: MSPObjWrapped<T>,
 {
-    fn defer(&self, meth: DeferMethodWrapped<MSPObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
+    unsafe fn defer(&self, meth: DeferMethodWrapped<MSPObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
         let obj = self.as_max_obj();
-        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
+        // guarantees that the object outlives the deferred call
         unsafe {
             crate::thread::defer(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
         }
     }
 
-    fn defer_low(
+    unsafe fn defer_low(
         &self,
         meth: DeferMethodWrapped<MSPObjWrapper<T>>,
         sym: SymbolRef,
         atoms: &[Atom],
     ) {
         let obj = self.as_max_obj();
-        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
+        // guarantees that the object outlives the deferred call
         unsafe {
             crate::thread::defer_low(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
         }
