@@ -554,7 +554,12 @@ where
     }
 
     /// Retrieve a mutable reference to your wrapped class.
-    pub fn wrapped_mut(&mut self) -> &mut T {
+    ///
+    /// # Safety
+    /// The wrapper must be fully constructed, and no other reference to it or to the wrapped
+    /// value may exist or be created while the returned reference is live; in particular Max
+    /// must not be able to call into the object yet.
+    pub(crate) unsafe fn wrapped_mut(&mut self) -> &mut T {
         unsafe { (&mut *self.wrapped.as_mut_ptr()).wrapped_mut() }
     }
 
@@ -701,9 +706,11 @@ where
     /// Create an instance of the wrapper, on the heap.
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         new_common(key::<T>(), |max_class| unsafe {
-            let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
+            let o: ObjBox<Self> = ObjBox::alloc(max_class);
             let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
-            o.wrapped = MaybeUninit::new(internal);
+            // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
+            // `wrapped` field is uninitialised, so write without dropping the old value
+            std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
             //process attribute arguments
             //TODO optionally don't process?
             max_sys::attr_args_process(
@@ -808,9 +815,11 @@ where
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
         unsafe {
             new_common(key::<T>(), |max_class| {
-                let mut o: ObjBox<Self> = ObjBox::alloc(max_class);
+                let o: ObjBox<Self> = ObjBox::alloc(max_class);
                 let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
-                o.wrapped = MaybeUninit::new(internal);
+                // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
+                // `wrapped` field is uninitialised, so write without dropping the old value
+                std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
                 //process attribute arguments
                 //TODO optionally don't process?
                 max_sys::attr_args_process(
@@ -905,18 +914,6 @@ where
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
         // SAFETY: Max passes a writable assist buffer
         unsafe { self.internal().assist(io, index, s) };
-    }
-}
-
-impl<O, I, T> Drop for Wrapper<O, I, T>
-where
-    T: Sized,
-{
-    fn drop(&mut self) {
-        unsafe {
-            //use Max's object_free which will call the wrapper's "free" method.
-            max_sys::object_free(std::mem::transmute::<_, _>(&self.s_obj));
-        }
     }
 }
 

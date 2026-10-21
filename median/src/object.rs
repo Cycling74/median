@@ -109,7 +109,8 @@ pub unsafe trait MSPObj: Sized {
 }
 
 use std::ffi::CString;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
+use std::ptr::NonNull;
 use std::os::raw::c_char;
 
 /// The printf format used to pass user text to the console; user text is never the format.
@@ -147,29 +148,51 @@ pub unsafe fn error<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
     }
 }
 
-/// A smart pointer for an object that max allocated
+/// A smart pointer for an object that max allocated.
+///
+/// Dropping it frees the object with `object_free` (which runs the class's `free` method and
+/// releases Max's memory). Use [`ObjBox::into_raw`] to hand ownership to Max instead.
+///
+/// It only gives shared access (`Deref`): Max may call into the object from other threads at any
+/// time, and the object's header is owned by Max, so `&mut T` is never available.
 pub struct ObjBox<T: MaxObj> {
-    pub value: Option<Box<T>>, //option box so that we can drop if the value still exists
+    value: NonNull<T>,
 }
 
 impl<T: MaxObj> ObjBox<T> {
+    /// Allocate an instance of `class` with `object_alloc`.
+    ///
+    /// # Safety
+    /// `class` must be a valid, registered class whose instances are laid out as `T`, and
+    /// `object_alloc` must succeed (a null result is not handled).
     pub unsafe fn alloc(class: *mut max_sys::t_class) -> Self {
         //convert to t_object for debugging
         let value: *mut max_sys::t_object =
-            std::mem::transmute::<_, _>(max_sys::object_alloc(class));
-        let value = std::mem::transmute::<_, *mut T>(value);
-        Self::from_raw(value)
+            unsafe { std::mem::transmute::<_, _>(max_sys::object_alloc(class)) };
+        unsafe { Self::from_raw(std::mem::transmute::<_, *mut T>(value)) }
     }
 
+    /// Take ownership of a Max object.
+    ///
+    /// # Safety
+    /// `value` must be non-null and point to a valid Max object laid out as `T`, allocated by
+    /// Max (`object_alloc`), that is not owned by anything else.
     pub unsafe fn from_raw(value: *mut T) -> Self {
         Self {
-            value: Some(Box::from_raw(value)),
+            value: unsafe { NonNull::new_unchecked(value) },
         }
     }
 
-    pub fn into_raw(mut self) -> *mut T {
-        let value = self.value.take().unwrap();
-        Box::into_raw(value)
+    /// The raw pointer to the object. Ownership stays with `self`.
+    pub fn as_ptr(&self) -> *mut T {
+        self.value.as_ptr()
+    }
+
+    /// Give up ownership without freeing the object, e.g. to return it from `new` to Max.
+    pub fn into_raw(self) -> *mut T {
+        let value = self.value.as_ptr();
+        std::mem::forget(self);
+        value
     }
 }
 
@@ -177,22 +200,17 @@ impl<T: MaxObj> Deref for ObjBox<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.value.as_ref().unwrap().deref()
-    }
-}
-
-impl<T: MaxObj> DerefMut for ObjBox<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.value.as_mut().unwrap().deref_mut()
+        // SAFETY: `value` is valid for as long as `self` owns the object
+        unsafe { self.value.as_ref() }
     }
 }
 
 impl<T: MaxObj> Drop for ObjBox<T> {
     fn drop(&mut self) {
-        if let Some(v) = self.value.take() {
-            unsafe {
-                max_sys::object_free(std::mem::transmute::<_, _>(v));
-            }
+        // SAFETY: `value` is a Max object we own; Max runs the class's `free` method and
+        // releases the memory.
+        unsafe {
+            max_sys::object_free(self.value.as_ptr() as *mut std::ffi::c_void);
         }
     }
 }

@@ -126,8 +126,9 @@ impl ClockHandle {
         //XXX what if there is another instance of this library that has already registered
         //this clock?
         MaxObjWrapper::<ClockInner>::register(true);
-        let mut clock_target = MaxObjWrapper::<ClockInner>::new_noargs();
-        clock_target.wrapped_mut().set(target, func);
+        let clock_target = MaxObjWrapper::<ClockInner>::new_noargs();
+        // SAFETY: the new target is not yet reachable by a clock callback.
+        unsafe { (*clock_target.as_ptr()).wrapped_mut().set(target, func) };
         //Use the owner's scheduler at creation time; storing #S on an existing clock
         //does not initialize the clock with that scheduler.
         let sched = max_sys::scheduler_fromobject(target);
