@@ -172,9 +172,12 @@ pub struct Wrapper<O, I, T> {
     s_obj: O,
     wrapped: MaybeUninit<I>,
     /// `wrapped` is initialised. Max can free the object before construction finished (a panic
-    /// in `T::new`), in which case `free` must not drop `wrapped`. Only written while the
-    /// object is being constructed or freed, when nothing else can reach it.
-    constructed: bool,
+    /// in `T::new`), in which case `free` must not drop `wrapped`. Written (with `Release`) once
+    /// after `wrapped` is written, and cleared in `free`. Safe code can make Max call back into
+    /// the object while `T::new` is still running (through the `ObjRef` from `builder.obj()`), so
+    /// every trampoline that reaches `wrapped` checks this first (with `Acquire`): see
+    /// `Wrapper::internal`.
+    constructed: AtomicBool,
     _phantom: PhantomData<T>,
 }
 
@@ -623,7 +626,28 @@ where
     I: WrapperInternal<O, T>,
     T: ObjWrapped<T>,
 {
+    /// The internals of an object whose construction has finished.
+    ///
+    /// # Panics
+    /// If the object isn't constructed yet (or is being freed): Max called into it while `T::new`
+    /// was still running, which safe code can cause through the `ObjRef` the builder gives out.
+    /// Every trampoline runs this inside a panic guard, which posts the panic message as an
+    /// error for the object and returns the neutral value, so the object is never touched.
     fn internal(&self) -> &I {
+        if !self.constructed.load(Ordering::Acquire) {
+            panic!("{}: object used before construction finished", key::<T>());
+        }
+        // SAFETY: `constructed` was set after `wrapped` was written, and is cleared before it
+        // is dropped
+        unsafe { self.internal_unchecked() }
+    }
+
+    /// Like `internal`, without the check, for the paths that run outside a panic guard.
+    ///
+    /// # Safety
+    /// The object must be constructed and not being freed.
+    unsafe fn internal_unchecked(&self) -> &I {
+        // SAFETY: guaranteed by the caller
         unsafe { &*self.wrapped.as_ptr() }
     }
 
@@ -664,7 +688,7 @@ where
             // SAFETY: Max passes the object it is freeing, `this` is valid until we return
             unsafe {
                 //construction didn't finish (`T::new` panicked), there is nothing to drop
-                if !(*this).constructed {
+                if !(*this).constructed.load(Ordering::Acquire) {
                     return;
                 }
                 //(a) shut out the clocks first: this waits for a callback that is running (it
@@ -676,7 +700,7 @@ where
                 }
                 //(b) nothing else can reach the internals now, drop them in place (no moving,
                 //no swapping with uninit: the memory stays initialised until dropped)
-                (*this).constructed = false;
+                (*this).constructed.store(false, Ordering::Release);
                 std::ptr::drop_in_place(std::ptr::addr_of_mut!((*this).wrapped).cast::<I>());
             }
         });
@@ -842,10 +866,10 @@ where
             // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
             // fields are uninitialised, so write without dropping the old values. If
             // `new` panics, `o` is dropped while `constructed` is false.
-            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(false);
+            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false));
             let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
-            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(true);
+            (*o.as_ptr()).constructed.store(true, Ordering::Release);
             //only now that `wrapped` is initialised may clock callbacks run
             Self::arm_clocks(o.as_ptr());
             //process attribute arguments
@@ -987,10 +1011,10 @@ where
                 // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
                 // fields are uninitialised, so write without dropping the old values. If
                 // `new` panics, `o` is dropped while `constructed` is false.
-                std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(false);
+                std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false));
                 let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
-                std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(true);
+                (*o.as_ptr()).constructed.store(true, Ordering::Release);
                 //only now that `wrapped` is initialised may clock callbacks run
                 Self::arm_clocks(o.as_ptr());
                 //process attribute arguments
@@ -1013,7 +1037,7 @@ where
 
     fn free_msp_inner(this: *mut Self) {
         // SAFETY: Max passes the object it is freeing
-        let constructed = unsafe { (*this).constructed };
+        let constructed = unsafe { (*this).constructed.load(Ordering::Acquire) };
         //shut out the clocks first: a running callback holds `&W` over the whole object,
         //including the pxobject header `z_dsp_free` writes. Then free dsp (this takes the object
         //out of the dsp chain, so `perform` can't run afterwards), unless construction didn't get
@@ -1038,7 +1062,11 @@ where
         flags: c_long,
         userparam: *mut c_void,
     ) {
-        let internal = self.internal();
+        // SAFETY: `perform64` is only added to the DSP chain by `dsp64`, which doesn't do that
+        // for an object that isn't constructed, and `free_msp` takes the object out of the chain
+        // before it is torn down. This runs outside a panic guard, so it can't use the checked
+        // `internal`.
+        let internal = unsafe { self.internal_unchecked() };
         let nframes = sampleframes.max(0) as usize;
         //the user's perform panicked earlier, stay silent until DSP is restarted
         if internal.panicked.load(Ordering::Relaxed) {
@@ -1074,6 +1102,18 @@ where
         _maxvectorsize: c_long,
         _flags: c_long,
     ) {
+        //called while `T::new` is running (through an `ObjRef`): don't add `perform64`, which
+        //relies on the object being constructed
+        if !self.constructed.load(Ordering::Acquire) {
+            // SAFETY: `self` is this live object
+            unsafe {
+                crate::object::error(
+                    self.max_obj(),
+                    crate::ffi::panic_text("dsp64", "object used before construction finished"),
+                )
+            };
+            return;
+        }
         let ok = self.guard_or("dsp64", false, || unsafe {
             self.internal().panicked.store(false, Ordering::Relaxed);
             self.internal().check_signal_io(self.max_obj());
@@ -1137,5 +1177,145 @@ where
             // SAFETY: Max passes a writable assist buffer
             unsafe { self.internal().assist(io, index, s) };
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::methods::{DSP_ADDED, errors_posted};
+    use std::sync::atomic::AtomicUsize;
+
+    /// Counts the calls of the user's code that got through.
+    static RAN: AtomicUsize = AtomicUsize::new(0);
+
+    struct P;
+
+    impl ObjWrapped<P> for P {
+        fn class_name() -> &'static str {
+            "p"
+        }
+        fn handle_notification(&self, _n: &Notification) {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        }
+        fn assist<F: FnOnce(&CStr)>(&self, _iolet: AssistIOlet, _render: F) {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    impl MaxObjWrapped<P> for P {
+        fn new(_builder: &mut dyn MaxWrappedBuilder<P>) -> Self {
+            P
+        }
+    }
+
+    impl MSPObjWrapped<P> for P {
+        fn new(_builder: &mut dyn MSPWrappedBuilder<P>) -> Self {
+            P
+        }
+        fn perform(&self, _: &[&[f64]], _: &mut [&mut [f64]], _: usize) {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        }
+        fn dsp_setup(&self, _: f64) {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    /// What Max has allocated and `T::new` is still running for: header zeroed, `wrapped`
+    /// uninitialised (here zero, which is just as unusable), not constructed.
+    fn half_built<O, I, T>() -> Box<Wrapper<O, I, T>> {
+        // SAFETY: the header is plain data, `wrapped` is a `MaybeUninit`, `constructed` is a
+        // bool (false when zeroed)
+        Box::new(unsafe { MaybeUninit::zeroed().assume_init() })
+    }
+
+    /// Run `f` and return how many errors were posted for `w` meanwhile.
+    fn errors_during<W: MaxObj>(w: &W, f: impl FnOnce()) -> usize {
+        let before = errors_posted(w.max_obj());
+        f();
+        errors_posted(w.max_obj()) - before
+    }
+
+    #[test]
+    fn typed_methods_refuse_a_half_built_object() {
+        type W = MaxObjWrapper<P>;
+        let w = half_built::<_, _, P>();
+        assert!(!w.constructed.load(Ordering::SeqCst));
+        let m = crate::method::bang_method::<W, P, _, _>(|_: &P| {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        });
+        // SAFETY: that is the type of the trampoline `bang_method` returns
+        let f = unsafe { std::mem::transmute::<crate::method::MaxMethod, extern "C" fn(&W)>(m) };
+        let ran = RAN.load(Ordering::SeqCst);
+        //returns normally (neutral), the user's code didn't run, the refusal was posted
+        assert_eq!(errors_during(&*w, || f(&w)), 1);
+        assert_eq!(RAN.load(Ordering::SeqCst), ran);
+    }
+
+    #[test]
+    fn other_trampolines_refuse_a_half_built_object() {
+        type W = MaxObjWrapper<P>;
+        let w = half_built::<_, _, P>();
+        let ran = RAN.load(Ordering::SeqCst);
+
+        assert_eq!(errors_during(&*w, || W::call_in1(&w, 3)), 1);
+        assert_eq!(errors_during(&*w, || W::call_ft1(&w, 3.)), 1);
+        assert_eq!(
+            errors_during(&*w, || {
+                // SAFETY: null symbols are valid for a notification
+                W::handle_notification_tramp(
+                    &w,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            }),
+            1
+        );
+        let mut s = [0 as std::ffi::c_char; 8];
+        assert_eq!(
+            errors_during(&*w, || W::assist_tramp(
+                &w,
+                std::ptr::null_mut(),
+                1,
+                0,
+                s.as_mut_ptr()
+            )),
+            1
+        );
+        //what the trampolines that `median_macros` generates do
+        assert_eq!(
+            errors_during(&*w, || crate::ffi::guard(&*w, "method", || {
+                let _: &P = WrapperWrapped::wrapped(&*w);
+                RAN.fetch_add(1, Ordering::SeqCst);
+            })),
+            1
+        );
+        assert_eq!(RAN.load(Ordering::SeqCst), ran);
+    }
+
+    #[test]
+    fn msp_object_refuses_a_half_built_object() {
+        type W = MSPObjWrapper<P>;
+        let w = half_built::<_, _, P>();
+        let ran = RAN.load(Ordering::SeqCst);
+        let added = DSP_ADDED.load(Ordering::SeqCst);
+
+        assert_eq!(
+            errors_during(&*w, || W::dsp64(
+                &w,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                44100.,
+                64,
+                0
+            )),
+            1
+        );
+        //no perform routine was added, so `perform64` can't run on it
+        assert_eq!(DSP_ADDED.load(Ordering::SeqCst), added);
+        assert_eq!(errors_during(&*w, || W::call_in1(&w, 3)), 1);
+        assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 }

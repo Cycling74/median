@@ -67,8 +67,49 @@ pub unsafe extern "C" fn class_addmethod(
 /// How many errors were posted for `w`. Starts at 0 for every wrapper: an address can be reused by
 /// a later test, so the entries a freed wrapper left behind are dropped.
 fn errors_for<T>(w: &Wrap<T>) -> usize {
-    let me = w.max_obj() as usize;
-    ERRORS.lock().unwrap().iter().filter(|e| **e == me).count() - w.fresh
+    errors_posted(w.max_obj()) - w.fresh
+}
+
+/// How many times `object_error` has been called for `obj` (including for an earlier object that
+/// had the same address).
+pub(crate) fn errors_posted(obj: *mut max_sys::t_object) -> usize {
+    let me = obj as usize;
+    ERRORS.lock().unwrap().iter().filter(|e| **e == me).count()
+}
+
+//Referenced by the object internals that the trampoline tests link in, never called by them.
+//The arguments are not declared: there is nothing to look at.
+#[unsafe(no_mangle)]
+pub extern "C" fn buffer_ref_notify() {
+    unreachable!("not stubbed")
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn gensym() {
+    unreachable!("not stubbed")
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn object_method() {
+    unreachable!("not stubbed")
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn strncpy_zero() {
+    unreachable!("not stubbed")
+}
+
+/// How many times `dsp_add64` has been called.
+pub(crate) static DSP_ADDED: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// Stand-in for `dsp_add64`: only counts.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dsp_add64(
+    _dsp64: *mut max_sys::t_object,
+    _x: *mut max_sys::t_object,
+    _f: max_sys::t_perfroutine64,
+    _flags: std::ffi::c_long,
+    _userparam: *mut std::ffi::c_void,
+) {
+    DSP_ADDED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// What Max allocates for an object: the header, then our data.
@@ -88,7 +129,7 @@ impl<T> Wrap<T> {
             t,
             fresh: 0,
         });
-        w.fresh = errors_for(&w);
+        w.fresh = errors_posted(w.max_obj());
         w
     }
 }

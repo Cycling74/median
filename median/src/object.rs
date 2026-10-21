@@ -43,6 +43,11 @@ use std::marker::PhantomData;
 ///   leaking the handle out of the object, for example with `Box::leak` (which gives a
 ///   `&'static ObjRef`) or by parking it in a `thread_local!`. **Don't do that**: using the
 ///   handle after the object has been deleted is a use-after-free.
+/// * The handle exists before your struct does: the builder hands it out while `new` is still
+///   running. A call on it during `new` that makes Max call back into the object (touching an
+///   attribute, notifying, deferring from the main thread) reaches a method of an object that
+///   is not built yet. The wrapper refuses such a call with a console error, without running
+///   your code, rather than letting it reach the half-built object, so don't do that in `new`.
 ///
 /// `ObjRef` is not `Clone`:
 ///
@@ -195,6 +200,10 @@ impl ObjRef {
     /// * The object must stay alive until the deferred call has run: Max does not keep it alive,
     ///   and the deferred call receives a pointer to it. For example, the object must not be
     ///   freed (the box deleted) before then.
+    /// * The object must be fully constructed, so don't call this from inside `new`. From the
+    ///   main thread `defer` runs `meth` immediately, which calls back into the half-built
+    ///   object. (The wrapper refuses that call with a console error instead of running the
+    ///   method, but it is still not what you wanted.)
     pub unsafe fn defer<W>(&self, meth: DeferMethodWrapped<W>, sym: SymbolRef, atoms: &[Atom]) {
         // SAFETY: `self` is a live object, `meth` is a trampoline for it and the caller
         // guarantees that the object outlives the deferred call
@@ -213,7 +222,8 @@ impl ObjRef {
     ///
     /// # Safety
     /// As [`ObjRef::defer`]: `W` must be this object's wrapper type, `meth` a trampoline of it,
-    /// and the object must outlive the deferred call.
+    /// the object must outlive the deferred call, and it must be fully constructed (not called
+    /// from inside `new`).
     pub unsafe fn defer_low<W>(&self, meth: DeferMethodWrapped<W>, sym: SymbolRef, atoms: &[Atom]) {
         // SAFETY: as for `defer`
         unsafe {

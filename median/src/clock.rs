@@ -121,7 +121,8 @@ impl ClockInner {
     pub extern "C" fn call_tramp(wrapper: &MaxObjWrapper<Self>) {
         //`call` catches and reports a panic itself, under the lock: after the lock is released
         //neither the owner nor this clock's object may be alive any more
-        wrapper.wrapped().shared.call()
+        //the guard is for `wrapped`, which refuses an object that isn't constructed
+        crate::ffi::guard(wrapper, "clock", || wrapper.wrapped().shared.call())
     }
 }
 
