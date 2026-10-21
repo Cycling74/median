@@ -44,7 +44,7 @@ pub trait ObjBuilder<T> {
     /// Get a clock object that executes `func` when triggered.
     fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
     /// Get a clock object that executes `func` when triggered.
-    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle;
+    fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle;
     /// Get a managed buffer reference.
     fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef;
 
@@ -312,7 +312,7 @@ where
             )
         }
     }
-    fn with_clock(&mut self, func: Box<dyn Fn(&T)>) -> ClockHandle {
+    fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle {
         unsafe {
             ClockHandle::new(
                 // XXX wrapper should outlive the ClockHandle, but we haven't guaranteed that..

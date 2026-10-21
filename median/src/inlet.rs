@@ -2,9 +2,9 @@
 use std::ffi::c_void;
 
 ///Callback method for Float inlet
-pub type FloatCB<T> = Box<dyn Fn(&T, f64)>;
+pub type FloatCB<T> = Box<dyn Fn(&T, f64) + Send + Sync>;
 ///Callback method for Int inlet
-pub type IntCB<T> = Box<dyn Fn(&T, max_sys::t_atom_long)>;
+pub type IntCB<T> = Box<dyn Fn(&T, max_sys::t_atom_long) + Send + Sync>;
 
 /// Inlets for Max objects
 pub enum MaxInlet<T> {

@@ -9,19 +9,31 @@ use crate::{
 
 use std::ffi::{c_void, CString};
 
-struct ClockInner {
-    target: Option<(*mut max_sys::t_object, Box<dyn Fn(*mut max_sys::t_object)>)>,
-}
+/// A raw `t_object` pointer that may be stored in the (shared) clock target.
+///
+/// SAFETY (for the `Send + Sync` impls): the pointer is never dereferenced by this crate from
+/// the thread that owns the `ClockInner`; it is only handed back to the stored callback, which
+/// is `Send + Sync` and runs on the scheduler thread, and only while the owning Max object is
+/// alive (see the lifetime invariant on `ClockHandle`).
+#[repr(transparent)]
+struct SyncPtr<T>(*mut T);
 
-unsafe impl Sync for ClockInner {}
+unsafe impl<T> Send for SyncPtr<T> {}
+unsafe impl<T> Sync for SyncPtr<T> {}
+
+type ClockFn = Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>;
+
+struct ClockInner {
+    target: Option<(SyncPtr<max_sys::t_object>, ClockFn)>,
+}
 
 impl ClockInner {
     pub(crate) fn set(
         &mut self,
         target: *mut max_sys::t_object,
-        func: Box<dyn Fn(*mut max_sys::t_object)>,
+        func: ClockFn,
     ) {
-        self.target = Some((target, func));
+        self.target = Some((SyncPtr(target), func));
     }
 
     pub extern "C" fn call_tramp(wrapper: &MaxObjWrapper<Self>) {
@@ -30,7 +42,7 @@ impl ClockInner {
 
     fn call(&self) {
         if let Some((target, func)) = &self.target {
-            (func)(*target)
+            (func)(target.0)
         }
     }
 }
@@ -108,7 +120,7 @@ impl ClockHandle {
 
     pub unsafe fn new(
         target: *mut max_sys::t_object,
-        func: Box<dyn Fn(*mut max_sys::t_object)>,
+        func: ClockFn,
     ) -> Self {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
