@@ -213,7 +213,10 @@ keeps running.
 
 Items 0-10 are implemented, one commit each, plus fixups from two review passes. `cargo test`,
 clippy with `not_unsafe_ptr_arg_deref` denied, and builds of `median_macros` and the three examples
-pass. None of the acceptance checks that need Max have been run.
+pass. Item 10 was checked in Max with temporary panics in `hello_dsp~`: a panic in a message
+method, an attribute getter and setter, a clock callback and `perform` each posted to the console
+and the patch kept running (`perform` went silent until DSP restarted). The other acceptance checks
+that need Max have not been run.
 
 Where the implementation differs from the text above:
 
