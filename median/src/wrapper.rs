@@ -496,7 +496,10 @@ where
     ///
     /// Relies on `Z_NO_INPLACE` being set (see `new`), so the input and output buffers Max
     /// passes never alias.
-    extern "C" fn perform64(
+    ///
+    /// Not `extern "C"`: it is called from Rust inside the outer `perform64`'s panic guard, and a
+    /// panic can't unwind out of an `extern "C"` fn (it aborts before the guard sees it).
+    fn perform64(
         &self,
         _dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
@@ -1012,11 +1015,14 @@ where
     extern "C" fn free_msp(this: *mut Self) {
         // SAFETY: Max passes the object it is freeing
         let constructed = unsafe { (*this).constructed };
-        //free dsp first (this takes the object out of the dsp chain, so `perform` can't run
-        //afterwards), unless construction didn't get as far as setting it up. Clocks don't
-        //touch the dsp state, so it doesn't matter that they are shut out after this.
+        //shut out the clocks first: a running callback holds `&W` over the whole object,
+        //including the pxobject header `z_dsp_free` writes. Then free dsp (this takes the object
+        //out of the dsp chain, so `perform` can't run afterwards), unless construction didn't get
+        //as far as setting it up. `free_wrapped` clears the clocks again, which is a no-op.
         if constructed {
             unsafe {
+                let internal = &*std::ptr::addr_of!((*this).wrapped).cast::<MSPWrapperInternal<T>>();
+                release_clocks(internal.clocks());
                 max_sys::z_dsp_free(this as *mut max_sys::t_pxobject);
             }
         }
@@ -1064,10 +1070,17 @@ where
         _maxvectorsize: c_long,
         _flags: c_long,
     ) {
-        self.guard_or("dsp64", (), || unsafe {
+        let ok = self.guard_or("dsp64", false, || unsafe {
             self.internal().panicked.store(false, Ordering::Relaxed);
             self.internal().check_signal_io(self.max_obj());
             self.wrapped().dsp_setup(samplerate);
+            true
+        });
+        if !ok {
+            //`dsp_setup` panicked: still add the perform routine, which then silences the outlets
+            self.internal().panicked.store(true, Ordering::Relaxed);
+        }
+        unsafe {
             max_sys::dsp_add64(
                 dsp64,
                 self.max_obj(),
@@ -1098,7 +1111,7 @@ where
                 0,
                 std::ptr::null_mut(),
             );
-        });
+        }
     }
 
     extern "C" fn handle_notification_tramp(

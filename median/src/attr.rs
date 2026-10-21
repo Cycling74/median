@@ -462,7 +462,7 @@ where
     F: Fn() -> T,
     T: Into<Atom>,
 {
-    // Run user code before allocating the result atom.
+    //before touching `ac`/`av`, so a panicking getter leaves no uninitialised atom behind
     let value: Atom = getter().into();
     unsafe {
         if *ac < 1 || (*av).is_null() {
