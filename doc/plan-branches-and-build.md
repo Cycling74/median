@@ -27,6 +27,18 @@ The branch's changes to the core wrapper (`obex` field, `ObjWrapped::destroy`, r
 the shapes [plan-api-redesign.md](plan-api-redesign.md) §J replaces, so merging them first means
 breaking users twice. Split it:
 
+Why a feature flag (2026-10-21): not for linking. On macOS externals link with
+`-undefined dynamic_lookup` and unused Jitter code is dead-stripped, so a non-Jitter external never
+references a Jitter symbol; on Windows the linker drops unused imports from `jitlib`, so the flag
+only saves a link-line entry. It does not shrink the bindings either (Jitter items are in the
+committed `ffi-*.rs` regardless). What it buys is an opt-in marker: the leaf modules carry known
+bugs (listed below) and an API that §J will reshape, so a flag lets them change without that
+counting as breaking for everyone else.
+
+Decision: after the API redesign (step 2) lands, fix the known bugs listed below and then remove the
+flag; Jitter support ships unflagged. Keep the flag only for the window in which the leaf modules
+are on `develop` ahead of that work.
+
 Now (after 3d bindings), behind `features = ["jitter"]`:
 - `jit::matrix::{Matrix, MatrixGuard, MatrixInfo, MatrixData, MOP, Count, IOCount, MatrixDataType}`,
   `jit::matrix::iter`, `jit::matrix::parallel`, `jit::ob3d::{chunk, buffer, geometry}`, the jitter
