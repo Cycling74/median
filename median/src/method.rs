@@ -119,6 +119,16 @@ mod sealed {
     pub trait Sealed {}
     impl Sealed for () {}
     impl<E> Sealed for Result<(), E> {}
+
+    /// Seals `SelArg`: its `C` and `ATOM_TYPE` define the ABI of the trampoline, so an impl
+    /// outside this crate could make Max pass one type where the trampoline reads another.
+    pub trait SealedArg {}
+    impl SealedArg for f64 {}
+    impl SealedArg for max_sys::t_atom_long {}
+    impl SealedArg for crate::symbol::SymbolRef {}
+
+    /// Seals `SelFn`: implemented exactly where `SelFn` is, by `sel_fn_arity!`.
+    pub trait SealedSelFn<T, Args, R> {}
 }
 
 /// What a method registered with `Class::add_*` may return: `()` or `Result<(), E>` where
@@ -265,7 +275,10 @@ pub(crate) extern "C" fn any_tramp<W, T, F, R>(
 
 /// A type that can be an argument of a typed selector method (`Class::add_sel`): `f64`
 /// (`A_FLOAT`), `t_atom_long` (`A_LONG`) or [`SymbolRef`] (`A_SYM`).
-pub trait SelArg: Sized {
+///
+/// This trait is sealed: the associated items say how Max passes the argument, so an impl for
+/// another type could make the trampoline misread it.
+pub trait SelArg: Sized + sealed::SealedArg {
     /// How Max passes the argument to the method.
     type C;
     /// The atom type to register the argument as.
@@ -306,11 +319,11 @@ impl SelArg for SymbolRef {
 /// A callable that can be registered as a typed selector method with `Class::add_sel`: a
 /// zero-sized `Copy` `Fn(&T, A1, .., An) -> R`, with up to 7 arguments that are each `f64`,
 /// `t_atom_long` or [`SymbolRef`]. Implemented for all such callables, not meant to be
-/// implemented by hand.
+/// implemented by hand (it is sealed).
 ///
 /// `Args` is the tuple of the argument types and `R` the return type; they only exist to let
 /// one impl per arity coexist, and are inferred.
-pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static {
+pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static + sealed::SealedSelFn<T, Args, R> {
     /// The atom type of each argument.
     #[doc(hidden)]
     const TYPES: &'static [max_sys::e_max_atomtypes::Type];
@@ -338,6 +351,14 @@ macro_rules! sel_fn_arity {
             run(w, "method", |t| {
                 (unsafe { zst::<F>() })(t, $(unsafe { <$A as SelArg>::from_c($a) }),*)
             });
+        }
+
+        impl<T, F, R, $($A),*> sealed::SealedSelFn<T, ($($A,)*), R> for F
+        where
+            F: Fn(&T, $($A),*) -> R + Copy + Send + Sync + 'static,
+            R: MethodResult,
+            $($A: SelArg),*
+        {
         }
 
         impl<T, F, R, $($A),*> SelFn<T, ($($A,)*), R> for F

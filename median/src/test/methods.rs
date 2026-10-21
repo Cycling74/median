@@ -274,10 +274,18 @@ fn sel_args() {
     let f: extern "C" fn(&W, *mut max_sys::t_symbol) = unsafe { cast(tramp(set)) };
     let mut s = symbol(c"abc");
     f(&w, &mut s);
-    //a null symbol (a defaulted argument) is the empty symbol
+    //a null symbol (a defaulted argument) is the empty symbol (`s_nothing`, from the kernel)
     let f: extern "C" fn(&W, *mut max_sys::t_symbol) = unsafe { cast(tramp(set)) };
-    let mut empty = symbol(c"");
-    f(&w, &mut empty);
+    f(&w, std::ptr::null_mut());
+    let f: extern "C" fn(&W, *mut max_sys::t_symbol) = unsafe {
+        cast(tramp(|p: &Probe, s: SymbolRef| {
+            p.log(format!("nothing {}", s == SymbolRef::default()))
+        }))
+    };
+    f(&w, std::ptr::null_mut());
+    //and that is a real symbol, not null
+    assert!(!unsafe { SymbolRef::default().inner() }.is_null());
+    assert_eq!(w.t.take(), ["zero", "set abc", "set ", "nothing true"]);
 
     let f: extern "C" fn(&W, f64, t_atom_long, *mut max_sys::t_symbol) =
         unsafe { cast(tramp(mixed)) };
@@ -307,9 +315,6 @@ fn sel_args() {
     assert_eq!(
         w.t.take(),
         [
-            "zero",
-            "set abc",
-            "set ",
             "mixed 0.25 9 abc",
             "seven 1 2 abc 4 5 6 t",
             "closure 3"

@@ -410,6 +410,15 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   panics) needs `-> ()` written out. The doctest on `Class` that checks the capturing-closure
   error creates its class in `median-mock` (hidden lines), so that a link error can't pass for the
   compile error. `hello_dsp` uses `c.add_sel(c"set", Self::set, 0)` and moved to edition 2021 for `c"..."`.
+  - Half-built objects (6dd3616, touches D and E): `Wrapper` has a `constructed` flag, set
+    after `T::new` returns and the internals are written, cleared in `free`. Safe code can make
+    Max call into the object while `T::new` runs (through the `ObjRef` from `builder.obj()`), so
+    every trampoline (typed methods, `in`/`ft`, `notify`, `assist`, attribute accessors, `dsp64`)
+    checks it first, refuses, and posts an error for the object; `dsp64` then does not add
+    `perform64`. `free` skips dropping the internals of an object whose `new` panicked.
+  - Review fixes: `SelArg` and `SelFn` are sealed (`SelArg::C`/`ATOM_TYPE` define the trampoline
+    ABI, so a downstream impl could make safe code misread an argument), and `add_sel` checks the
+    arity before slicing.
 - [ ] 3. derive + `#[methods]`, `simp` ported
 - [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
 - [ ] 5. Fallible `new`

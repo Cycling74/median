@@ -386,6 +386,11 @@ impl<W> Class<W> {
         F: SelFn<T, A, R>,
     {
         let mut types = [0; 7];
+        //`SelFn` is sealed and its impls have at most 7 arguments; checked anyway rather than
+        //relied on
+        if F::TYPES.len() > types.len() {
+            return Err(MaxError::Generic);
+        }
         let types = &mut types[..F::TYPES.len()];
         types.copy_from_slice(F::TYPES);
         default_types(types, defaults)?;
