@@ -99,7 +99,8 @@ impl Atom {
 
     unsafe fn zeroed() -> Self {
         Self {
-            value: std::mem::MaybeUninit::<max_sys::t_atom>::zeroed().assume_init(),
+            // SAFETY: an all-zero `t_atom` is a valid (empty) atom; this is how Max initializes them
+            value: unsafe { std::mem::MaybeUninit::<max_sys::t_atom>::zeroed().assume_init() },
         }
     }
 }

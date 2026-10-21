@@ -112,7 +112,8 @@ impl<T> AttrBuilder<T> {
         offset_bytes: usize,
         get: AttrTrampGetMethod<T>,
     ) -> Self {
-        let mut s = Self::new_offset(name, val_type, offset_bytes);
+        // SAFETY: the caller upholds the contract of `new_offset`
+        let mut s = unsafe { Self::new_offset(name, val_type, offset_bytes) };
         s.get = Some(get);
         s
     }
@@ -130,7 +131,8 @@ impl<T> AttrBuilder<T> {
         offset_bytes: usize,
         set: AttrTrampSetMethod<T>,
     ) -> Self {
-        let mut s = Self::new_offset(name, val_type, offset_bytes);
+        // SAFETY: the caller upholds the contract of `new_offset`
+        let mut s = unsafe { Self::new_offset(name, val_type, offset_bytes) };
         s.set = Some(set);
         s
     }

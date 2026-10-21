@@ -103,8 +103,11 @@ impl Registration {
         namespace: SymbolRef,
         name: SymbolRef,
     ) -> Result<Registration, RegistrationError> {
-        if max_sys::object_findregistered(namespace.inner(), name.inner()).is_null() {
-            let inner = max_sys::object_register(namespace.inner(), name.inner(), obj as _);
+        // SAFETY: the symbols are valid, and the caller guarantees `obj` is a valid object
+        if unsafe { max_sys::object_findregistered(namespace.inner(), name.inner()) }.is_null() {
+            // SAFETY: as above
+            let inner =
+                unsafe { max_sys::object_register(namespace.inner(), name.inner(), obj as _) };
             assert!(!inner.is_null());
             Ok(Self { inner })
         } else {
@@ -123,8 +126,10 @@ impl Subscription {
     ) -> Self {
         let client: *mut core::ffi::c_void = client as _;
         let class_name = class_name.unwrap_or_default();
-        let _ =
-            max_sys::object_subscribe(namespace.inner(), name.inner(), class_name.inner(), client);
+        // SAFETY: the symbols are valid, and the caller guarantees `client` is a valid object
+        let _ = unsafe {
+            max_sys::object_subscribe(namespace.inner(), name.inner(), class_name.inner(), client)
+        };
         Self {
             namespace,
             name,
@@ -141,7 +146,8 @@ impl Attachment {
         namespace: SymbolRef,
         name: SymbolRef,
     ) -> Result<Self, AttachmentError> {
-        let p = max_sys::object_attach(namespace.inner(), name.inner(), client as _);
+        // SAFETY: the symbols are valid, and the caller guarantees `client` is a valid object
+        let p = unsafe { max_sys::object_attach(namespace.inner(), name.inner(), client as _) };
         if p.is_null() {
             Err(AttachmentError::NotFound)
         } else {

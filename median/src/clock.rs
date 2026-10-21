@@ -28,29 +28,37 @@ struct SyncPtr<T>(*mut T);
 unsafe impl<T> Send for SyncPtr<T> {}
 unsafe impl<T> Sync for SyncPtr<T> {}
 
-/// The callback target of a clock: the owning object and what to call with it.
-///
-/// This is shared (`Arc`) between the clock's Max object, the [`ClockHandle`], and the owning
-/// wrapper (which gets it from the builder). Lifetime protocol:
-///
-/// * The callback does nothing until the target is *armed*. Clocks created by the builder run
-///   inside `T::new`, before the wrapped value is initialised (a `delay` in `new` can fire on the
-///   scheduler thread right away), so the owning wrapper arms them once construction is done.
-///   A callback that fires before that is skipped.
-/// * The clock callback holds `target`'s lock for the whole call.
-/// * The owning wrapper calls [`ClockShared::clear`] *before* it drops the user's `T`. That
-///   waits for an in-flight callback to finish and makes every later callback a no-op, so
-///   the callback can never run against a freed or half-dropped owner, even if the
-///   `ClockHandle` was moved somewhere that outlives the object.
-///
-/// Invariant relied on: **a clock callback never (directly, or by messages it sends that Max
-/// handles synchronously) frees its own owning object or drops its own `ClockHandle`.** Both
-/// call `clear`, which would try to take the lock the callback already holds on the same thread
-/// and deadlock. Defer such work (e.g. `defer_low`) instead.
-pub(crate) struct ClockShared {
-    armed: AtomicBool,
-    target: Mutex<Option<(SyncPtr<max_sys::t_object>, ClockFn)>>,
+/// `ClockShared` is in the signature of the sealed `WrapperInternal` trait, which is `pub` (in a
+/// private module), so it has to be `pub` too. It is declared in this private module and only
+/// re-exported at `pub(crate)`, so other crates cannot name it.
+mod shared {
+    use super::*;
+
+    /// The callback target of a clock: the owning object and what to call with it.
+    ///
+    /// This is shared (`Arc`) between the clock's Max object, the [`ClockHandle`], and the owning
+    /// wrapper (which gets it from the builder). Lifetime protocol:
+    ///
+    /// * The callback does nothing until the target is *armed*. Clocks created by the builder run
+    ///   inside `T::new`, before the wrapped value is initialised (a `delay` in `new` can fire on the
+    ///   scheduler thread right away), so the owning wrapper arms them once construction is done.
+    ///   A callback that fires before that is skipped.
+    /// * The clock callback holds `target`'s lock for the whole call.
+    /// * The owning wrapper calls [`ClockShared::clear`] *before* it drops the user's `T`. That
+    ///   waits for an in-flight callback to finish and makes every later callback a no-op, so
+    ///   the callback can never run against a freed or half-dropped owner, even if the
+    ///   `ClockHandle` was moved somewhere that outlives the object.
+    ///
+    /// Invariant relied on: **a clock callback never (directly, or by messages it sends that Max
+    /// handles synchronously) frees its own owning object or drops its own `ClockHandle`.** Both
+    /// call `clear`, which would try to take the lock the callback already holds on the same thread
+    /// and deadlock. Defer such work (e.g. `defer_low`) instead.
+    pub struct ClockShared {
+        pub(super) armed: AtomicBool,
+        pub(super) target: Mutex<Option<(SyncPtr<max_sys::t_object>, ClockFn)>>,
+    }
 }
+pub(crate) use shared::ClockShared;
 
 impl ClockShared {
     fn new() -> Self {
@@ -218,38 +226,51 @@ impl ClockHandle {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
         //this clock?
-        MaxObjWrapper::<ClockInner>::register(true);
+        // SAFETY: registering the class has no preconditions beyond being called from Max's
+        // main thread, which clock creation already requires of the caller
+        unsafe { MaxObjWrapper::<ClockInner>::register(true) };
         let clock_target = MaxObjWrapper::<ClockInner>::new_noargs();
         clock_target.wrapped().shared.set(target, func);
         //use the scheduler of the owning object if it has one, otherwise the current one
-        let sched = max_sys::scheduler_fromobject(target);
-        let obj = std::mem::transmute::<_, *mut c_void>(clock_target.max_obj());
-        let method = Some(std::mem::transmute::<
-            extern "C" fn(&MaxObjWrapper<ClockInner>),
-            MaxMethod,
-        >(ClockInner::call_tramp));
+        // SAFETY: the caller guarantees `target` is a valid object
+        let sched = unsafe { max_sys::scheduler_fromobject(target) };
+        // SAFETY: `max_obj()` is a pointer to the live wrapper object, which `_target` keeps alive
+        let obj = unsafe { std::mem::transmute::<_, *mut c_void>(clock_target.max_obj()) };
+        // SAFETY: `call_tramp` is an `extern "C"` function whose signature is what Max calls a
+        // clock method with (the object pointer)
+        let method = Some(unsafe {
+            std::mem::transmute::<extern "C" fn(&MaxObjWrapper<ClockInner>), MaxMethod>(
+                ClockInner::call_tramp,
+            )
+        });
         let clock = if sched.is_null() {
-            max_sys::clock_new(obj, method)
+            // SAFETY: `obj` is a valid registered object and `method` a valid clock method
+            unsafe { max_sys::clock_new(obj, method) }
         } else {
-            max_sys::clock_new_withscheduler(obj, method, sched)
+            // SAFETY: as above, and `sched` is non-null and came from `scheduler_fromobject`
+            unsafe { max_sys::clock_new_withscheduler(obj, method, sched) }
         };
 
         //set the patcher and box for the clock
         for lookup in &["#P", "#B"] {
             let name = CString::new(*lookup).unwrap();
             let mut ob = std::ptr::null_mut();
-            if max_sys::object_obex_lookup(
-                target as _,
-                std::mem::transmute::<_, _>(name.as_ptr()),
-                &mut ob,
-            ) == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_atom_long
-            {
-                let _ = max_sys::object_obex_storeflags(
-                    clock,
-                    max_sys::gensym(name.as_ptr()),
-                    ob as _,
-                    max_sys::e_max_datastore_flags::OBJ_FLAG_REF as _,
-                );
+            // SAFETY: `target` is valid per the caller's guarantee, `name` is a NUL-terminated
+            // string that outlives the calls, and `clock` was just created above
+            unsafe {
+                if max_sys::object_obex_lookup(
+                    target as _,
+                    std::mem::transmute::<_, _>(name.as_ptr()),
+                    &mut ob,
+                ) == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_atom_long
+                {
+                    let _ = max_sys::object_obex_storeflags(
+                        clock,
+                        max_sys::gensym(name.as_ptr()),
+                        ob as _,
+                        max_sys::e_max_datastore_flags::OBJ_FLAG_REF as _,
+                    );
+                }
             }
         }
 

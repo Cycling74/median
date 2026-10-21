@@ -51,11 +51,14 @@ impl SymbolRef {
 
     /// Get the raw symbol pointer.
     pub unsafe fn inner(&self) -> *mut max_sys::t_symbol {
-        *self.value.get()
+        // SAFETY: `value` is a valid cell owned by `self`; reading the pointer out of it is covered
+        // by the caller's contract for this function
+        unsafe { *self.value.get() }
     }
 
     unsafe fn inner_ref(&self) -> &max_sys::t_symbol {
-        &*self.inner()
+        // SAFETY: the caller guarantees the symbol pointer is valid
+        unsafe { &*self.inner() }
     }
 
     /// Convert to CString.

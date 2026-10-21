@@ -81,9 +81,11 @@ impl BufferRef {
     /// * You must have a notify method in your owner.
     pub unsafe fn new(owner: *mut max_sys::t_object, name: Option<SymbolRef>) -> Self {
         let name = name.unwrap_or_default();
+        // SAFETY: the caller guarantees `owner` is valid, and `name` holds a valid symbol
+        let value = unsafe { max_sys::buffer_ref_new(owner, name.inner()) } as _;
         Self {
             inner: parking_lot::Mutex::new(BufInner {
-                value: max_sys::buffer_ref_new(owner, name.inner()) as _,
+                value,
                 buffer_name: name,
             }),
         }
@@ -123,21 +125,30 @@ impl BufferRef {
         //try to get the name of the buffer
         // Max writes the symbol through this pointer, so it must be derived from a mutable place.
         let mut name: *mut max_sys::t_symbol = std::ptr::null_mut();
-        max_sys::object_method(
-            notification.data(),
-            GET_NAME.inner(),
-            &raw mut name as *mut c_void,
-        );
+        // SAFETY: the caller guarantees `notification` is one Max handed us, so its data is a valid
+        // object for the `getname` message, which writes a symbol through the out pointer
+        unsafe {
+            max_sys::object_method(
+                notification.data(),
+                GET_NAME.inner(),
+                &raw mut name as *mut c_void,
+            );
+        }
         self.with_lock(|inner| {
             //if the name matches our buffer's name, send notification
-            if !name.is_null() && SymbolRef::from_raw(name) == inner.buffer_name {
-                max_sys::buffer_ref_notify(
-                    inner.value,
-                    notification.sender_name().inner(),
-                    notification.message().inner(),
-                    notification.sender(),
-                    notification.data(),
-                );
+            // SAFETY: `name` was just written by Max and is checked for null
+            if !name.is_null() && unsafe { SymbolRef::from_raw(name) } == inner.buffer_name {
+                // SAFETY: `inner.value` is our valid buffer reference and the notification's
+                // symbols and pointers are what Max passed, per the caller's guarantee
+                unsafe {
+                    max_sys::buffer_ref_notify(
+                        inner.value,
+                        notification.sender_name().inner(),
+                        notification.message().inner(),
+                        notification.sender(),
+                        notification.data(),
+                    );
+                }
             }
         });
     }

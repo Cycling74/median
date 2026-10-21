@@ -242,25 +242,33 @@ impl<T> Drop for MSPWrapperInternal<T> {
     }
 }
 
-pub(crate) trait WrapperInternal<O, T>: Sized {
-    fn wrapped(&self) -> &T;
-    /// The clocks created for this object by the builder.
-    fn clocks(&self) -> &[Arc<ClockShared>];
-    /// # Safety
-    /// `owner` must point to a valid, newly allocated object of type `O` that is being
-    /// constructed and that will outlive the returned value.
-    unsafe fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
-    fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
+/// Sealed: `Wrapper` needs `WrapperInternal` as a bound, so the trait has to be `pub`, but it
+/// lives in this private module and is not re-exported, so other crates can neither name nor
+/// implement it.
+mod sealed {
+    use super::*;
 
-    fn call_float(&self, index: usize, value: f64);
-    fn call_int(&self, index: usize, value: max_sys::t_atom_long);
+    pub trait WrapperInternal<O, T>: Sized {
+        fn wrapped(&self) -> &T;
+        /// The clocks created for this object by the builder.
+        fn clocks(&self) -> &[Arc<ClockShared>];
+        /// # Safety
+        /// `owner` must point to a valid, newly allocated object of type `O` that is being
+        /// constructed and that will outlive the returned value.
+        unsafe fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
+        fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
 
-    fn handle_notification(&self, notification: &Notification);
-    /// # Safety
-    /// `s` must point to a writable buffer of at least `ASSIST_MAX` bytes, as Max passes to an
-    /// assist method.
-    unsafe fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
+        fn call_float(&self, index: usize, value: f64);
+        fn call_int(&self, index: usize, value: max_sys::t_atom_long);
+
+        fn handle_notification(&self, notification: &Notification);
+        /// # Safety
+        /// `s` must point to a writable buffer of at least `ASSIST_MAX` bytes, as Max passes to an
+        /// assist method.
+        unsafe fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
+    }
 }
+use sealed::WrapperInternal;
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {}
@@ -916,24 +924,31 @@ where
                 //TODO somehow pass the lock so that classes can register additional classes
                 MSPWrapperInternal::<T>::class_setup(&mut c);
                 let dsp64 = CString::new("dsp64").unwrap();
-                max_sys::class_addmethod(
-                    c.inner(),
-                    Some(std::mem::transmute::<
-                        extern "C" fn(
-                            &Self,
-                            dsp64: *mut max_sys::t_object,
-                            count: *mut std::os::raw::c_short,
-                            samplerate: f64,
-                            maxvectorsize: c_long,
-                            flags: c_long,
-                        ),
-                        MaxMethod,
-                    >(Self::dsp64)),
-                    dsp64.as_ptr(),
-                    max_sys::e_max_atomtypes::A_CANT,
-                    0,
-                );
-                max_sys::class_dspinit(c.inner());
+                // SAFETY: `c.inner()` is the valid class being registered, `dsp64` is a
+                // NUL-terminated string that outlives the call (Max copies the name), and
+                // `Self::dsp64` is an `extern "C"` function with the signature Max calls `dsp64` with
+                unsafe {
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<
+                            extern "C" fn(
+                                &Self,
+                                dsp64: *mut max_sys::t_object,
+                                count: *mut std::os::raw::c_short,
+                                samplerate: f64,
+                                maxvectorsize: c_long,
+                                flags: c_long,
+                            ),
+                            MaxMethod,
+                        >(Self::dsp64)),
+                        dsp64.as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
+                }
+                // SAFETY: `c.inner()` is the valid class being registered, and its methods have
+                // been added
+                unsafe { max_sys::class_dspinit(c.inner()) };
                 c
             },
         );
