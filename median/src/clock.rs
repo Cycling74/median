@@ -9,7 +9,7 @@ use crate::{
 
 use parking_lot::Mutex;
 use std::{
-    ffi::{c_void, CString},
+    ffi::c_void,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -264,8 +264,7 @@ impl ClockHandle {
         };
 
         //set the patcher and box for the clock
-        for lookup in &["#P", "#B"] {
-            let name = CString::new(*lookup).unwrap();
+        for name in [c"#P", c"#B"] {
             let mut ob = std::ptr::null_mut();
             // SAFETY: `target` is valid per the caller's guarantee, `name` is a NUL-terminated
             // string that outlives the calls, and `clock` was just created above

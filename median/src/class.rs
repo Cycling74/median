@@ -20,11 +20,10 @@ pub enum ClassType {
 
 impl Into<*mut max_sys::t_symbol> for ClassType {
     fn into(self) -> *mut max_sys::t_symbol {
-        let t = CString::new(match self {
-            ClassType::NoBox => "nobox",
-            ClassType::Box => "box",
-        })
-        .unwrap();
+        let t = match self {
+            ClassType::NoBox => c"nobox",
+            ClassType::Box => c"box",
+        };
         unsafe { max_sys::gensym(t.as_ptr()) }
     }
 }

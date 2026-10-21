@@ -702,8 +702,8 @@ where
             };
             let max_class = if existing.is_null() {
                 let mut c = creator();
-                let notify = std::ffi::CString::new("notify").unwrap();
-                let assist = std::ffi::CString::new("assist").unwrap();
+                let notify = c"notify";
+                let assist = c"assist";
                 unsafe {
                     //register notifications
                     max_sys::class_addmethod(
@@ -897,7 +897,7 @@ where
                 );
                 //TODO somehow pass the lock so that classes can register additional classes
                 MSPWrapperInternal::<T>::class_setup(&mut c);
-                let dsp64 = CString::new("dsp64").unwrap();
+                let dsp64 = c"dsp64";
                 // SAFETY: `c.inner()` is the valid class being registered, `dsp64` is a
                 // NUL-terminated string that outlives the call (Max copies the name), and
                 // `Self::dsp64` is an `extern "C"` function with the signature Max calls `dsp64` with
