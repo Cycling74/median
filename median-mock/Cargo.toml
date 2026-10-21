@@ -1,0 +1,22 @@
+[package]
+name = "median-mock"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2024"
+rust-version = "1.85"
+build = "build.rs"
+license = "MIT"
+description = "A Rust test kernel that implements the subset of the Max C API used by median, so externals can be tested with cargo test"
+publish = false
+
+[dependencies]
+max-sys = { path = "../max-sys" }
+
+[build-dependencies]
+cc = "1"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+not_unsafe_ptr_arg_deref = "deny"
