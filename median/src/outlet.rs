@@ -43,42 +43,74 @@ unsafe impl Sync for Outlet {}
 
 impl Outlet {
     /// Create an outlet that can send anything Max allows.
-    fn append(owner: *mut max_sys::t_object, type_sym: *mut max_sys::t_symbol) -> Box<Self> {
+    ///
+    /// # Safety
+    /// `owner` must point to a valid Max object that is still being constructed, and the outlet
+    /// must not be used after the object is freed.
+    unsafe fn append(owner: *mut max_sys::t_object, type_sym: *mut max_sys::t_symbol) -> Box<Self> {
         Box::new(Self {
             inner: unsafe { max_sys::outlet_append(owner, std::ptr::null_mut(), type_sym) },
         })
     }
 
     /// Create an outlet that can send anything Max allows.
-    pub fn append_anything(owner: *mut max_sys::t_object) -> OutAnything {
-        Self::append(owner, std::ptr::null_mut())
+    ///
+    /// # Safety
+    /// `owner` must point to a valid Max object that is still being constructed, and the returned
+    /// outlet must not be used after the object is freed.
+    pub unsafe fn append_anything(owner: *mut max_sys::t_object) -> OutAnything {
+        // SAFETY: the caller upholds the contract of this function
+        unsafe { Self::append(owner, std::ptr::null_mut()) }
     }
 
     /// Create an outlet that will only send bangs.
-    pub fn append_bang(owner: *mut max_sys::t_object) -> OutBang {
-        Self::append(owner, common_symbols().s_bang)
+    ///
+    /// # Safety
+    /// `owner` must point to a valid Max object that is still being constructed, and the returned
+    /// outlet must not be used after the object is freed.
+    pub unsafe fn append_bang(owner: *mut max_sys::t_object) -> OutBang {
+        // SAFETY: the caller upholds the contract of this function
+        unsafe { Self::append(owner, common_symbols().s_bang) }
     }
 
     /// Create an outlet that will only send ints.
-    pub fn append_int(owner: *mut max_sys::t_object) -> OutInt {
-        Self::append(owner, common_symbols().s_long)
+    ///
+    /// # Safety
+    /// `owner` must point to a valid Max object that is still being constructed, and the returned
+    /// outlet must not be used after the object is freed.
+    pub unsafe fn append_int(owner: *mut max_sys::t_object) -> OutInt {
+        // SAFETY: the caller upholds the contract of this function
+        unsafe { Self::append(owner, common_symbols().s_long) }
     }
 
     /// Create an outlet that will only send floats.
-    pub fn append_float(owner: *mut max_sys::t_object) -> OutFloat {
-        Self::append(owner, common_symbols().s_float)
+    ///
+    /// # Safety
+    /// `owner` must point to a valid Max object that is still being constructed, and the returned
+    /// outlet must not be used after the object is freed.
+    pub unsafe fn append_float(owner: *mut max_sys::t_object) -> OutFloat {
+        // SAFETY: the caller upholds the contract of this function
+        unsafe { Self::append(owner, common_symbols().s_float) }
     }
 
     /// Create an outlet that will only send floats.
-    pub fn append_list(owner: *mut max_sys::t_object) -> OutList {
-        Self::append(owner, common_symbols().s_list)
+    ///
+    /// # Safety
+    /// `owner` must point to a valid Max object that is still being constructed, and the returned
+    /// outlet must not be used after the object is freed.
+    pub unsafe fn append_list(owner: *mut max_sys::t_object) -> OutList {
+        // SAFETY: the caller upholds the contract of this function
+        unsafe { Self::append(owner, common_symbols().s_list) }
     }
 
     /// Add a signal output.
-    pub fn append_signal(owner: *mut max_sys::t_object) {
-        unsafe {
-            let _ = max_sys::outlet_append(owner, std::ptr::null_mut(), common_symbols().s_signal);
-        }
+    ///
+    /// # Safety
+    /// `owner` must point to a valid MSP object that is still being constructed.
+    pub unsafe fn append_signal(owner: *mut max_sys::t_object) {
+        let _ = unsafe {
+            max_sys::outlet_append(owner, std::ptr::null_mut(), common_symbols().s_signal)
+        };
     }
 }
 

@@ -28,7 +28,13 @@ pub struct SysThread;
 /// arguments. Note that this implies that defer() is not appropriate for using in situations such
 /// as Device or File manager i/o completion routines. The defer_low() function is appropriate
 /// however, because it always defers.
-pub fn defer(
+///
+/// # Safety
+/// * `obj` must point to a valid Max object that stays alive until `method` has run (Max does not
+///   keep it alive for you).
+/// * `method` must be sound to call with `obj`, `sym` and a copy of `args`, on the thread Max
+///   will run it on.
+pub unsafe fn defer(
     method: DeferMethod,
     obj: *mut max_sys::t_object,
     sym: crate::symbol::SymbolRef,
@@ -57,7 +63,12 @@ pub fn defer(
 /// Always defers a call to the function fun whether you are already in the main thread or not, and
 /// uses qelem_set(), not qelem_front(). This function is recommended for responding to messages
 /// that will cause your object to open a dialog box, such as read and write.
-pub fn defer_low(
+///
+/// # Safety
+/// * `obj` must point to a valid Max object that stays alive until `method` has run (Max does not
+///   keep it alive for you).
+/// * `method` must be sound to call with `obj`, `sym` and a copy of `args`, on the main thread.
+pub unsafe fn defer_low(
     method: DeferMethod,
     obj: *mut max_sys::t_object,
     sym: crate::symbol::SymbolRef,

@@ -38,13 +38,15 @@ median::external! {
     impl Example {
         #[bang]
         pub fn bang(&self) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            // SAFETY: called from a message method, on this object
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             median::object_post!(self.max_obj(), "bang from inlet {}", i);
         }
 
         #[int]
         pub fn int(&self, v: t_atom_long) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            // SAFETY: called from a message method, on this object
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             post!("int {} from inlet {}", v, i);
         }
 

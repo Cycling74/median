@@ -37,7 +37,7 @@ pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, 
 pub type FloatCBHash<T> = HashMap<usize, FloatCB<T>>;
 pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 
-pub type DeferMethodWrapped<T> = extern "C" fn(
+pub type DeferMethodWrapped<T> = unsafe extern "C" fn(
     wrapper: &T,
     sym: *mut max_sys::t_symbol,
     argc: c_long,
@@ -198,17 +198,23 @@ pub struct MSPWrapperInternal<T> {
     _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
-pub trait WrapperInternal<O, T>: Sized {
+pub(crate) trait WrapperInternal<O, T>: Sized {
     fn wrapped(&self) -> &T;
     fn wrapped_mut(&mut self) -> &mut T;
-    fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
+    /// # Safety
+    /// `owner` must point to a valid, newly allocated object of type `O` that is being
+    /// constructed and that will outlive the returned value.
+    unsafe fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
     fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
 
     fn call_float(&self, index: usize, value: f64);
     fn call_int(&self, index: usize, value: max_sys::t_atom_long);
 
     fn handle_notification(&self, notification: &Notification);
-    fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
+    /// # Safety
+    /// `s` must point to a writable buffer of at least `ASSIST_MAX` bytes, as Max passes to an
+    /// assist method.
+    unsafe fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
 }
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
@@ -225,8 +231,9 @@ where
     fn wrapped_mut(&mut self) -> &mut T {
         &mut self.wrapped
     }
-    fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
-        let mut builder = WrappedBuilder::new_max(owner, sym, args);
+    unsafe fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
+        // SAFETY: the caller guarantees `owner` is valid and under construction
+        let mut builder = unsafe { WrappedBuilder::new_max(owner, sym, args) };
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
         Self {
@@ -256,7 +263,7 @@ where
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
     }
-    fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
+    unsafe fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
         let render = |src: &CStr| unsafe {
             let _ = ::max_sys::strncpy_zero(
                 dest,
@@ -300,8 +307,9 @@ where
     fn wrapped_mut(&mut self) -> &mut T {
         &mut self.wrapped
     }
-    fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
-        let mut builder = WrappedBuilder::new_msp(owner, sym, args);
+    unsafe fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
+        // SAFETY: the caller guarantees `owner` is valid and under construction
+        let mut builder = unsafe { WrappedBuilder::new_msp(owner, sym, args) };
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
         let ins: Vec<MaybeUninit<&'static [f64]>> = (0..f.signal_inlets)
@@ -344,7 +352,7 @@ where
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
     }
-    fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
+    unsafe fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
         let render = |src: &CStr| unsafe {
             let _ = ::max_sys::strncpy_zero(
                 dest,
@@ -648,7 +656,7 @@ where
         argc: c_long,
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
-        let sym: SymbolRef = sym.into();
+        let sym: SymbolRef = SymbolRef::from_raw(sym);
         let args = if argc > 0 && !argv.is_null() {
             std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
         } else {
@@ -662,7 +670,7 @@ where
 
     /// Create an instance of the wrapper, on the heap, with no arguments.
     pub fn new_noargs() -> ObjBox<Self> {
-        Self::new(crate::max::common_symbols().s_nothing.into(), &[])
+        Self::new(SymbolRef::default(), &[])
     }
 
     /// Create an instance of the wrapper, on the heap.
@@ -689,12 +697,14 @@ where
         sender: *mut c_void,
         data: *mut c_void,
     ) {
-        let notification = Notification::new(sender_name, message, sender, data);
+        // SAFETY: Max passes valid (or null) symbols to a notify method
+        let notification = unsafe { Notification::new(sender_name, message, sender, data) };
         self.internal().handle_notification(&notification);
     }
 
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
-        self.internal().assist(io, index, s);
+        // SAFETY: Max passes a writable assist buffer
+        unsafe { self.internal().assist(io, index, s) };
     }
 }
 
@@ -758,7 +768,7 @@ where
         argc: c_long,
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
-        let sym: SymbolRef = sym.into();
+        let sym: SymbolRef = SymbolRef::from_raw(sym);
         let args = if argc > 0 && !argv.is_null() {
             std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
         } else {
@@ -871,12 +881,14 @@ where
         sender: *mut c_void,
         data: *mut c_void,
     ) {
-        let notification = Notification::new(sender_name, message, sender, data);
+        // SAFETY: Max passes valid (or null) symbols to a notify method
+        let notification = unsafe { Notification::new(sender_name, message, sender, data) };
         self.internal().handle_notification(&notification);
     }
 
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
-        self.internal().assist(io, index, s);
+        // SAFETY: Max passes a writable assist buffer
+        unsafe { self.internal().assist(io, index, s) };
     }
 }
 
@@ -932,12 +944,10 @@ where
 {
     fn defer(&self, meth: DeferMethodWrapped<MaxObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
         let obj = self.max_obj();
-        crate::thread::defer(
-            unsafe { std::mem::transmute::<_, _>(meth) },
-            obj,
-            sym,
-            atoms,
-        );
+        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        unsafe {
+            crate::thread::defer(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
+        }
     }
 
     fn defer_low(
@@ -947,12 +957,10 @@ where
         atoms: &[Atom],
     ) {
         let obj = self.max_obj();
-        crate::thread::defer_low(
-            unsafe { std::mem::transmute::<_, _>(meth) },
-            obj,
-            sym,
-            atoms,
-        );
+        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        unsafe {
+            crate::thread::defer_low(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
+        }
     }
 }
 
@@ -962,12 +970,10 @@ where
 {
     fn defer(&self, meth: DeferMethodWrapped<MSPObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
         let obj = self.as_max_obj();
-        crate::thread::defer(
-            unsafe { std::mem::transmute::<_, _>(meth) },
-            obj,
-            sym,
-            atoms,
-        );
+        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        unsafe {
+            crate::thread::defer(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
+        }
     }
 
     fn defer_low(
@@ -977,11 +983,9 @@ where
         atoms: &[Atom],
     ) {
         let obj = self.as_max_obj();
-        crate::thread::defer_low(
-            unsafe { std::mem::transmute::<_, _>(meth) },
-            obj,
-            sym,
-            atoms,
-        );
+        // SAFETY: `obj` is this live object, and `meth` is a trampoline for it
+        unsafe {
+            crate::thread::defer_low(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
+        }
     }
 }

@@ -80,7 +80,7 @@ impl BufferRef {
     /// # Remarks
     /// * You must have a notify method in your owner.
     pub unsafe fn new(owner: *mut max_sys::t_object, name: Option<SymbolRef>) -> Self {
-        let name = name.unwrap_or_else(|| crate::max::common_symbols().s_nothing.into());
+        let name = name.unwrap_or_default();
         Self {
             inner: parking_lot::Mutex::new(BufInner {
                 value: max_sys::buffer_ref_new(owner, name.inner()) as _,
@@ -129,7 +129,7 @@ impl BufferRef {
         );
         self.with_lock(|inner| {
             //if the name matches our buffer's name, send notification
-            if !name.is_null() && SymbolRef::from(name) == inner.buffer_name {
+            if !name.is_null() && SymbolRef::from_raw(name) == inner.buffer_name {
                 max_sys::buffer_ref_notify(
                     inner.value,
                     notification.sender_name().inner(),

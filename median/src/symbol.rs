@@ -15,9 +15,30 @@ pub struct SymbolRef {
 
 /// A reference to a max symbol
 impl SymbolRef {
-    pub fn new(v: *mut max_sys::t_symbol) -> Self {
+    /// Create a `SymbolRef` from a raw symbol pointer.
+    ///
+    /// # Safety
+    /// `v` must point to a valid `t_symbol` (for example one returned by `gensym`, or handed to
+    /// you by Max) for as long as the returned `SymbolRef`, or any clone of it, is used. In
+    /// particular `v` must not be null: use [`SymbolRef::from_raw`] if it might be.
+    pub unsafe fn new(v: *mut max_sys::t_symbol) -> Self {
         Self {
             value: UnsafeCell::new(v),
+        }
+    }
+
+    /// Create a `SymbolRef` from a raw symbol pointer, mapping null to the empty symbol.
+    ///
+    /// # Safety
+    /// If `v` is not null it must point to a valid `t_symbol` (for example one returned by
+    /// `gensym`, or handed to you by Max) for as long as the returned `SymbolRef`, or any clone of
+    /// it, is used.
+    pub unsafe fn from_raw(v: *mut max_sys::t_symbol) -> Self {
+        if v.is_null() {
+            Self::default()
+        } else {
+            // SAFETY: not null, and the caller guarantees validity
+            unsafe { Self::new(v) }
         }
     }
 
@@ -82,16 +103,6 @@ impl TryInto<String> for SymbolRef {
     }
 }
 
-impl From<*mut max_sys::t_symbol> for SymbolRef {
-    fn from(v: *mut max_sys::t_symbol) -> Self {
-        if v.is_null() {
-            Self::new(crate::max::common_symbols().s_nothing)
-        } else {
-            Self::new(v)
-        }
-    }
-}
-
 impl From<&CStr> for SymbolRef {
     fn from(v: &CStr) -> Self {
         unsafe { SymbolRef::new(max_sys::gensym(v.as_ptr())) }
@@ -143,7 +154,8 @@ impl Eq for SymbolRef {}
 
 impl Default for SymbolRef {
     fn default() -> Self {
-        Self::new(crate::max::common_symbols().s_nothing)
+        //the common symbols table is initialized by Max and its symbols are valid forever
+        unsafe { Self::new(crate::max::common_symbols().s_nothing) }
     }
 }
 

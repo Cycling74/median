@@ -98,15 +98,22 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<Token
     //TODO check signature
     //TODO allow for no sym and or no atoms
     let expanded = quote! {
-        pub extern "C" fn #tramp_name(
+        /// Trampoline called by Max.
+        ///
+        /// # Safety
+        /// Must only be called by Max (or through a pointer registered with Max): the object and
+        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
+        pub unsafe extern "C" fn #tramp_name(
             wrapper: &#t,
             sel: *mut ::median::max_sys::t_symbol,
             ac: ::std::os::raw::c_long,
             av: *const ::median::max_sys::t_atom,
         ) {
-            median::method::sel_list(sel, ac, av, |sym, atoms| {
-                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
-            });
+            unsafe {
+                median::method::sel_list(sel, ac, av, |sym, atoms| {
+                    ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
+                });
+            }
         }
         #meth
     };
@@ -120,15 +127,22 @@ pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     } = get_names(&meth);
     //TODO check signature
     let expanded = quote! {
-        pub extern "C" fn #tramp_name(
+        /// Trampoline called by Max.
+        ///
+        /// # Safety
+        /// Must only be called by Max (or through a pointer registered with Max): the object and
+        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
+        pub unsafe extern "C" fn #tramp_name(
             wrapper: &#t,
             sel: *mut ::median::max_sys::t_symbol,
             ac: ::std::os::raw::c_long,
             av: *const ::median::max_sys::t_atom,
         ) {
-            median::method::sel_list(sel, ac, av, |sym, atoms| {
-                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
-            });
+            unsafe {
+                median::method::sel_list(sel, ac, av, |sym, atoms| {
+                    ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
+                });
+            }
         }
         #meth
     };
@@ -142,15 +156,22 @@ pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenS
     } = get_names(&meth);
     //TODO check signature
     let expanded = quote! {
-        pub extern "C" fn #tramp_name(
+        /// Trampoline called by Max.
+        ///
+        /// # Safety
+        /// Must only be called by Max (or through a pointer registered with Max): the object and
+        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
+        pub unsafe extern "C" fn #tramp_name(
             wrapper: &#t,
             sel: *mut ::median::max_sys::t_symbol,
             ac: ::std::os::raw::c_long,
             av: *const ::median::max_sys::t_atom,
         ) {
-            median::method::sel_list(sel, ac, av, |_sym, atoms| {
-                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(atoms);
-            });
+            unsafe {
+                median::method::sel_list(sel, ac, av, |_sym, atoms| {
+                    ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(atoms);
+                });
+            }
         }
         #meth
     };
@@ -164,13 +185,20 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
     } = get_names(&meth);
     //TODO check signature to make sure it has no inputs and returns a type we support
     let expanded = quote! {
-        pub extern "C" fn #tramp_name(
+        /// Trampoline called by Max.
+        ///
+        /// # Safety
+        /// Must only be called by Max (or through a pointer registered with Max): the object and
+        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
+        pub unsafe extern "C" fn #tramp_name(
             wrapper: &#t,
             _attr: *mut ::std::ffi::c_void,
             ac: *mut ::std::os::raw::c_long,
             av: *mut *mut ::median::max_sys::t_atom,
         ) -> ::median::max_sys::t_max_err {
-            ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name())
+            unsafe {
+                ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name())
+            }
         }
         #meth
     };
@@ -197,13 +225,20 @@ pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
         .collect::<Result<Vec<Box<Pat>>, _>>()?;
     //TODO check signature to make sure it has 1 input and no returns with the type we support
     let expanded = quote! {
-        pub extern "C" fn #tramp_name(
+        /// Trampoline called by Max.
+        ///
+        /// # Safety
+        /// Must only be called by Max (or through a pointer registered with Max): the object and
+        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
+        pub unsafe extern "C" fn #tramp_name(
             wrapper: &#t,
             _attr: *mut ::std::ffi::c_void,
             ac: ::std::os::raw::c_long,
             av: *mut ::median::max_sys::t_atom,
         ) -> ::median::max_sys::t_max_err {
-            ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*))
+            unsafe {
+                ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*))
+            }
         }
         #meth
     };

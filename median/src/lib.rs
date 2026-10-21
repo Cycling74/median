@@ -24,13 +24,15 @@
 //!     impl Example {
 //!         #[bang]
 //!         pub fn bang(&self) {
-//!             let i = median::inlet::Proxy::get_inlet(self.max_obj());
+//!             // SAFETY: called from a message method, on this object
+//!             let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
 //!             median::object_post!(self.max_obj(), "bang from inlet {}", i);
 //!         }
 //!
 //!         #[int]
 //!         pub fn int(&self, v: t_atom_long) {
-//!             let i = median::inlet::Proxy::get_inlet(self.max_obj());
+//!             // SAFETY: called from a message method, on this object
+//!             let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
 //!             post!("int {} from inlet {}", v, i);
 //!         }
 //!
@@ -123,10 +125,14 @@ macro_rules! error {
 /// median::object::MaxObj`
 /// * `MSPObjWrapped` objects can use `self.as_max_obj()` as the first argument, but you must `use
 /// median::object::MSPObj`
+/// * The first argument must be a pointer to a valid Max object (or null). The macro cannot check
+/// that; prefer the safe `post`/`post_error` methods on [`object::MaxObj`] and [`object::MSPObj`]
+/// when you are posting for `self`.
 #[macro_export]
 macro_rules! object_post {
     ($obj:expr, $($arg:tt)*) => {{
-        $crate::object::post($obj, ::std::format!($($arg)*))
+        // SAFETY: the caller promises `$obj` is a valid object pointer, see the macro docs
+        unsafe { $crate::object::post($obj, ::std::format!($($arg)*)) }
     }}
 }
 
@@ -156,10 +162,14 @@ macro_rules! object_post {
 /// median::object::MaxObj`
 /// * `MSPObjWrapped` objects can use `self.as_max_obj()` as the first argument, but you must `use
 /// median::object::MSPObj`
+/// * The first argument must be a pointer to a valid Max object (or null). The macro cannot check
+/// that; prefer the safe `post`/`post_error` methods on [`object::MaxObj`] and [`object::MSPObj`]
+/// when you are posting for `self`.
 #[macro_export]
 macro_rules! object_error {
     ($obj:expr, $($arg:tt)*) => {{
-        $crate::object::error($obj, ::std::format!($($arg)*))
+        // SAFETY: the caller promises `$obj` is a valid object pointer, see the macro docs
+        unsafe { $crate::object::error($obj, ::std::format!($($arg)*)) }
     }}
 }
 

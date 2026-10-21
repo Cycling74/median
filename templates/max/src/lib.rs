@@ -48,7 +48,8 @@ median::external! {
         //the name of the method can be anything you want
         #[bang]
         pub fn bang(&self) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            // SAFETY: called from a message method, on this object
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             median::object_post!(self.max_obj(), "bang inlet {}", i);
         }
 
@@ -57,7 +58,8 @@ median::external! {
         //that is of type t_atom_long
         #[int]
         pub fn int(&self, v: t_atom_long) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            // SAFETY: called from a message method, on this object
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             post!("int {} inlet {}", v, i);
         }
 

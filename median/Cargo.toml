@@ -18,3 +18,10 @@ parking_lot = "0.11.0"
 quote = "1.0.7"
 proc-macro2 = "1.0.24"
 syn = "1.0.48"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+not_unsafe_ptr_arg_deref = "deny"
+missing_safety_doc = "warn"

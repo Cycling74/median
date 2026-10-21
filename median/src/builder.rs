@@ -163,7 +163,13 @@ pub trait MSPWrappedBuilder<T>: ObjBuilder<T> {
 }
 
 impl<'a, T, W> WrappedBuilder<'a, T, W> {
-    pub fn new_max(owner: *mut max_sys::t_object, sym: SymbolRef, args: &'a [Atom]) -> Self {
+    /// # Safety
+    /// `owner` must point to a valid Max object that is being constructed and outlives the builder.
+    pub(crate) unsafe fn new_max(
+        owner: *mut max_sys::t_object,
+        sym: SymbolRef,
+        args: &'a [Atom],
+    ) -> Self {
         Self {
             max_obj: owner,
             msp_obj: None,
@@ -179,7 +185,13 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
         }
     }
 
-    pub fn new_msp(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &'a [Atom]) -> Self {
+    /// # Safety
+    /// `owner` must point to a valid MSP object that is being constructed and outlives the builder.
+    pub(crate) unsafe fn new_msp(
+        owner: *mut max_sys::t_pxobject,
+        sym: SymbolRef,
+        args: &'a [Atom],
+    ) -> Self {
         Self {
             max_obj: owner as _,
             msp_obj: Some(owner),
@@ -244,7 +256,8 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
                     let _ = callbacks_int.insert(index, cb);
                 },
                 MSPInlet::Proxy => {
-                    proxies.push(Proxy::new(self.max_obj, index));
+                    // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+                    proxies.push(unsafe { Proxy::new(self.max_obj, index) });
                 }
                 MSPInlet::Signal => {
                     if !called_dsp_setup {
@@ -320,7 +333,8 @@ where
     /// Add an outlet that outputs bangs.
     fn add_bang_outlet(&mut self) -> OutBang {
         self.outlet_count += 1;
-        Outlet::append_bang(self.max_obj)
+        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+        unsafe { Outlet::append_bang(self.max_obj) }
     }
 
     fn add_bang_outlet_with_assist(&mut self, assist: &str) -> OutBang {
@@ -331,7 +345,8 @@ where
     /// Add an outlet that outputs floats.
     fn add_float_outlet(&mut self) -> OutFloat {
         self.outlet_count += 1;
-        Outlet::append_float(self.max_obj)
+        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+        unsafe { Outlet::append_float(self.max_obj) }
     }
 
     fn add_float_outlet_with_assist(&mut self, assist: &str) -> OutFloat {
@@ -342,7 +357,8 @@ where
     /// Add an outlet that outputs ints.
     fn add_int_outlet(&mut self) -> OutInt {
         self.outlet_count += 1;
-        Outlet::append_int(self.max_obj)
+        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+        unsafe { Outlet::append_int(self.max_obj) }
     }
 
     fn add_int_outlet_with_assist(&mut self, assist: &str) -> OutInt {
@@ -353,7 +369,8 @@ where
     /// Add an outlet that outputs lists.
     fn add_list_outlet(&mut self) -> OutList {
         self.outlet_count += 1;
-        Outlet::append_list(self.max_obj)
+        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+        unsafe { Outlet::append_list(self.max_obj) }
     }
 
     fn add_list_outlet_with_assist(&mut self, assist: &str) -> OutList {
@@ -364,7 +381,8 @@ where
     /// Add an outlet that outputs anything Max supports.
     fn add_anything_outlet(&mut self) -> OutAnything {
         self.outlet_count += 1;
-        Outlet::append_anything(self.max_obj)
+        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+        unsafe { Outlet::append_anything(self.max_obj) }
     }
 
     fn add_anything_outlet_with_assist(&mut self, assist: &str) -> OutAnything {
@@ -438,7 +456,8 @@ where
     /// Add signal outlets
     fn add_signal_outlets(&mut self, count: usize) {
         for _ in 0..count {
-            Outlet::append_signal(self.max_obj);
+            // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
+            unsafe { Outlet::append_signal(self.max_obj) };
         }
         self.signal_outlets += count;
         self.outlet_count += count;

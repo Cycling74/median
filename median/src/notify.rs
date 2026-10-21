@@ -51,15 +51,22 @@ pub enum AttachmentError {
 }
 
 impl Notification {
-    pub fn new(
+    /// Create a notification from the arguments Max passes to an object's `notify` method.
+    ///
+    /// # Safety
+    /// `sender_name` and `message` must be null or point to valid `t_symbol`s, as Max passes to a
+    /// `notify` method. `sender` and `data` are only stored, but accessors on the returned value
+    /// hand them back, so they must be what Max passed (they may be null).
+    pub unsafe fn new(
         sender_name: *mut max_sys::t_symbol,
         message: *mut max_sys::t_symbol,
         sender: *mut c_void,
         data: *mut c_void,
     ) -> Self {
         Self {
-            sender_name: sender_name.into(),
-            message: message.into(),
+            // SAFETY: the caller guarantees the symbols are null or valid
+            sender_name: unsafe { SymbolRef::from_raw(sender_name) },
+            message: unsafe { SymbolRef::from_raw(message) },
             sender,
             data,
         }

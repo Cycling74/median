@@ -64,7 +64,7 @@ impl Atom {
     }
 
     pub fn get_symbol(&self) -> SymbolRef {
-        unsafe { max_sys::atom_getsym(&self.value).into() }
+        unsafe { SymbolRef::from_raw(max_sys::atom_getsym(&self.value)) }
     }
 
     pub fn get_obj(&self) -> *mut c_void {
@@ -89,6 +89,8 @@ impl Atom {
         }
     }
 
+    // `atom_setobj` only stores the pointer in the atom, it is never dereferenced here.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn set_obj(&mut self, v: *mut c_void) {
         unsafe {
             max_sys::atom_setobj(&mut self.value, v);

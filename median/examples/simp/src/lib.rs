@@ -88,15 +88,16 @@ median::external! {
         //the name of the method can be anything you want
         #[bang]
         pub fn bang(&self) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            // SAFETY: called from a message method, on this object
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
         pub fn int(&self, v: t_atom_long) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             self.value.set(v);
-            median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
+            self.attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
                 .unwrap();
             post!("direct int from rust {} inlet {}", self.value, i);
         }
@@ -106,9 +107,10 @@ median::external! {
         //that is of type t_atom_long
         #[int]
         pub fn proxied(&self, v: t_atom_long) {
-            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            // SAFETY: called from a message method, on this object
+            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
             self.value.set(v);
-            median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
+            self.attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
                 .unwrap();
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);

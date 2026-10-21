@@ -11,12 +11,14 @@ macro_rules! impl_obj_methods {
     ($o:expr) => {
         /// Post a message to max.
         fn post<M: Into<Vec<u8>>>(&self, msg: M) {
-            crate::object::post($o(self), msg)
+            // SAFETY: `$o(self)` is a pointer to this live object
+            unsafe { crate::object::post($o(self), msg) }
         }
 
         /// Post an error message to max.
         fn post_error<M: Into<Vec<u8>>>(&self, msg: M) {
-            crate::object::error($o(self), msg)
+            // SAFETY: `$o(self)` is a pointer to this live object
+            unsafe { crate::object::error($o(self), msg) }
         }
 
         /// Try to register this object with the given namespace and name.
@@ -63,7 +65,8 @@ macro_rules! impl_obj_methods {
         /// # Arguments
         /// * `name` - the name of the attribute
         fn attr_touch_with_name<I: Into<SymbolRef>>(&self, name: I) -> MaxResult<()> {
-            crate::attr::touch_with_name($o(self), name)
+            // SAFETY: `$o(self)` is a pointer to this live object
+            unsafe { crate::attr::touch_with_name($o(self), name) }
         }
 
         /// Indicate that an attribute has had a change (outside of its setter).
@@ -72,7 +75,8 @@ macro_rules! impl_obj_methods {
         /// * `name` - the name of the attribute
         fn attr_try_touch_with_name<I: TryInto<SymbolRef>>(&self, name: I) -> MaxResult<()> {
             if let Ok(name) = name.try_into() {
-                crate::attr::touch_with_name($o(self), name)
+                // SAFETY: `$o(self)` is a pointer to this live object
+                unsafe { crate::attr::touch_with_name($o(self), name) }
             } else {
                 Err(MaxError::Generic)
             }
@@ -113,7 +117,12 @@ const FMT_S: *const c_char = b"%s\0".as_ptr() as *const c_char;
 const CSTRING_ERR: &[u8] = b"failed to create CString\0";
 
 /// Post a message to the Max console, associated with the given object.
-pub fn post<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
+///
+/// For a safe version see [`MaxObj::post`] and [`MSPObj::post`], which post for `self`.
+///
+/// # Safety
+/// `obj` must point to a valid Max object (or be null, which Max treats as no object).
+pub unsafe fn post<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
     unsafe {
         match CString::new(msg) {
             Ok(p) => max_sys::object_post(obj, FMT_S, p.as_ptr()),
@@ -123,7 +132,13 @@ pub fn post<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
 }
 
 /// Post an error to the Max console, associated with the given object
-pub fn error<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
+///
+/// For a safe version see [`MaxObj::post_error`] and [`MSPObj::post_error`], which post for
+/// `self`.
+///
+/// # Safety
+/// `obj` must point to a valid Max object (or be null, which Max treats as no object).
+pub unsafe fn error<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
     unsafe {
         match CString::new(msg) {
             Ok(p) => max_sys::object_error(obj, FMT_S, p.as_ptr()),

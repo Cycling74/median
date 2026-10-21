@@ -37,12 +37,22 @@ impl<T> Slice<T> {
         (ptr, len)
     }
 
-    pub fn from_raw_parts_mut(ptr: *mut T, len: usize) -> Self {
-        assert!(
-            !(len > 0 && ptr.is_null()),
-            "cannot have null ptr and non zero length"
-        );
+    /// Create a `Slice` from a raw pointer and length, taking ownership of the allocation.
+    ///
+    /// A `len` of 0 yields an empty slice and `ptr` is ignored (it is not freed).
+    ///
+    /// # Safety
+    /// If `len > 0`:
+    /// * `ptr` must be non-null, aligned, and point to `len` initialized `T`s allocated with
+    ///   `max_sys::sysmem_newptr` (it is freed with `sysmem_freeptr` on drop), for the `'static`
+    ///   lifetime of the slice.
+    /// * Nothing else may access or free that memory while the `Slice` exists.
+    pub unsafe fn from_raw_parts_mut(ptr: *mut T, len: usize) -> Self {
+        if len == 0 {
+            return Self::default();
+        }
         Self {
+            // SAFETY: guaranteed by the caller
             inner: unsafe { slice::from_raw_parts_mut(ptr, len) },
         }
     }
@@ -115,7 +125,7 @@ mod test {
         assert!(!p.is_null());
         assert_eq!(2, l);
 
-        let s = Slice::from_raw_parts_mut(p, l);
+        let s = unsafe { Slice::from_raw_parts_mut(p, l) };
         assert_eq!(2, s.len());
 
         let s: Slice<Atom> = Default::default();
