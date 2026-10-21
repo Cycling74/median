@@ -2,7 +2,7 @@
 
 Goal: an API that is sound by construction, roughly one line per Max concept (like min), and made
 of ordinary Rust items that rust-analyzer and rustfmt handle natively. This is one breaking release;
-`median 0.2`. The three examples and the template are the acceptance tests and get ported as part of
+`median 0.3` (0.2.0 is the step 1 soundness release). The three examples and the template are the acceptance tests and get ported as part of
 the work.
 
 Finding numbers refer to [review-2026-10.md](review-2026-10.md).
@@ -148,6 +148,12 @@ impl ObjRef { pub fn post(&self, msg: impl Display); pub fn error(&self, ..); pu
   through `&T` inside a trampoline, whose lifetime ends with the call. Nothing in the API hands out
   `&mut T` or lets `T` be moved out of the wrapper, so the handle cannot be returned or stashed.
   (A `Copy` handle would defeat this; that was a mistake in the first draft.)
+  Limit (2026-10-21): between `b.obj()` and returning `Self` from `new`, the handle is an owned
+  value, and safe code can still leak it (`Box::leak` gives a `&'static ObjRef`, which is `Send`
+  because `ObjRef` must be `Sync`) or park it in a `thread_local!`, then use it after the box is
+  deleted. Making `ObjRef` `!Send` closes the `static Mutex<Option<ObjRef>>` route but not those
+  two. The same holds for `Outlet<K>` (M10). Closing it fully needs a lifetime-branded handle,
+  which `T` cannot store; we accept the deliberate-escape case and document it on `ObjRef`.
 - Remove `unsafe impl<T: MaxObjWrapped<T>> MaxObj for T` and the `MSPObj` twin. `MaxObj` stays as the
   `unsafe trait` for the wrapper types themselves.
 - `post!`/`object_post!` take `&ObjRef` (or anything `AsRef<ObjRef>`).
@@ -335,12 +341,17 @@ instead of `Int64` (H4, good instinct); `SymbolRef::to_string().expect(..)` ever
 ## Migration
 
 - Port `simp`, `hello_dsp`, `multi`, `templates/max`, then `igk/examples/simplemax`.
-- Write `doc/migration-0.2.md` from the diff of the examples: old form, new form, one line each.
+- Write `doc/migration-0.3.md` from the diff of the examples: old form, new form, one line each.
 - Keep `external!` for one release as a deprecated shim that expands to the new forms, if the
   cost is low; otherwise drop it and point at the migration doc.
 
 ## Order of implementation
 
+0. Toolchain for the new code (pulled forward from step 5 of
+   [plan-branches-and-build.md](plan-branches-and-build.md)): edition 2024 and `rust-version` for
+   `median` and `median_macros`, `syn` 2 in `median_macros` and `median/build.rs`, version
+   `0.3.0-dev`. The sketches here use `c"..."`, `const { }` and `unsafe extern`, and the new proc
+   macros should not be written against `syn` 1. `max-sys` and the rest of step 5 stay where they are.
 1. `ObjRef` + remove blanket `MaxObj` (D). Smallest change that unblocks the rest.
 2. `Class<W>::add_*` ZST registration (C); keep the old `Method` enum underneath.
 3. `#[derive(MaxObject)]` (A) and `#[methods]` (B); port `simp`.
@@ -352,3 +363,17 @@ instead of `Int64` (H4, good instinct); `SymbolRef::to_string().expect(..)` ever
 Each step compiles the examples; the `median-mock` test crate from
 [plan-branches-and-build.md](plan-branches-and-build.md) is what makes steps 4 onward testable
 without Max.
+
+## Status (branch `xnor/api-redesign`)
+
+Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short series) per item of
+"Order of implementation"; each records here what it did and where it differs from the text above.
+
+- [ ] 0. Toolchain
+- [ ] 1. `ObjRef`, blanket `MaxObj`/`MSPObj` removed
+- [ ] 2. `Class<W>::add_*`
+- [ ] 3. derive + `#[methods]`, `simp` ported
+- [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
+- [ ] 5. Fallible `new`
+- [ ] 6. `SymbolRef`, `BufferLocked`
+- [ ] 7. Clock/queue/fifo, attribute options
