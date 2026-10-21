@@ -180,5 +180,10 @@ macro_rules! object_warn {
     }}
 }
 
+// The tests call the Max C API, which `median-mock` implements. Nothing here names it, so say so
+// to get it linked.
+#[cfg(test)]
+use median_mock as _;
+
 #[cfg(test)]
 pub mod test;

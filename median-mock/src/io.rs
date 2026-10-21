@@ -2,8 +2,8 @@
 //! `inlet_new`, `intin`, `floatin`, `proxy_new`, `proxy_getinlet`.
 //!
 //! Outlets record what is sent through them (see [`crate::OutletEvent`]); they are not connected
-//! to anything. Like Max, inlets and outlets are created right to left: the first one created is
-//! the rightmost.
+//! to anything. Like Max, inlets and `outlet_new` outlets are created right to left: the first one
+//! created is the rightmost. `outlet_append` outlets are created left to right.
 
 use crate::atoms::{Atom, atoms_from_raw};
 use crate::class::current_inlet;
@@ -22,13 +22,18 @@ fn cstr_opt(s: *const c_char) -> Option<String> {
     }
 }
 
-fn add_outlet(st: &mut State, x: usize, ty: Option<String>) -> *mut c_void {
+fn add_outlet(st: &mut State, x: usize, ty: Option<String>, append: bool) -> *mut c_void {
     if !st.objects.contains_key(&x) {
         st.post_error(x, format!("median-mock: outlet created on {x:#x}, which is not a live object"));
         return std::ptr::null_mut();
     }
     let ptr = st.alloc_sub(SubKind::Outlet { owner: x, ty });
-    st.objects.get_mut(&x).expect("checked above").outlets.push(ptr);
+    let outlets = &mut st.objects.get_mut(&x).expect("checked above").outlets;
+    if append {
+        outlets.push(ptr);
+    } else {
+        outlets.insert(0, ptr);
+    }
     // SAFETY: `x` is a live object, which starts with a `t_object`
     unsafe { (*(x as *mut t_object)).o_outlet = ptr as *mut c_void };
     ptr as *mut c_void
@@ -52,12 +57,14 @@ pub(crate) fn add_inlet(st: &mut State, x: usize, kind: InletKind) -> *mut c_voi
 /// or a NUL-terminated string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn outlet_new(x: *mut c_void, s: *const c_char) -> *mut c_void {
-    add_outlet(&mut state(), x as usize, cstr_opt(s))
+    add_outlet(&mut state(), x as usize, cstr_opt(s), false)
 }
 
 /// The dynamic outlet constructor median uses. The SDK header only declares it; here it creates
-/// an outlet like `outlet_new` whose type is the name of `s2` (or `s1` if `s2` is null), where
-/// null or the empty symbol means anything. This follows how median calls it, not documented
+/// an outlet whose type is the name of `s2` (or `s1` if `s2` is null), where null or the empty
+/// symbol means anything. Unlike `outlet_new`, which makes each new outlet the leftmost, it adds
+/// the new outlet to the right of the existing ones, which is how median calls it (its builder
+/// specifies outlets from left to right). This follows how median calls it, not documented
 /// behaviour.
 ///
 /// # Safety
@@ -72,7 +79,7 @@ pub unsafe extern "C" fn outlet_append(
     // SAFETY: the caller's contract
     let name = unsafe { sym_name(s) };
     let ty = if name.is_empty() { None } else { Some(name) };
-    add_outlet(&mut state(), op as usize, ty)
+    add_outlet(&mut state(), op as usize, ty, true)
 }
 
 fn log_outlet(x: *mut t_outlet, selector: &str, atoms: Vec<Atom>) -> *mut c_void {
@@ -90,7 +97,7 @@ fn log_outlet(x: *mut t_outlet, selector: &str, atoms: Vec<Atom>) -> *mut c_void
         return std::ptr::null_mut();
     };
     let outlets = &st.objects[&owner].outlets;
-    let index = outlets.len() - 1 - outlets.iter().position(|&o| o == addr).unwrap_or(0);
+    let index = outlets.iter().position(|&o| o == addr).unwrap_or(0);
     let event = OutletEvent {
         outlet: addr,
         owner,

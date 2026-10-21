@@ -41,7 +41,8 @@ pub(crate) struct ClassData {
 
 pub(crate) struct ObjData {
     pub class: usize,
-    /// Outlets in creation order (which is right to left).
+    /// Outlets from left to right: `outlet_new` makes the new outlet the leftmost, `outlet_append`
+    /// the rightmost.
     pub outlets: Vec<usize>,
     /// Inlets in creation order (which is right to left).
     pub inlets: Vec<usize>,
@@ -167,8 +168,8 @@ pub struct OutletEvent {
     pub outlet: usize,
     /// The object that owns the outlet.
     pub owner: usize,
-    /// The outlet's index counted from the left (the order `outlet_new` is called is right to
-    /// left). Computed when the event is logged.
+    /// The outlet's index counted from the left (`outlet_new` makes outlets right to left,
+    /// `outlet_append` left to right). Computed when the event is logged.
     pub index: usize,
     /// `"bang"`, `"int"`, `"float"`, `"list"`, or the selector given to `outlet_anything`.
     pub selector: String,

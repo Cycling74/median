@@ -1183,7 +1183,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::methods::{DSP_ADDED, errors_posted};
+    use crate::test::methods::errors_for;
+    use median_mock::Kernel;
     use std::sync::atomic::AtomicUsize;
 
     /// Counts the calls of the user's code that got through.
@@ -1229,15 +1230,24 @@ mod tests {
         Box::new(unsafe { MaybeUninit::zeroed().assume_init() })
     }
 
-    /// Run `f` and return how many errors were posted for `w` meanwhile.
-    fn errors_during<W: MaxObj>(w: &W, f: impl FnOnce()) -> usize {
-        let before = errors_posted(w.max_obj());
+    /// The refusal that every trampoline posts for a half-built object.
+    const REFUSED: &str = "median: panic in {}: median::wrapper::tests::P: object used before construction finished";
+
+    /// Run `f` and return the errors that were posted for `w` meanwhile, oldest first.
+    fn errors_during<W: MaxObj>(k: &Kernel, w: &W, f: impl FnOnce()) -> Vec<String> {
+        let before = errors_for(k, w.max_obj()).len();
         f();
-        errors_posted(w.max_obj()) - before
+        errors_for(k, w.max_obj()).split_off(before)
+    }
+
+    /// What `errors_during` should return when only the trampoline `what` refused.
+    fn refused(what: &str) -> Vec<String> {
+        vec![REFUSED.replacen("{}", what, 1)]
     }
 
     #[test]
     fn typed_methods_refuse_a_half_built_object() {
+        let k = median_mock::lock();
         type W = MaxObjWrapper<P>;
         let w = half_built::<_, _, P>();
         assert!(!w.constructed.load(Ordering::SeqCst));
@@ -1248,20 +1258,21 @@ mod tests {
         let f = unsafe { std::mem::transmute::<crate::method::MaxMethod, extern "C" fn(&W)>(m) };
         let ran = RAN.load(Ordering::SeqCst);
         //returns normally (neutral), the user's code didn't run, the refusal was posted
-        assert_eq!(errors_during(&*w, || f(&w)), 1);
+        assert_eq!(errors_during(&k, &*w, || f(&w)), refused("bang"));
         assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 
     #[test]
     fn other_trampolines_refuse_a_half_built_object() {
+        let k = median_mock::lock();
         type W = MaxObjWrapper<P>;
         let w = half_built::<_, _, P>();
         let ran = RAN.load(Ordering::SeqCst);
 
-        assert_eq!(errors_during(&*w, || W::call_in1(&w, 3)), 1);
-        assert_eq!(errors_during(&*w, || W::call_ft1(&w, 3.)), 1);
+        assert_eq!(errors_during(&k, &*w, || W::call_in1(&w, 3)), refused("in1"));
+        assert_eq!(errors_during(&k, &*w, || W::call_ft1(&w, 3.)), refused("ft1"));
         assert_eq!(
-            errors_during(&*w, || {
+            errors_during(&k, &*w, || {
                 // SAFETY: null symbols are valid for a notification
                 W::handle_notification_tramp(
                     &w,
@@ -1271,39 +1282,39 @@ mod tests {
                     std::ptr::null_mut(),
                 )
             }),
-            1
+            refused("notify")
         );
         let mut s = [0 as std::ffi::c_char; 8];
         assert_eq!(
-            errors_during(&*w, || W::assist_tramp(
+            errors_during(&k, &*w, || W::assist_tramp(
                 &w,
                 std::ptr::null_mut(),
                 1,
                 0,
                 s.as_mut_ptr()
             )),
-            1
+            refused("assist")
         );
         //what the trampolines that `median_macros` generates do
         assert_eq!(
-            errors_during(&*w, || crate::ffi::guard(&*w, "method", || {
+            errors_during(&k, &*w, || crate::ffi::guard(&*w, "method", || {
                 let _: &P = WrapperWrapped::wrapped(&*w);
                 RAN.fetch_add(1, Ordering::SeqCst);
             })),
-            1
+            refused("method")
         );
         assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 
     #[test]
     fn msp_object_refuses_a_half_built_object() {
+        let k = median_mock::lock();
         type W = MSPObjWrapper<P>;
         let w = half_built::<_, _, P>();
         let ran = RAN.load(Ordering::SeqCst);
-        let added = DSP_ADDED.load(Ordering::SeqCst);
 
         assert_eq!(
-            errors_during(&*w, || W::dsp64(
+            errors_during(&k, &*w, || W::dsp64(
                 &w,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
@@ -1311,11 +1322,12 @@ mod tests {
                 64,
                 0
             )),
-            1
+            //`dsp64` has a refusal of its own, because it must not add `perform64`
+            ["median: panic in dsp64: object used before construction finished"]
         );
         //no perform routine was added, so `perform64` can't run on it
-        assert_eq!(DSP_ADDED.load(Ordering::SeqCst), added);
-        assert_eq!(errors_during(&*w, || W::call_in1(&w, 3)), 1);
+        assert!(k.dsp_adds().is_empty());
+        assert_eq!(errors_during(&k, &*w, || W::call_in1(&w, 3)), refused("in1"));
         assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 }

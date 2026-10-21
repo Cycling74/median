@@ -408,8 +408,8 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `defaults` exceeds the arity. Trampolines cannot know the selector, so a panic in a typed
   selector method is posted as "panic in method". A closure whose return type is `!` (it always
   panics) needs `-> ()` written out. The doctest on `Class` that checks the capturing-closure
-  error carries its own Max stubs, since `compile_fail` can't tell a compile error from a link
-  error. `hello_dsp` uses `c.add_sel(c"set", Self::set, 0)` and moved to edition 2021 for `c"..."`.
+  error creates its class in `median-mock` (hidden lines), so that a link error can't pass for the
+  compile error. `hello_dsp` uses `c.add_sel(c"set", Self::set, 0)` and moved to edition 2021 for `c"..."`.
 - [ ] 3. derive + `#[methods]`, `simp` ported
 - [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
 - [ ] 5. Fallible `new`

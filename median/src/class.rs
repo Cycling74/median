@@ -79,28 +79,20 @@ use std::os::raw::c_long;
 /// # impl MaxObjWrapped<Example> for Example {
 /// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
 /// # }
-/// # #[unsafe(no_mangle)]
-/// # pub unsafe extern "C" fn class_addmethod(
-/// #     _c: *mut median::max_sys::t_class,
-/// #     _m: median::max_sys::method,
-/// #     _name: *const std::ffi::c_char,
-/// # ) -> median::max_sys::t_max_err {
-/// #     0
-/// # }
-/// # #[unsafe(no_mangle)]
-/// # pub unsafe extern "C" fn error(_fmt: *const std::ffi::c_char) {}
-/// # #[unsafe(no_mangle)]
-/// # pub unsafe extern "C" fn object_error(_o: *mut median::max_sys::t_object, _fmt: *const std::ffi::c_char) {}
+/// # use median_mock as _;
 /// # fn main() {
-/// # let mut c: Class<MaxObjWrapper<Example>> = unsafe { Class::new_registered(std::ptr::null_mut()) };
+/// # let _k = median_mock::lock();
+/// # let mut c: Class<MaxObjWrapper<Example>> =
+/// #     Class::new("example", MaxObjWrapper::<Example>::new_tramp, None);
 /// let n = std::hint::black_box(3);
 /// c.add_bang(move |_: &Example| { std::hint::black_box(n); }).unwrap();
 /// # }
 /// ```
 ///
-/// The same without the capture compiles and runs. (The hidden code in both examples stands in for
-/// the Max functions that the library calls, so that they can be linked and run without Max.
-/// Without it the first example could also "fail" for lack of them.)
+/// The same without the capture compiles and runs. (The hidden code in both examples makes the
+/// class in `median-mock`, which stands in for the Max functions that the library calls, so that
+/// they can be linked and run without Max. Without it the first example could also "fail" for
+/// lack of them.)
 ///
 /// ```
 /// # use median::{builder::MaxWrappedBuilder, class::Class, wrapper::*};
@@ -111,20 +103,11 @@ use std::os::raw::c_long;
 /// # impl MaxObjWrapped<Example> for Example {
 /// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
 /// # }
-/// # #[unsafe(no_mangle)]
-/// # pub unsafe extern "C" fn class_addmethod(
-/// #     _c: *mut median::max_sys::t_class,
-/// #     _m: median::max_sys::method,
-/// #     _name: *const std::ffi::c_char,
-/// # ) -> median::max_sys::t_max_err {
-/// #     0
-/// # }
-/// # #[unsafe(no_mangle)]
-/// # pub unsafe extern "C" fn error(_fmt: *const std::ffi::c_char) {}
-/// # #[unsafe(no_mangle)]
-/// # pub unsafe extern "C" fn object_error(_o: *mut median::max_sys::t_object, _fmt: *const std::ffi::c_char) {}
+/// # use median_mock as _;
 /// # fn main() {
-/// # let mut c: Class<MaxObjWrapper<Example>> = unsafe { Class::new_registered(std::ptr::null_mut()) };
+/// # let _k = median_mock::lock();
+/// # let mut c: Class<MaxObjWrapper<Example>> =
+/// #     Class::new("example", MaxObjWrapper::<Example>::new_tramp, None);
 /// let n = std::hint::black_box(3);
 /// c.add_bang(|_: &Example| { std::hint::black_box(3); }).unwrap();
 /// # let _ = n;

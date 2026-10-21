@@ -1,5 +1,7 @@
-//! Tests of the typed method registration: call the trampolines that `Class::add_*` registers
-//! on a stand-in for the wrapper, as Max would.
+//! Tests of the typed method registration: call the trampolines that `Class::add_*` builds on a
+//! stand-in for the wrapper, as Max would, and send messages to a class made with `Class::new`
+//! through the `median-mock` kernel. Every test holds `median_mock::lock()` to the end, which
+//! also keeps the console log (where the errors are posted) its own.
 
 use crate::{
     atom::Atom,
@@ -10,106 +12,25 @@ use crate::{
     wrapper::{ObjWrapped, WrapperWrapped},
 };
 use max_sys::t_atom_long;
+use median_mock::{Kernel, Level};
 use std::{
-    ffi::{CStr, c_char, c_long},
+    ffi::{CStr, c_char, c_long, c_void},
     fmt::Display,
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicPtr, Ordering},
+    },
 };
 
-/// The `t_object`s that the `object_error` stub was called with.
-static ERRORS: Mutex<Vec<usize>> = Mutex::new(Vec::new());
-
-/// Stand-in for the variadic `object_error` (the format arguments are ignored).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn object_error(x: *mut max_sys::t_object, _fmt: *const c_char) {
-    ERRORS.lock().unwrap().push(x as usize);
-}
-
-/// Stand-in for the variadic `error`, which the library calls where there is no object (the
-/// format arguments are ignored).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn error(_fmt: *const c_char) {}
-
-/// Stand-in for `common_symbols_gettable`: a table of null symbols.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn common_symbols_gettable() -> *mut max_sys::t_common_symbols_table {
-    static TABLE: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    // SAFETY: the table is plain data (pointers)
-    *TABLE.get_or_init(|| {
-        Box::into_raw(Box::new(unsafe {
-            std::mem::zeroed::<max_sys::t_common_symbols_table>()
-        })) as usize
-    }) as *mut _
-}
-
-/// (class, selector, method) of every `class_addmethod` call. The argument types, which are
-/// variadic, are not recorded.
-static METHODS: Mutex<Vec<(usize, String, usize)>> = Mutex::new(Vec::new());
-
-/// Stand-in for the variadic `class_addmethod`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn class_addmethod(
-    c: *mut max_sys::t_class,
-    m: max_sys::method,
-    name: *const c_char,
-) -> max_sys::t_max_err {
-    // SAFETY: `name` is a C string
-    let name = unsafe { CStr::from_ptr(name) }
-        .to_string_lossy()
-        .into_owned();
-    METHODS
-        .lock()
-        .unwrap()
-        .push((c as usize, name, m.map_or(0, |m| m as usize)));
-    max_sys::e_max_errorcodes::MAX_ERR_NONE as _
-}
-
-/// How many errors were posted for `w`. Starts at 0 for every wrapper: an address can be reused by
-/// a later test, so the entries a freed wrapper left behind are dropped.
-fn errors_for<T>(w: &Wrap<T>) -> usize {
-    errors_posted(w.max_obj()) - w.fresh
-}
-
-/// How many times `object_error` has been called for `obj` (including for an earlier object that
-/// had the same address).
-pub(crate) fn errors_posted(obj: *mut max_sys::t_object) -> usize {
-    let me = obj as usize;
-    ERRORS.lock().unwrap().iter().filter(|e| **e == me).count()
-}
-
-//Referenced by the object internals that the trampoline tests link in, never called by them.
-//The arguments are not declared: there is nothing to look at.
-#[unsafe(no_mangle)]
-pub extern "C" fn buffer_ref_notify() {
-    unreachable!("not stubbed")
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn gensym() {
-    unreachable!("not stubbed")
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn object_method() {
-    unreachable!("not stubbed")
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn strncpy_zero() {
-    unreachable!("not stubbed")
-}
-
-/// How many times `dsp_add64` has been called.
-pub(crate) static DSP_ADDED: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
-
-/// Stand-in for `dsp_add64`: only counts.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn dsp_add64(
-    _dsp64: *mut max_sys::t_object,
-    _x: *mut max_sys::t_object,
-    _f: max_sys::t_perfroutine64,
-    _flags: std::ffi::c_long,
-    _userparam: *mut std::ffi::c_void,
-) {
-    DSP_ADDED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+/// The messages posted as errors for `obj` (with `object_error`, which is what the default
+/// `report_error` and the panic guards do), oldest first. `Kernel::reset` empties the log, so
+/// each test sees only its own.
+pub(crate) fn errors_for(k: &Kernel, obj: *mut max_sys::t_object) -> Vec<String> {
+    k.console_log()
+        .into_iter()
+        .filter(|e| e.level == Level::Error && e.object == obj as usize)
+        .map(|e| e.text)
+        .collect()
 }
 
 /// What Max allocates for an object: the header, then our data.
@@ -117,20 +38,15 @@ pub unsafe extern "C" fn dsp_add64(
 struct Wrap<T> {
     obj: max_sys::t_object,
     t: T,
-    /// errors already posted for this address when the wrapper was made
-    fresh: usize,
 }
 
 impl<T> Wrap<T> {
     fn new(t: T) -> Box<Self> {
-        let mut w = Box::new(Self {
+        Box::new(Self {
             // SAFETY: a `t_object` is plain data (integers, pointers) that Max zeroes
             obj: unsafe { std::mem::zeroed() },
             t,
-            fresh: 0,
-        });
-        w.fresh = errors_posted(w.max_obj());
-        w
+        })
     }
 }
 
@@ -225,6 +141,7 @@ unsafe fn cast<P: Copy>(m: MaxMethod) -> P {
 
 #[test]
 fn bang() {
+    let _k = median_mock::lock();
     let w = probe();
     let m = bang_method::<W, _, _, _>(|p: &Probe| p.log("bang"));
     let f: extern "C" fn(&W) = unsafe { cast(m) };
@@ -235,6 +152,7 @@ fn bang() {
 
 #[test]
 fn int_float() {
+    let _k = median_mock::lock();
     let w = probe();
     let f: extern "C" fn(&W, t_atom_long) = unsafe {
         cast(int_method::<W, _, _, _>(|p: &Probe, v| {
@@ -253,6 +171,7 @@ fn int_float() {
 
 #[test]
 fn symbol_method() {
+    let _k = median_mock::lock();
     let w = probe();
     let f: extern "C" fn(&W, *mut max_sys::t_symbol) = unsafe {
         cast(sym_method::<W, _, _, _>(|p: &Probe, s: SymbolRef| {
@@ -266,6 +185,7 @@ fn symbol_method() {
 
 #[test]
 fn list_any_gimme() {
+    let _k = median_mock::lock();
     let w = probe();
     let atoms = [long_atom(3), long_atom(4)];
     let mut sel = symbol(c"foo");
@@ -306,6 +226,7 @@ fn set(p: &Probe, s: SymbolRef) {
 
 #[test]
 fn sel_args() {
+    let _k = median_mock::lock();
     let w = probe();
 
     //arity 0
@@ -398,6 +319,7 @@ fn sel_args() {
 
 #[test]
 fn err_reaches_report_error() {
+    let k = median_mock::lock();
     let w = probe();
     let f: extern "C" fn(&W, t_atom_long) = unsafe {
         cast(int_method::<W, _, _, _>(|_: &Probe, v| {
@@ -415,23 +337,27 @@ fn err_reaches_report_error() {
         *w.t.reported.lock().unwrap(),
         [(w.max_obj() as usize, "bad value -2".to_string())]
     );
+    //this `report_error` doesn't post
+    assert!(k.console_log().is_empty());
 }
 
 #[test]
 fn default_report_error_posts_error_for_the_object() {
+    let k = median_mock::lock();
     let w = Wrap::new(Plain);
     let f: extern "C" fn(&Wrap<Plain>) = unsafe {
         cast(bang_method::<Wrap<Plain>, _, _, _>(|_: &Plain| {
             Err::<(), _>("nope")
         }))
     };
-    assert_eq!(errors_for(&w), 0);
+    assert!(errors_for(&k, w.max_obj()).is_empty());
     f(&w);
-    assert_eq!(errors_for(&w), 1);
+    assert_eq!(errors_for(&k, w.max_obj()), ["nope"]);
 }
 
 #[test]
 fn panic_is_contained() {
+    let k = median_mock::lock();
     let w = probe();
     let f: extern "C" fn(&W) = unsafe {
         cast(bang_method::<W, _, _, _>(|p: &Probe| -> () {
@@ -439,20 +365,22 @@ fn panic_is_contained() {
             panic!("boom");
         }))
     };
-    assert_eq!(errors_for(&w), 0);
+    assert!(errors_for(&k, w.max_obj()).is_empty());
     //returns normally: the panic didn't unwind out of the `extern "C"` fn
     f(&w);
     //the guard posted it for the object, and no error was reported through `report_error`
-    assert_eq!(errors_for(&w), 1);
+    let text = "median: panic in bang: boom";
+    assert_eq!(errors_for(&k, w.max_obj()), [text]);
     assert_eq!(w.t.take(), ["before"]);
     assert!(w.t.reported.lock().unwrap().is_empty());
     //and the object is still usable
     f(&w);
-    assert_eq!(errors_for(&w), 2);
+    assert_eq!(errors_for(&k, w.max_obj()), [text, text]);
 }
 
 #[test]
 fn panic_in_report_error_is_contained() {
+    let k = median_mock::lock();
     struct Bad;
     impl ObjWrapped<Bad> for Bad {
         fn class_name() -> &'static str {
@@ -469,11 +397,15 @@ fn panic_in_report_error_is_contained() {
         }))
     };
     f(&w);
-    assert_eq!(errors_for(&w), 1);
+    assert_eq!(
+        errors_for(&k, w.max_obj()),
+        ["median: panic in bang: report failed"]
+    );
 }
 
 #[test]
 fn sel_defaults() {
+    let _k = median_mock::lock();
     use max_sys::e_max_atomtypes::*;
     let mut t = [A_FLOAT, A_LONG, A_SYM];
     assert!(crate::class::default_types(&mut t, 0).is_ok());
@@ -494,13 +426,34 @@ fn sel_defaults() {
     assert!(crate::class::default_types(&mut t, 1).is_err());
 }
 
+/// The class `class_registers_the_methods` makes in the kernel.
+static CLASS: AtomicPtr<max_sys::t_class> = AtomicPtr::new(std::ptr::null_mut());
+
+/// The `new` method of that class: what `Wrapper::new_tramp` does, with `W` as the wrapper.
+unsafe extern "C" fn new_w(
+    _sym: *mut max_sys::t_symbol,
+    _argc: c_long,
+    _argv: *const max_sys::t_atom,
+) -> *mut c_void {
+    // SAFETY: the class was made by the kernel with the size of `W`, so this is zeroed memory for
+    // a `W`, in which only `t` has to be written (the header is Max's)
+    unsafe {
+        let o = max_sys::object_alloc(CLASS.load(Ordering::SeqCst)) as *mut W;
+        std::ptr::addr_of_mut!((*o).t).write(Probe::default());
+        o as *mut c_void
+    }
+}
+
+unsafe extern "C" fn free_w(w: *mut W) {
+    // SAFETY: Max passes the object made by `new_w`, which is not used again
+    unsafe { std::ptr::drop_in_place(std::ptr::addr_of_mut!((*w).t)) }
+}
+
 #[test]
 fn class_registers_the_methods() {
-    //a class pointer that is only a key for the stub
-    let key = Box::new(0u8);
-    let id = &*key as *const u8 as usize;
-    // SAFETY: the stub never dereferences the class
-    let mut c: Class<W> = unsafe { Class::new_registered(id as *mut max_sys::t_class) };
+    let k = median_mock::lock();
+    let mut c: Class<W> = Class::new("median_test_methods", new_w, Some(free_w));
+    CLASS.store(c.inner(), Ordering::SeqCst);
 
     c.add_bang(|p: &Probe| p.log("bang")).unwrap();
     c.add_int(|p: &Probe, v| p.log(format!("int {v}"))).unwrap();
@@ -525,46 +478,46 @@ fn class_registers_the_methods() {
         p.log(format!("gimme {} {}", name(s), a.len()))
     })
     .unwrap();
+    c.register(crate::class::ClassType::Box).unwrap();
 
-    let registered: Vec<_> = METHODS
-        .lock()
-        .unwrap()
-        .iter()
-        .filter(|(c, _, _)| *c == id)
-        .cloned()
-        .collect();
-    let names: Vec<_> = registered.iter().map(|(_, n, _)| n.as_str()).collect();
-    assert_eq!(
-        names,
-        [
-            "bang", "int", "float", "symbol", "list", "anything", "set", "two", "gimme"
-        ]
-    );
-    assert!(registered.iter().all(|(_, _, m)| *m != 0));
+    let obj = k.new_object("median_test_methods", &[]);
+    assert!(!obj.is_null());
+    // SAFETY: `obj` is a live `W` made by `new_w`, which stays alive until `free_object`
+    let w = unsafe { &*(obj as *const W) };
 
-    //and the methods that were registered are the ones that work
-    let w = probe();
-    let m = |i: usize| unsafe { std::mem::transmute::<usize, MaxMethod>(registered[i].2) };
-    let f: extern "C" fn(&W) = unsafe { cast(m(0)) };
-    f(&w);
-    let f: extern "C" fn(&W, t_atom_long) = unsafe { cast(m(1)) };
-    f(&w, 5);
-    let f: extern "C" fn(&W, f64) = unsafe { cast(m(2)) };
-    f(&w, 0.5);
-    let f: extern "C" fn(&W, *mut max_sys::t_symbol) = unsafe { cast(m(3)) };
-    let mut s = symbol(c"s");
-    f(&w, &mut s);
-    let atoms = [long_atom(1), long_atom(2)];
-    let f: Gimme = unsafe { cast(m(4)) };
-    f(&w, &mut s, 2, atoms.as_ptr());
-    let f: Gimme = unsafe { cast(m(5)) };
-    f(&w, &mut s, 1, atoms.as_ptr());
-    let f: extern "C" fn(&W, *mut max_sys::t_symbol) = unsafe { cast(m(6)) };
-    f(&w, &mut s);
-    let f: extern "C" fn(&W, t_atom_long, f64) = unsafe { cast(m(7)) };
-    f(&w, 3, 4.5);
-    let f: Gimme = unsafe { cast(m(8)) };
-    f(&w, &mut s, 2, atoms.as_ptr());
+    //each method was registered under its selector with the argument types of its arguments
+    use max_sys::e_max_atomtypes::{A_DEFSYM, A_FLOAT, A_GIMME, A_LONG, A_SYM};
+    let types = |sel: &str| {
+        let (fun, types) = k.method(obj, sel).unwrap_or_else(|| panic!("no method {sel}"));
+        assert_ne!(fun, 0);
+        types
+    };
+    for (sel, t) in [
+        ("bang", &[][..]),
+        ("int", &[A_LONG as i32][..]),
+        ("float", &[A_FLOAT as i32][..]),
+        ("symbol", &[A_SYM as i32][..]),
+        ("list", &[A_GIMME as i32][..]),
+        ("anything", &[A_GIMME as i32][..]),
+        ("set", &[A_DEFSYM as i32][..]),
+        ("two", &[A_LONG as i32, A_FLOAT as i32][..]),
+        ("gimme", &[A_GIMME as i32][..]),
+    ] {
+        assert_eq!(types(sel), t, "{sel}");
+    }
+
+    //and the methods that were registered are the ones that work, as Max would call them
+    k.send_bang(obj).unwrap();
+    k.send_int(obj, 5).unwrap();
+    k.send_float(obj, 0.5).unwrap();
+    k.send(obj, "symbol", &["s".into()]).unwrap();
+    k.send_list(obj, &[1.into(), 2.into()]).unwrap();
+    k.send(obj, "other", &[1.into()]).unwrap();
+    k.send(obj, "set", &["s".into()]).unwrap();
+    //the default of a selector argument
+    k.send(obj, "set", &[]).unwrap();
+    k.send(obj, "two", &[3.into(), 4.5.into()]).unwrap();
+    k.send(obj, "gimme", &[1.into(), 2.into()]).unwrap();
     assert_eq!(
         w.t.take(),
         [
@@ -573,16 +526,20 @@ fn class_registers_the_methods() {
             "float 0.5",
             "symbol s",
             "list 2",
-            "anything s 1",
+            "anything other 1",
             "set s",
+            "set ",
             "two 3 4.5",
-            "gimme s 2"
+            "gimme gimme 2"
         ]
     );
+    assert!(k.console_log().is_empty());
+    assert!(k.free_object(obj));
 }
 
 #[test]
 fn add_sel_with_too_many_defaults_is_an_error_not_a_panic() {
+    let _k = median_mock::lock();
     // SAFETY: the class is never used, the call fails before it would be
     let mut c: Class<W> = unsafe { Class::new_registered(std::ptr::null_mut()) };
     assert!(c.add_sel(c"set", set, 2).is_err());

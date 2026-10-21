@@ -28,8 +28,13 @@ cd median/examples/simp && cargo make build    # needs cargo-make; package/insta
 Externals are `cdylib`s linked with `-undefined dynamic_lookup` (see the `.cargo/config*` files
 next to each example and the template); Max symbols resolve at load time. Nothing in this repo
 can run an external outside Max, so behaviour in Max has to be checked by hand or stated as
-untested. `median/src/test/` contains `#[no_mangle]` stubs for a few SDK functions so unit tests
-can link; they are not a Max mock.
+untested. The unit tests, doc tests and `median/tests/` link `median-mock/`, a Rust implementation
+of the subset of the Max C API that median calls (dev-dependency; `use median_mock as _;` makes the
+lib tests link it). It creates objects through their `new` method, dispatches messages, records
+outlet and console output and drives clocks and `dsp64` deterministically. Every test that touches
+it takes `median_mock::lock()` for its whole body (tests run concurrently otherwise). There are no
+`#[no_mangle]` stubs of SDK functions in median: add a missing function to `median-mock`, with a
+test there. `median/tests/e2e.rs` shows an external tested end to end.
 
 ## Known state (read before changing wrapper code)
 
@@ -50,6 +55,10 @@ Still open, and reachable from safe code:
 - `SymbolRef::assign` (H5), `BufferLocked`'s `&mut [f32]` over a shared lock (H7) and escaping
   outlet handles (M10).
 - buffer~ data is interleaved, not planar (M1).
+- `ClockHandle::new_unarmed` (`median/src/clock.rs`) passes a C string as the `t_symbol *` key of
+  `object_obex_lookup` (needs `gensym`); `median-mock` crashes on it, so every test that creates
+  a clock is `#[ignore]`d (`a_clock_fires_when_the_kernel_advances` in `median/tests/e2e.rs`; it
+  passes with the one-line fix).
 - A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
   `ClockShared` in `median/src/clock.rs`.
 

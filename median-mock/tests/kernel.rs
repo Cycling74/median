@@ -41,6 +41,7 @@ struct Thing {
 
 static THING_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
 static DSP_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
+static APPEND_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
 static FREED: AtomicI64 = AtomicI64::new(0);
 /// `(thing id, logical time, on the timer thread)` for every clock callback
 static TICKS: Mutex<Vec<(i64, f64, bool)>> = Mutex::new(Vec::new());
@@ -267,9 +268,41 @@ extern "C" fn dsp_dsp64(
     }
 }
 
+/// Makes its outlets with `outlet_append`, as median does: `int`, `list`, anything, left to right,
+/// then one with `outlet_new`, which goes to the left of those.
+#[repr(C)]
+struct AppendThing {
+    ob: t_object,
+    outs: [*mut c_void; 4],
+}
+
+extern "C" fn append_new(_s: *mut t_symbol, _argc: c_long, _argv: *mut t_atom) -> *mut c_void {
+    unsafe {
+        let x = max_sys::object_alloc(APPEND_CLASS.load(Ordering::SeqCst)) as *mut AppendThing;
+        let o = x as *mut t_object;
+        (*x).outs[0] = max_sys::outlet_append(o, null_mut(), sym(c"int"));
+        (*x).outs[1] = max_sys::outlet_append(o, null_mut(), sym(c"list"));
+        (*x).outs[2] = max_sys::outlet_append(o, null_mut(), null_mut());
+        (*x).outs[3] = max_sys::outlet_new(x as _, c"float".as_ptr());
+        x as *mut c_void
+    }
+}
+
 fn register() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| unsafe {
+        let a = max_sys::class_new(
+            c"append.thing".as_ptr(),
+            meth!(append_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+            None,
+            size_of::<AppendThing>() as c_long,
+            None,
+            ty::A_GIMME as c_short,
+            0,
+        );
+        assert_eq!(max_sys::class_register(sym(c"box"), a), 0);
+        APPEND_CLASS.store(a, Ordering::SeqCst);
+
         let c = max_sys::class_new(
             c"thing".as_ptr(),
             meth!(thing_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
@@ -479,6 +512,32 @@ fn dispatch_bang_int_float_list_anything_and_outlets_are_recorded() {
     assert_eq!(k.outlet_count(x), 2);
     assert_eq!(k.take_outlet_log().len(), 6);
     assert!(k.outlet_log().is_empty());
+}
+
+#[test]
+fn outlet_append_adds_to_the_right_and_outlet_new_to_the_left() {
+    let k = median_mock::lock();
+    register();
+    let x = k.new_object("append.thing", &[]);
+    assert!(!x.is_null());
+    // left to right: the `outlet_new` one, then the three appended in the order they were made
+    assert_eq!(
+        k.outlet_types(x),
+        [Some("float".to_string()), Some("int".to_string()), Some("list".to_string()), None]
+    );
+    unsafe {
+        let outs = (*(x as *mut AppendThing)).outs;
+        max_sys::outlet_float(outs[3], 1.0);
+        max_sys::outlet_int(outs[0], 2);
+        max_sys::outlet_int(outs[1], 3);
+        max_sys::outlet_anything(outs[2], sym(c"foo"), 0, null_mut());
+    }
+    let seen: Vec<_> = k.outlet_log().iter().map(|e| (e.index, e.selector.clone())).collect();
+    assert_eq!(
+        seen,
+        [(0, "float".to_string()), (1, "int".to_string()), (2, "int".to_string()), (3, "foo".to_string())]
+    );
+    assert!(k.free_object(x));
 }
 
 #[test]
@@ -824,6 +883,31 @@ fn dsp64_records_the_perform_routine_and_it_runs_on_the_audio_role() {
         assert_eq!(max_sys::systhread_ismainthread(), 1);
     }
     assert!(k.free_object(o));
+}
+
+#[test]
+fn dsp_adds_lists_what_dsp64_was_called_without_the_harness() {
+    let k = median_mock::lock();
+    register();
+    let o = k.new_object("dsp.thing", &[]);
+    assert!(k.dsp_adds().is_empty());
+    // `Kernel::dsp64` hands over what the method added, so nothing is left for `dsp_adds`
+    assert_eq!(k.dsp64(o, 48000.0, 64).unwrap().len(), 1);
+    assert!(k.dsp_adds().is_empty());
+    // calling the method some other way is seen, and a read does not take them
+    let method = k.method(o, "dsp64").unwrap().0;
+    // SAFETY: `dsp64` is the `A_CANT` method `(x, dsp64, count, sr, vs, flags)` of `DspThing`
+    unsafe {
+        let f = std::mem::transmute::<usize, extern "C" fn(*mut c_void, *mut t_object, *mut c_short, f64, c_long, c_long)>(method);
+        f(o, null_mut(), null_mut(), 48000.0, 64, 0);
+        f(o, null_mut(), null_mut(), 48000.0, 64, 0);
+    }
+    assert_eq!(k.dsp_adds().len(), 2);
+    assert_eq!(k.dsp_adds().len(), 2);
+    assert_eq!(k.dsp_adds()[0].object, o as usize);
+    // a reset forgets them
+    k.reset();
+    assert!(k.dsp_adds().is_empty());
 }
 
 // ---------------------------------------------------------------------------------------------

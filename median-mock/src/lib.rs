@@ -37,8 +37,9 @@
 //!   first, then releases the object's inlets, outlets and registrations, then the memory),
 //!   `freeobject`, `object_method` (see its docs for the restrictions).
 //! * Inlets and outlets: `outlet_new`, `outlet_append`, `outlet_bang/int/float/list/anything`,
-//!   `inlet_new`, `intin`, `floatin`, `proxy_new`, `proxy_getinlet`. Outlets only record; they are
-//!   not connectable to other objects.
+//!   `inlet_new`, `intin`, `floatin`, `proxy_new`, `proxy_getinlet`. `outlet_new` makes each new
+//!   outlet the leftmost, as in Max, and `outlet_append` (which median uses) adds to the right.
+//!   Outlets only record; they are not connectable to other objects.
 //! * Clocks: `clock_new`, `clock_new_withscheduler` (one scheduler only), `clock_delay`,
 //!   `clock_fdelay`, `clock_unset`, `clock_getftime`, `gettime`, `scheduler_fromobject` (always
 //!   null). Time moves only in [`Kernel::advance`].

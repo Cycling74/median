@@ -219,7 +219,6 @@ impl Kernel {
         };
         o.outlets
             .iter()
-            .rev()
             .filter_map(|p| match &st.subs.get(p)?.kind {
                 SubKind::Outlet { ty, .. } => Some(ty.clone()),
                 _ => None,
@@ -354,6 +353,14 @@ impl Kernel {
             );
         }
         Ok(std::mem::take(&mut state().dsp_adds))
+    }
+
+    /// The perform routines added with `dsp_add64` since the last reset, without removing them.
+    /// [`dsp64`](Self::dsp64) takes the ones its call added (and clears the list first), so this is
+    /// for code that gets a `dsp64` method called some other way, or that checks that none was
+    /// added.
+    pub fn dsp_adds(&self) -> Vec<DspAdd> {
+        state().dsp_adds.clone()
     }
 
     // ----- attributes
