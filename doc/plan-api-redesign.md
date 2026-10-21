@@ -206,6 +206,19 @@ pub struct Outlet<K: OutletKind> { .. }  // Outlet<Bang>, Outlet<Int>, Outlet<Fl
 - Default when an object has no `assist` method: the kernel synthesises "<description> inlet N
   (types)" from the box description attribute and inlet/outlet type symbols. median's current
   default "inlet N" is weaker than registering nothing; the table should emit at least the type.
+- Message-list noise (2026-10-21): every class currently gets `ft1`..`ft9` and `in1`..`in9`
+  registered up front (`register_ft_in`), because the inlets are declared in `new`, after the class
+  exists, and all 18 show in the object's message menu. Two parts: (a) mark every wrapper-internal
+  method `undocumented` (`CLASS_METHOD_ATTR_PARSE(c, "ft1", "undocumented", gensym("long"), 0, "1")`,
+  i.e. `class_extra_lookup(c, "methods")` + `hashtab_lookup` + `object_addattr_parse`; the SDK's
+  `ext_obex_util.h` documents it as "makes a method invisible to users", `dummy.c` uses it). Has to
+  be checked in Max: the header's other comment only promises the ref-page generator ignores it.
+  (b) Typed `int`/`float` inlets become proxies dispatched through the class's own `int`/`float`
+  methods by `proxy_getinlet`, so no `inN`/`ftN` exist at all. Cost: since inlets are declared
+  after the class exists, `int` and `float` are always registered (2 menu entries instead of 18),
+  and an `int`/`float` arriving on an inlet with no handler posts the usual "doesn't understand"
+  error from the wrapper. Proxies are also somewhat heavier than `intin`/`floatin`.
+  Do (a) in step 4 regardless; (b) if testing shows (a) does not hide them from the menu.
 - Dynamic inlet/outlet counts: ~20 kernel objects (`gain~`, `gen~`, `poly~`, `mc.wrapper~`, `js`)
   add or remove iolets after construction through the `dynlet_begin`/`dynlet_end` box protocol.
   Not in scope now, but keep the iolet table behind an `RwLock` (or interior-mutable `Vec`) so a
