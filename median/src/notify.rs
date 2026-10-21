@@ -43,6 +43,8 @@ pub struct Attachment {
 /// Errors registering.
 pub enum RegistrationError {
     NameCollision,
+    /// `object_register` returned null.
+    Failed,
 }
 
 /// Errors attaching.
@@ -108,8 +110,11 @@ impl Registration {
             // SAFETY: as above
             let inner =
                 unsafe { max_sys::object_register(namespace.inner(), name.inner(), obj as _) };
-            assert!(!inner.is_null());
-            Ok(Self { inner })
+            if inner.is_null() {
+                Err(RegistrationError::Failed)
+            } else {
+                Ok(Self { inner })
+            }
         } else {
             Err(RegistrationError::NameCollision)
         }
