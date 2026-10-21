@@ -79,14 +79,25 @@ impl ClockShared {
         drop(old);
     }
 
-    /// Run the callback, if the target is armed and still set. Holds the lock for the duration.
+    /// Run the callback, if the target is armed and still set. Holds the lock for the duration,
+    /// including reporting a panic against the target.
     fn call(&self) {
+        self.call_with(|target, msg| {
+            // SAFETY: called with the lock held, so the owner hasn't been freed (its free path
+            // clears this target, which waits for the lock)
+            unsafe { crate::object::error(target, crate::ffi::panic_text("clock", msg)) }
+        })
+    }
+
+    /// `call`, with `report` called (still under the lock) if the callback panics.
+    fn call_with<P: FnOnce(*mut max_sys::t_object, &str)>(&self, report: P) {
         if !self.armed.load(Ordering::Acquire) {
             return;
         }
         let guard = self.target.lock();
         if let Some((target, func)) = &*guard {
-            (func)(target.0)
+            let target = target.0;
+            crate::ffi::guard_with((), || (func)(target), |msg| report(target, msg));
         }
     }
 
@@ -108,8 +119,9 @@ struct ClockInner {
 
 impl ClockInner {
     pub extern "C" fn call_tramp(wrapper: &MaxObjWrapper<Self>) {
-        //a panic unwinds through `ClockShared::call`, which releases the lock
-        crate::ffi::guard(wrapper, "clock", || wrapper.wrapped().shared.call())
+        //`call` catches and reports a panic itself, under the lock: after the lock is released
+        //neither the owner nor this clock's object may be alive any more
+        wrapper.wrapped().shared.call()
     }
 }
 
@@ -301,6 +313,12 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    //`ClockShared::call` reports panics through Max's `object_error`, which the test binary
+    //can't link
+    fn call(shared: &ClockShared) {
+        shared.call_with(|_, _| ())
+    }
+
     #[test]
     fn unarmed_callback_does_not_run() {
         let count = Arc::new(AtomicUsize::new(0));
@@ -312,10 +330,10 @@ mod tests {
                 c.fetch_add(1, Ordering::SeqCst);
             }),
         );
-        shared.call();
+        call(&shared);
         assert_eq!(count.load(Ordering::SeqCst), 0);
         shared.arm();
-        shared.call();
+        call(&shared);
         assert_eq!(count.load(Ordering::SeqCst), 1);
     }
 
@@ -331,10 +349,10 @@ mod tests {
                 c.fetch_add(1, Ordering::SeqCst);
             }),
         );
-        shared.call();
+        call(&shared);
         assert_eq!(count.load(Ordering::SeqCst), 1);
         shared.clear();
-        shared.call();
+        call(&shared);
         assert_eq!(count.load(Ordering::SeqCst), 1);
     }
 
@@ -354,7 +372,7 @@ mod tests {
             }),
         );
         let sh = shared.clone();
-        let t = std::thread::spawn(move || sh.call());
+        let t = std::thread::spawn(move || call(&sh));
         while started.load(Ordering::SeqCst) == 0 {
             std::thread::yield_now();
         }
@@ -365,14 +383,18 @@ mod tests {
     }
 
     #[test]
-    fn panicking_callback_releases_lock() {
+    fn panicking_callback_is_reported_under_lock() {
         let shared = ClockShared::new();
         shared.arm();
         shared.set(std::ptr::null_mut(), Box::new(|_| panic!("callback failed")));
-        let r = crate::ffi::catch(|| shared.call());
-        assert_eq!(r, Err("callback failed".to_string()));
-        //the lock was released by the unwind: this would deadlock otherwise
+        let mut reported = None;
+        shared.call_with(|_, msg| {
+            //the report runs while the lock is still held
+            assert!(shared.target.try_lock().is_none());
+            reported = Some(msg.to_string());
+        });
+        assert_eq!(reported.as_deref(), Some("callback failed"));
+        //the lock was released afterwards: this would deadlock otherwise
         shared.clear();
-        shared.call();
     }
 }

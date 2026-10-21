@@ -109,11 +109,11 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<Token
         pub unsafe extern "C" fn #tramp_name(
             wrapper: &#t,
             sel: *mut ::median::max_sys::t_symbol,
-            ac: ::std::os::raw::c_long,
+            ac: ::std::os::raw::c_short,
             av: *const ::median::max_sys::t_atom,
         ) {
             ::median::ffi::guard(wrapper, stringify!(#meth_name), || unsafe {
-                median::method::sel_list(sel, ac, av, |sym, atoms| {
+                median::method::sel_list(sel, ac as ::std::os::raw::c_long, av, |sym, atoms| {
                     ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
                 });
             })

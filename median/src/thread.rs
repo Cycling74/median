@@ -4,7 +4,7 @@
 pub type DeferMethod = unsafe extern "C" fn(
     obj: *mut max_sys::t_object,
     sym: *mut max_sys::t_symbol,
-    argc: std::os::raw::c_long,
+    argc: std::os::raw::c_short,
     argv: *const max_sys::t_atom,
 );
 
@@ -45,7 +45,7 @@ pub unsafe fn defer(
             obj as _,
             Some(std::mem::transmute::<_, _>(method)),
             sym.inner(),
-            args.len() as _,
+            args.len().min(std::os::raw::c_short::MAX as usize) as _,
             std::mem::transmute::<_, _>(args.as_ptr()), //should have been const in max_sys
         );
     }
@@ -79,7 +79,7 @@ pub unsafe fn defer_low(
             obj as _,
             Some(std::mem::transmute::<_, _>(method)),
             sym.inner(),
-            args.len() as _,
+            args.len().min(std::os::raw::c_short::MAX as usize) as _,
             std::mem::transmute::<_, _>(args.as_ptr()), //should have been const in max_sys
         );
     }

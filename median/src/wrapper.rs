@@ -44,7 +44,7 @@ pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 pub type DeferMethodWrapped<T> = unsafe extern "C" fn(
     wrapper: &T,
     sym: *mut max_sys::t_symbol,
-    argc: c_long,
+    argc: std::os::raw::c_short,
     argv: *const max_sys::t_atom,
 );
 
@@ -1028,6 +1028,12 @@ where
     }
 
     extern "C" fn free_msp(this: *mut Self) {
+        //releasing the clocks drops user closures, so keep it inside the panic guard
+        crate::ffi::guard_global("free", (), || Self::free_msp_inner(this));
+        Self::free_wrapped(this);
+    }
+
+    fn free_msp_inner(this: *mut Self) {
         // SAFETY: Max passes the object it is freeing
         let constructed = unsafe { (*this).constructed };
         //shut out the clocks first: a running callback holds `&W` over the whole object,
@@ -1041,7 +1047,6 @@ where
                 max_sys::z_dsp_free(this as *mut max_sys::t_pxobject);
             }
         }
-        Self::free_wrapped(this);
     }
 
     extern "C" fn perform64(
