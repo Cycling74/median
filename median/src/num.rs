@@ -14,24 +14,24 @@
 use std::sync::atomic::Ordering;
 
 //re-export
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(target_has_atomic = "64")]
 pub use self::atomic64::*;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(target_has_atomic = "64")]
 mod atomic64 {
     use super::Ordering;
-    use std::sync::atomic::{AtomicI64, AtomicU64};
+    use std::sync::atomic::{AtomicI64, AtomicU32, AtomicU64};
 
     macro_rules! impl_atomic {
         ($t:ty, $a:ident, $store:ty, $atomic:ty, $to:expr, $from:expr) => {
             #[derive(Default)]
             #[repr(transparent)]
             pub struct $a {
-                pub(crate) value: $atomic,
+                value: $atomic,
             }
 
             impl $a {
-                pub fn new(v: $t) -> Self {
+                pub const fn new(v: $t) -> Self {
                     Self {
                         value: <$atomic>::new(($to)(v)),
                     }
@@ -74,6 +74,7 @@ mod atomic64 {
 
     //`Send` and `Sync` come from the atomic fields; there is no `unsafe impl`.
     impl_atomic!(f64, Float64, u64, AtomicU64, f64::to_bits, f64::from_bits);
+    impl_atomic!(f32, Float32, u32, AtomicU32, f32::to_bits, f32::from_bits);
     const fn long_to_i64(v: max_sys::t_atom_long) -> i64 {
         v as i64
     }
@@ -96,7 +97,7 @@ mod atomic64 {
     }
 }
 
-#[cfg(all(test, any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(all(test, target_has_atomic = "64"))]
 mod tests {
     use super::atomic64::*;
     use std::sync::Arc;
@@ -115,20 +116,20 @@ mod tests {
     }
 
     static BLAH: A = A {
-        f: Float64 {
-            value: std::sync::atomic::AtomicU64::new(0),
-        },
+        f: Float64::new(0f64),
     };
 
     #[test]
     fn sizes() {
         assert_eq!(std::mem::size_of::<f64>(), std::mem::size_of::<Float64>());
+        assert_eq!(std::mem::size_of::<f32>(), std::mem::size_of::<Float32>());
         assert_eq!(std::mem::size_of::<i64>(), std::mem::size_of::<Int64>());
     }
 
     #[test]
     fn align() {
         assert_eq!(std::mem::align_of::<f64>(), std::mem::align_of::<Float64>());
+        assert_eq!(std::mem::align_of::<f32>(), std::mem::align_of::<Float32>());
         assert_eq!(std::mem::align_of::<i64>(), std::mem::align_of::<Int64>());
     }
 
@@ -158,12 +159,17 @@ mod tests {
             assert_eq!(f.clone().get().to_bits(), bits);
         }
         assert_eq!(Float64::default().get(), 0.0);
+        let g = Float32::new(0.25);
+        assert_eq!(g.get(), 0.25);
+        assert_eq!(g.clone().get(), 0.25);
+        assert_eq!(format!("{}", g), "0.25");
     }
 
     #[test]
     fn can_share() {
         fn is_send_sync<T: Send + Sync>() {}
         is_send_sync::<Float64>();
+        is_send_sync::<Float32>();
         is_send_sync::<Int64>();
 
         let x = Arc::new(A::new());
