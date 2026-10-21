@@ -535,7 +535,6 @@ fn attributes_get_and_set_through_the_kernel() {
 //`gensym(name.as_ptr())` as the key (as the `object_obex_storeflags` call next to it has) this
 //test passes.
 #[test]
-#[ignore = "median bug: ClockHandle::new_unarmed passes a char * as the t_symbol * key of object_obex_lookup"]
 fn a_clock_fires_when_the_kernel_advances() {
     let k = median_mock::lock();
     register();

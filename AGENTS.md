@@ -55,10 +55,6 @@ Still open, and reachable from safe code:
 - `SymbolRef::assign` (H5), `BufferLocked`'s `&mut [f32]` over a shared lock (H7) and escaping
   outlet handles (M10).
 - buffer~ data is interleaved, not planar (M1).
-- `ClockHandle::new_unarmed` (`median/src/clock.rs`) passes a C string as the `t_symbol *` key of
-  `object_obex_lookup` (needs `gensym`); `median-mock` crashes on it, so every test that creates
-  a clock is `#[ignore]`d (`a_clock_fires_when_the_kernel_advances` in `median/tests/e2e.rs`; it
-  passes with the one-line fix).
 - A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
   `ClockShared` in `median/src/clock.rs`.
 

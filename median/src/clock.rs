@@ -272,7 +272,7 @@ impl ClockHandle {
             unsafe {
                 if max_sys::object_obex_lookup(
                     target as _,
-                    std::mem::transmute::<_, _>(name.as_ptr()),
+                    max_sys::gensym(name.as_ptr()),
                     &mut ob,
                 ) == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_atom_long
                 {
