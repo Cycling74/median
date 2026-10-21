@@ -209,6 +209,41 @@ stub with `libc::malloc`/`free`, or store the size in a header, so the tests the
 Acceptance: an example method that deliberately panics prints to the Max console and the patch
 keeps running.
 
+## Status (2026-10-21, branch `xnor/soundness-fixes`)
+
+Items 0-10 are implemented, one commit each, plus fixups from two review passes. `cargo test`,
+clippy with `not_unsafe_ptr_arg_deref` denied, and builds of `median_macros` and the three examples
+pass. None of the acceptance checks that need Max have been run.
+
+Where the implementation differs from the text above:
+
+- Edition 2018 has no `c"..."` literals; the `"%s"` format is a `b"%s\0"` constant in `max.rs`.
+- Item 1: `Proxy::get_inlet` became `unsafe`, so `simp`, the template and the README wrap that call
+  in `unsafe`. `attr::touch_with_name` is also `unsafe` now (safe `attr_touch_with_name` on
+  `MaxObj`/`MSPObj`). `From<*mut t_symbol> for SymbolRef` is replaced by `unsafe SymbolRef::from_raw`.
+- Item 0/M9: absent accessors are passed as `None` only for offset attributes; non-offset
+  attributes keep the no-ops, because `attribute_new`'s defaults store into class-shared memory.
+- Item 4: signal i/o above 64 channels skips user `perform` and silences all outlets. A panic in
+  `perform` (or `dsp_setup`) silences the object until DSP is restarted.
+- Item 6: `ObjBox::alloc` returns `Option`; a null `object_alloc` makes `new` return null to Max.
+- Item 7: clocks hold an `Arc<ClockShared>` (mutex held during the callback, `armed` flag set only
+  after construction). The free trampolines take `*mut Self`, clear the clocks, then drop the
+  internals in place. `clock_new_withscheduler` replaces the `#S` obex store.
+- Item 8: the alignment check is a post-monomorphisation compile error, not a runtime assert.
+  `Slice::new_with_length`/`From` can still panic on size overflow or a null allocation.
+- Item 10: the examples' release profiles also switch to `panic = "unwind"`. `WrappedDefer::defer`
+  and `defer_low` are now `unsafe` (the object must outlive the deferred call).
+
+Known remaining issues found in review, not fixed here:
+
+- A clock callback that frees its own owner (or drops its own `ClockHandle`) deadlocks instead of
+  using freed memory. Documented on `ClockShared`.
+- An MSP object whose `T::new` panics after `z_dsp_setup` never gets `z_dsp_free` (likely a leak).
+- `object_post!`/`object_error!` still accept any pointer from safe code; fixing it needs a
+  signature change, so it goes with step 2.
+- Buffer `getname` (item 5): the headers don't say whether it writes through the argument or
+  returns the symbol. Test a late-bound `buffer~` with `hello_dsp`.
+
 ## Out of scope for step 1 (handled in the redesign)
 
 After step 1 the crate is still unsound through these paths; say so in the README until step 2 ships.

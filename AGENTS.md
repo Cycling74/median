@@ -34,17 +34,19 @@ can link; they are not a Max mock.
 ## Known state (read before changing wrapper code)
 
 `doc/review-2026-10.md` lists soundness defects in `median/src` with `file:line` references,
-graded H/M/L. Many are reachable from safe code. The important ones for anyone editing the core:
+graded H/M/L. Step 1 of the fixes (`doc/plan-soundness-fixes.md`, see its "Status" section) is
+done: `perform64`/`dsp64` take `&self`, `num` types are real atomics, raw-pointer fns are `unsafe`
+(clippy's `not_unsafe_ptr_arg_deref` is `deny` in `median/Cargo.toml`), console output uses
+`"%s"`, attribute accessors return `t_max_err`, clocks are shut out before their owner is dropped,
+and every trampoline catches panics. Still open, and reachable from safe code:
 
-- `perform64`/`dsp64` take `&mut self` while other threads hold `&self` (H1).
 - The blanket `MaxObj for T` recovers the object pointer by offset arithmetic from `&self`; it is
   only valid inside a wrapper (H3). Do not add more impls of this shape.
-- `num::Float64`/`Int64` are non-atomic cells declared `Sync` (H4); use real atomics in new code.
-- Many `pub fn`s dereference raw pointers but are not `unsafe` (H9; this is what clippy's
-  `not_unsafe_ptr_arg_deref` errors are).
+- `SymbolRef::assign` (H5), `BufferLocked`'s `&mut [f32]` over a shared lock (H7), escaping outlet
+  handles (M10), and `object_post!`/`object_error!` accepting any pointer from safe code.
 - buffer~ data is interleaved, not planar (M1).
-- Console output passes the message as a printf format string (H11); use `"%s"`.
-- Attribute accessor trampolines return `()` where the SDK expects `t_max_err` (H12).
+- A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
+  `ClockShared` in `median/src/clock.rs`.
 
 `doc/plan-soundness-fixes.md` is the ordered list of fixes that keep the public API;
 `doc/plan-api-redesign.md` is the breaking redesign (derive + `#[methods]` instead of
