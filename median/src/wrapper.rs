@@ -143,12 +143,6 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// * Your best guess of the sample rate before DSP is toggled on is the value from [`max_sys::sys_getsr()`]
     #[allow(unused)]
     fn dsp_setup(&self, sample_rate: f64) {}
-
-    /// Optionally allow Max to reuse input vectors as output vectors.
-    /// You have to be more careful about writing if you do this.
-    fn dsp_in_place() -> bool {
-        false
-    }
 }
 
 pub trait WrapperWrapped<T> {
@@ -187,8 +181,8 @@ pub struct MaxWrapperInternal<T> {
 /// Inner struct for wrapping [`MSPObjWrapped`]
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
-    ins: Vec<MaybeUninit<&'static [f64]>>,
-    outs: Vec<MaybeUninit<&'static mut [f64]>>,
+    signal_inlets: usize,
+    signal_outlets: usize,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
@@ -312,21 +306,16 @@ where
         let mut builder = unsafe { WrappedBuilder::new_msp(owner, sym, args) };
         let wrapped = T::new(&mut builder);
         let mut f = builder.finalize();
-        let ins: Vec<MaybeUninit<&'static [f64]>> = (0..f.signal_inlets)
-            .map(|_i| MaybeUninit::uninit())
-            .collect();
-        let outs: Vec<MaybeUninit<&'static mut [f64]>> = (0..f.signal_outlets)
-            .map(|_i| MaybeUninit::uninit())
-            .collect();
-        if !T::dsp_in_place() {
-            unsafe {
-                (*owner).z_misc |= 1; //Z_NO_INPLACE;
-            }
+        // Always forbid in-place processing: `perform` is handed shared input slices and
+        // mutable output slices at the same time, which must never overlap.
+        // SAFETY: the caller guarantees `owner` is valid and under construction
+        unsafe {
+            (*owner).z_misc |= 1; //Z_NO_INPLACE;
         }
         Self {
             wrapped,
-            ins,
-            outs,
+            signal_inlets: f.signal_inlets,
+            signal_outlets: f.signal_outlets,
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
@@ -399,12 +388,47 @@ fn handle_buffer_ref_notifications(
     }
 }
 
+/// The most signal inlets or outlets for which `perform` can be handed slices. The slice tables
+/// are built on the stack on every perform call (no allocation or locking on the audio thread),
+/// so they need a fixed size.
+const MAX_SIGNAL_IO: usize = 64;
+
 impl<T> MSPWrapperInternal<T>
 where
     T: MSPObjWrapped<T> + Sync + 'static,
 {
+    /// Report (once, at dsp64 time) if this object has more signal inlets/outlets than
+    /// `perform64` can hand to user code.
+    ///
+    /// # Safety
+    /// `obj` must point to this live object.
+    unsafe fn check_signal_io(&self, obj: *mut max_sys::t_object) {
+        if self.signal_inlets > MAX_SIGNAL_IO || self.signal_outlets > MAX_SIGNAL_IO {
+            // SAFETY: the caller guarantees `obj` is valid
+            unsafe {
+                crate::object::error(
+                    obj,
+                    format!(
+                        "median: at most {} signal inlets and outlets are supported, \
+                         this object has {} and {}; the extra inlets are ignored and the extra \
+                         outlets are silent",
+                        MAX_SIGNAL_IO, self.signal_inlets, self.signal_outlets
+                    ),
+                );
+            }
+        }
+    }
+
+    /// Called by Max on the audio thread.
+    ///
+    /// Takes `&self`: other threads may hold `&self` (or `&T`) concurrently. It does not touch
+    /// any shared mutable state, all slice tables live on this call's stack. It does not
+    /// allocate or lock.
+    ///
+    /// Relies on `Z_NO_INPLACE` being set (see `new`), so the input and output buffers Max
+    /// passes never alias.
     extern "C" fn perform64(
-        &mut self,
+        &self,
         _dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
         numins: c_long,
@@ -414,45 +438,46 @@ where
         _flags: c_long,
         _userparam: *mut c_void,
     ) {
-        assert!(self.ins.len() >= numins as _);
-        assert!(self.outs.len() >= numouts as _);
-
-        let nframes = sampleframes as usize;
+        let nframes = sampleframes.max(0) as usize;
 
         //convert into slices
-        let ins = if numins > 0 && !ins.is_null()  {
-            unsafe { std::slice::from_raw_parts(ins, numins as _) } 
+        let ins = if numins > 0 && !ins.is_null() {
+            // SAFETY: Max passes `numins` input buffer pointers
+            unsafe { std::slice::from_raw_parts(ins, numins as usize) }
         } else {
             &[]
         };
-        for (i, ip) in self.ins.iter_mut().zip(ins) {
-            unsafe {
-                i.write(std::slice::from_raw_parts(*ip, nframes));
-            }
-        }
         let outs = if numouts > 0 && !outs.is_null() {
-            unsafe { std::slice::from_raw_parts_mut(outs, numouts as _) }
+            // SAFETY: Max passes `numouts` output buffer pointers
+            unsafe { std::slice::from_raw_parts_mut(outs, numouts as usize) }
         } else {
             &mut []
         };
-        for (o, op) in self.outs.iter_mut().zip(outs) {
-            unsafe {
-                o.write(std::slice::from_raw_parts_mut(*op, nframes));
-            }
+
+        let mut in_slices: [&[f64]; MAX_SIGNAL_IO] = [&[]; MAX_SIGNAL_IO];
+        let mut out_slices: [&mut [f64]; MAX_SIGNAL_IO] = std::array::from_fn(|_| &mut [][..]);
+
+        //clamp to what we have room for
+        let n_in = ins.len().min(MAX_SIGNAL_IO);
+        let n_out = outs.len().min(MAX_SIGNAL_IO);
+
+        for (slice, ip) in in_slices.iter_mut().zip(ins.iter().take(n_in)) {
+            // SAFETY: Max passes `nframes` valid samples for each input
+            *slice = unsafe { std::slice::from_raw_parts(*ip, nframes) };
+        }
+        for (slice, op) in out_slices.iter_mut().zip(outs.iter().take(n_out)) {
+            // SAFETY: Max passes `nframes` valid, unaliased (Z_NO_INPLACE) samples per output
+            *slice = unsafe { std::slice::from_raw_parts_mut(*op, nframes) };
         }
 
-        //do a dance so we can access an immutable and a mutable at the same time
-        let mut ins = std::mem::take(&mut self.ins);
-        let mut outs = std::mem::take(&mut self.outs);
-        unsafe {
-            self.wrapped().perform(
-                std::mem::transmute::<_, &[&[f64]]>(ins.as_slice()),
-                std::mem::transmute::<_, &mut [&mut [f64]]>(outs.as_mut_slice()),
-                nframes,
-            );
+        //outlets we can't hand to user code are silent
+        for op in outs.iter().skip(n_out) {
+            // SAFETY: as above
+            unsafe { std::ptr::write_bytes(*op, 0, nframes) };
         }
-        std::mem::swap(&mut self.ins, &mut ins);
-        std::mem::swap(&mut self.outs, &mut outs);
+
+        self.wrapped()
+            .perform(&in_slices[..n_in], &mut out_slices[..n_out], nframes);
     }
 }
 
@@ -743,7 +768,7 @@ where
                     c.inner(),
                     Some(std::mem::transmute::<
                         extern "C" fn(
-                            &mut Self,
+                            &Self,
                             dsp64: *mut max_sys::t_object,
                             count: *mut std::os::raw::c_short,
                             samplerate: f64,
@@ -807,7 +832,7 @@ where
     }
 
     extern "C" fn perform64(
-        &mut self,
+        &self,
         dsp64: *mut max_sys::t_object,
         ins: *const *const f64,
         numins: c_long,
@@ -817,22 +842,12 @@ where
         flags: c_long,
         userparam: *mut c_void,
     ) {
-        unsafe {
-            (&mut *self.wrapped.as_mut_ptr()).perform64(
-                dsp64,
-                ins,
-                numins,
-                outs,
-                numouts,
-                sampleframes,
-                flags,
-                userparam,
-            );
-        }
+        self.internal()
+            .perform64(dsp64, ins, numins, outs, numouts, sampleframes, flags, userparam);
     }
 
     extern "C" fn dsp64(
-        &mut self,
+        &self,
         dsp64: *mut max_sys::t_object,
         _count: *mut std::os::raw::c_short,
         samplerate: f64,
@@ -840,13 +855,14 @@ where
         _flags: c_long,
     ) {
         unsafe {
+            self.internal().check_signal_io(self.max_obj());
             self.wrapped().dsp_setup(samplerate);
             max_sys::dsp_add64(
                 dsp64,
                 self.max_obj(),
                 Some(std::mem::transmute::<
                     extern "C" fn(
-                        &mut Self,
+                        &Self,
                         dsp64: *mut max_sys::t_object,
                         ins: *const *const f64,
                         numins: c_long,
