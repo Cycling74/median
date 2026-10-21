@@ -19,7 +19,7 @@ impl MaxError {
             max_sys::e_max_errorcodes::MAX_ERR_DUPLICATE => Err(MaxError::Duplicate),
             max_sys::e_max_errorcodes::MAX_ERR_OUT_OF_MEM => Err(MaxError::OutOfMem),
             _ => {
-                println!("unknown error code {}", error);
+                crate::max::error(format!("unknown error code {}", error));
                 Err(MaxError::Generic)
             }
         }

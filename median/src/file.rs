@@ -48,11 +48,15 @@ impl Default for TextLineBreak {
 /// Error reading from a file.
 pub enum FileReadError {
     ErrorOpening,
+    /// The file was opened but its text could not be read.
+    ErrorReading,
 }
 
 /// Error locating a file.
 pub enum LocateError {
     NameEmpty,
+    /// The name doesn't fit in a path buffer, including its terminating NUL.
+    NameTooLong,
     NotFound,
 }
 
@@ -81,7 +85,8 @@ impl FilePath {
     /// filtering.
     ///
     /// # Remarks
-    /// Will return `LocateError::NameEmpty` if the name is empty.
+    /// Will return `LocateError::NameEmpty` if the name is empty and `LocateError::NameTooLong` if
+    /// it is `MAX_PATH_CHARS` bytes or longer.
     pub fn locate(
         name: &SymbolRef,
         types: Option<&Vec<max_sys::t_fourcc>>,
@@ -98,12 +103,16 @@ impl FilePath {
                 None => (std::ptr::null(), 0),
             };
 
+            //copy the name into the space we have, leaving room for the terminating NUL
+            let name = name.to_cstring().into_bytes();
+            if name.len() >= MAX_PATH_CHARS {
+                return Err(LocateError::NameTooLong);
+            }
+            for (f, n) in file_name.iter_mut().zip(name) {
+                *f = n as c_char;
+            }
+
             unsafe {
-                //copy the name into the space we have
-                let name = name.to_cstring().into_bytes_with_nul();
-                for (f, n) in file_name.iter_mut().zip(name) {
-                    *f = n as i8;
-                }
                 if max_sys::locatefile_extended(
                     file_name.as_mut_ptr(),
                     &mut vol,
@@ -184,16 +193,30 @@ impl FilePath {
                 } as max_sys::t_sysfile_text_flags::Type;
                 let fh = fh.assume_init();
                 let texthandle = max_sys::sysmem_newhandle(0);
-                max_sys::sysfile_readtextfile(
+                if texthandle.is_null() {
+                    max_sys::sysfile_close(fh);
+                    return Err(FileReadError::ErrorReading);
+                }
+                let res = if max_sys::sysfile_readtextfile(
                     fh,
                     texthandle,
                     maxlen.unwrap_or(0) as _,
                     lb | max_sys::t_sysfile_text_flags::TEXT_NULL_TERMINATE,
-                );
-                let out = CStr::from_ptr(*texthandle).to_owned();
+                ) == 0
+                {
+                    // a handle that holds no data is an empty text
+                    if (*texthandle).is_null() {
+                        Ok(CString::default())
+                    } else {
+                        Ok(CStr::from_ptr(*texthandle).to_owned())
+                    }
+                } else {
+                    Err(FileReadError::ErrorReading)
+                };
+                // the handle is ours to free, and the file must be closed on every path
                 max_sys::sysmem_freehandle(texthandle);
                 max_sys::sysfile_close(fh);
-                Ok(out)
+                res
             } else {
                 Err(FileReadError::ErrorOpening)
             }

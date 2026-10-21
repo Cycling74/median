@@ -484,10 +484,10 @@ where
 /// # Safety
 /// If `ac > 0`, `av` must point to at least one valid, initialized atom (as Max passes to an
 /// attribute setter) that is valid for the duration of the call.
-pub unsafe fn set<'a, T, F>(ac: c_long, av: *mut max_sys::t_atom, setter: F) -> max_sys::t_max_err
+pub unsafe fn set<T, F>(ac: c_long, av: *mut max_sys::t_atom, setter: F) -> max_sys::t_max_err
 where
     F: Fn(T),
-    T: From<&'a Atom>,
+    T: for<'b> From<&'b Atom>,
 {
     unsafe {
         if ac > 0 && !av.is_null() {
