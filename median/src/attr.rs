@@ -437,7 +437,7 @@ impl<T> Into<*mut max_sys::t_object> for Attr<T> {
 ///
 /// # Safety
 /// `owner` must point to a valid Max object. For a safe version that touches an attribute of
-/// `self` see `attr_touch_with_name` on [`crate::object::MaxObj`] and [`crate::object::MSPObj`].
+/// `self` see [`crate::object::ObjRef::attr_touch_with_name`].
 pub unsafe fn touch_with_name<I: Into<SymbolRef>>(
     owner: *mut max_sys::t_object,
     name: I,

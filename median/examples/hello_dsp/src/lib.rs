@@ -5,7 +5,7 @@ use median::{
     clock::ClockHandle,
     max_sys::t_atom_long,
     num::Int64,
-    object::MSPObj,
+    object::ObjRef,
     post,
     wrapper::{attr_get_tramp, attr_set_tramp, tramp, MSPObjWrapped, MSPObjWrapper},
 };
@@ -13,6 +13,7 @@ use median::{
 median::external! {
     #[name="hello_dsp~"]
     pub struct HelloDSP {
+        obj: ObjRef,
         value: Int64,
         _v: String,
         clock: ClockHandle,
@@ -27,6 +28,7 @@ median::external! {
             //without assist it would be builder.add_signal_inlets(2);
             builder.add_signal_outlets_with_assist(&["out left", "out right"]);
             Self {
+                obj: builder.obj(),
                 value: Int64::new(0),
                 _v: String::from("blah"),
                 clock: builder.with_clockfn(Self::clocked),
@@ -36,7 +38,7 @@ median::external! {
         }
 
         fn dsp_setup(&self, sample_rate: f64) {
-            median::object_post!(self.as_max_obj(), "sample rate: {}", sample_rate);
+            median::object_post!(&self.obj, "sample rate: {}", sample_rate);
         }
 
         //perform the dsp
@@ -72,7 +74,7 @@ median::external! {
     impl HelloDSP {
         #[bang]
         pub fn bang(&self) {
-            median::object_post!(self.as_max_obj(), "from rust {}", self.value);
+            median::object_post!(&self.obj, "from rust {}", self.value);
             self.clock.delay(10);
         }
 
@@ -94,7 +96,7 @@ median::external! {
             post!("from rust {}", self.value);
             //just an example to show an error
             if v < 0 {
-                median::object_error!(self.as_max_obj(), "from rust {}", self.value);
+                median::object_error!(&self.obj, "from rust {}", self.value);
             }
         }
 

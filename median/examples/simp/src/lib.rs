@@ -7,7 +7,7 @@ use median::{
     inlet::MaxInlet,
     max_sys::t_atom_long,
     num::{Float64, Int64},
-    object::MaxObj,
+    object::ObjRef,
     outlet::OutList,
     post,
     symbol::SymbolRef,
@@ -21,6 +21,7 @@ use std::convert::{From, TryFrom};
 median::external! {
     //#[name="simp"]
     pub struct Simp {
+        obj: ObjRef,
         value: Int64,
         fvalue: Float64,
         _v: String,
@@ -43,6 +44,7 @@ median::external! {
             builder.add_inlet(MaxInlet::Int(Box::new(Self::int))); //default assist
             let _ = builder.add_inlet_with_assist(MaxInlet::Proxy, "my proxy inlet");
             Self {
+                obj: builder.obj(),
                 value: Default::default(),
                 fvalue: Default::default(),
                 _v: String::from("blah"),
@@ -88,16 +90,15 @@ median::external! {
         //the name of the method can be anything you want
         #[bang]
         pub fn bang(&self) {
-            // SAFETY: called from a message method, on this object
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
-            median::object_post!(self.max_obj(), "from rust {} inlet {}", self.value, i);
+            let i = self.obj.proxy_inlet();
+            median::object_post!(&self.obj, "from rust {} inlet {}", self.value, i);
             self.clock.delay(10);
         }
 
         pub fn int(&self, v: t_atom_long) {
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
+            let i = self.obj.proxy_inlet();
             self.value.set(v);
-            self.attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
+            self.obj.attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
                 .unwrap();
             post!("direct int from rust {} inlet {}", self.value, i);
         }
@@ -107,10 +108,10 @@ median::external! {
         //that is of type t_atom_long
         #[int]
         pub fn proxied(&self, v: t_atom_long) {
-            // SAFETY: called from a message method, on this object
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
+            let i = self.obj.proxy_inlet();
             self.value.set(v);
-            self.attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
+            self.obj
+                .attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
                 .unwrap();
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);

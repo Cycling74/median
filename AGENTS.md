@@ -38,12 +38,17 @@ graded H/M/L. Step 1 of the fixes (`doc/plan-soundness-fixes.md`, see its "Statu
 done: `perform64`/`dsp64` take `&self`, `num` types are real atomics, raw-pointer fns are `unsafe`
 (clippy's `not_unsafe_ptr_arg_deref` is `deny` in `median/Cargo.toml`), console output uses
 `"%s"`, attribute accessors return `t_max_err`, clocks are shut out before their owner is dropped,
-and every trampoline catches panics. Still open, and reachable from safe code:
+and every trampoline catches panics. Redesign step 1 (`doc/plan-api-redesign.md`) fixed H3 and
+the `object_post!`/`object_error!` hole: the offset-based blanket `MaxObj`/`MSPObj for T` impls and
+the `field-offset` dependency are gone; an object keeps an `ObjRef` (from `builder.obj()`) and
+posts/touches attributes/defers through it, and the macros take `&ObjRef`. `MaxObj`/`MSPObj` are
+only implemented for the wrapper types. Do not add impls of the old shape. Documented limit:
+`ObjRef` is `!Clone`, `!Send`, but safe code can still deliberately leak it (`Box::leak`,
+`thread_local!`) and use it after the object is deleted; the same holds for outlet handles (M10).
+Still open, and reachable from safe code:
 
-- The blanket `MaxObj for T` recovers the object pointer by offset arithmetic from `&self`; it is
-  only valid inside a wrapper (H3). Do not add more impls of this shape.
-- `SymbolRef::assign` (H5), `BufferLocked`'s `&mut [f32]` over a shared lock (H7), escaping outlet
-  handles (M10), and `object_post!`/`object_error!` accepting any pointer from safe code.
+- `SymbolRef::assign` (H5), `BufferLocked`'s `&mut [f32]` over a shared lock (H7) and escaping
+  outlet handles (M10).
 - buffer~ data is interleaved, not planar (M1).
 - A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
   `ClockShared` in `median/src/clock.rs`.

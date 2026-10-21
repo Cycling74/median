@@ -4,7 +4,7 @@ use median::{
     class::Class,
     max_sys::t_atom_long,
     num::Float64,
-    object::MaxObj,
+    object::ObjRef,
     post,
     wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper},
 };
@@ -14,6 +14,7 @@ use median::{
 median::external! {
     #[name="{{crate_name}}"]
     pub struct MaxExtern {
+        obj: ObjRef,
         fvalue: Float64
     }
 
@@ -21,8 +22,8 @@ median::external! {
     impl MaxObjWrapped<MaxExtern> for MaxExtern {
         //create an instance of your object
         //setup inlets/outlets and clocks
-        fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            Self { fvalue: Float64::new(0.0) }
+        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+            Self { obj: builder.obj(), fvalue: Float64::new(0.0) }
         }
 
         // Register any methods you need for your class
@@ -48,9 +49,8 @@ median::external! {
         //the name of the method can be anything you want
         #[bang]
         pub fn bang(&self) {
-            // SAFETY: called from a message method, on this object
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
-            median::object_post!(self.max_obj(), "bang inlet {}", i);
+            let i = self.obj.proxy_inlet();
+            median::object_post!(&self.obj, "bang inlet {}", i);
         }
 
         //create an "int" method and automatically register it.
@@ -58,8 +58,7 @@ median::external! {
         //that is of type t_atom_long
         #[int]
         pub fn int(&self, v: t_atom_long) {
-            // SAFETY: called from a message method, on this object
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
+            let i = self.obj.proxy_inlet();
             post!("int {} inlet {}", v, i);
         }
 

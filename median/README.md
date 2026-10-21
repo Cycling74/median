@@ -21,32 +21,32 @@ See the [examples folder](examples/README.md) for more detailed examples.
 
 ```rust,no_run
 use median::{
-    atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::MaxObj, post,
+    atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::ObjRef, post,
     symbol::SymbolRef, wrapper::*,
 };
 
 median::external! {
-    pub struct Example;
+    pub struct Example {
+        obj: ObjRef,
+    }
 
     impl MaxObjWrapped<Example> for Example {
         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
             let _ = builder.add_inlet(median::inlet::MaxInlet::Proxy);
-            Self
+            Self { obj: builder.obj() }
         }
     }
 
     impl Example {
         #[bang]
         pub fn bang(&self) {
-            // SAFETY: called from a message method, on this object
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
-            median::object_post!(self.max_obj(), "bang from inlet {}", i);
+            let i = self.obj.proxy_inlet();
+            median::object_post!(&self.obj, "bang from inlet {}", i);
         }
 
         #[int]
         pub fn int(&self, v: t_atom_long) {
-            // SAFETY: called from a message method, on this object
-            let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
+            let i = self.obj.proxy_inlet();
             post!("int {} from inlet {}", v, i);
         }
 

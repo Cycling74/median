@@ -371,7 +371,17 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
 
 - [x] 0. Toolchain (2eb44da). `ext_main` now emits `#[unsafe(no_mangle)]`, accepted by 2018 user
   crates too. The examples and template stay on edition 2018 until they are ported.
-- [ ] 1. `ObjRef`, blanket `MaxObj`/`MSPObj` removed
+- [x] 1. `ObjRef`, blanket `MaxObj`/`MSPObj` removed. Differences from section D: `ObjRef` also
+  carries `PhantomData<*const ()>` (explicit `!Send`, `unsafe impl Sync`); it has `from_raw`
+  (unsafe), `proxy_inlet` (wraps `proxy_getinlet`, safe but only meaningful inside a message
+  method), `defer`/`defer_low` (unsafe, replacing `WrappedDefer`, which is removed), plus
+  `try_register`/`try_attach`/`subscribe`/`attr_*touch_with_name` moved over from `MaxObj`;
+  `attr_touch` is spelled `attr_touch_with_name` as before. `MaxObj`/`MSPObj` no longer have
+  `post`/`post_error`/etc. `ObjBuilder::obj(&mut self)` hands the handle out (the unsafe
+  `max_obj`/`msp_obj` builder accessors stay for now). `object_post!`/`object_error!` take
+  `&ObjRef` only (not `AsRef<ObjRef>`); `object_warn!` is new. `field-offset` is removed. The
+  "object pointer mismatch" sanity checks are removed. `multi` was left as is (its objects
+  don't use a handle).
 - [ ] 2. `Class<W>::add_*`
 - [ ] 3. derive + `#[methods]`, `simp` ported
 - [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported

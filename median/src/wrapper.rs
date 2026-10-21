@@ -154,24 +154,6 @@ pub trait WrapperWrapped<T> {
     fn wrapped(&self) -> &T;
 }
 
-/// Defer methods for wrapped objects.
-pub trait WrappedDefer<T> {
-    ///defer a tramp method with the sym and atoms args
-    ///
-    /// # Safety
-    /// The object must stay alive until the deferred call has run: Max does not keep it alive,
-    /// and the deferred call receives a pointer to it. For example, the object must not be freed
-    /// (the box deleted) before then.
-    unsafe fn defer(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
-    ///defer_low a tramp method with the sym and atoms args
-    ///
-    /// # Safety
-    /// The object must stay alive until the deferred call has run: Max does not keep it alive,
-    /// and the deferred call receives a pointer to it. For example, the object must not be freed
-    /// (the box deleted) before then.
-    unsafe fn defer_low(&self, method: DeferMethodWrapped<T>, sym: SymbolRef, atoms: &[Atom]);
-}
-
 /// The actual struct that is given to max
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
@@ -812,14 +794,6 @@ where
             };
             match Self::try_new(sym, &args) {
                 Some(o) => {
-                    //sanity check for the offset based `max_obj()` of the wrapped type
-                    if o.max_obj() != o.wrapped().max_obj() {
-                        crate::max::error(format!(
-                            "median: failed to create {}: object pointer mismatch",
-                            key::<T>()
-                        ));
-                        return std::ptr::null_mut();
-                    }
                     std::mem::transmute::<_, _>(ObjBox::into_raw(o))
                 }
                 None => {
@@ -972,14 +946,6 @@ where
             };
             match Self::try_new(sym, &args) {
                 Some(o) => {
-                    //sanity check for the offset based `max_obj()` of the wrapped type
-                    if o.msp_obj() != o.wrapped().msp_obj() {
-                        crate::max::error(format!(
-                            "median: failed to create {}: object pointer mismatch",
-                            key::<T>()
-                        ));
-                        return std::ptr::null_mut();
-                    }
                     std::mem::transmute::<_, _>(ObjBox::into_raw(o))
                 }
                 None => {
@@ -1075,10 +1041,16 @@ where
             internal.panicked.store(true, Ordering::Relaxed);
             // SAFETY: as above
             unsafe { silence_outputs(outs, numouts, nframes) };
-            MaxObj::post_error(self, format!(
-                "{} (the object is silent until DSP is restarted)",
-                crate::ffi::panic_text("perform", &msg)
-            ));
+            // SAFETY: `self` is this live object
+            unsafe {
+                crate::object::error(
+                    self.max_obj(),
+                    format!(
+                        "{} (the object is silent until DSP is restarted)",
+                        crate::ffi::panic_text("perform", &msg)
+                    ),
+                );
+            }
         }
     }
 
@@ -1153,95 +1125,5 @@ where
             // SAFETY: Max passes a writable assist buffer
             unsafe { self.internal().assist(io, index, s) };
         });
-    }
-}
-
-unsafe impl<T> MaxObj for T
-where
-    T: MaxObjWrapped<T>,
-{
-    fn max_obj(&self) -> *mut max_sys::t_object {
-        //can't seem to get from wrapper to internal because of MaybeUninit?
-        let off1 = field_offset::offset_of!(Wrapper::<max_sys::t_object, MaxWrapperInternal<T>, T> => wrapped);
-        let off2 = field_offset::offset_of!(MaxWrapperInternal::<T> => wrapped);
-        unsafe {
-            let ptr: *mut u8 = std::mem::transmute::<_, *mut u8>(self as *const T);
-            std::mem::transmute::<_, *mut max_sys::t_object>(
-                ptr.offset(-((off1.get_byte_offset() + off2.get_byte_offset()) as isize)),
-            )
-        }
-    }
-}
-
-unsafe impl<T> MSPObj for T
-where
-    T: MSPObjWrapped<T>,
-{
-    fn msp_obj(&self) -> *mut max_sys::t_pxobject {
-        //can't seem to get from wrapper to internal because of MaybeUninit?
-        let off1 = field_offset::offset_of!(Wrapper::<max_sys::t_pxobject, MSPWrapperInternal<T>, T> => wrapped);
-        let off2 = field_offset::offset_of!(MSPWrapperInternal::<T> => wrapped);
-        unsafe {
-            let ptr: *mut u8 = std::mem::transmute::<_, *mut u8>(self as *const T);
-            std::mem::transmute::<_, *mut max_sys::t_pxobject>(
-                ptr.offset(-((off1.get_byte_offset() + off2.get_byte_offset()) as isize)),
-            )
-        }
-    }
-}
-
-impl<T> WrappedDefer<MaxObjWrapper<T>> for T
-where
-    T: MaxObjWrapped<T>,
-{
-    unsafe fn defer(&self, meth: DeferMethodWrapped<MaxObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
-        let obj = self.max_obj();
-        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
-        // guarantees that the object outlives the deferred call
-        unsafe {
-            crate::thread::defer(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
-        }
-    }
-
-    unsafe fn defer_low(
-        &self,
-        meth: DeferMethodWrapped<MaxObjWrapper<T>>,
-        sym: SymbolRef,
-        atoms: &[Atom],
-    ) {
-        let obj = self.max_obj();
-        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
-        // guarantees that the object outlives the deferred call
-        unsafe {
-            crate::thread::defer_low(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
-        }
-    }
-}
-
-impl<T> WrappedDefer<MSPObjWrapper<T>> for T
-where
-    T: MSPObjWrapped<T>,
-{
-    unsafe fn defer(&self, meth: DeferMethodWrapped<MSPObjWrapper<T>>, sym: SymbolRef, atoms: &[Atom]) {
-        let obj = self.as_max_obj();
-        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
-        // guarantees that the object outlives the deferred call
-        unsafe {
-            crate::thread::defer(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
-        }
-    }
-
-    unsafe fn defer_low(
-        &self,
-        meth: DeferMethodWrapped<MSPObjWrapper<T>>,
-        sym: SymbolRef,
-        atoms: &[Atom],
-    ) {
-        let obj = self.as_max_obj();
-        // SAFETY: `obj` is this live object and `meth` is a trampoline for it; the caller
-        // guarantees that the object outlives the deferred call
-        unsafe {
-            crate::thread::defer_low(std::mem::transmute::<_, _>(meth), obj, sym, atoms);
-        }
     }
 }

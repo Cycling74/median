@@ -4,6 +4,7 @@ use crate::{
     buffer::{BufferRef, BufferReference},
     clock::{ClockHandle, ClockShared},
     inlet::{MSPInlet, MaxInlet, Proxy},
+    object::ObjRef,
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
     symbol::SymbolRef,
@@ -12,7 +13,7 @@ use crate::{
         ObjWrapped, WrapperWrapped,
     },
 };
-use std::{collections::HashMap, ffi::CString, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, ffi::CString, marker::PhantomData, ptr::NonNull, sync::Arc};
 
 pub struct WrappedBuilder<'a, T, W> {
     max_obj: *mut max_sys::t_object,
@@ -122,6 +123,11 @@ pub trait ObjBuilder<T> {
         name: SymbolRef,
         class_name: Option<SymbolRef>,
     ) -> Subscription;
+
+    /// Get a handle to the object under construction. Store it in your struct to post, touch
+    /// attributes and so on later. It can be called any number of times, each call returns a
+    /// handle to the same object.
+    fn obj(&mut self) -> ObjRef;
 
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
@@ -431,6 +437,13 @@ where
         class_name: Option<SymbolRef>,
     ) -> Subscription {
         unsafe { Subscription::new(self.max_obj, namespace, name, class_name) }
+    }
+    fn obj(&mut self) -> ObjRef {
+        // SAFETY: `max_obj` is a valid object (for MSP, its `t_pxobject` header starts with the
+        // `t_object`) that Max allocated before `T::new` ran, so it lives until Max frees it,
+        // which is after the user's struct (the only place the handle is meant to be kept) is
+        // dropped; see `new_max`/`new_msp` and the limits documented on `ObjRef`
+        unsafe { ObjRef::from_raw(NonNull::new_unchecked(self.max_obj)) }
     }
     /// Get the Max object for the wrapper of this object.
     unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {

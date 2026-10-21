@@ -7,32 +7,32 @@
 //!
 //! ```no_run
 //! use median::{
-//!     atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::MaxObj, post,
+//!     atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::ObjRef, post,
 //!     symbol::SymbolRef, wrapper::*,
 //! };
 //!
 //! median::external! {
-//!     pub struct Example;
+//!     pub struct Example {
+//!         obj: ObjRef,
+//!     }
 //!
 //!     impl MaxObjWrapped<Example> for Example {
 //!         fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
 //!             let _ = builder.add_inlet(median::inlet::MaxInlet::Proxy);
-//!             Self
+//!             Self { obj: builder.obj() }
 //!         }
 //!     }
 //!
 //!     impl Example {
 //!         #[bang]
 //!         pub fn bang(&self) {
-//!             // SAFETY: called from a message method, on this object
-//!             let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
-//!             median::object_post!(self.max_obj(), "bang from inlet {}", i);
+//!             let i = self.obj.proxy_inlet();
+//!             median::object_post!(&self.obj, "bang from inlet {}", i);
 //!         }
 //!
 //!         #[int]
 //!         pub fn int(&self, v: t_atom_long) {
-//!             // SAFETY: called from a message method, on this object
-//!             let i = unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) };
+//!             let i = self.obj.proxy_inlet();
 //!             post!("int {} from inlet {}", v, i);
 //!         }
 //!
@@ -101,82 +101,82 @@ macro_rules! error {
 
 /// Post a message to the Max console, associated with the given object, using the same format as `std::format!`.
 ///
+/// The first argument is a `&ObjRef`, the handle you get from `builder.obj()` in your `new`.
+///
 /// # Examples
 ///
-/// Calling inside method for a struct that implements `MaxObjWrapped`.
-/// ```ignore
-/// use median::object::MaxObj;
+/// ```no_run
+/// use median::object::ObjRef;
 ///
-/// pub fn bang(&self) {
-///     median::object_post!(self.max_obj(), "from max obj");
+/// struct MyObj {
+///     obj: ObjRef,
+/// }
+///
+/// impl MyObj {
+///     pub fn bang(&self) {
+///         median::object_post!(&self.obj, "from max obj {}", 2084);
+///     }
 /// }
 /// ```
-///
-/// Calling inside method for a struct that implements `MSPObjWrapped`.
-/// ```ignore
-/// use median::object::MSPObj;
-///
-/// pub fn bang(&self) {
-///     median::object_post!(self.as_max_obj(), "from msp obj {}", 2084);
-/// }
-/// ```
-///
-/// # Remarks
-/// * `MaxObjWrapped` objects can use `self.max_obj()` as the first argument, but you must `use
-/// median::object::MaxObj`
-/// * `MSPObjWrapped` objects can use `self.as_max_obj()` as the first argument, but you must `use
-/// median::object::MSPObj`
-/// * The first argument must be a pointer to a valid Max object (or null). The macro cannot check
-/// that; prefer the safe `post`/`post_error` methods on [`object::MaxObj`] and [`object::MSPObj`]
-/// when you are posting for `self`.
 #[macro_export]
 macro_rules! object_post {
     ($obj:expr_2021, $($arg:tt)*) => {{
-        //evaluated outside of the `unsafe` block so that `$obj` can't smuggle in unsafe operations
-        let obj: *mut $crate::max_sys::t_object = $obj;
-        let msg = ::std::format!($($arg)*);
-        // SAFETY: the caller promises `$obj` is a valid object pointer, see the macro docs
-        unsafe { $crate::object::post(obj, msg) }
+        let obj: &$crate::object::ObjRef = $obj;
+        obj.post(::std::format!($($arg)*))
     }}
 }
 
 /// Post an error to the Max console, associated with the given object, using the same format as `std::format!`.
+///
+/// The first argument is a `&ObjRef`, the handle you get from `builder.obj()` in your `new`.
+///
 /// # Examples
 ///
-/// Calling inside method for a struct that implements `MaxObjWrapped`.
-/// ```ignore
-/// use median::object::MaxObj;
+/// ```no_run
+/// use median::object::ObjRef;
 ///
-/// pub fn bang(&self) {
-///     median::object_error!(self.max_obj(), "from max obj");
+/// struct MyObj {
+///     obj: ObjRef,
+/// }
+///
+/// impl MyObj {
+///     pub fn bang(&self) {
+///         median::object_error!(&self.obj, "from max obj {}", 2084);
+///     }
 /// }
 /// ```
-///
-/// Calling inside method for a struct that implements `MSPObjWrapped`.
-/// ```ignore
-/// use median::object::MSPObj;
-///
-/// pub fn bang(&self) {
-///     median::object_error!(self.as_max_obj(), "from msp obj {}", 2084);
-/// }
-/// ```
-///
-/// # Remarks
-/// * `MaxObjWrapped` objects can use `self.max_obj()` as the first argument, but you must `use
-/// median::object::MaxObj`
-/// * `MSPObjWrapped` objects can use `self.as_max_obj()` as the first argument, but you must `use
-/// median::object::MSPObj`
-/// * The first argument must be a pointer to a valid Max object (or null). The macro cannot check
-/// that; prefer the safe `post`/`post_error` methods on [`object::MaxObj`] and [`object::MSPObj`]
-/// when you are posting for `self`.
 #[macro_export]
 macro_rules! object_error {
     ($obj:expr_2021, $($arg:tt)*) => {{
-        //evaluated outside of the `unsafe` block so that `$obj` can't smuggle in unsafe operations
-        let obj: *mut $crate::max_sys::t_object = $obj;
-        let msg = ::std::format!($($arg)*);
-        // SAFETY: the caller promises `$obj` is a valid object pointer, see the macro docs
-        unsafe { $crate::object::error(obj, msg) }
+        let obj: &$crate::object::ObjRef = $obj;
+        obj.error(::std::format!($($arg)*))
+    }}
+}
+
+/// Post a warning to the Max console, associated with the given object, using the same format as `std::format!`.
+///
+/// The first argument is a `&ObjRef`, the handle you get from `builder.obj()` in your `new`.
+///
+/// # Examples
+///
+/// ```no_run
+/// use median::object::ObjRef;
+///
+/// struct MyObj {
+///     obj: ObjRef,
+/// }
+///
+/// impl MyObj {
+///     pub fn bang(&self) {
+///         median::object_warn!(&self.obj, "from max obj {}", 2084);
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! object_warn {
+    ($obj:expr_2021, $($arg:tt)*) => {{
+        let obj: &$crate::object::ObjRef = $obj;
+        obj.warn(::std::format!($($arg)*))
     }}
 }
 
