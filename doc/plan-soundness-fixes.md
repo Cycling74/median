@@ -241,6 +241,15 @@ Known remaining issues found in review, not fixed here:
 
 - A clock callback that frees its own owner (or drops its own `ClockHandle`) deadlocks instead of
   using freed memory. Documented on `ClockShared`.
+- A clock callback that Max has dispatched but that hasn't taken the `ClockShared` lock yet still
+  reads the `ClockInner` object, which `ClockHandle::drop` can free in that window: `clock_unset`
+  and `freeobject` aren't documented to wait for a running callback. The window is a few
+  instructions. Fixing it needs to know whether Max runs clock callbacks inside the global critical
+  region (then take `critical_enter(0)` around unset/clear) or a different ownership scheme.
+- Possible cross-thread deadlock: the callback holds the `ClockShared` lock while calling into Max;
+  if Max's box-deletion path holds a Max lock the callback needs while `free` waits on
+  `ClockShared`, both threads block. Test in Max: Overdrive on, a clock that outputs and re-delays
+  itself every 1 ms, delete and recreate the box in a loop with `thispatcher`, watch for a hang.
 - An MSP object whose `T::new` panics after `z_dsp_setup` never gets `z_dsp_free` (likely a leak).
 - `object_post!`/`object_error!` still accept any pointer from safe code; fixing it needs a
   signature change, so it goes with step 2.
