@@ -20,7 +20,10 @@ use std::{
     marker::PhantomData,
     mem::MaybeUninit,
     os::raw::c_long,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, PoisonError,
+    },
 };
 
 use lazy_static::lazy_static;
@@ -164,6 +167,10 @@ pub trait WrappedDefer<T> {
 pub struct Wrapper<O, I, T> {
     s_obj: O,
     wrapped: MaybeUninit<I>,
+    /// `wrapped` is initialised. Max can free the object before construction finished (a panic
+    /// in `T::new`), in which case `free` must not drop `wrapped`. Only written while the
+    /// object is being constructed or freed, when nothing else can reach it.
+    constructed: bool,
     _phantom: PhantomData<T>,
 }
 
@@ -186,6 +193,9 @@ pub struct MSPWrapperInternal<T> {
     wrapped: T,
     signal_inlets: usize,
     signal_outlets: usize,
+    /// `perform` panicked: the object stays silent (and `perform` is not called again, so the
+    /// audio thread doesn't post an error every block) until the next `dsp64`.
+    panicked: AtomicBool,
     callbacks_float: FloatCBHash<T>,
     callbacks_int: IntCBHash<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
@@ -337,6 +347,7 @@ where
             wrapped,
             signal_inlets: f.signal_inlets,
             signal_outlets: f.signal_outlets,
+            panicked: AtomicBool::new(false),
             callbacks_float: std::mem::take(&mut f.callbacks_float),
             callbacks_int: std::mem::take(&mut f.callbacks_int),
             buffer_refs: std::mem::take(&mut f.buffer_refs),
@@ -406,6 +417,21 @@ fn handle_buffer_ref_notifications(
             unsafe {
                 r.notify_if_unchecked(&notification);
             }
+        }
+    }
+}
+
+/// Write silence to every output buffer.
+///
+/// # Safety
+/// `outs` must be null or point to `numouts` pointers, each to `nframes` writable samples, as
+/// Max passes to a perform routine.
+unsafe fn silence_outputs(outs: *mut *mut f64, numouts: c_long, nframes: usize) {
+    if numouts > 0 && !outs.is_null() {
+        // SAFETY: guaranteed by the caller
+        let outs = unsafe { std::slice::from_raw_parts(outs, numouts as usize) };
+        for op in outs {
+            unsafe { std::ptr::write_bytes(*op, 0, nframes) };
         }
     }
 }
@@ -511,7 +537,8 @@ where
 {
     //unlock the mutex so we can register in the object init
     let max_class = {
-        let g = CLASSES.lock().ok()?;
+        //a panic during registration can poison the lock, but the map is still consistent
+        let g = CLASSES.lock().unwrap_or_else(PoisonError::into_inner);
         g.get(key)?.0
     };
     func(max_class)
@@ -533,11 +560,11 @@ macro_rules! int_float_tramps {
         $(
             paste::paste! {
                 pub extern "C" fn [<call_in $i>](&self, value: max_sys::t_atom_long) {
-                    self.internal().call_int($i, value);
+                    self.guard_or(concat!("in", $i), (), || self.internal().call_int($i, value));
                 }
 
                 pub extern "C" fn [<call_ft $i>](&self, value: f64) {
-                    self.internal().call_float($i, value);
+                    self.guard_or(concat!("ft", $i), (), || self.internal().call_float($i, value));
                 }
             }
         )*
@@ -574,13 +601,36 @@ where
         unsafe { &*self.wrapped.as_ptr() }
     }
 
-    extern "C" fn free_wrapped(&mut self) {
-        //free wrapped
-        let mut wrapped = MaybeUninit::uninit();
-        std::mem::swap(&mut self.wrapped, &mut wrapped);
+    /// Run `f`, the body of a method Max called on this object, containing any panic: it is
+    /// posted as an error for this object and `neutral` is returned.
+    fn guard_or<R, F: FnOnce() -> R>(&self, what: &str, neutral: R, f: F) -> R {
+        // SAFETY: `s_obj` is the object header of this live object (a `t_object`, or a
+        // `t_pxobject` which starts with one)
         unsafe {
-            std::mem::drop(wrapped.assume_init());
+            crate::ffi::guard_raw(
+                &self.s_obj as *const O as *mut max_sys::t_object,
+                what,
+                neutral,
+                f,
+            )
         }
+    }
+
+    extern "C" fn free_wrapped(&mut self) {
+        crate::ffi::guard_global("free", (), || {
+            //construction didn't finish (`T::new` panicked), there is nothing to drop
+            if !self.constructed {
+                return;
+            }
+            self.constructed = false;
+            let mut wrapped = MaybeUninit::uninit();
+            std::mem::swap(&mut self.wrapped, &mut wrapped);
+            // SAFETY: `constructed` was set, so `wrapped` was initialised, and it was
+            // replaced by uninit above so it can't be dropped twice
+            unsafe {
+                std::mem::drop(wrapped.assume_init());
+            }
+        });
     }
 
     fn register_common<F>(
@@ -604,7 +654,7 @@ where
         F: Fn() -> Class<Self>,
     {
         let key = key::<T>();
-        let mut h = CLASSES.lock().expect("couldn't lock CLASSES mutex");
+        let mut h = CLASSES.lock().unwrap_or_else(PoisonError::into_inner);
         if !h.contains_key(key) {
             //don't lookup class unless we want to, because max might try to register it which
             //could cause a loop
@@ -697,23 +747,34 @@ where
         argc: c_long,
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
-        let sym: SymbolRef = SymbolRef::from_raw(sym);
-        let args = if argc > 0 && !argv.is_null() {
-            std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
-        } else {
-            &[]
-        };
-        match Self::try_new(sym, &args) {
-            Some(o) => {
-                let o = ObjBox::into_raw(o);
-                assert_eq!((&*o).max_obj(), (&*o).wrapped().max_obj());
-                std::mem::transmute::<_, _>(o)
+        //a panic (in `T::new` or elsewhere) is posted to the console and Max gets null, which
+        //makes it report that the object couldn't be created. Unwinding drops the `ObjBox`,
+        //which frees the half-built object; `free_wrapped` knows not to drop the internals.
+        crate::ffi::guard_global(key::<T>(), std::ptr::null_mut(), || unsafe {
+            let sym: SymbolRef = SymbolRef::from_raw(sym);
+            let args = if argc > 0 && !argv.is_null() {
+                std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
+            } else {
+                &[]
+            };
+            match Self::try_new(sym, &args) {
+                Some(o) => {
+                    //sanity check for the offset based `max_obj()` of the wrapped type
+                    if o.max_obj() != o.wrapped().max_obj() {
+                        crate::max::error(format!(
+                            "median: failed to create {}: object pointer mismatch",
+                            key::<T>()
+                        ));
+                        return std::ptr::null_mut();
+                    }
+                    std::mem::transmute::<_, _>(ObjBox::into_raw(o))
+                }
+                None => {
+                    crate::max::error(format!("median: failed to create {}", key::<T>()));
+                    std::ptr::null_mut()
+                }
             }
-            None => {
-                crate::max::error(format!("median: failed to create {}", key::<T>()));
-                std::ptr::null_mut()
-            }
-        }
+        })
     }
 
     /// Create an instance of the wrapper, on the heap, with no arguments.
@@ -739,10 +800,13 @@ where
     fn try_new(sym: SymbolRef, args: &[Atom]) -> Option<ObjBox<Self>> {
         new_common(key::<T>(), |max_class| unsafe {
             let o: ObjBox<Self> = ObjBox::alloc(max_class)?;
-            let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
-            // `wrapped` field is uninitialised, so write without dropping the old value
+            // fields are uninitialised, so write without dropping the old values. If
+            // `new` panics, `o` is dropped while `constructed` is false.
+            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(false);
+            let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
             std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
+            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(true);
             //process attribute arguments
             //TODO optionally don't process?
             max_sys::attr_args_process(
@@ -761,14 +825,18 @@ where
         sender: *mut c_void,
         data: *mut c_void,
     ) {
-        // SAFETY: Max passes valid (or null) symbols to a notify method
-        let notification = unsafe { Notification::new(sender_name, message, sender, data) };
-        self.internal().handle_notification(&notification);
+        self.guard_or("notify", (), || {
+            // SAFETY: Max passes valid (or null) symbols to a notify method
+            let notification = unsafe { Notification::new(sender_name, message, sender, data) };
+            self.internal().handle_notification(&notification);
+        });
     }
 
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
-        // SAFETY: Max passes a writable assist buffer
-        unsafe { self.internal().assist(io, index, s) };
+        self.guard_or("assist", (), || {
+            // SAFETY: Max passes a writable assist buffer
+            unsafe { self.internal().assist(io, index, s) };
+        });
     }
 }
 
@@ -832,23 +900,34 @@ where
         argc: c_long,
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
-        let sym: SymbolRef = SymbolRef::from_raw(sym);
-        let args = if argc > 0 && !argv.is_null() {
-            std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
-        } else {
-            &[]
-        };
-        match Self::try_new(sym, &args) {
-            Some(o) => {
-                let o = ObjBox::into_raw(o);
-                assert_eq!((&*o).msp_obj(), (&*o).wrapped().msp_obj());
-                std::mem::transmute::<_, _>(o)
+        //a panic (in `T::new` or elsewhere) is posted to the console and Max gets null, which
+        //makes it report that the object couldn't be created. Unwinding drops the `ObjBox`,
+        //which frees the half-built object; `free_wrapped` knows not to drop the internals.
+        crate::ffi::guard_global(key::<T>(), std::ptr::null_mut(), || unsafe {
+            let sym: SymbolRef = SymbolRef::from_raw(sym);
+            let args = if argc > 0 && !argv.is_null() {
+                std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
+            } else {
+                &[]
+            };
+            match Self::try_new(sym, &args) {
+                Some(o) => {
+                    //sanity check for the offset based `max_obj()` of the wrapped type
+                    if o.msp_obj() != o.wrapped().msp_obj() {
+                        crate::max::error(format!(
+                            "median: failed to create {}: object pointer mismatch",
+                            key::<T>()
+                        ));
+                        return std::ptr::null_mut();
+                    }
+                    std::mem::transmute::<_, _>(ObjBox::into_raw(o))
+                }
+                None => {
+                    crate::max::error(format!("median: failed to create {}", key::<T>()));
+                    std::ptr::null_mut()
+                }
             }
-            None => {
-                crate::max::error(format!("median: failed to create {}", key::<T>()));
-                std::ptr::null_mut()
-            }
-        }
+        })
     }
 
     /// Create an instance of the wrapper, on the heap.
@@ -867,10 +946,13 @@ where
         unsafe {
             new_common(key::<T>(), |max_class| {
                 let o: ObjBox<Self> = ObjBox::alloc(max_class)?;
-                let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
-                // `wrapped` field is uninitialised, so write without dropping the old value
+                // fields are uninitialised, so write without dropping the old values. If
+                // `new` panics, `o` is dropped while `constructed` is false.
+                std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(false);
+                let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
                 std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
+                std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(true);
                 //process attribute arguments
                 //TODO optionally don't process?
                 max_sys::attr_args_process(
@@ -884,9 +966,11 @@ where
     }
 
     extern "C" fn free_msp(&mut self) {
-        //free dsp first
-        unsafe {
-            max_sys::z_dsp_free(self.msp_obj());
+        //free dsp first, unless construction didn't get as far as setting it up
+        if self.constructed {
+            unsafe {
+                max_sys::z_dsp_free(self.msp_obj());
+            }
         }
         self.free_wrapped();
     }
@@ -902,8 +986,26 @@ where
         flags: c_long,
         userparam: *mut c_void,
     ) {
-        self.internal()
-            .perform64(dsp64, ins, numins, outs, numouts, sampleframes, flags, userparam);
+        let internal = self.internal();
+        let nframes = sampleframes.max(0) as usize;
+        //the user's perform panicked earlier, stay silent until DSP is restarted
+        if internal.panicked.load(Ordering::Relaxed) {
+            // SAFETY: Max passes `numouts` output buffers of `sampleframes` samples
+            unsafe { silence_outputs(outs, numouts, nframes) };
+            return;
+        }
+        // no allocation unless `perform` panics
+        if let Err(msg) = crate::ffi::catch(|| {
+            internal.perform64(dsp64, ins, numins, outs, numouts, sampleframes, flags, userparam)
+        }) {
+            internal.panicked.store(true, Ordering::Relaxed);
+            // SAFETY: as above
+            unsafe { silence_outputs(outs, numouts, nframes) };
+            MaxObj::post_error(self, format!(
+                "{} (the object is silent until DSP is restarted)",
+                crate::ffi::panic_text("perform", &msg)
+            ));
+        }
     }
 
     extern "C" fn dsp64(
@@ -914,7 +1016,8 @@ where
         _maxvectorsize: c_long,
         _flags: c_long,
     ) {
-        unsafe {
+        self.guard_or("dsp64", (), || unsafe {
+            self.internal().panicked.store(false, Ordering::Relaxed);
             self.internal().check_signal_io(self.max_obj());
             self.wrapped().dsp_setup(samplerate);
             max_sys::dsp_add64(
@@ -947,7 +1050,7 @@ where
                 0,
                 std::ptr::null_mut(),
             );
-        }
+        });
     }
 
     extern "C" fn handle_notification_tramp(
@@ -957,14 +1060,18 @@ where
         sender: *mut c_void,
         data: *mut c_void,
     ) {
-        // SAFETY: Max passes valid (or null) symbols to a notify method
-        let notification = unsafe { Notification::new(sender_name, message, sender, data) };
-        self.internal().handle_notification(&notification);
+        self.guard_or("notify", (), || {
+            // SAFETY: Max passes valid (or null) symbols to a notify method
+            let notification = unsafe { Notification::new(sender_name, message, sender, data) };
+            self.internal().handle_notification(&notification);
+        });
     }
 
     extern "C" fn assist_tramp(&self, _b: *mut c_void, io: c_long, index: c_long, s: *mut c_char) {
-        // SAFETY: Max passes a writable assist buffer
-        unsafe { self.internal().assist(io, index, s) };
+        self.guard_or("assist", (), || {
+            // SAFETY: Max passes a writable assist buffer
+            unsafe { self.internal().assist(io, index, s) };
+        });
     }
 }
 

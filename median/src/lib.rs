@@ -57,6 +57,7 @@ pub mod builder;
 pub mod class;
 pub mod clock;
 pub mod error;
+pub mod ffi;
 pub mod file;
 pub mod inlet;
 pub mod method;

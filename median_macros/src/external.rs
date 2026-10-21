@@ -46,11 +46,10 @@ pub fn ext_main(tokens: proc_macro2::TokenStream) -> syn::Result<proc_macro2::To
     Ok(quote! {
         #[no_mangle]
         pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
-            if std::panic::catch_unwind(|| {
+            //a panic is posted to the Max console; never take Max down by exiting
+            ::median::ffi::guard_ext_main(::std::env!("CARGO_PKG_NAME"), || {
                 #tokens
-            }).is_err() {
-                std::process::exit(1);
-            }
+            });
         }
     }
     .into())
@@ -59,16 +58,18 @@ pub fn ext_main(tokens: proc_macro2::TokenStream) -> syn::Result<proc_macro2::To
 pub fn ext_main_classes(class_names: &[Ident]) -> syn::Result<proc_macro2::TokenStream> {
     let register: Vec<_> = class_names
         .iter()
-        .map(|n| quote! { #n::register() })
+        .map(|n| {
+            quote! {
+                ::median::ffi::guard_ext_main(stringify!(#n), || unsafe { #n::register() });
+            }
+        })
         .collect();
     Ok(quote! {
         #[no_mangle]
         pub unsafe extern "C" fn ext_main(_r: *mut ::std::ffi::c_void) {
-            if std::panic::catch_unwind(|| {
-                #(#register)*
-            }).is_err() {
-                std::process::exit(1);
-            }
+            //each class registers on its own, a panic is posted to the Max console and never
+            //takes Max down by exiting
+            #(#register)*
         }
     }
     .into())

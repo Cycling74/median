@@ -13,4 +13,7 @@ median = { git = "https://github.com/Cycling74/median" }
 
 [profile.release]
 lto = true
-panic = "abort"
+# Max calls into the external through trampolines that catch panics (median::ffi) and post
+# them to the Max console. That only works if panics unwind: with "abort" any panic would
+# crash Max.
+panic = "unwind"

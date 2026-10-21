@@ -82,7 +82,10 @@ pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenStream
         .collect::<Result<Vec<Box<Pat>>, _>>()?;
     let expanded = quote! {
         pub extern "C" fn #tramp_name(wrapper: &#t, #(#args),*) {
-            ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*)
+            //a panic in the method is posted to the Max console instead of unwinding into Max
+            ::median::ffi::guard(wrapper, stringify!(#meth_name), || {
+                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*)
+            })
         }
         #meth
     };
@@ -109,11 +112,11 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<Token
             ac: ::std::os::raw::c_long,
             av: *const ::median::max_sys::t_atom,
         ) {
-            unsafe {
+            ::median::ffi::guard(wrapper, stringify!(#meth_name), || unsafe {
                 median::method::sel_list(sel, ac, av, |sym, atoms| {
                     ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
                 });
-            }
+            })
         }
         #meth
     };
@@ -138,11 +141,11 @@ pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             ac: ::std::os::raw::c_long,
             av: *const ::median::max_sys::t_atom,
         ) {
-            unsafe {
+            ::median::ffi::guard(wrapper, stringify!(#meth_name), || unsafe {
                 median::method::sel_list(sel, ac, av, |sym, atoms| {
                     ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
                 });
-            }
+            })
         }
         #meth
     };
@@ -167,11 +170,11 @@ pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<TokenS
             ac: ::std::os::raw::c_long,
             av: *const ::median::max_sys::t_atom,
         ) {
-            unsafe {
+            ::median::ffi::guard(wrapper, stringify!(#meth_name), || unsafe {
                 median::method::sel_list(sel, ac, av, |_sym, atoms| {
                     ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(atoms);
                 });
-            }
+            })
         }
         #meth
     };
@@ -196,9 +199,14 @@ pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             ac: *mut ::std::os::raw::c_long,
             av: *mut *mut ::median::max_sys::t_atom,
         ) -> ::median::max_sys::t_max_err {
-            unsafe {
-                ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name())
-            }
+            ::median::ffi::guard_or(
+                wrapper,
+                stringify!(#meth_name),
+                ::median::ffi::ERR_GENERIC,
+                || unsafe {
+                    ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name())
+                },
+            )
         }
         #meth
     };
@@ -236,9 +244,14 @@ pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemMethod) -> Res<To
             ac: ::std::os::raw::c_long,
             av: *mut ::median::max_sys::t_atom,
         ) -> ::median::max_sys::t_max_err {
-            unsafe {
-                ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*))
-            }
+            ::median::ffi::guard_or(
+                wrapper,
+                stringify!(#meth_name),
+                ::median::ffi::ERR_GENERIC,
+                || unsafe {
+                    ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*))
+                },
+            )
         }
         #meth
     };

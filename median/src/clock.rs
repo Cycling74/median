@@ -82,7 +82,8 @@ struct ClockInner {
 
 impl ClockInner {
     pub extern "C" fn call_tramp(wrapper: &MaxObjWrapper<Self>) {
-        wrapper.wrapped().shared.call()
+        //a panic unwinds through `ClockShared::call`, which releases the lock
+        crate::ffi::guard(wrapper, "clock", || wrapper.wrapped().shared.call())
     }
 }
 
@@ -286,5 +287,16 @@ mod tests {
         //the in-flight callback had finished by the time clear returned
         assert_eq!(done.load(Ordering::SeqCst), 1);
         t.join().unwrap();
+    }
+
+    #[test]
+    fn panicking_callback_releases_lock() {
+        let shared = ClockShared::new();
+        shared.set(std::ptr::null_mut(), Box::new(|_| panic!("callback failed")));
+        let r = crate::ffi::catch(|| shared.call());
+        assert_eq!(r, Err("callback failed".to_string()));
+        //the lock was released by the unwind: this would deadlock otherwise
+        shared.clear();
+        shared.call();
     }
 }
