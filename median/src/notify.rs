@@ -133,7 +133,12 @@ impl Subscription {
         let class_name = class_name.unwrap_or_default();
         // SAFETY: the symbols are valid, and the caller guarantees `client` is a valid object
         let _ = unsafe {
-            max_sys::object_subscribe(namespace.as_ptr(), name.as_ptr(), class_name.as_ptr(), client)
+            max_sys::object_subscribe(
+                namespace.as_ptr(),
+                name.as_ptr(),
+                class_name.as_ptr(),
+                client,
+            )
         };
         Self {
             namespace,
@@ -189,8 +194,11 @@ impl Drop for Subscription {
 impl Drop for Attachment {
     fn drop(&mut self) {
         unsafe {
-            let _ =
-                max_sys::object_detach(self.namespace.as_ptr(), self.name.as_ptr(), self.client as _);
+            let _ = max_sys::object_detach(
+                self.namespace.as_ptr(),
+                self.name.as_ptr(),
+                self.client as _,
+            );
         }
     }
 }

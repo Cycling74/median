@@ -28,7 +28,9 @@ impl MaxObjWrapped for IoMax {
         let ids = [
             b.inlet(Inlet::default().assist("left")),
             b.inlet(Inlet::float(|s: &Self, v| s.obj.post(format!("ft {v}"))).assist("f")),
-            b.inlet(Inlet::int(|s: &Self, v| s.obj.post(format!("first int {v}")))),
+            b.inlet(Inlet::int(|s: &Self, v| {
+                s.obj.post(format!("first int {v}"))
+            })),
             b.inlet(Inlet::proxy().hot()),
             b.inlet(Inlet::int(|s: &Self, v| s.obj.post(format!("second int {v}"))).assist("i2")),
             b.inlet(Inlet::proxy().assist("p5")),
@@ -50,7 +52,8 @@ impl MaxObjWrapped for IoMax {
 impl IoMax {
     #[bang]
     pub fn bang(&self) {
-        self.obj.post(format!("bang from {}", self.obj.proxy_inlet()));
+        self.obj
+            .post(format!("bang from {}", self.obj.proxy_inlet()));
     }
 
     #[sel("fire")]
@@ -89,7 +92,9 @@ impl MaxObjWrapped for Hooked {
         b.inlet(Inlet::proxy().assist("from the table"));
         b.inlet(Inlet::proxy().assist(&euros()));
         b.inlet(Inlet::proxy().hot());
-        Ok(Self { open: Int64::new(0) })
+        Ok(Self {
+            open: Int64::new(0),
+        })
     }
 
     fn assist(&self, iolet: IoLet) -> Option<Cow<'_, str>> {
@@ -150,7 +155,8 @@ impl MSPObjWrapped for IoDsp {
 impl IoDsp {
     #[bang]
     pub fn bang(&self) {
-        self.obj.post(format!("bang from {}", self.obj.proxy_inlet()));
+        self.obj
+            .post(format!("bang from {}", self.obj.proxy_inlet()));
     }
 }
 
@@ -254,7 +260,8 @@ fn max_inlets_are_made_right_to_left_at_their_positions() {
 fn int_and_float_inlets_call_their_callbacks_and_proxies_report_their_index() {
     let k = setup();
     let obj = k.new_object("io.max", &[]);
-    k.send_inlet(obj, 1, "float", &[MockAtom::Float(1.5)]).unwrap();
+    k.send_inlet(obj, 1, "float", &[MockAtom::Float(1.5)])
+        .unwrap();
     k.send_inlet(obj, 2, "int", &[MockAtom::Long(7)]).unwrap();
     k.send_inlet(obj, 4, "int", &[MockAtom::Long(8)]).unwrap();
     k.send_bang(obj).unwrap();
@@ -377,7 +384,11 @@ fn typed_outlets_send_with_the_right_outlet_calls() {
             (0, "bang".to_string(), vec![]),
             (1, "int".to_string(), vec![MockAtom::Long(3)]),
             (2, "float".to_string(), vec![MockAtom::Float(1.5)]),
-            (3, "list".to_string(), vec![MockAtom::Long(1), MockAtom::Float(2.5)]),
+            (
+                3,
+                "list".to_string(),
+                vec![MockAtom::Long(1), MockAtom::Float(2.5)]
+            ),
             (4, "foo".to_string(), vec![MockAtom::Long(7)]),
             (4, "bang".to_string(), vec![]),
             (4, "int".to_string(), vec![MockAtom::Long(4)]),
@@ -387,13 +398,19 @@ fn typed_outlets_send_with_the_right_outlet_calls() {
     );
     //every send succeeded: Max's outlet calls return non-null unless the stack overflowed
     let log = k.take_console_log();
-    assert_eq!(log.last().map(|e| e.text.as_str()), Some("sent 9, overflow 0"));
+    assert_eq!(
+        log.last().map(|e| e.text.as_str()),
+        Some("sent 9, overflow 0")
+    );
     //a stack overflow: each send is an `Err(StackOverflow)` and nothing goes out
     k.set_outlet_overflow(true);
     k.send(obj, "fire", &[]).unwrap();
     assert!(k.take_outlet_log().is_empty());
     let log = k.take_console_log();
-    assert_eq!(log.last().map(|e| e.text.as_str()), Some("sent 0, overflow 9"));
+    assert_eq!(
+        log.last().map(|e| e.text.as_str()),
+        Some("sent 0, overflow 9")
+    );
     k.set_outlet_overflow(false);
     assert!(k.free_object(obj));
 }
@@ -433,7 +450,8 @@ fn msp_signal_inlets_come_first_and_dsp_setup_runs_after_the_others() {
     assert_eq!(hot, [true, false, true, false, false]);
 
     k.send_inlet(obj, 3, "bang", &[]).unwrap();
-    k.send_inlet(obj, 4, "float", &[MockAtom::Float(0.5)]).unwrap();
+    k.send_inlet(obj, 4, "float", &[MockAtom::Float(0.5)])
+        .unwrap();
     assert_eq!(posts(&k), ["bang from 3", "ft 0.5"]);
 
     let adds = k.dsp64(obj, 48000., 2).unwrap();
@@ -466,7 +484,10 @@ fn a_mistake_in_the_description_fails_the_object_and_frees_it() {
     let clocks = k.live_clock_count();
     for (arg, msg) in [
         (0, "signal inlets must come before the other inlets"),
-        (1, "Inlet::default() describes inlet 0 and must be the first inlet"),
+        (
+            1,
+            "Inlet::default() describes inlet 0 and must be the first inlet",
+        ),
         (2, "at most 9 int and 9 float inlets are supported"),
     ] {
         let obj = k.new_object("io.bad~", &[MockAtom::Long(arg)]);

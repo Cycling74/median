@@ -205,7 +205,15 @@ fn a_clock_callback_can_run_again_nested_inside_itself() {
     //the outer advance fires it once; the second run is nested inside the first
     assert_eq!(k.advance(10.0), 1);
     let log: Vec<_> = k.take_console_log().into_iter().map(|e| e.text).collect();
-    assert_eq!(log, ["nested 1 start", "nested 2 start", "nested 2 end", "nested 1 end"]);
+    assert_eq!(
+        log,
+        [
+            "nested 1 start",
+            "nested 2 start",
+            "nested 2 end",
+            "nested 1 end"
+        ]
+    );
     //and the object can still be freed: nothing is left held
     assert!(k.free_object(obj));
 }

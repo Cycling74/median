@@ -113,9 +113,15 @@ mod tests {
         let (tx, rx) = (Shared::new(tx), Shared::new(rx));
         assert_eq!(tx.try_with(|t| t.push(1)), Some(Ok(())));
         assert_eq!(tx.try_with(|t| t.push(2)), Some(Ok(())));
-        assert!(matches!(tx.try_with(|t| t.push(3)), Some(Err(PushError::Full(3)))));
+        assert!(matches!(
+            tx.try_with(|t| t.push(3)),
+            Some(Err(PushError::Full(3)))
+        ));
         //in use: the nested call is refused, not blocked
-        assert_eq!(rx.try_with(|r| (r.pop(), rx.try_with(|_| ()))), Some((Ok(1), None)));
+        assert_eq!(
+            rx.try_with(|r| (r.pop(), rx.try_with(|_| ()))),
+            Some((Ok(1), None))
+        );
         assert_eq!(rx.into_inner().pop(), Ok(2));
     }
 }

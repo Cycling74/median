@@ -134,7 +134,10 @@ mod tests {
         assert_eq!(NewError::from(String::from("b")).message(), "b");
         assert_eq!(NewError::new(3.5).to_string(), "3.5");
         assert_eq!(int("12"), Ok(12));
-        assert_eq!(int("x").unwrap_err().to_string(), "invalid digit found in string");
+        assert_eq!(
+            int("x").unwrap_err().to_string(),
+            "invalid digit found in string"
+        );
         let boxed: Box<dyn std::error::Error + Send + Sync> = "boxed".into();
         assert_eq!(NewError::from(boxed).to_string(), "boxed");
         assert_eq!(

@@ -298,7 +298,8 @@ mod tests {
         let live = LIVE_OWNED_ATOMS.load(Ordering::SeqCst);
         let obj = k.new_object("defer.unit", &[]);
         assert!(!obj.is_null());
-        k.send_list(obj, &[MockAtom::Long(1), MockAtom::Sym("a".into())]).unwrap();
+        k.send_list(obj, &[MockAtom::Long(1), MockAtom::Sym("a".into())])
+            .unwrap();
         k.send_list(obj, &[MockAtom::Float(2.)]).unwrap();
         assert_eq!(pending(obj), 2);
         assert_eq!(LIVE_OWNED_ATOMS.load(Ordering::SeqCst), live + 2);

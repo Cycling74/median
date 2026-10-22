@@ -116,7 +116,10 @@ fn the_shared_view_is_interleaved_and_atomic() {
     let k = setup();
     let obj = object_and_buffer(&k);
     let r = reference(obj, "b");
-    assert_eq!((r.channels(), r.frames(), r.sample_rate()), (Some(3), Some(4), Some(48000.)));
+    assert_eq!(
+        (r.channels(), r.frames(), r.sample_rate()),
+        (Some(3), Some(4), Some(48000.))
+    );
     {
         let mut l = r.try_lock().unwrap();
         assert_eq!(k.buffer_state("b"), Some((1, false)));
@@ -136,7 +139,10 @@ fn the_shared_view_is_interleaved_and_atomic() {
         assert_eq!(k.buffer_state("b"), Some((2, false)));
         drop(l2);
         // SAFETY: only the pointer is compared
-        assert_eq!(unsafe { l.samples_ptr() }, l.as_slice().as_ptr() as *mut f32);
+        assert_eq!(
+            unsafe { l.samples_ptr() },
+            l.as_slice().as_ptr() as *mut f32
+        );
         l.set_dirty();
     }
     assert_eq!(k.buffer_state("b"), Some((0, true)));
@@ -181,8 +187,12 @@ fn the_claim_is_released_on_drop_and_on_panic() {
     let r = reference(obj, "b");
     //out of range: panics, and the unwinding releases the claim
     panics_holding_a_claim(&k, &r, |l| drop(l.channel_iter(3)));
-    panics_holding_a_claim(&k, &r, |l| { let _ = l.frame(4); });
-    panics_holding_a_claim(&k, &r, |l| { let _ = l.sample(0, 3); });
+    panics_holding_a_claim(&k, &r, |l| {
+        let _ = l.frame(4);
+    });
+    panics_holding_a_claim(&k, &r, |l| {
+        let _ = l.sample(0, 3);
+    });
     panics_holding_a_claim(&k, &r, |_| panic!("user panic"));
     //a perform routine that panics while holding the claim: the guard posts the panic, the claim
     //is released (the mock would report a perform that returns holding one)
@@ -230,7 +240,10 @@ fn an_edit_is_exclusive_and_ends_on_drop_and_on_panic() {
         assert_eq!(k.buffer_editing("b"), Some(true));
         assert_eq!((e.frames(), e.channels(), e.sample_rate()), (4, 3, 48000.));
         assert_eq!(e.frame(1), [10., 11., 12.]);
-        assert_eq!(e.channel_iter(2).copied().collect::<Vec<_>>(), [2., 12., 22., 32.]);
+        assert_eq!(
+            e.channel_iter(2).copied().collect::<Vec<_>>(),
+            [2., 12., 22., 32.]
+        );
         //no shared claim while the edit is in progress
         assert_eq!(r.try_lock().err(), Some(TryLockError::BufferDoesNotExist));
         e.frame_mut(0).copy_from_slice(&[7., 8., 9.]);
@@ -283,11 +296,17 @@ fn an_edit_is_refused_on_the_audio_and_scheduler_threads_and_without_a_buffer() 
         assert_eq!(e, Some(EditError::WrongThread));
     }
     //a thread of your own is fine
-    assert_eq!(k.with_role(Role::Other, || r.edit().map(|e| e.frames())), Ok(4));
+    assert_eq!(
+        k.with_role(Role::Other, || r.edit().map(|e| e.frames())),
+        Ok(4)
+    );
     assert_eq!(k.buffer_edits("b"), Some((1, 1)));
     let none = reference(obj, "nonesuch");
     assert_eq!(none.edit().err(), Some(EditError::BufferDoesNotExist));
-    assert_eq!(none.try_lock().err(), Some(TryLockError::BufferDoesNotExist));
+    assert_eq!(
+        none.try_lock().err(),
+        Some(TryLockError::BufferDoesNotExist)
+    );
     assert!(!none.view());
     drop((r, none));
     assert!(k.free_object(obj));
@@ -328,21 +347,48 @@ fn binding_notifications_reach_the_buffer_reference() {
     let notify = unsafe {
         std::mem::transmute::<
             usize,
-            extern "C" fn(*mut c_void, *mut max_sys::t_symbol, *mut max_sys::t_symbol, *mut c_void, *mut c_void),
+            extern "C" fn(
+                *mut c_void,
+                *mut max_sys::t_symbol,
+                *mut max_sys::t_symbol,
+                *mut c_void,
+                *mut c_void,
+            ),
         >(notify)
     };
     let before = k.buffer_ref_notifications().len();
     //for another buffer: not forwarded
-    notify(obj, median::sym!("other").as_ptr(), median::sym!("globalsymbol_binding").as_ptr(), b as _, b as _);
+    notify(
+        obj,
+        median::sym!("other").as_ptr(),
+        median::sym!("globalsymbol_binding").as_ptr(),
+        b as _,
+        b as _,
+    );
     assert_eq!(k.buffer_ref_notifications().len(), before);
     //for ours: forwarded
     let n = k.buffer_ref_notifications().len();
-    notify(obj, median::sym!("b").as_ptr(), median::sym!("globalsymbol_binding").as_ptr(), ours as _, ours as _);
+    notify(
+        obj,
+        median::sym!("b").as_ptr(),
+        median::sym!("globalsymbol_binding").as_ptr(),
+        ours as _,
+        ours as _,
+    );
     let notes = k.buffer_ref_notifications();
     assert_eq!(notes.len(), n + 1);
-    assert_eq!((notes[n].1.as_str(), notes[n].2.as_str()), ("b", "globalsymbol_binding"));
+    assert_eq!(
+        (notes[n].1.as_str(), notes[n].2.as_str()),
+        ("b", "globalsymbol_binding")
+    );
     //not a binding message: not forwarded (the user's handler still gets it)
-    notify(obj, median::sym!("b").as_ptr(), median::sym!("buffer_modified").as_ptr(), ours as _, ours as _);
+    notify(
+        obj,
+        median::sym!("b").as_ptr(),
+        median::sym!("buffer_modified").as_ptr(),
+        ours as _,
+        ours as _,
+    );
     assert_eq!(k.buffer_ref_notifications().len(), n + 1);
     assert!(k.free_object(obj));
 }

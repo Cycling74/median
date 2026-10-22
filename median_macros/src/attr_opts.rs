@@ -31,7 +31,11 @@ pub struct AttrOpts {
 }
 
 /// A string option: a literal that can be a C string.
-fn string(meta: &syn::meta::ParseNestedMeta, slot: &mut Option<LitStr>, key: &str) -> syn::Result<()> {
+fn string(
+    meta: &syn::meta::ParseNestedMeta,
+    slot: &mut Option<LitStr>,
+    key: &str,
+) -> syn::Result<()> {
     if slot.is_some() {
         return Err(meta.error(format!("`{key}` given twice")));
     }
@@ -44,7 +48,11 @@ fn string(meta: &syn::meta::ParseNestedMeta, slot: &mut Option<LitStr>, key: &st
 }
 
 /// `key(a, b)`.
-fn pair(meta: &syn::meta::ParseNestedMeta, slot: &mut Option<(Expr, Expr)>, key: &str) -> syn::Result<()> {
+fn pair(
+    meta: &syn::meta::ParseNestedMeta,
+    slot: &mut Option<(Expr, Expr)>,
+    key: &str,
+) -> syn::Result<()> {
     if slot.is_some() {
         return Err(meta.error(format!("`{key}` given twice")));
     }
@@ -191,4 +199,3 @@ impl AttrOpts {
         o
     }
 }
-

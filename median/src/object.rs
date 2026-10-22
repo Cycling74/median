@@ -222,8 +222,8 @@ pub unsafe trait MSPObj: Sized {
 
 use std::ffi::{CStr, CString};
 use std::ops::Deref;
-use std::ptr::NonNull;
 use std::os::raw::c_char;
+use std::ptr::NonNull;
 
 /// The printf format used to pass user text to the console; user text is never the format.
 const FMT_S: *const c_char = c"%s".as_ptr();

@@ -8,12 +8,12 @@ use crate::{
     atom::Atom,
     buffer::{BufferRef, BufferReference},
     clock::{Clock, ClockFn, ClockShared},
-    queue::Queue,
-    method::MethodResult,
     inlet::{FloatCB, InletFor, InletId, InletKind, IntCB, Proxy},
+    method::MethodResult,
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     object::ObjRef,
     outlet::{Outlet, OutletDesc, OutletFor, OutletKind},
+    queue::Queue,
     symbol::SymbolRef,
     wrapper::{IoLet, MSPObjWrapper, MaxObjWrapper, WrapperWrapped},
 };
@@ -109,7 +109,11 @@ impl<T, K: BuilderKind> Builder<T, K> {
     /// # Safety
     /// `owner` must point to a valid object (a `t_pxobject` if `K` is [`Msp`]) that is being
     /// constructed and outlives the builder; `args` must stay valid as long as the builder.
-    pub(crate) unsafe fn new(owner: NonNull<max_sys::t_object>, sym: SymbolRef, args: &[Atom]) -> Self {
+    pub(crate) unsafe fn new(
+        owner: NonNull<max_sys::t_object>,
+        sym: SymbolRef,
+        args: &[Atom],
+    ) -> Self {
         Self {
             obj: owner,
             sym,
@@ -157,7 +161,11 @@ impl<T, K: BuilderKind> Builder<T, K> {
                 0
             }
             InletKind::Signal => {
-                if self.inlets.iter().any(|e| !matches!(e.kind, InletKind::Signal)) {
+                if self
+                    .inlets
+                    .iter()
+                    .any(|e| !matches!(e.kind, InletKind::Signal))
+                {
                     self.fail("signal inlets must come before the other inlets");
                 }
                 n
@@ -196,7 +204,11 @@ impl<T, K: BuilderKind> Builder<T, K> {
         // SAFETY: `obj` is valid and under construction (see `new`)
         let outlet = unsafe { Outlet::<O>::append(self.obj.as_ptr()) };
         if outlet.is_null() {
-            self.fail(format!("Max did not make {} outlet {}", O::NAME, self.outlets.len()));
+            self.fail(format!(
+                "Max did not make {} outlet {}",
+                O::NAME,
+                self.outlets.len()
+            ));
         }
         if O::NAME == <crate::outlet::Signal as OutletKind>::NAME {
             self.signal_outlets += 1;

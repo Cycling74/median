@@ -162,9 +162,7 @@ impl MaxObjWrapped for Reporter {
 
     fn report_error(&self, _obj: &ObjRef, err: &dyn Display) {
         let msg = SymbolRef::try_from(err.to_string().as_str()).unwrap();
-        let _ = self
-            .errors
-            .send(&SymbolRef::from(c"error"), &[msg.into()]);
+        let _ = self.errors.send(&SymbolRef::from(c"error"), &[msg.into()]);
     }
 }
 
@@ -298,10 +296,22 @@ fn ext_main_registers_every_class_and_survives_a_failing_one() {
     //(`Gain`, `Plain`) still were
     assert!(!k.class_exists("derive.broken"));
     //registered in the `nobox` namespace
-    assert_eq!(<NoBox as ObjClass>::class_type() as u8, ClassType::NoBox as u8);
-    assert!(Class::<MaxObjWrapper<NoBox>>::exists_in_max(c"derive.nobox", ClassType::NoBox));
-    assert!(!Class::<MaxObjWrapper<NoBox>>::exists_in_max(c"derive.nobox", ClassType::Box));
-    assert!(Class::<MaxObjWrapper<Plain>>::exists_in_max(c"plain", ClassType::Box));
+    assert_eq!(
+        <NoBox as ObjClass>::class_type() as u8,
+        ClassType::NoBox as u8
+    );
+    assert!(Class::<MaxObjWrapper<NoBox>>::exists_in_max(
+        c"derive.nobox",
+        ClassType::NoBox
+    ));
+    assert!(!Class::<MaxObjWrapper<NoBox>>::exists_in_max(
+        c"derive.nobox",
+        ClassType::Box
+    ));
+    assert!(Class::<MaxObjWrapper<Plain>>::exists_in_max(
+        c"plain",
+        ClassType::Box
+    ));
     let ext_errors = EXT_MAIN_ERRORS.get().unwrap();
     assert_eq!(ext_errors.len(), 1, "{ext_errors:?}");
     assert!(
@@ -320,8 +330,7 @@ fn every_marker_is_registered_under_its_selector() {
     register(&k);
     let obj = k.new_object("derive.marks", &[]);
     for sel in [
-        "bang", "int", "float", "symbol", "list", "anything", "range", "scale", "reset",
-        "gimme",
+        "bang", "int", "float", "symbol", "list", "anything", "range", "scale", "reset", "gimme",
     ] {
         assert!(k.method(obj, sel).is_some(), "{sel}");
     }
@@ -345,7 +354,8 @@ fn every_marker_dispatches_with_its_arguments() {
     k.send_int(obj, 7).unwrap();
     k.send_float(obj, 0.5).unwrap();
     k.send(obj, "symbol", &["hey".into()]).unwrap();
-    k.send(obj, "frob", &[1.into(), 2.into(), 3.into()]).unwrap();
+    k.send(obj, "frob", &[1.into(), 2.into(), 3.into()])
+        .unwrap();
     k.send(obj, "gimme", &[1.into(), "x".into()]).unwrap();
     k.send(obj, "reset", &[]).unwrap();
     assert_eq!(
@@ -470,7 +480,10 @@ fn field_attributes_get_set_and_clip() {
     //read-only field under another name: users can't set it, a set does nothing
     let opaque_user = median::max_sys::e_max_attrflags::ATTR_SET_OPAQUE_USER as i64;
     assert_eq!(k.attr_get(obj, "level").unwrap(), [MockAtom::Float(0.5)]);
-    assert_eq!(k.attr_flags(obj, "level").unwrap() & opaque_user, opaque_user);
+    assert_eq!(
+        k.attr_flags(obj, "level").unwrap() & opaque_user,
+        opaque_user
+    );
     k.attr_set(obj, "level", &[2.into()]).unwrap();
     assert_eq!(k.attr_get(obj, "level").unwrap(), [MockAtom::Float(0.5)]);
     assert!(matches!(
@@ -509,12 +522,18 @@ fn getter_attributes_with_and_without_a_setter() {
     //`double`: no setter, read-only
     k.attr_set(obj, "value", &[2.into()]).unwrap();
     assert_eq!(k.attr_get(obj, "double").unwrap(), [long(4)]);
-    assert_eq!(k.attr_flags(obj, "double").unwrap() & opaque_user, opaque_user);
+    assert_eq!(
+        k.attr_flags(obj, "double").unwrap() & opaque_user,
+        opaque_user
+    );
     k.attr_set(obj, "double", &[100.into()]).unwrap();
     assert_eq!(k.attr_get(obj, "double").unwrap(), [long(4)]);
 
     //`locked`: `readonly` wins over `set_locked`, and the getter is clipped to 0..=1
-    assert_eq!(k.attr_flags(obj, "locked").unwrap() & opaque_user, opaque_user);
+    assert_eq!(
+        k.attr_flags(obj, "locked").unwrap() & opaque_user,
+        opaque_user
+    );
     k.attr_set(obj, "locked", &[0.5.into()]).unwrap();
     assert_eq!(k.attr_get(obj, "foo").unwrap(), [MockAtom::Float(2.5)]);
     assert_eq!(k.attr_get(obj, "locked").unwrap(), [MockAtom::Float(1.)]);

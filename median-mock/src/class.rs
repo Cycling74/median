@@ -47,7 +47,9 @@ pub unsafe extern "C" fn median_mock_class_new(
         return std::ptr::null_mut();
     }
     // SAFETY: the caller's contract
-    let name = unsafe { CStr::from_ptr(name) }.to_string_lossy().into_owned();
+    let name = unsafe { CStr::from_ptr(name) }
+        .to_string_lossy()
+        .into_owned();
     // SAFETY: the caller's contract
     let new_types = unsafe { std::slice::from_raw_parts(types, ntypes.max(0) as usize) }.to_vec();
 
@@ -102,7 +104,9 @@ pub unsafe extern "C" fn median_mock_class_addmethod(
         return max_err(err::MAX_ERR_INVALID_PTR);
     };
     // SAFETY: the caller's contract
-    let name = unsafe { CStr::from_ptr(name) }.to_string_lossy().into_owned();
+    let name = unsafe { CStr::from_ptr(name) }
+        .to_string_lossy()
+        .into_owned();
     // SAFETY: the caller's contract
     let types = unsafe { std::slice::from_raw_parts(types, ntypes.max(0) as usize) }.to_vec();
     let mut st = state();
@@ -194,7 +198,10 @@ pub unsafe extern "C" fn class_extra_lookup(x: *mut t_class, s: *mut t_symbol) -
         return class.methods_table as *mut c_void;
     }
     let table = st.alloc_sub(SubKind::MethodsTable { class: x as usize });
-    st.classes.get_mut(&(x as usize)).expect("checked above").methods_table = table;
+    st.classes
+        .get_mut(&(x as usize))
+        .expect("checked above")
+        .methods_table = table;
     table as *mut c_void
 }
 
@@ -219,11 +226,18 @@ pub unsafe extern "C" fn hashtab_lookup(
             ..
         }) => *class,
         _ => {
-            st.post_error(0, format!("median-mock: hashtab_lookup on {x:?}, which is not a methods hashtab"));
+            st.post_error(
+                0,
+                format!("median-mock: hashtab_lookup on {x:?}, which is not a methods hashtab"),
+            );
             return max_err(err::MAX_ERR_INVALID_PTR);
         }
     };
-    let found = st.classes.get(&class).and_then(|c| c.methods.get(&name)).map(|m| m.obj);
+    let found = st
+        .classes
+        .get(&class)
+        .and_then(|c| c.methods.get(&name))
+        .map(|m| m.obj);
     let obj = match found {
         None => 0,
         Some(0) => {
@@ -282,7 +296,9 @@ pub unsafe extern "C" fn object_addattr_parse(
         String::new()
     } else {
         // SAFETY: the caller's contract
-        unsafe { CStr::from_ptr(parsestr) }.to_string_lossy().into_owned()
+        unsafe { CStr::from_ptr(parsestr) }
+            .to_string_lossy()
+            .into_owned()
     };
     let mut st = state();
     let (class, name) = match st.subs.get(&(x as usize)) {
@@ -306,7 +322,11 @@ pub unsafe extern "C" fn object_addattr_parse(
             return max_err(err::MAX_ERR_INVALID_PTR);
         }
     };
-    match st.classes.get_mut(&class).and_then(|c| c.methods.get_mut(&name)) {
+    match st
+        .classes
+        .get_mut(&class)
+        .and_then(|c| c.methods.get_mut(&name))
+    {
         Some(rec) => {
             rec.attrs.insert(attr, (ty_name, parse));
             max_err(err::MAX_ERR_NONE)
@@ -510,13 +530,21 @@ pub unsafe extern "C" fn median_mock_object_method(
         match st.objects.get(&(x as usize)) {
             Some(o) => st.classes[&o.class].methods.get(&sel).cloned(),
             None => {
-                st.post_error(x as usize, format!("median-mock: object_method \"{sel}\" on {x:?}, which is not a live object"));
+                st.post_error(
+                    x as usize,
+                    format!(
+                        "median-mock: object_method \"{sel}\" on {x:?}, which is not a live object"
+                    ),
+                );
                 return std::ptr::null_mut();
             }
         }
     };
     let Some(rec) = found else {
-        state().post_error(x as usize, format!("median-mock: object_method: no method \"{sel}\""));
+        state().post_error(
+            x as usize,
+            format!("median-mock: object_method: no method \"{sel}\""),
+        );
         return std::ptr::null_mut();
     };
     let mut raws = vec![Raw::I(x as usize)];
@@ -598,7 +626,10 @@ fn convert_args(types: &[i32], atoms: &[Atom]) -> Result<Vec<Raw>, String> {
                 return Err("A_GIMME and A_CANT cannot be mixed with other argument types".into());
             }
             (_, Some(a)) => {
-                return Err(format!("argument {} ({a:?}) does not match type {t}", i + 1));
+                return Err(format!(
+                    "argument {} ({a:?}) does not match type {t}",
+                    i + 1
+                ));
             }
             (_, None) => return Err(format!("missing argument {} (type {t})", i + 1)),
         };
@@ -640,7 +671,12 @@ fn resolve(c: &ClassData, sel: &str, atoms: &[Atom]) -> Option<(String, MethodRe
 
 /// Call `rec` (a method of `obj`) with `atoms`: `A_GIMME` methods get `(x, sym, argc, argv)`,
 /// typed ones their converted arguments.
-fn invoke(obj: usize, selector: &str, rec: &MethodRec, atoms: &[Atom]) -> Result<*mut c_void, SendError> {
+fn invoke(
+    obj: usize,
+    selector: &str,
+    rec: &MethodRec,
+    atoms: &[Atom],
+) -> Result<*mut c_void, SendError> {
     let mut raw_atoms;
     let raws = match rec.types.as_slice() {
         [t] if *t as u32 == ty::A_GIMME => {
@@ -655,10 +691,12 @@ fn invoke(obj: usize, selector: &str, rec: &MethodRec, atoms: &[Atom]) -> Result
         [t] if *t as u32 == ty::A_CANT => return Err(SendError::NotSendable(selector.to_string())),
         types => {
             let mut raws = vec![Raw::I(obj)];
-            raws.extend(convert_args(types, atoms).map_err(|reason| SendError::BadArgs {
-                selector: selector.to_string(),
-                reason,
-            })?);
+            raws.extend(
+                convert_args(types, atoms).map_err(|reason| SendError::BadArgs {
+                    selector: selector.to_string(),
+                    reason,
+                })?,
+            );
             raws
         }
     };
@@ -677,7 +715,10 @@ pub(crate) fn dispatch(obj: usize, sel: &str, atoms: &[Atom]) -> Result<*mut c_v
         let class_name = class.name.clone();
         let found = resolve(class, sel, atoms);
         if found.is_none() {
-            st.post_error(obj, format!("{class_name}: doesn't understand \u{201c}{sel}\u{201d}"));
+            st.post_error(
+                obj,
+                format!("{class_name}: doesn't understand \u{201c}{sel}\u{201d}"),
+            );
         }
         found
     };
@@ -688,9 +729,17 @@ pub(crate) fn dispatch(obj: usize, sel: &str, atoms: &[Atom]) -> Result<*mut c_v
     if let Err(SendError::BadArgs { reason, .. }) = &res {
         let class_name = {
             let st = state();
-            st.objects.get(&obj).map(|o| st.classes[&o.class].name.clone())
+            st.objects
+                .get(&obj)
+                .map(|o| st.classes[&o.class].name.clone())
         };
-        state().post_error(obj, format!("{}: bad arguments for message \u{201c}{used}\u{201d}: {reason}", class_name.unwrap_or_default()));
+        state().post_error(
+            obj,
+            format!(
+                "{}: bad arguments for message \u{201c}{used}\u{201d}: {reason}",
+                class_name.unwrap_or_default()
+            ),
+        );
     }
     res
 }

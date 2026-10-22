@@ -130,7 +130,12 @@ fn an_err_from_new_gives_max_null_and_frees_everything() {
     let k = setup();
     let dropped = DROPPED.load(Ordering::SeqCst);
     refused(&k, "picky", &[], "needs a count");
-    refused(&k, "picky", &["x".into()], "the count must be an int, not x");
+    refused(
+        &k,
+        "picky",
+        &["x".into()],
+        "the count must be an int, not x",
+    );
     refused(
         &k,
         "picky",
@@ -173,7 +178,10 @@ fn a_panic_in_an_msp_new_frees_everything() {
     assert!(obj.is_null());
     let log = k.take_console_log();
     assert_eq!(log.len(), 1, "{log:?}");
-    assert!(log[0].text.contains("panic") && log[0].text.contains("no"), "{log:?}");
+    assert!(
+        log[0].text.contains("panic") && log[0].text.contains("no"),
+        "{log:?}"
+    );
     assert_eq!(k.live_object_count(), 0);
     assert_eq!(k.live_clock_count(), clocks);
     assert_eq!(k.live_buffer_ref_count(), bufs);

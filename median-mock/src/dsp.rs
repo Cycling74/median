@@ -22,7 +22,10 @@ pub unsafe extern "C" fn z_dsp_setup(x: *mut t_pxobject, nsignals: c_long) {
     let addr = x as usize;
     let mut st = state();
     let Some(obj) = st.objects.get_mut(&addr) else {
-        st.post_error(addr, format!("median-mock: z_dsp_setup on {addr:#x}, which is not a live object"));
+        st.post_error(
+            addr,
+            format!("median-mock: z_dsp_setup on {addr:#x}, which is not a live object"),
+        );
         return;
     };
     obj.signal_inlets = Some(nsignals.max(0) as usize);
@@ -47,11 +50,17 @@ pub unsafe extern "C" fn z_dsp_free(x: *mut t_pxobject) {
     let mut st = state();
     st.dsp_frees.push(addr);
     let Some(obj) = st.objects.get_mut(&addr) else {
-        st.post_error(addr, format!("median-mock: z_dsp_free on {addr:#x}, which is not a live object"));
+        st.post_error(
+            addr,
+            format!("median-mock: z_dsp_free on {addr:#x}, which is not a live object"),
+        );
         return;
     };
     if obj.signal_inlets.take().is_none() {
-        st.post_error(addr, format!("median-mock: z_dsp_free on {addr:#x} without z_dsp_setup"));
+        st.post_error(
+            addr,
+            format!("median-mock: z_dsp_free on {addr:#x} without z_dsp_setup"),
+        );
         return;
     }
     let obj = st.objects.get_mut(&addr).expect("checked above");
@@ -100,7 +109,12 @@ impl DspAdd {
     /// # Panics
     /// If a buffer is shorter than the longest.
     pub fn run(&self, ins: &mut [Vec<f64>], outs: &mut [Vec<f64>]) {
-        let frames = ins.iter().chain(outs.iter()).map(Vec::len).max().unwrap_or(0);
+        let frames = ins
+            .iter()
+            .chain(outs.iter())
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
         assert!(
             ins.iter().chain(outs.iter()).all(|b| b.len() == frames),
             "all buffers passed to DspAdd::run must have the same length"

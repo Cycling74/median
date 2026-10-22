@@ -87,7 +87,8 @@ fn freeing_the_owner_from_its_own_clock_callback_blocks_that_thread() {
     assert!(
         log.iter().any(|e| e.level == median_mock::Level::Error
             && e.object == obj
-            && e.text.contains("from inside its own clock, queue or deferred callback")),
+            && e.text
+                .contains("from inside its own clock, queue or deferred callback")),
         "{log:?}"
     );
 }

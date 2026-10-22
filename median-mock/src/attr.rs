@@ -30,7 +30,9 @@ fn new_attr(
         return std::ptr::null_mut();
     }
     // SAFETY: the caller passes a NUL-terminated string
-    let name = unsafe { CStr::from_ptr(name) }.to_string_lossy().into_owned();
+    let name = unsafe { CStr::from_ptr(name) }
+        .to_string_lossy()
+        .into_owned();
     state().alloc_sub(SubKind::Attr(AttrData {
         name,
         type_name: name_of(type_ as usize),
@@ -296,7 +298,11 @@ pub struct GetterResult {
     pub used_buffer: bool,
 }
 
-pub(crate) fn get_with(obj: usize, name: &str, args: GetterArgs) -> Result<GetterResult, AttrError> {
+pub(crate) fn get_with(
+    obj: usize,
+    name: &str,
+    args: GetterArgs,
+) -> Result<GetterResult, AttrError> {
     let a = find_attr(obj, name)?;
     if a.getter == 0 {
         return Err(AttrError::Unsupported("no getter".into()));
@@ -358,7 +364,12 @@ pub(crate) fn set_null_argv(obj: usize, name: &str, ac: i64) -> Result<i64, Attr
     let code = unsafe {
         call_raw(
             a.setter,
-            &[Raw::I(obj), Raw::I(a.ptr), Raw::I(ac as c_long as usize), Raw::I(0)],
+            &[
+                Raw::I(obj),
+                Raw::I(a.ptr),
+                Raw::I(ac as c_long as usize),
+                Raw::I(0),
+            ],
         )
     } as isize as i64;
     Ok(code)

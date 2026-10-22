@@ -74,7 +74,9 @@ fn attach(st: &mut State, obj: usize, client: usize) {
 }
 
 fn class_name_of(st: &State, obj: usize) -> Option<String> {
-    st.objects.get(&obj).map(|o| st.classes[&o.class].name.clone())
+    st.objects
+        .get(&obj)
+        .map(|o| st.classes[&o.class].name.clone())
 }
 
 /// # Safety
@@ -91,7 +93,10 @@ pub unsafe extern "C" fn object_register(
     let class_name = {
         let mut st = state();
         if !st.objects.contains_key(&addr) {
-            st.post_error(addr, format!("median-mock: object_register of {addr:#x}, which is not a live object"));
+            st.post_error(
+                addr,
+                format!("median-mock: object_register of {addr:#x}, which is not a live object"),
+            );
             return std::ptr::null_mut();
         }
         if let Some(o) = st.objects.get_mut(&addr) {
@@ -116,13 +121,23 @@ pub(crate) fn register_with_class(ns: &str, name: &str, addr: usize, class_name:
             .filter(|sub| {
                 sub.namespace == ns
                     && sub.name == name
-                    && sub.classname.as_deref().is_none_or(|c| Some(c) == class_name)
+                    && sub
+                        .classname
+                        .as_deref()
+                        .is_none_or(|c| Some(c) == class_name)
             })
             .map(|sub| sub.client)
             .collect();
         for client in waiting {
             attach(&mut st, addr, client);
-            to_notify.extend(notification(&st, client, name, "globalsymbol_binding", addr, addr));
+            to_notify.extend(notification(
+                &st,
+                client,
+                name,
+                "globalsymbol_binding",
+                addr,
+                addr,
+            ));
         }
     }
     deliver(to_notify);
@@ -160,7 +175,14 @@ fn unregister(addr: usize) -> t_max_err {
         }
         let clients = st.attached.remove(&addr).unwrap_or_default();
         for client in clients {
-            to_notify.extend(notification(&st, client, &reg.1, "globalsymbol_unbinding", addr, addr));
+            to_notify.extend(notification(
+                &st,
+                client,
+                &reg.1,
+                "globalsymbol_unbinding",
+                addr,
+                addr,
+            ));
         }
     }
     deliver(to_notify);

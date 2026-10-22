@@ -120,7 +120,11 @@ impl Simp {
     #[sel("read", gimme)]
     #[defer_low]
     pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
-        median::object_post!(&self.obj, "read {} argument(s) on the main thread", atoms.len());
+        median::object_post!(
+            &self.obj,
+            "read {} argument(s) on the main thread",
+            atoms.len()
+        );
     }
 
     //an attribute "foo": the getter is marked, `set_foo` is found by its name (without one the

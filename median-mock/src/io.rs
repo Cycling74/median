@@ -26,7 +26,10 @@ fn cstr_opt(s: *const c_char) -> Option<String> {
 
 fn add_outlet(st: &mut State, x: usize, ty: Option<String>, append: bool) -> *mut c_void {
     if !st.objects.contains_key(&x) {
-        st.post_error(x, format!("median-mock: outlet created on {x:#x}, which is not a live object"));
+        st.post_error(
+            x,
+            format!("median-mock: outlet created on {x:#x}, which is not a live object"),
+        );
         return std::ptr::null_mut();
     }
     let ptr = st.alloc_sub(SubKind::Outlet { owner: x, ty });
@@ -49,11 +52,18 @@ pub(crate) fn inlets_left_to_right(_st: &State, o: &crate::state::ObjData) -> Ve
 
 pub(crate) fn add_inlet(st: &mut State, x: usize, kind: InletKind) -> *mut c_void {
     if !st.objects.contains_key(&x) {
-        st.post_error(x, format!("median-mock: inlet created on {x:#x}, which is not a live object"));
+        st.post_error(
+            x,
+            format!("median-mock: inlet created on {x:#x}, which is not a live object"),
+        );
         return std::ptr::null_mut();
     }
     let ptr = st.alloc_sub(SubKind::Inlet { kind });
-    st.objects.get_mut(&x).expect("checked above").inlets.push(ptr);
+    st.objects
+        .get_mut(&x)
+        .expect("checked above")
+        .inlets
+        .push(ptr);
     ptr as *mut c_void
 }
 
@@ -107,7 +117,10 @@ fn log_outlet(x: *mut t_outlet, selector: &str, atoms: Vec<Atom>) -> *mut c_void
         _ => None,
     };
     let Some(owner) = owner else {
-        st.post_error(0, format!("median-mock: {selector} sent through {addr:#x}, which is not a live outlet"));
+        st.post_error(
+            0,
+            format!("median-mock: {selector} sent through {addr:#x}, which is not a live outlet"),
+        );
         return std::ptr::null_mut();
     };
     if st.outlet_overflow {

@@ -166,7 +166,10 @@ pub unsafe extern "C" fn qelem_free(x: *mut t_qelem) {
     } else {
         state().post_error(
             0,
-            format!("median-mock: qelem_free of {:#x}, which is not a live qelem", x as usize),
+            format!(
+                "median-mock: qelem_free of {:#x}, which is not a live qelem",
+                x as usize
+            ),
         );
     }
 }

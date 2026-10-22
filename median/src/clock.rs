@@ -58,8 +58,8 @@ use parking_lot::{Mutex, ReentrantMutex};
 use std::{
     ffi::{CStr, c_long, c_void},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
@@ -155,7 +155,10 @@ impl ClockShared {
     /// Set the target. Only called on a new target, before its clock or qelem exists, so no
     /// callback is running.
     pub(crate) fn set(&self, target: *mut max_sys::t_object, func: ClockFn) {
-        let old = self.target.lock().replace((SyncPtr(target), Arc::from(func)));
+        let old = self
+            .target
+            .lock()
+            .replace((SyncPtr(target), Arc::from(func)));
         drop(old);
     }
 
@@ -425,11 +428,8 @@ impl Clock {
             // SAFETY: `target` is valid per the caller's guarantee, `name` is a NUL-terminated
             // string that outlives the calls, and `clock` was just created above
             unsafe {
-                if max_sys::object_obex_lookup(
-                    target as _,
-                    max_sys::gensym(name.as_ptr()),
-                    &mut ob,
-                ) == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_atom_long
+                if max_sys::object_obex_lookup(target as _, max_sys::gensym(name.as_ptr()), &mut ob)
+                    == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_atom_long
                 {
                     let _ = max_sys::object_obex_storeflags(
                         clock,
@@ -540,7 +540,10 @@ mod tests {
     fn panicking_callback_is_reported_under_lock() {
         let shared = ClockShared::new();
         shared.arm();
-        shared.set(std::ptr::null_mut(), Box::new(|_| panic!("callback failed")));
+        shared.set(
+            std::ptr::null_mut(),
+            Box::new(|_| panic!("callback failed")),
+        );
         let mut reported = None;
         shared.call_with(|_, msg| {
             //the report runs while `running` is still held, and `target` is not

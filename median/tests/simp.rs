@@ -1,9 +1,9 @@
 //! The `simp` example (`#[derive(MaxObject)]`, `#[median::methods]`, `ext_main!`), compiled into
 //! this test and run against the `median-mock` kernel.
 
+mod common;
 #[path = "../examples/simp/src/lib.rs"]
 mod simp;
-mod common;
 
 #[test]
 fn simp_runs_the_script() {
@@ -40,7 +40,10 @@ fn simp_does_not_understand_float_in_its_left_inlet() {
     ));
     let console = k.take_console_log();
     assert_eq!(console.len(), 1, "{console:?}");
-    assert!(console[0].text.contains("doesn't understand"), "{console:?}");
+    assert!(
+        console[0].text.contains("doesn't understand"),
+        "{console:?}"
+    );
     assert!(console[0].text.contains("float"), "{console:?}");
     assert!(k.take_outlet_log().is_empty());
     assert!(k.free_object(x));

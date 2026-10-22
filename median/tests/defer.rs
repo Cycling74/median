@@ -27,7 +27,8 @@ impl MaxObjWrapped for Thing {
 impl Thing {
     fn log(&self, what: String) {
         let main = median::thread::SysThread::is_main();
-        self.obj.post(format!("{what}{}", if main { "" } else { " (not main)" }));
+        self.obj
+            .post(format!("{what}{}", if main { "" } else { " (not main)" }));
     }
 
     /// Send this object the message `sel`, without arguments, on the calling thread.
@@ -258,12 +259,30 @@ fn deferred_typed_and_gimme_arguments_arrive_intact() {
     register();
     let obj = k.new_object("defer.thing", &[]);
     k.with_role(Role::Timer, || {
-        k.send(obj, "symbol", &[MockAtom::Sym("hello".into())]).unwrap();
-        k.send_list(obj, &[MockAtom::Long(1), MockAtom::Float(2.5), MockAtom::Sym("x".into())])
+        k.send(obj, "symbol", &[MockAtom::Sym("hello".into())])
             .unwrap();
-        k.send(obj, "typed", &[MockAtom::Long(7), MockAtom::Sym("seven".into())]).unwrap();
+        k.send_list(
+            obj,
+            &[
+                MockAtom::Long(1),
+                MockAtom::Float(2.5),
+                MockAtom::Sym("x".into()),
+            ],
+        )
+        .unwrap();
+        k.send(
+            obj,
+            "typed",
+            &[MockAtom::Long(7), MockAtom::Sym("seven".into())],
+        )
+        .unwrap();
         k.send(obj, "typed", &[MockAtom::Long(8)]).unwrap();
-        k.send(obj, "open", &[MockAtom::Sym("a file".into()), MockAtom::Long(-1)]).unwrap();
+        k.send(
+            obj,
+            "open",
+            &[MockAtom::Sym("a file".into()), MockAtom::Long(-1)],
+        )
+        .unwrap();
         k.send(obj, "open", &[]).unwrap();
     });
     assert!(posts(&k).is_empty());
@@ -280,8 +299,14 @@ fn deferred_typed_and_gimme_arguments_arrive_intact() {
         ]
     );
     //`Front` ones, with the main thread running them at once
-    k.send(obj, "floats", &[MockAtom::Float(0.25), MockAtom::Long(3)]).unwrap();
-    k.send(obj, "whatever", &[MockAtom::Long(4), MockAtom::Sym("y".into())]).unwrap();
+    k.send(obj, "floats", &[MockAtom::Float(0.25), MockAtom::Long(3)])
+        .unwrap();
+    k.send(
+        obj,
+        "whatever",
+        &[MockAtom::Long(4), MockAtom::Sym("y".into())],
+    )
+    .unwrap();
     assert_eq!(posts(&k), ["floats 0.25 3", "anything whatever 4,'y'"]);
     k.with_role(Role::Timer, || {
         k.send(obj, "whatever", &[MockAtom::Long(5)]).unwrap();
@@ -298,7 +323,8 @@ fn a_deferred_call_pending_at_free_is_dropped_without_running() {
     let qelems = k.live_qelem_count();
     let obj = k.new_object("defer.thing", &[]);
     assert_eq!(k.live_qelem_count(), qelems + 2);
-    k.send_list(obj, &[MockAtom::Long(1), MockAtom::Sym("s".into())]).unwrap();
+    k.send_list(obj, &[MockAtom::Long(1), MockAtom::Sym("s".into())])
+        .unwrap();
     k.send(obj, "open", &[MockAtom::Sym("f".into())]).unwrap();
     assert!(k.free_object(obj));
     assert_eq!(k.live_qelem_count(), qelems);
@@ -317,12 +343,19 @@ fn errors_and_panics_of_deferred_methods_are_reported_when_they_run() {
     assert!(k.console_log().is_empty());
     k.run_main_queue();
     let log = k.take_console_log();
-    let got: Vec<_> = log.iter().map(|e| (e.level, e.object, e.text.as_str())).collect();
+    let got: Vec<_> = log
+        .iter()
+        .map(|e| (e.level, e.object, e.text.as_str()))
+        .collect();
     assert_eq!(
         got,
         [
             (Level::Error, obj as usize, "deferred failure"),
-            (Level::Error, obj as usize, "median: panic in method: deferred panic"),
+            (
+                Level::Error,
+                obj as usize,
+                "median: panic in method: deferred panic"
+            ),
             //the panic didn't stop the next call
             (Level::Post, obj as usize, "int 9"),
         ]

@@ -1,9 +1,9 @@
 //! The `simp_explicit` example (no macros but `ext_main!`), compiled into this test and run
 //! against the `median-mock` kernel: it behaves exactly like `simp`.
 
+mod common;
 #[path = "../examples/simp_explicit/src/lib.rs"]
 mod simp_explicit;
-mod common;
 
 #[test]
 fn simp_explicit_behaves_like_simp() {

@@ -4,11 +4,13 @@
 use crate::{
     atom::Atom,
     buffer::BufferRef,
-    builder::{Builder, BuilderKind, Iolets, MSPBuilder, ManagedBufferRefInternal, Max, MaxBuilder, Msp},
+    builder::{
+        Builder, BuilderKind, Iolets, MSPBuilder, ManagedBufferRefInternal, Max, MaxBuilder, Msp,
+    },
     class::{Class, ClassType},
-    error::{MaxResult, NewError},
     clock::ClockShared,
     defer::{Defer, DeferQueue, DeferredCall},
+    error::{MaxResult, NewError},
     method::{MaxFree, MaxMethod},
     notify::Notification,
     object::{MSPObj, MaxObj, ObjBox, ObjRef},
@@ -18,14 +20,14 @@ use crate::{
 use std::{
     borrow::Cow,
     collections::HashMap,
+    ffi::{CStr, c_char, c_void},
     fmt::Display,
-    ffi::{c_char, c_void, CStr},
     marker::PhantomData,
     mem::MaybeUninit,
     os::raw::c_long,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex, PoisonError,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -631,7 +633,11 @@ where
     T: FieldAttrs + Methods,
 {
     if let Err(e) = T::register_attrs(class) {
-        panic!("{}: failed to register the field attributes: {:?}", key::<T>(), e);
+        panic!(
+            "{}: failed to register the field attributes: {:?}",
+            key::<T>(),
+            e
+        );
     }
     if let Err(e) = <T as Methods>::register(class) {
         panic!("{}: failed to register the methods: {:?}", key::<T>(), e);
@@ -681,7 +687,8 @@ where
     /// # Safety
     /// `obj` must point to this live object.
     unsafe fn check_signal_io(&self, obj: *mut max_sys::t_object) {
-        let (signal_inlets, signal_outlets) = (self.iolets.signal_inlets, self.iolets.signal_outlets);
+        let (signal_inlets, signal_outlets) =
+            (self.iolets.signal_inlets, self.iolets.signal_outlets);
         if signal_inlets > MAX_SIGNAL_IO || signal_outlets > MAX_SIGNAL_IO {
             // SAFETY: the caller guarantees `obj` is valid
             unsafe {
@@ -758,8 +765,11 @@ where
             *slice = unsafe { std::slice::from_raw_parts_mut(*op, nframes) };
         }
 
-        self.wrapped()
-            .perform(&in_slices[..ins.len()], &mut out_slices[..outs.len()], nframes);
+        self.wrapped().perform(
+            &in_slices[..ins.len()],
+            &mut out_slices[..outs.len()],
+            nframes,
+        );
     }
 }
 
@@ -793,22 +803,18 @@ where
     /// `z_dsp_setup` ran), then Max frees the object, whose `free` sees that it isn't
     /// constructed. On `Err` the message is posted for the object first.
     fn construct(sym: SymbolRef, args: &[Atom]) -> Result<ObjBox<Self>, CreateError> {
-        let (max_class, deferred) =
-            registered_class(key::<T>()).ok_or(CreateError::Unavailable)?;
+        let (max_class, deferred) = registered_class(key::<T>()).ok_or(CreateError::Unavailable)?;
         // SAFETY: `max_class` is the class registered for this wrapper type
         let o: ObjBox<Self> =
             unsafe { ObjBox::alloc(max_class) }.ok_or(CreateError::Unavailable)?;
         // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its fields
         // are uninitialised, so write without dropping the old values. If `T::new` panics or
         // fails, `o` is dropped (after the builder) while `constructed` is false.
-        unsafe {
-            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false))
-        };
+        unsafe { std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false)) };
         // SAFETY: the object is valid and under construction, and outlives the builder, which
         // is declared after `o` so it is dropped first; `args` outlives it too
-        let mut builder: Builder<T, I::Kind> = unsafe {
-            Builder::new(std::ptr::NonNull::new_unchecked(o.max_obj()), sym, args)
-        };
+        let mut builder: Builder<T, I::Kind> =
+            unsafe { Builder::new(std::ptr::NonNull::new_unchecked(o.max_obj()), sym, args) };
         if deferred {
             //the qelems of the deferred-call queue, armed and disabled with the clocks
             builder.make_defer_queue(|obj| {
@@ -1227,9 +1233,7 @@ where
                 let mut c: Class<Self> = Class::new(
                     T::class_name(),
                     Self::new_tramp,
-                    Some(
-                        Self::free_wrapped as MaxFree<Self>,
-                    ),
+                    Some(Self::free_wrapped as MaxFree<Self>),
                 );
                 //TODO somehow pass the lock so that classes can register additional classes
                 MaxWrapperInternal::<T>::class_setup(&mut c);
@@ -1327,9 +1331,7 @@ where
                 let mut c: Class<Self> = Class::new(
                     T::class_name(),
                     Self::new_tramp,
-                    Some(
-                        Self::free_msp as MaxFree<Self>,
-                    ),
+                    Some(Self::free_msp as MaxFree<Self>),
                 );
                 //TODO somehow pass the lock so that classes can register additional classes
                 MSPWrapperInternal::<T>::class_setup(&mut c);
@@ -1404,7 +1406,8 @@ where
         //may set a queue until then.)
         if constructed {
             unsafe {
-                let internal = &*std::ptr::addr_of!((*this).wrapped).cast::<MSPWrapperInternal<T>>();
+                let internal =
+                    &*std::ptr::addr_of!((*this).wrapped).cast::<MSPWrapperInternal<T>>();
                 release_targets(internal.targets());
                 max_sys::z_dsp_free(this as *mut max_sys::t_pxobject);
             }
@@ -1436,7 +1439,16 @@ where
         }
         // no allocation unless `perform` panics
         if let Err(msg) = crate::ffi::catch(|| {
-            internal.perform64(dsp64, ins, numins, outs, numouts, sampleframes, flags, userparam)
+            internal.perform64(
+                dsp64,
+                ins,
+                numins,
+                outs,
+                numouts,
+                sampleframes,
+                flags,
+                userparam,
+            )
         }) {
             internal.panicked.store(true, Ordering::Relaxed);
             // SAFETY: as above
@@ -1596,7 +1608,10 @@ mod tests {
         assert!(obj.is_null());
         let log = k.take_console_log();
         assert_eq!(log.len(), 1, "{log:?}");
-        assert!(log[0].text.contains("injected after z_dsp_setup"), "{log:?}");
+        assert!(
+            log[0].text.contains("injected after z_dsp_setup"),
+            "{log:?}"
+        );
         //`z_dsp_setup` was paired with `z_dsp_free`, the proxy and the clock were freed (the
         //kernel reports an unpaired setup or a leaked proxy on the console)
         assert_eq!(k.dsp_frees().len(), 1);
@@ -1721,8 +1736,14 @@ mod tests {
         let w = half_built::<_, _, P>();
         let ran = RAN.load(Ordering::SeqCst);
 
-        assert_eq!(errors_during(&k, &*w, || W::call_in1(&w, 3)), refused("in1"));
-        assert_eq!(errors_during(&k, &*w, || W::call_ft1(&w, 3.)), refused("ft1"));
+        assert_eq!(
+            errors_during(&k, &*w, || W::call_in1(&w, 3)),
+            refused("in1")
+        );
+        assert_eq!(
+            errors_during(&k, &*w, || W::call_ft1(&w, 3.)),
+            refused("ft1")
+        );
         assert_eq!(
             errors_during(&k, &*w, || {
                 // SAFETY: null symbols are valid for a notification
@@ -1749,7 +1770,12 @@ mod tests {
         );
         let mut t: std::ffi::c_char = 0;
         assert_eq!(
-            errors_during(&k, &*w, || W::inletinfo_tramp(&w, std::ptr::null_mut(), 1, &mut t)),
+            errors_during(&k, &*w, || W::inletinfo_tramp(
+                &w,
+                std::ptr::null_mut(),
+                1,
+                &mut t
+            )),
             refused("inletinfo")
         );
         assert_eq!(t, 0);
@@ -1763,8 +1789,13 @@ mod tests {
                 mode,
             );
             // SAFETY: that is the type of the trampoline `bang_deferred_method` returns
-            let f = unsafe { std::mem::transmute::<crate::method::MaxMethod, extern "C" fn(&W)>(m) };
-            assert_eq!(errors_during(&k, &*w, || f(&w)), refused("bang"), "{mode:?}");
+            let f =
+                unsafe { std::mem::transmute::<crate::method::MaxMethod, extern "C" fn(&W)>(m) };
+            assert_eq!(
+                errors_during(&k, &*w, || f(&w)),
+                refused("bang"),
+                "{mode:?}"
+            );
         }
         assert_eq!(k.main_queue_len(), 0);
         //the attribute accessors (`Class::add_attr`, `#[attr]`) return an error to Max
@@ -1826,7 +1857,10 @@ mod tests {
         );
         //no perform routine was added, so `perform64` can't run on it
         assert!(k.dsp_adds().is_empty());
-        assert_eq!(errors_during(&k, &*w, || W::call_in1(&w, 3)), refused_by::<Q>("in1"));
+        assert_eq!(
+            errors_during(&k, &*w, || W::call_in1(&w, 3)),
+            refused_by::<Q>("in1")
+        );
         assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 }

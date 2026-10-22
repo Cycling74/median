@@ -302,8 +302,7 @@ fn sel_args() {
     assert!(!SymbolRef::default().as_ptr().is_null());
     assert_eq!(w.t.take(), ["zero", "set abc", "set ", "nothing true"]);
 
-    let f: extern "C" fn(&W, t_atom_long, *mut max_sys::t_symbol) =
-        unsafe { cast(tramp(mixed)) };
+    let f: extern "C" fn(&W, t_atom_long, *mut max_sys::t_symbol) = unsafe { cast(tramp(mixed)) };
     f(&w, 9, &mut s);
 
     let f: extern "C" fn(
@@ -329,11 +328,7 @@ fn sel_args() {
 
     assert_eq!(
         w.t.take(),
-        [
-            "mixed 9 abc",
-            "seven 1 abc 3 4 t 6 abc",
-            "closure 3"
-        ]
+        ["mixed 9 abc", "seven 1 abc 3 4 t 6 abc", "closure 3"]
     );
 }
 
@@ -505,7 +500,9 @@ fn class_registers_the_methods() {
     //each method was registered under its selector with the argument types of its arguments
     use max_sys::e_max_atomtypes::{A_DEFSYM, A_FLOAT, A_GIMME, A_LONG, A_SYM};
     let types = |sel: &str| {
-        let (fun, types) = k.method(obj, sel).unwrap_or_else(|| panic!("no method {sel}"));
+        let (fun, types) = k
+            .method(obj, sel)
+            .unwrap_or_else(|| panic!("no method {sel}"));
         assert_ne!(fun, 0);
         types
     };

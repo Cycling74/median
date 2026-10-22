@@ -282,7 +282,12 @@ impl Outlet<List> {
     pub fn send(&self, atoms: &[Atom]) -> SendResult {
         // SAFETY: as in `Outlet<Bang>::send`; `atoms` is valid for `list_len(atoms)` atoms
         self.send_with(|o| unsafe {
-            max_sys::outlet_list(o as _, std::ptr::null_mut(), list_len(atoms), atoms_ptr(atoms))
+            max_sys::outlet_list(
+                o as _,
+                std::ptr::null_mut(),
+                list_len(atoms),
+                atoms_ptr(atoms),
+            )
         })
     }
 }
@@ -323,7 +328,12 @@ impl Outlet<Any> {
     pub fn send_list(&self, atoms: &[Atom]) -> SendResult {
         // SAFETY: as in `Outlet<List>::send`
         self.send_with(|o| unsafe {
-            max_sys::outlet_list(o as _, std::ptr::null_mut(), list_len(atoms), atoms_ptr(atoms))
+            max_sys::outlet_list(
+                o as _,
+                std::ptr::null_mut(),
+                list_len(atoms),
+                atoms_ptr(atoms),
+            )
         })
     }
 }

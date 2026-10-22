@@ -15,7 +15,7 @@
 use crate::object::MaxObj;
 use std::{
     any::Any,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
 };
 
 /// The `t_max_err` that trampolines return when the user's code panicked

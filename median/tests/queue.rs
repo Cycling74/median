@@ -91,7 +91,10 @@ impl Thing {
 
     pub fn redraw(&self) {
         let _ = self.out.send(self.value.get());
-        self.obj.post(format!("main thread: {}", median::thread::SysThread::is_main()));
+        self.obj.post(format!(
+            "main thread: {}",
+            median::thread::SysThread::is_main()
+        ));
     }
 }
 
@@ -120,7 +123,10 @@ fn a_queue_set_many_times_runs_once_on_the_main_thread() {
     assert_eq!(k.run_main_queue(), 1);
     let log = k.take_outlet_log();
     assert_eq!(log.len(), 1);
-    assert_eq!((log[0].atoms.as_slice(), log[0].role), (&[MockAtom::Long(6)][..], Role::Main));
+    assert_eq!(
+        (log[0].atoms.as_slice(), log[0].role),
+        (&[MockAtom::Long(6)][..], Role::Main)
+    );
     assert_eq!(k.take_console_log()[0].text, "main thread: true");
     //it is unset once it has run, so it can be set again
     k.send_int(obj, 7).unwrap();
@@ -140,13 +146,21 @@ fn front_goes_ahead_and_cancel_unsets() {
     //`qelem_front` on a set qelem, not Max (the SDK doesn't say; unverified)
     k.send(b, "first", &[]).unwrap();
     assert_eq!(k.run_main_queue(), 2);
-    let order: Vec<_> = k.take_outlet_log().iter().map(|e| e.atoms.clone()).collect();
+    let order: Vec<_> = k
+        .take_outlet_log()
+        .iter()
+        .map(|e| e.atoms.clone())
+        .collect();
     assert_eq!(order, [[MockAtom::Long(1)], [MockAtom::Long(2)]]);
     //unset, front goes ahead of a's
     k.send_int(a, 3).unwrap();
     k.send(b, "first", &[]).unwrap();
     assert_eq!(k.run_main_queue(), 2);
-    let order: Vec<_> = k.take_outlet_log().iter().map(|e| e.atoms.clone()).collect();
+    let order: Vec<_> = k
+        .take_outlet_log()
+        .iter()
+        .map(|e| e.atoms.clone())
+        .collect();
     assert_eq!(order, [[MockAtom::Long(2)], [MockAtom::Long(3)]]);
     //cancel
     k.send_int(a, 4).unwrap();

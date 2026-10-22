@@ -68,7 +68,9 @@ static EDITING: std::sync::Mutex<Vec<usize>> = std::sync::Mutex::new(Vec::new())
 
 /// Claim `buffer` for an edit in [`EDITING`]: `false` if it is claimed already.
 fn claim_edit(buffer: NonNull<max_sys::t_buffer_obj>) -> bool {
-    let mut e = EDITING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut e = EDITING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let addr = buffer.as_ptr() as usize;
     if e.contains(&addr) {
         false
@@ -80,7 +82,9 @@ fn claim_edit(buffer: NonNull<max_sys::t_buffer_obj>) -> bool {
 
 /// Release a claim made by [`claim_edit`].
 fn release_edit(buffer: NonNull<max_sys::t_buffer_obj>) {
-    let mut e = EDITING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut e = EDITING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let addr = buffer.as_ptr() as usize;
     e.retain(|&a| a != addr);
 }
@@ -499,7 +503,11 @@ impl BufferLocked<'_> {
     /// # Panics
     /// If `i >= frames()`.
     pub fn frame(&self, i: usize) -> &[AtomicSample] {
-        assert!(i < self.frames, "frame {i} out of range ({} frames)", self.frames);
+        assert!(
+            i < self.frames,
+            "frame {i} out of range ({} frames)",
+            self.frames
+        );
         &self.as_slice()[i * self.channels..(i + 1) * self.channels]
     }
 
@@ -530,7 +538,11 @@ impl BufferLocked<'_> {
             self.channels
         );
         //`get`: an empty buffer (0 frames) has no samples at all, whatever the channel count
-        self.as_slice().get(channel..).unwrap_or_default().iter().step_by(self.channels)
+        self.as_slice()
+            .get(channel..)
+            .unwrap_or_default()
+            .iter()
+            .step_by(self.channels)
     }
 
     /// Mark the buffer as changed (`buffer_setdirty`, when the claim is released), so that its
@@ -629,7 +641,11 @@ impl BufferEdit<'_> {
     /// # Panics
     /// If `i >= frames()`.
     pub fn frame(&self, i: usize) -> &[f32] {
-        assert!(i < self.frames, "frame {i} out of range ({} frames)", self.frames);
+        assert!(
+            i < self.frames,
+            "frame {i} out of range ({} frames)",
+            self.frames
+        );
         &self.as_slice()[i * self.channels..(i + 1) * self.channels]
     }
 
@@ -638,7 +654,11 @@ impl BufferEdit<'_> {
     /// # Panics
     /// If `i >= frames()`.
     pub fn frame_mut(&mut self, i: usize) -> &mut [f32] {
-        assert!(i < self.frames, "frame {i} out of range ({} frames)", self.frames);
+        assert!(
+            i < self.frames,
+            "frame {i} out of range ({} frames)",
+            self.frames
+        );
         let c = self.channels;
         &mut self.as_mut_slice()[i * c..(i + 1) * c]
     }
@@ -657,7 +677,11 @@ impl BufferEdit<'_> {
             self.channels
         );
         //`get`: an empty buffer (0 frames) has no samples at all, whatever the channel count
-        self.as_slice().get(channel..).unwrap_or_default().iter().step_by(self.channels)
+        self.as_slice()
+            .get(channel..)
+            .unwrap_or_default()
+            .iter()
+            .step_by(self.channels)
     }
 
     /// The samples of one channel, for writing. Marks the buffer dirty.
@@ -675,7 +699,11 @@ impl BufferEdit<'_> {
         );
         let c = self.channels;
         //as in `channel_iter`
-        self.as_mut_slice().get_mut(channel..).unwrap_or_default().iter_mut().step_by(c)
+        self.as_mut_slice()
+            .get_mut(channel..)
+            .unwrap_or_default()
+            .iter_mut()
+            .step_by(c)
     }
 
     /// Mark the buffer as changed even if no mutable view was taken.

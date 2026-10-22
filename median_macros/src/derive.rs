@@ -4,9 +4,7 @@
 use crate::attr_opts::AttrOpts;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{
-    Data, DeriveInput, Fields, Ident, LitStr, Member, ext::IdentExt, spanned::Spanned,
-};
+use syn::{Data, DeriveInput, Fields, Ident, LitStr, Member, ext::IdentExt, spanned::Spanned};
 
 /// Options of `#[max(..)]` that are planned (maxref generation) but not there yet.
 const LATER: &[&str] = &["description", "author", "tags"];
@@ -152,10 +150,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         let mut seen = false;
         for attr in field.attrs.iter().filter(|a| a.path().is_ident("attr")) {
             if seen {
-                push_err(syn::Error::new(
-                    attr.span(),
-                    "only one `#[attr]` per field",
-                ));
+                push_err(syn::Error::new(attr.span(), "only one `#[attr]` per field"));
                 continue;
             }
             seen = true;

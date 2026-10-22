@@ -375,7 +375,10 @@ impl Kernel {
         let end = match buf.iter().position(|&b| b == 0) {
             Some(n) => n,
             None => {
-                state().post_error(obj as usize, "median-mock: assist wrote no terminator in 512 bytes".into());
+                state().post_error(
+                    obj as usize,
+                    "median-mock: assist wrote no terminator in 512 bytes".into(),
+                );
                 buf.len()
             }
         };
@@ -626,7 +629,12 @@ impl Kernel {
     }
 
     /// Call an attribute's setter with `ac` atoms and a null `av`, returning its code.
-    pub fn attr_set_null_argv(&self, obj: *mut c_void, name: &str, ac: i64) -> Result<i64, AttrError> {
+    pub fn attr_set_null_argv(
+        &self,
+        obj: *mut c_void,
+        name: &str,
+        ac: i64,
+    ) -> Result<i64, AttrError> {
         attr::set_null_argv(obj as usize, name, ac)
     }
 
@@ -638,7 +646,12 @@ impl Kernel {
     /// An attribute of the attribute `attr` of the object's class (`label`, `save`, `enumvals`
     /// ...: what the `CLASS_ATTR_*` macros add with `class_attr_addattr_parse` and friends), as
     /// `(type name, atoms)`. Parse strings are split as [`attr::parse_atoms`] does.
-    pub fn attr_attr(&self, obj: *mut c_void, attr: &str, name: &str) -> Option<(String, Vec<Atom>)> {
+    pub fn attr_attr(
+        &self,
+        obj: *mut c_void,
+        attr: &str,
+        name: &str,
+    ) -> Option<(String, Vec<Atom>)> {
         attr::attr_attrs(obj as usize, attr)?.remove(name)
     }
 
@@ -706,7 +719,10 @@ impl Kernel {
     /// `(begun, ended)`: how many `buffer_edit_begin` and `buffer_edit_end` calls on a buffer~
     /// were accepted.
     pub fn buffer_edits(&self, name: &str) -> Option<(usize, usize)> {
-        state().buffers.get(name).map(|b| (b.edits_begun, b.edits_ended))
+        state()
+            .buffers
+            .get(name)
+            .map(|b| (b.edits_begun, b.edits_ended))
     }
 
     /// Clear a buffer~'s dirty flag (set by `buffer_setdirty`).

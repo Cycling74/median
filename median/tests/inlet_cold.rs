@@ -34,6 +34,9 @@ fn inlet_0_can_be_cold_and_the_last_marker_wins() {
     let obj = k.new_object("io.cold", &[]);
     assert!(!obj.is_null());
     let hot: Vec<_> = (0..9).map(|i| k.inlet_is_hot(obj, i).unwrap()).collect();
-    assert_eq!(hot, [false, true, false, false, true, false, true, false, false]);
+    assert_eq!(
+        hot,
+        [false, true, false, false, true, false, true, false, false]
+    );
     assert!(k.free_object(obj));
 }

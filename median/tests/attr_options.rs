@@ -23,7 +23,12 @@ pub struct Thing {
     )]
     gain: Float64,
     /// an enumerated long (enumindex), hidden
-    #[attr(enum = "sine saw \"square wave\"", default = 1, range(0.5, 2.9), hidden)]
+    #[attr(
+        enum = "sine saw \"square wave\"",
+        default = 1,
+        range(0.5, 2.9),
+        hidden
+    )]
     shape: Int64,
     /// none
     #[attr]
@@ -79,7 +84,9 @@ impl MaxObjWrapped for Thing {
             c"named",
             |_: &Self| SymbolRef::from(c"x"),
             |_: &Self, _v: SymbolRef| {},
-            AttrOptions::new().default(c"\"two words\"").category(c"Names"),
+            AttrOptions::new()
+                .default(c"\"two words\"")
+                .category(c"Names"),
         )
         .unwrap();
     }
@@ -90,7 +97,11 @@ impl Thing {
     /// a getter attribute: an enumerated symbol, with a label
     #[attr(enum = "fast slow", label = "Mode", save)]
     pub fn mode(&self) -> SymbolRef {
-        if self.mode.get() == 0 { sym!("fast") } else { sym!("slow") }
+        if self.mode.get() == 0 {
+            sym!("fast")
+        } else {
+            sym!("slow")
+        }
     }
 
     pub fn set_mode(&self, v: SymbolRef) {
@@ -124,36 +135,77 @@ fn field_attribute_options_add_attribute_attributes() {
     assert!(k.console_log().is_empty(), "{:?}", k.console_log());
 
     //CLASS_ATTR_LABEL: one symbol (format "s")
-    assert_eq!(aa(&k, obj, "gain", "label"), ("symbol".into(), vec![s("Gain Level")]));
+    assert_eq!(
+        aa(&k, obj, "gain", "label"),
+        ("symbol".into(), vec![s("Gain Level")])
+    );
     //CLASS_ATTR_STYLE, _CATEGORY: parsed, symbol
-    assert_eq!(aa(&k, obj, "gain", "style"), ("symbol".into(), vec![s("text")]));
-    assert_eq!(aa(&k, obj, "gain", "category"), ("symbol".into(), vec![s("Levels")]));
+    assert_eq!(
+        aa(&k, obj, "gain", "style"),
+        ("symbol".into(), vec![s("text")])
+    );
+    assert_eq!(
+        aa(&k, obj, "gain", "category"),
+        ("symbol".into(), vec![s("Levels")])
+    );
     //CLASS_ATTR_ORDER, _SAVE: long
-    assert_eq!(aa(&k, obj, "gain", "order"), ("long".into(), vec![MockAtom::Long(2)]));
-    assert_eq!(aa(&k, obj, "gain", "save"), ("long".into(), vec![MockAtom::Long(1)]));
+    assert_eq!(
+        aa(&k, obj, "gain", "order"),
+        ("long".into(), vec![MockAtom::Long(2)])
+    );
+    assert_eq!(
+        aa(&k, obj, "gain", "save"),
+        ("long".into(), vec![MockAtom::Long(1)])
+    );
     //CLASS_ATTR_DEFAULT, _MIN, _MAX: typed as the attribute
-    assert_eq!(aa(&k, obj, "gain", "default"), ("float64".into(), vec![MockAtom::Float(1.5)]));
-    assert_eq!(aa(&k, obj, "gain", "min"), ("float64".into(), vec![MockAtom::Float(0.)]));
-    assert_eq!(aa(&k, obj, "gain", "max"), ("float64".into(), vec![MockAtom::Float(10.)]));
+    assert_eq!(
+        aa(&k, obj, "gain", "default"),
+        ("float64".into(), vec![MockAtom::Float(1.5)])
+    );
+    assert_eq!(
+        aa(&k, obj, "gain", "min"),
+        ("float64".into(), vec![MockAtom::Float(0.)])
+    );
+    assert_eq!(
+        aa(&k, obj, "gain", "max"),
+        ("float64".into(), vec![MockAtom::Float(10.)])
+    );
     assert_eq!(
         k.attr_attr_names(obj, "gain"),
-        ["category", "default", "label", "max", "min", "order", "save", "style"]
+        [
+            "category", "default", "label", "max", "min", "order", "save", "style"
+        ]
     );
     //range is only a hint, clip limits
     k.attr_set(obj, "gain", &[MockAtom::Float(12.)]).unwrap();
     assert_eq!(k.attr_get(obj, "gain").unwrap(), [MockAtom::Float(10.)]);
 
     //CLASS_ATTR_ENUMINDEX for a long: style enumindex, enumvals atoms; numbers as longs
-    assert_eq!(aa(&k, obj, "shape", "style"), ("symbol".into(), vec![s("enumindex")]));
+    assert_eq!(
+        aa(&k, obj, "shape", "style"),
+        ("symbol".into(), vec![s("enumindex")])
+    );
     assert_eq!(
         aa(&k, obj, "shape", "enumvals"),
         ("atom".into(), vec![s("sine"), s("saw"), s("square wave")])
     );
-    assert_eq!(aa(&k, obj, "shape", "default"), ("long".into(), vec![MockAtom::Long(1)]));
-    assert_eq!(aa(&k, obj, "shape", "min"), ("long".into(), vec![MockAtom::Long(0)]));
-    assert_eq!(aa(&k, obj, "shape", "max"), ("long".into(), vec![MockAtom::Long(2)]));
+    assert_eq!(
+        aa(&k, obj, "shape", "default"),
+        ("long".into(), vec![MockAtom::Long(1)])
+    );
+    assert_eq!(
+        aa(&k, obj, "shape", "min"),
+        ("long".into(), vec![MockAtom::Long(0)])
+    );
+    assert_eq!(
+        aa(&k, obj, "shape", "max"),
+        ("long".into(), vec![MockAtom::Long(2)])
+    );
     //CLASS_ATTR_INVISIBLE
-    assert_eq!(aa(&k, obj, "shape", "invisible"), ("long".into(), vec![MockAtom::Long(1)]));
+    assert_eq!(
+        aa(&k, obj, "shape", "invisible"),
+        ("long".into(), vec![MockAtom::Long(1)])
+    );
 
     //no options, nothing added
     assert!(k.attr_attr_names(obj, "plain").is_empty());
@@ -166,20 +218,44 @@ fn getter_and_hand_written_attribute_options() {
     register();
     let obj = k.new_object("attropts.thing", &[]);
     //CLASS_ATTR_ENUM for a symbol: style enum
-    assert_eq!(aa(&k, obj, "mode", "style"), ("symbol".into(), vec![s("enum")]));
-    assert_eq!(aa(&k, obj, "mode", "enumvals"), ("atom".into(), vec![s("fast"), s("slow")]));
-    assert_eq!(aa(&k, obj, "mode", "label"), ("symbol".into(), vec![s("Mode")]));
-    assert_eq!(aa(&k, obj, "mode", "save"), ("long".into(), vec![MockAtom::Long(1)]));
+    assert_eq!(
+        aa(&k, obj, "mode", "style"),
+        ("symbol".into(), vec![s("enum")])
+    );
+    assert_eq!(
+        aa(&k, obj, "mode", "enumvals"),
+        ("atom".into(), vec![s("fast"), s("slow")])
+    );
+    assert_eq!(
+        aa(&k, obj, "mode", "label"),
+        ("symbol".into(), vec![s("Mode")])
+    );
+    assert_eq!(
+        aa(&k, obj, "mode", "save"),
+        ("long".into(), vec![MockAtom::Long(1)])
+    );
     k.attr_set(obj, "mode", &[s("slow")]).unwrap();
     assert_eq!(k.attr_get(obj, "mode").unwrap(), [s("slow")]);
 
     //`AttrBuilder` options
     assert_eq!(k.attr_attr_names(obj, "built"), ["label", "order", "save"]);
-    assert_eq!(aa(&k, obj, "built", "order"), ("long".into(), vec![MockAtom::Long(7)]));
+    assert_eq!(
+        aa(&k, obj, "built", "order"),
+        ("long".into(), vec![MockAtom::Long(7)])
+    );
     //an integer default of an atom attribute is written as an integer ("5", not "5.0")
-    assert_eq!(aa(&k, obj, "any", "default"), ("atom".into(), vec![MockAtom::Long(5)]));
+    assert_eq!(
+        aa(&k, obj, "any", "default"),
+        ("atom".into(), vec![MockAtom::Long(5)])
+    );
     //`add_attr` with a parse-string default for a symbol attribute
-    assert_eq!(aa(&k, obj, "named", "default"), ("symbol".into(), vec![s("two words")]));
-    assert_eq!(aa(&k, obj, "named", "category"), ("symbol".into(), vec![s("Names")]));
+    assert_eq!(
+        aa(&k, obj, "named", "default"),
+        ("symbol".into(), vec![s("two words")])
+    );
+    assert_eq!(
+        aa(&k, obj, "named", "category"),
+        ("symbol".into(), vec![s("Names")])
+    );
     assert!(k.free_object(obj));
 }

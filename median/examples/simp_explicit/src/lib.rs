@@ -125,7 +125,11 @@ impl SimpExplicit {
     }
 
     pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
-        median::object_post!(&self.obj, "read {} argument(s) on the main thread", atoms.len());
+        median::object_post!(
+            &self.obj,
+            "read {} argument(s) on the main thread",
+            atoms.len()
+        );
     }
 
     pub fn report(&self) {
@@ -158,11 +162,9 @@ impl SimpExplicit {
 
     pub fn clocked(&self) {
         post("clocked".to_string());
-        let _ = self.list_out.send(&[
-            1i64.into(),
-            12f64.into(),
-            SymbolRef::from(c"foo").into(),
-        ]);
+        let _ = self
+            .list_out
+            .send(&[1i64.into(), 12f64.into(), SymbolRef::from(c"foo").into()]);
     }
 }
 

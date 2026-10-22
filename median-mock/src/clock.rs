@@ -67,7 +67,13 @@ fn schedule(x: *mut t_clock, delay: f64) {
         }
         _ => {}
     }
-    st.post_error(0, format!("median-mock: clock_delay on {:#x}, which is not a live clock", x as usize));
+    st.post_error(
+        0,
+        format!(
+            "median-mock: clock_delay on {:#x}, which is not a live clock",
+            x as usize
+        ),
+    );
 }
 
 /// Schedules the clock `n` ms from now, replacing an earlier schedule.

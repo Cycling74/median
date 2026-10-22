@@ -105,9 +105,8 @@ impl Queue {
         shared.set(target, func);
         let qelem_ref = Arc::into_raw(shared.clone());
         // SAFETY: `queue_tramp` takes the `obj` pointer, which is how Max calls a qelem function
-        let method = unsafe {
-            crate::method::erase(queue_tramp as extern "C" fn(*const ClockShared))
-        };
+        let method =
+            unsafe { crate::method::erase(queue_tramp as extern "C" fn(*const ClockShared)) };
         // SAFETY: `qelem_ref` stays valid until `drop` frees the qelem
         let qelem = unsafe { max_sys::qelem_new(qelem_ref as *mut c_void, Some(method)) };
         let Some(qelem) = NonNull::new(qelem) else {

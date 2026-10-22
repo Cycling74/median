@@ -54,14 +54,12 @@ static NOTES: Mutex<Vec<(String, String, usize)>> = Mutex::new(Vec::new());
 static DEFER_FROM_TICK: AtomicI64 = AtomicI64::new(0);
 
 macro_rules! meth {
-    ($f:expr, $ty:ty) => {
-        {
-            #[allow(unused_unsafe)]
-            unsafe {
-                std::mem::transmute::<$ty, max_sys::method>($f)
-            }
+    ($f:expr, $ty:ty) => {{
+        #[allow(unused_unsafe)]
+        unsafe {
+            std::mem::transmute::<$ty, max_sys::method>($f)
         }
-    };
+    }};
 }
 
 fn sym(s: &std::ffi::CStr) -> *mut t_symbol {
@@ -151,7 +149,16 @@ extern "C" fn thing_tick(x: *mut Thing) {
         match DEFER_FROM_TICK.load(Ordering::SeqCst) {
             1 => {
                 // from the timer thread: queued
-                max_sys::defer(x as _, meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)), sym(c"from_timer"), 0, null_mut());
+                max_sys::defer(
+                    x as _,
+                    meth!(
+                        thing_deferred,
+                        extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+                    ),
+                    sym(c"from_timer"),
+                    0,
+                    null_mut(),
+                );
             }
             2 => {
                 // reschedule ourselves 5 ms on, three times in all
@@ -199,7 +206,10 @@ extern "C" fn thing_qelem_nested(x: *mut Thing) {
     unsafe {
         (*x).qcalls += 1;
         if (*x).qcalls == 1 {
-            let f = meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom));
+            let f = meth!(
+                thing_deferred,
+                extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+            );
             max_sys::defer_low(x as _, f, sym(c"nested"), 0, null_mut());
             max_sys::qelem_set(NESTED_QELEM.load(Ordering::SeqCst) as _);
             assert_eq!(median_mock::Kernel::run_main_queue_nested(), 1);
@@ -400,7 +410,10 @@ fn register() {
     ONCE.call_once(|| unsafe {
         let a = max_sys::class_new(
             c"append.thing".as_ptr(),
-            meth!(append_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+            meth!(
+                append_new,
+                extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void
+            ),
             None,
             size_of::<AppendThing>() as c_long,
             None,
@@ -412,7 +425,10 @@ fn register() {
 
         let c = max_sys::class_new(
             c"thing".as_ptr(),
-            meth!(thing_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+            meth!(
+                thing_new,
+                extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void
+            ),
             meth!(thing_free, extern "C" fn(*mut Thing)),
             size_of::<Thing>() as c_long,
             None,
@@ -434,19 +450,87 @@ fn register() {
             ty::A_GIMME as i32,
             ty::A_CANT as i32,
         );
-        assert_eq!(add(c"bang", meth!(thing_bang, extern "C" fn(*mut Thing)), &[]), 0);
-        add(c"int", meth!(thing_int, extern "C" fn(*mut Thing, isize)), &[l]);
-        add(c"in2", meth!(thing_in2, extern "C" fn(*mut Thing, isize)), &[l]);
-        add(c"float", meth!(thing_float, extern "C" fn(*mut Thing, f64)), &[f]);
-        add(c"list", meth!(thing_list, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)), &[g]);
-        add(c"anything", meth!(thing_anything, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)), &[g]);
-        add(c"mixed", meth!(thing_mixed, extern "C" fn(*mut Thing, f64, isize, *mut t_symbol)), &[f, l, s]);
-        add(c"sched", meth!(thing_sched, extern "C" fn(*mut Thing, f64)), &[f]);
+        assert_eq!(
+            add(c"bang", meth!(thing_bang, extern "C" fn(*mut Thing)), &[]),
+            0
+        );
+        add(
+            c"int",
+            meth!(thing_int, extern "C" fn(*mut Thing, isize)),
+            &[l],
+        );
+        add(
+            c"in2",
+            meth!(thing_in2, extern "C" fn(*mut Thing, isize)),
+            &[l],
+        );
+        add(
+            c"float",
+            meth!(thing_float, extern "C" fn(*mut Thing, f64)),
+            &[f],
+        );
+        add(
+            c"list",
+            meth!(
+                thing_list,
+                extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+            ),
+            &[g],
+        );
+        add(
+            c"anything",
+            meth!(
+                thing_anything,
+                extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+            ),
+            &[g],
+        );
+        add(
+            c"mixed",
+            meth!(
+                thing_mixed,
+                extern "C" fn(*mut Thing, f64, isize, *mut t_symbol)
+            ),
+            &[f, l, s],
+        );
+        add(
+            c"sched",
+            meth!(thing_sched, extern "C" fn(*mut Thing, f64)),
+            &[f],
+        );
         add(c"unset", meth!(thing_unset, extern "C" fn(*mut Thing)), &[]);
-        add(c"deferred", meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)), &[g]);
-        add(c"notify", meth!(thing_notify, extern "C" fn(*mut Thing, *mut t_symbol, *mut t_symbol, *mut c_void, *mut c_void)), &[ct]);
-        add(c"assist", meth!(thing_assist, extern "C" fn(*mut Thing, *mut c_void, c_long, c_long, *mut i8)), &[ct]);
-        add(c"inletinfo", meth!(thing_inletinfo, extern "C" fn(*mut Thing, *mut c_void, c_long, *mut i8)), &[ct]);
+        add(
+            c"deferred",
+            meth!(
+                thing_deferred,
+                extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+            ),
+            &[g],
+        );
+        add(
+            c"notify",
+            meth!(
+                thing_notify,
+                extern "C" fn(*mut Thing, *mut t_symbol, *mut t_symbol, *mut c_void, *mut c_void)
+            ),
+            &[ct],
+        );
+        add(
+            c"assist",
+            meth!(
+                thing_assist,
+                extern "C" fn(*mut Thing, *mut c_void, c_long, c_long, *mut i8)
+            ),
+            &[ct],
+        );
+        add(
+            c"inletinfo",
+            meth!(
+                thing_inletinfo,
+                extern "C" fn(*mut Thing, *mut c_void, c_long, *mut i8)
+            ),
+            &[ct],
+        );
 
         // attributes: a float64 member with clip, and a long with accessors
         let gain = max_sys::attr_offset_new(
@@ -463,19 +547,45 @@ fn register() {
             c"level".as_ptr(),
             sym(c"long"),
             0,
-            meth!(level_get, unsafe extern "C" fn(*mut Thing, *mut t_object, *mut c_long, *mut *mut t_atom) -> t_max_err),
-            meth!(level_set, unsafe extern "C" fn(*mut Thing, *mut t_object, c_long, *mut t_atom) -> t_max_err),
+            meth!(
+                level_get,
+                unsafe extern "C" fn(
+                    *mut Thing,
+                    *mut t_object,
+                    *mut c_long,
+                    *mut *mut t_atom,
+                ) -> t_max_err
+            ),
+            meth!(
+                level_set,
+                unsafe extern "C" fn(*mut Thing, *mut t_object, c_long, *mut t_atom) -> t_max_err
+            ),
         );
         assert_eq!(max_sys::class_addattr(c, level), 0);
         // attributes of attributes, the three ways
         assert_eq!(
-            max_sys::class_attr_addattr_parse(c, c"level".as_ptr(), c"enumvals".as_ptr(), sym(c"atom"), 0, c"zero one \"two three\" 4 5.5 -6".as_ptr()),
+            max_sys::class_attr_addattr_parse(
+                c,
+                c"level".as_ptr(),
+                c"enumvals".as_ptr(),
+                sym(c"atom"),
+                0,
+                c"zero one \"two three\" 4 5.5 -6".as_ptr()
+            ),
             0
         );
         let mut label: t_atom = std::mem::zeroed();
         max_sys::atom_setsym(&mut label, max_sys::gensym_tr(c"The Level".as_ptr()));
         assert_eq!(
-            max_sys::class_attr_addattr_atoms(c, c"level".as_ptr(), c"label".as_ptr(), sym(c"symbol"), 0, 1, &mut label),
+            max_sys::class_attr_addattr_atoms(
+                c,
+                c"level".as_ptr(),
+                c"label".as_ptr(),
+                sym(c"symbol"),
+                0,
+                1,
+                &mut label
+            ),
             0
         );
         assert_eq!(
@@ -485,14 +595,21 @@ fn register() {
         // replaced by a second add
         max_sys::object_addattr_parse(gain, c"order".as_ptr(), sym(c"long"), 0, c"1".as_ptr());
         max_sys::object_addattr_parse(gain, c"order".as_ptr(), sym(c"long"), 0, c"2".as_ptr());
-        add(c"loadbang", meth!(thing_loadbang, extern "C" fn(*mut Thing)), &[ct]);
+        add(
+            c"loadbang",
+            meth!(thing_loadbang, extern "C" fn(*mut Thing)),
+            &[ct],
+        );
         assert_eq!(max_sys::class_register(sym(c"box"), c), 0);
         THING_CLASS.store(c, Ordering::SeqCst);
 
         // an MSP class
         let d = max_sys::class_new(
             c"dsp.thing".as_ptr(),
-            meth!(dsp_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+            meth!(
+                dsp_new,
+                extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void
+            ),
             meth!(dsp_free, extern "C" fn(*mut DspThing)),
             size_of::<DspThing>() as c_long,
             None,
@@ -501,7 +618,10 @@ fn register() {
         );
         max_sys::class_addmethod(
             d,
-            meth!(dsp_dsp64, extern "C" fn(*mut DspThing, *mut t_object, *mut c_short, f64, c_long, c_long)),
+            meth!(
+                dsp_dsp64,
+                extern "C" fn(*mut DspThing, *mut t_object, *mut c_short, f64, c_long, c_long)
+            ),
             c"dsp64".as_ptr(),
             ty::A_CANT as i32,
             0,
@@ -513,13 +633,19 @@ fn register() {
         for (name, new, free, store) in [
             (
                 c"inlets.thing",
-                meth!(inlets_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+                meth!(
+                    inlets_new,
+                    extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void
+                ),
                 meth!(inlets_free, extern "C" fn(*mut InletsThing)),
                 &INLETS_CLASS,
             ),
             (
                 c"leaky.thing",
-                meth!(leaky_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+                meth!(
+                    leaky_new,
+                    extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void
+                ),
                 None,
                 &LEAKY_CLASS,
             ),
@@ -558,7 +684,9 @@ fn gensym_interns_and_is_thread_safe() {
     assert_eq!(a, b);
     assert_ne!(a, c);
     assert_eq!(unsafe { median_mock::symbols::sym_name(a) }, "interned");
-    assert_eq!(unsafe { max_sys::gensym(null()) }, unsafe { max_sys::gensym(c"".as_ptr()) });
+    assert_eq!(unsafe { max_sys::gensym(null()) }, unsafe {
+        max_sys::gensym(c"".as_ptr())
+    });
     // survives a reset
     _k.reset();
     assert_eq!(a, unsafe { max_sys::gensym(c"interned".as_ptr()) });
@@ -568,7 +696,10 @@ fn gensym_interns_and_is_thread_safe() {
         .map(|_| {
             std::thread::spawn(move || {
                 (0..200)
-                    .map(|i| unsafe { max_sys::gensym(format!("t{}\0", i % 7).as_ptr() as _) } as usize)
+                    .map(
+                        |i| unsafe { max_sys::gensym(format!("t{}\0", i % 7).as_ptr() as _) }
+                            as usize,
+                    )
                     .chain([unsafe { max_sys::gensym(c"interned".as_ptr()) } as usize])
                     .collect::<Vec<_>>()
             })
@@ -621,7 +752,10 @@ fn class_is_registered_and_object_header_points_into_it() {
         let ml = (*ob).o_messlist;
         assert!(!ml.is_null());
         // Max keeps the class at index -1 of the messlist
-        assert_eq!((*ml.sub(1)).m_sym as *mut t_class, THING_CLASS.load(Ordering::SeqCst));
+        assert_eq!(
+            (*ml.sub(1)).m_sym as *mut t_class,
+            THING_CLASS.load(Ordering::SeqCst)
+        );
         assert_eq!((*x).id, 7);
         assert_eq!((*x).level, 0, "object memory is zeroed");
     }
@@ -640,10 +774,12 @@ fn dispatch_bang_int_float_list_anything_and_outlets_are_recorded() {
     k.send_bang(x).unwrap();
     k.send_int(x, 41).unwrap();
     k.send_float(x, 1.25).unwrap();
-    k.send_list(x, &[Atom::Long(1), Atom::Float(2.5), "three".into()]).unwrap();
+    k.send_list(x, &[Atom::Long(1), Atom::Float(2.5), "three".into()])
+        .unwrap();
     k.send(x, "unknownmsg", &[Atom::Long(9)]).unwrap(); // -> anything
     // typed with defaults and mixed register classes
-    k.send(x, "mixed", &[Atom::Long(3), Atom::Float(4.9)]).unwrap();
+    k.send(x, "mixed", &[Atom::Long(3), Atom::Float(4.9)])
+        .unwrap();
 
     let log = k.outlet_log();
     let seen: Vec<(usize, &str, &[Atom])> = log
@@ -656,13 +792,24 @@ fn dispatch_bang_int_float_list_anything_and_outlets_are_recorded() {
             (0, "bang", &[][..]),
             (0, "int", &[Atom::Long(42)][..]),
             (0, "float", &[Atom::Float(2.5)][..]),
-            (0, "list", &[Atom::Long(1), Atom::Float(2.5), Atom::Sym("three".into())][..]),
+            (
+                0,
+                "list",
+                &[Atom::Long(1), Atom::Float(2.5), Atom::Sym("three".into())][..]
+            ),
             (1, "unknownmsg", &[Atom::Long(9)][..]),
             // an int atom where a float is wanted converts; a float atom for a long truncates
-            (0, "mixed", &[Atom::Float(3.0), Atom::Long(4), Atom::Sym("".into())][..]),
+            (
+                0,
+                "mixed",
+                &[Atom::Float(3.0), Atom::Long(4), Atom::Sym("".into())][..]
+            ),
         ]
     );
-    assert!(log.iter().all(|e| e.owner == x as usize && e.role == Role::Main));
+    assert!(
+        log.iter()
+            .all(|e| e.owner == x as usize && e.role == Role::Main)
+    );
     // left outlet and right outlet are different pointers, in creation order right then left
     assert_ne!(log[0].outlet, log[4].outlet);
     assert_eq!(k.outlet_count(x), 2);
@@ -706,7 +853,12 @@ fn outlet_append_adds_to_the_right_and_outlet_new_to_the_left() {
     // left to right: the `outlet_new` one, then the three appended in the order they were made
     assert_eq!(
         k.outlet_types(x),
-        [Some("float".to_string()), Some("int".to_string()), Some("list".to_string()), None]
+        [
+            Some("float".to_string()),
+            Some("int".to_string()),
+            Some("list".to_string()),
+            None
+        ]
     );
     unsafe {
         let outs = (*(x as *mut AppendThing)).outs;
@@ -715,10 +867,19 @@ fn outlet_append_adds_to_the_right_and_outlet_new_to_the_left() {
         max_sys::outlet_int(outs[1], 3);
         max_sys::outlet_anything(outs[2], sym(c"foo"), 0, null_mut());
     }
-    let seen: Vec<_> = k.outlet_log().iter().map(|e| (e.index, e.selector.clone())).collect();
+    let seen: Vec<_> = k
+        .outlet_log()
+        .iter()
+        .map(|e| (e.index, e.selector.clone()))
+        .collect();
     assert_eq!(
         seen,
-        [(0, "float".to_string()), (1, "int".to_string()), (2, "int".to_string()), (3, "foo".to_string())]
+        [
+            (0, "float".to_string()),
+            (1, "int".to_string()),
+            (2, "int".to_string()),
+            (3, "foo".to_string())
+        ]
     );
     assert!(k.free_object(x));
 }
@@ -731,24 +892,43 @@ fn dispatch_fallbacks_and_errors() {
 
     // "int" with a symbol argument is rejected and reported
     let err = k.send(x, "int", &[Atom::Sym("nope".into())]).unwrap_err();
-    assert!(matches!(err, SendError::BadArgs { ref selector, .. } if selector == "int"), "{err:?}");
+    assert!(
+        matches!(err, SendError::BadArgs { ref selector, .. } if selector == "int"),
+        "{err:?}"
+    );
     // a missing required argument
-    assert!(matches!(k.send(x, "int", &[]), Err(SendError::BadArgs { .. })));
+    assert!(matches!(
+        k.send(x, "int", &[]),
+        Err(SendError::BadArgs { .. })
+    ));
     // A_CANT methods cannot be sent to
-    assert_eq!(k.send(x, "notify", &[]), Err(SendError::NotSendable("notify".into())));
+    assert_eq!(
+        k.send(x, "notify", &[]),
+        Err(SendError::NotSendable("notify".into()))
+    );
     // a one element list goes to int, as Max does when there is no list method... here there is
     // a list method, so it is used
     k.send(x, "list", &[Atom::Long(1)]).unwrap();
     assert_eq!(k.take_outlet_log()[0].selector, "list");
     let console = k.console_log();
-    assert_eq!(console.iter().filter(|c| c.level == Level::Error).count(), 2, "{console:?}");
+    assert_eq!(
+        console.iter().filter(|c| c.level == Level::Error).count(),
+        2,
+        "{console:?}"
+    );
     assert!(console[0].text.contains("bad arguments for message"));
     assert_eq!(console[0].object, x as usize);
 
     // an unknown object is refused without being dereferenced
-    assert_eq!(k.send(0x1000 as *mut c_void, "bang", &[]), Err(SendError::NotLive));
+    assert_eq!(
+        k.send(0x1000 as *mut c_void, "bang", &[]),
+        Err(SendError::NotLive)
+    );
     assert!(k.new_object("no such class", &[]).is_null());
-    assert!(matches!(k.try_new_object("no such class", &[]), Err(SendError::NoClass(_))));
+    assert!(matches!(
+        k.try_new_object("no such class", &[]),
+        Err(SendError::NoClass(_))
+    ));
 }
 
 #[test]
@@ -799,7 +979,10 @@ fn proxy_and_intin_inlets() {
     unsafe {
         assert_eq!(((*x).last_inlet, (*x).last_stuff), (0, 0));
     }
-    assert_eq!(k.send_inlet(o, 3, "int", &[Atom::Long(1)]), Err(SendError::NoInlet(3)));
+    assert_eq!(
+        k.send_inlet(o, 3, "int", &[Atom::Long(1)]),
+        Err(SendError::NoInlet(3))
+    );
 }
 
 #[test]
@@ -841,7 +1024,10 @@ fn an_unfreed_proxy_and_a_missing_dsp_free_are_reported() {
     let errors: Vec<_> = k.console_log().into_iter().map(|e| e.text).collect();
     assert_eq!(errors.len(), 2, "{errors:?}");
     assert!(errors[0].contains("without z_dsp_free"), "{errors:?}");
-    assert!(errors[1].contains("was not freed before its owner"), "{errors:?}");
+    assert!(
+        errors[1].contains("was not freed before its owner"),
+        "{errors:?}"
+    );
     assert!(k.dsp_frees().is_empty());
     // z_dsp_free without z_dsp_setup is reported too
     let x = thing(&k, 1);
@@ -879,7 +1065,10 @@ fn method_attributes_through_the_methods_hashtab() {
         assert!(max_sys::class_extra_lookup(c, sym(c"other")).is_null());
         let methods = max_sys::class_extra_lookup(c, sym(c"methods")) as *mut max_sys::t_hashtab;
         assert!(!methods.is_null());
-        assert_eq!(max_sys::class_extra_lookup(c, sym(c"methods")), methods as *mut c_void);
+        assert_eq!(
+            max_sys::class_extra_lookup(c, sym(c"methods")),
+            methods as *mut c_void
+        );
         let mut m: *mut t_object = null_mut();
         assert_eq!(max_sys::hashtab_lookup(methods, sym(c"in2"), &mut m), 0);
         assert!(!m.is_null());
@@ -887,12 +1076,21 @@ fn method_attributes_through_the_methods_hashtab() {
         max_sys::hashtab_lookup(methods, sym(c"in2"), &mut again);
         assert_eq!(m, again);
         assert_eq!(
-            max_sys::object_addattr_parse(m, c"undocumented".as_ptr(), sym(c"long"), 0, c"1".as_ptr()),
+            max_sys::object_addattr_parse(
+                m,
+                c"undocumented".as_ptr(),
+                sym(c"long"),
+                0,
+                c"1".as_ptr()
+            ),
             0
         );
         // no such method: null and an error code
         let mut none: *mut t_object = std::ptr::dangling_mut();
-        assert_ne!(max_sys::hashtab_lookup(methods, sym(c"nonesuch"), &mut none), 0);
+        assert_ne!(
+            max_sys::hashtab_lookup(methods, sym(c"nonesuch"), &mut none),
+            0
+        );
         assert!(none.is_null());
     }
     assert_eq!(
@@ -958,7 +1156,12 @@ fn clocks_fire_in_time_order_on_advance() {
     let ticks = TICKS.lock().unwrap().clone();
     assert_eq!(
         ticks,
-        vec![(2, 10.0, true), (4, 10.0, true), (3, 25.0, true), (1, 40.0, true)]
+        vec![
+            (2, 10.0, true),
+            (4, 10.0, true),
+            (3, 25.0, true),
+            (1, 40.0, true)
+        ]
     );
     // nothing is left
     assert_eq!(k.advance(1000.0), 0);
@@ -1005,7 +1208,10 @@ fn defer_and_qelem_run_from_the_main_queue() {
     DEFERRED.lock().unwrap().clear();
     let x = thing(&k, 1);
     let o = x as *mut c_void;
-    let f = meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom));
+    let f = meth!(
+        thing_deferred,
+        extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+    );
     unsafe {
         let mut args: [t_atom; 2] = std::mem::zeroed();
         max_sys::atom_setlong(&mut args[0], 7);
@@ -1046,8 +1252,14 @@ fn defer_and_qelem_run_from_the_main_queue() {
     assert_eq!(
         d,
         vec![
-            ("now".to_string(), vec![Atom::Long(7), Atom::Sym("s".into())]),
-            ("later".to_string(), vec![Atom::Long(7), Atom::Sym("s".into())]),
+            (
+                "now".to_string(),
+                vec![Atom::Long(7), Atom::Sym("s".into())]
+            ),
+            (
+                "later".to_string(),
+                vec![Atom::Long(7), Atom::Sym("s".into())]
+            ),
             ("from_timer".to_string(), vec![]),
         ]
     );
@@ -1129,7 +1341,10 @@ fn qelem_front_queues_at_the_front_and_frees_are_checked() {
     let o = x as *mut c_void;
     let before = k.live_qelem_count();
     unsafe {
-        let f = meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom));
+        let f = meth!(
+            thing_deferred,
+            extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)
+        );
         max_sys::defer_low(o, f, sym(c"back"), 0, null_mut());
         let q = max_sys::qelem_new(o, meth!(thing_qelem, extern "C" fn(*mut Thing)));
         assert_eq!(k.live_qelem_count(), before + 1);
@@ -1177,7 +1392,12 @@ fn console_formats_and_records() {
     register();
     let x = thing(&k, 1);
     unsafe {
-        max_sys::post(c"hello %s %d %.2f".as_ptr(), c"world".as_ptr(), 42i32, 1.5f64);
+        max_sys::post(
+            c"hello %s %d %.2f".as_ptr(),
+            c"world".as_ptr(),
+            42i32,
+            1.5f64,
+        );
         max_sys::error(c"bad".as_ptr());
         max_sys::object_post(x as _, c"%s".as_ptr(), c"posted".as_ptr());
         max_sys::object_warn(x as _, c"warned %ld".as_ptr(), 7 as c_long);
@@ -1188,11 +1408,23 @@ fn console_formats_and_records() {
     }
     let log = k.take_console_log();
     assert_eq!(log.len(), 6);
-    assert_eq!((log[0].level, log[0].object, log[0].text.as_str()), (Level::Post, 0, "hello world 42 1.50"));
+    assert_eq!(
+        (log[0].level, log[0].object, log[0].text.as_str()),
+        (Level::Post, 0, "hello world 42 1.50")
+    );
     assert_eq!((log[1].level, log[1].text.as_str()), (Level::Error, "bad"));
-    assert_eq!((log[2].level, log[2].object, log[2].text.as_str()), (Level::Post, x as usize, "posted"));
-    assert_eq!((log[3].level, log[3].text.as_str()), (Level::Warn, "warned 7"));
-    assert_eq!((log[4].level, log[4].text.as_str()), (Level::Error, "%s is not a format"));
+    assert_eq!(
+        (log[2].level, log[2].object, log[2].text.as_str()),
+        (Level::Post, x as usize, "posted")
+    );
+    assert_eq!(
+        (log[3].level, log[3].text.as_str()),
+        (Level::Warn, "warned 7")
+    );
+    assert_eq!(
+        (log[4].level, log[4].text.as_str()),
+        (Level::Error, "%s is not a format")
+    );
     assert_eq!(log[5].text.len(), 5000);
     assert!(k.console_log().is_empty());
 }
@@ -1261,10 +1493,16 @@ fn atom_accessors() {
         let mut a: t_atom = std::mem::zeroed();
         assert_eq!(max_sys::atom_setlong(&mut a, 7), 0);
         assert_eq!(max_sys::atom_gettype(&a), ty::A_LONG as c_long);
-        assert_eq!((max_sys::atom_getlong(&a), max_sys::atom_getfloat(&a)), (7, 7.0));
+        assert_eq!(
+            (max_sys::atom_getlong(&a), max_sys::atom_getfloat(&a)),
+            (7, 7.0)
+        );
         max_sys::atom_setfloat(&mut a, 2.9);
         assert_eq!(max_sys::atom_gettype(&a), ty::A_FLOAT as c_long);
-        assert_eq!((max_sys::atom_getlong(&a), max_sys::atom_getfloat(&a)), (2, 2.9));
+        assert_eq!(
+            (max_sys::atom_getlong(&a), max_sys::atom_getfloat(&a)),
+            (2, 2.9)
+        );
         assert_eq!(max_sys::atom_getsym(&a), sym(c""));
         max_sys::atom_setsym(&mut a, sym(c"sym"));
         assert_eq!(max_sys::atom_gettype(&a), ty::A_SYM as c_long);
@@ -1273,9 +1511,18 @@ fn atom_accessors() {
         let mut x = 5;
         max_sys::atom_setobj(&mut a, &raw mut x as _);
         assert_eq!(max_sys::atom_getobj(&a), &raw mut x as *mut c_void);
-        assert_eq!(max_sys::atom_setlong(null_mut(), 1), max_sys::e_max_errorcodes::MAX_ERR_INVALID_PTR as t_max_err);
+        assert_eq!(
+            max_sys::atom_setlong(null_mut(), 1),
+            max_sys::e_max_errorcodes::MAX_ERR_INVALID_PTR as t_max_err
+        );
     }
-    let atoms = [Atom::Long(-3), Atom::Float(0.5), Atom::Sym("x".into()), Atom::Obj(0x10), Atom::Other(10)];
+    let atoms = [
+        Atom::Long(-3),
+        Atom::Float(0.5),
+        Atom::Sym("x".into()),
+        Atom::Obj(0x10),
+        Atom::Other(10),
+    ];
     for a in &atoms {
         assert_eq!(&Atom::from_raw(&a.to_raw()), a);
     }
@@ -1300,7 +1547,10 @@ fn dsp64_records_the_perform_routine_and_it_runs_on_the_audio_role() {
     PERFORM_ROLE_AUDIO.store(0, Ordering::SeqCst);
     adds[0].run(&mut ins, &mut outs);
     assert_eq!(PERFORM_ROLE_AUDIO.load(Ordering::SeqCst), 1);
-    assert_eq!(outs[0], (0..8).map(|i| 1.0 + i as f64 + 3.0).collect::<Vec<_>>());
+    assert_eq!(
+        outs[0],
+        (0..8).map(|i| 1.0 + i as f64 + 3.0).collect::<Vec<_>>()
+    );
     unsafe {
         assert_eq!(max_sys::systhread_isaudiothread(), 0);
         assert_eq!(max_sys::systhread_ismainthread(), 1);
@@ -1321,7 +1571,10 @@ fn dsp_adds_lists_what_dsp64_was_called_without_the_harness() {
     let method = k.method(o, "dsp64").unwrap().0;
     // SAFETY: `dsp64` is the `A_CANT` method `(x, dsp64, count, sr, vs, flags)` of `DspThing`
     unsafe {
-        let f = std::mem::transmute::<usize, extern "C" fn(*mut c_void, *mut t_object, *mut c_short, f64, c_long, c_long)>(method);
+        let f = std::mem::transmute::<
+            usize,
+            extern "C" fn(*mut c_void, *mut t_object, *mut c_short, f64, c_long, c_long),
+        >(method);
         f(o, null_mut(), null_mut(), 48000.0, 64, 0);
         f(o, null_mut(), null_mut(), 48000.0, 64, 0);
     }
@@ -1354,7 +1607,10 @@ fn attributes_through_offset_clip_and_accessors() {
     k.attr_set(o, "level", &[Atom::Long(12)]).unwrap();
     unsafe { assert_eq!((*x).level, 12) };
     assert_eq!(k.attr_get(o, "level").unwrap(), [Atom::Long(12)]);
-    assert!(matches!(k.attr_get(o, "nope"), Err(median_mock::AttrError::NoAttr(_))));
+    assert!(matches!(
+        k.attr_get(o, "nope"),
+        Err(median_mock::AttrError::NoAttr(_))
+    ));
     assert_eq!(k.attr_flags(o, "gain"), Some(0));
 
     unsafe { max_sys::object_attr_touch(x as _, sym(c"gain")) };
@@ -1385,14 +1641,27 @@ fn attributes_of_attributes_are_recorded_per_attribute() {
         k.attr_attr(o, "level", "label"),
         Some(("symbol".to_string(), vec![Atom::Sym("The Level".into())]))
     );
-    assert_eq!(k.attr_attr(o, "gain", "save"), Some(("long".to_string(), vec![Atom::Long(1)])));
-    assert_eq!(k.attr_attr(o, "gain", "order"), Some(("long".to_string(), vec![Atom::Long(2)])));
+    assert_eq!(
+        k.attr_attr(o, "gain", "save"),
+        Some(("long".to_string(), vec![Atom::Long(1)]))
+    );
+    assert_eq!(
+        k.attr_attr(o, "gain", "order"),
+        Some(("long".to_string(), vec![Atom::Long(2)]))
+    );
     assert_eq!(k.attr_attr(o, "gain", "label"), None);
     assert_eq!(k.attr_attr(o, "nope", "label"), None);
     // an attribute the class doesn't have is an error
     let c = THING_CLASS.load(Ordering::SeqCst);
     let code = unsafe {
-        max_sys::class_attr_addattr_parse(c, c"nope".as_ptr(), c"save".as_ptr(), sym(c"long"), 0, c"1".as_ptr())
+        max_sys::class_attr_addattr_parse(
+            c,
+            c"nope".as_ptr(),
+            c"save".as_ptr(),
+            sym(c"long"),
+            0,
+            c"1".as_ptr(),
+        )
     };
     assert_ne!(code, 0);
     assert_eq!(k.take_console_log().len(), 1);
@@ -1429,12 +1698,22 @@ fn getters_and_setters_with_null_pointers_and_a_caller_buffer() {
     k.attr_set(x, "level", &[Atom::Long(4)]).unwrap();
     for args in [GetterArgs::NullAc, GetterArgs::NullAv, GetterArgs::NullBoth] {
         let r = k.attr_get_with(x, "level", args).unwrap();
-        assert_eq!((r.code, r.atoms.len(), r.used_buffer), (0, 0, false), "{args:?}");
+        assert_eq!(
+            (r.code, r.atoms.len(), r.used_buffer),
+            (0, 0, false),
+            "{args:?}"
+        );
     }
     let r = k.attr_get_with(x, "level", GetterArgs::Buffer(2)).unwrap();
-    assert_eq!((r.code, r.atoms.as_slice(), r.used_buffer), (0, &[Atom::Long(4), Atom::Long(0)][..], true));
+    assert_eq!(
+        (r.code, r.atoms.as_slice(), r.used_buffer),
+        (0, &[Atom::Long(4), Atom::Long(0)][..], true)
+    );
     let r = k.attr_get_with(x, "level", GetterArgs::Buffer(0)).unwrap();
-    assert_eq!((r.atoms.as_slice(), r.used_buffer), (&[Atom::Long(4)][..], false));
+    assert_eq!(
+        (r.atoms.as_slice(), r.used_buffer),
+        (&[Atom::Long(4)][..], false)
+    );
     assert_eq!(k.attr_set_null_argv(x, "level", 1), Ok(0));
     assert_eq!(k.attr_get(x, "level").unwrap(), [Atom::Long(4)]);
     assert!(k.method_names(x).contains(&"bang".to_string()));
@@ -1457,11 +1736,18 @@ fn register_attach_and_notify() {
         assert_eq!(max_sys::object_findregistered(ns, sym(c"n")), owner);
         assert_eq!(
             NOTES.lock().unwrap().as_slice(),
-            [("n".to_string(), "globalsymbol_binding".to_string(), owner as usize)]
+            [(
+                "n".to_string(),
+                "globalsymbol_binding".to_string(),
+                owner as usize
+            )]
         );
         NOTES.lock().unwrap().clear();
         // notify reaches attached clients only
-        assert_eq!(max_sys::object_notify(owner, sym(c"changed"), 5 as *mut c_void), 0);
+        assert_eq!(
+            max_sys::object_notify(owner, sym(c"changed"), 5 as *mut c_void),
+            0
+        );
         assert_eq!(
             NOTES.lock().unwrap().as_slice(),
             [("n".to_string(), "changed".to_string(), 5)]
@@ -1494,7 +1780,11 @@ fn buffer_refs_bind_to_buffers() {
         let b = k.create_buffer("buf", 2, 4, 44100.0);
         assert_eq!(
             NOTES.lock().unwrap().as_slice(),
-            [("buf".to_string(), "globalsymbol_binding".to_string(), b as usize)]
+            [(
+                "buf".to_string(),
+                "globalsymbol_binding".to_string(),
+                b as usize
+            )]
         );
         assert_eq!(max_sys::buffer_ref_exists(r), 1);
         assert_eq!(max_sys::buffer_ref_getobject(r), b);
@@ -1520,12 +1810,21 @@ fn buffer_refs_bind_to_buffers() {
         max_sys::buffer_unlocksamples(b);
         max_sys::buffer_setdirty(b);
         assert_eq!(k.buffer_state("buf"), Some((0, true)));
-        assert_eq!(k.buffer_samples("buf").unwrap(), [0.0, 1.0, 10.0, 11.0, 20.0, 21.0, 30.0, 31.0]);
+        assert_eq!(
+            k.buffer_samples("buf").unwrap(),
+            [0.0, 1.0, 10.0, 11.0, 20.0, 21.0, 30.0, 31.0]
+        );
 
         max_sys::buffer_ref_set(r, sym(c"other"));
         assert_eq!(max_sys::buffer_ref_exists(r), 0);
         max_sys::buffer_ref_set(r, sym(c"buf"));
-        max_sys::buffer_ref_notify(r, sym(c"buf"), sym(c"globalsymbol_binding"), b as _, null_mut());
+        max_sys::buffer_ref_notify(
+            r,
+            sym(c"buf"),
+            sym(c"globalsymbol_binding"),
+            b as _,
+            null_mut(),
+        );
         assert_eq!(k.buffer_ref_notifications().len(), 1);
 
         NOTES.lock().unwrap().clear();
@@ -1559,7 +1858,14 @@ fn buffer_edits_pair_and_exclude_claims() {
         // the samples, through buffer_getinfo
         let mut info: max_sys::t_buffer_info = std::mem::zeroed();
         assert_eq!(max_sys::buffer_getinfo(b, &mut info), 0);
-        assert_eq!((info.b_frames as i64, info.b_nchans as i64, info.b_size as i64), (3, 2, 6));
+        assert_eq!(
+            (
+                info.b_frames as i64,
+                info.b_nchans as i64,
+                info.b_size as i64
+            ),
+            (3, 2, 6)
+        );
         assert_eq!(info.b_sr, 48000.0);
         assert_eq!(info.b_name, sym(c"ed"));
         *info.b_samples.add(5) = 7.0;
@@ -1567,7 +1873,10 @@ fn buffer_edits_pair_and_exclude_claims() {
         // mock doesn't model; it pairs with an end of its own
         assert_eq!(max_sys::buffer_edit_begin(b), 0);
         let e = errors(&k);
-        assert!(e.len() == 1 && e[0].contains("nested buffer_edit_begin"), "{e:?}");
+        assert!(
+            e.len() == 1 && e[0].contains("nested buffer_edit_begin"),
+            "{e:?}"
+        );
         assert_eq!(max_sys::buffer_edit_end(b, -1), 0);
         assert_eq!(k.buffer_editing("ed"), Some(true));
         assert_eq!(k.buffer_last_edit_valid("ed"), Some(Some(-1)));
@@ -1601,7 +1910,10 @@ fn buffer_edits_pair_and_exclude_claims() {
     k.destroy_buffer("ed");
     let e = errors(&k);
     assert_eq!(e.len(), 2, "{e:?}");
-    assert!(e[0].contains("not unlocked") && e[1].contains("buffer_edit_begin"), "{e:?}");
+    assert!(
+        e[0].contains("not unlocked") && e[1].contains("buffer_edit_begin"),
+        "{e:?}"
+    );
 }
 
 #[test]
@@ -1654,7 +1966,10 @@ fn a_perform_routine_that_keeps_a_claim_is_reported() {
     };
     add.run(&mut [], &mut [vec![0.0; 4]]);
     let e = errors(&k);
-    assert!(e.len() == 1 && e[0].contains("holding 1 buffer~ claim"), "{e:?}");
+    assert!(
+        e.len() == 1 && e[0].contains("holding 1 buffer~ claim"),
+        "{e:?}"
+    );
     assert_eq!(k.buffer_state("leak"), Some((2, false)));
 }
 

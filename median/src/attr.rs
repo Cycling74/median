@@ -975,7 +975,11 @@ pub(crate) unsafe fn add_attr_attrs(
         )?;
     }
     if let Some(vals) = o.enum_vals {
-        let style = if ty == AttrType::SymbolRef { c"enum" } else { c"enumindex" };
+        let style = if ty == AttrType::SymbolRef {
+            c"enum"
+        } else {
+            c"enumindex"
+        };
         parse(c"style", sym.s_symbol, style)?;
         parse(c"enumvals", sym.s_atom, vals)?;
     }

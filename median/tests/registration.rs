@@ -56,26 +56,55 @@ impl MaxObjWrapped for Setup {
         let mut rec = |what: &str, res: MaxResult<()>| {
             r.push((what.to_string(), res.map_err(|e| format!("{e:?}"))));
         };
-        rec("sel in1", c.add_sel(c"in1", |_: &Self, _v: t_atom_long| {}, 0));
+        rec(
+            "sel in1",
+            c.add_sel(c"in1", |_: &Self, _v: t_atom_long| {}, 0),
+        );
         rec("sel assist", c.add_sel(c"assist", |_: &Self| {}, 0));
-        rec("gimme notify", c.add_sel_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
-        rec("gimme dsp64", c.add_sel_gimme(c"dsp64", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
+        rec(
+            "gimme notify",
+            c.add_sel_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+        );
+        rec(
+            "gimme dsp64",
+            c.add_sel_gimme(c"dsp64", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+        );
         rec("sel ft10", c.add_sel(c"ft10", |_: &Self| {}, 0));
         rec("sel signal", c.add_sel(c"signal", |_: &Self| {}, 0));
-        rec("gimme enable", c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
-        rec("bang userconnect", c.add_sel(c"userconnect", |_: &Self| {}, 0));
+        rec(
+            "gimme enable",
+            c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+        );
+        rec(
+            "bang userconnect",
+            c.add_sel(c"userconnect", |_: &Self| {}, 0),
+        );
         rec("sel nsiginlets", c.add_sel(c"nsiginlets", |_: &Self| {}, 0));
         rec(
             "attr value",
-            c.add_attr(c"value", |s: &Self| s.value.get(), |s: &Self, v| s.value.set(v), AttrOptions::new()),
+            c.add_attr(
+                c"value",
+                |s: &Self| s.value.get(),
+                |s: &Self, v| s.value.set(v),
+                AttrOptions::new(),
+            ),
         );
         rec(
             "readonly value",
             c.add_attr_readonly(c"value", |s: &Self| s.value.get(), AttrOptions::new()),
         );
-        rec("field value", c.add_field_attr(c"value", |s: &Self| &s.value, AttrOptions::new()));
-        rec("attr other", c.add_attr_readonly(c"other", |s: &Self| s.value.get(), AttrOptions::new()));
-        rec("attr other again", c.add_attr_readonly(c"other", |s: &Self| s.value.get(), AttrOptions::new()));
+        rec(
+            "field value",
+            c.add_field_attr(c"value", |s: &Self| &s.value, AttrOptions::new()),
+        );
+        rec(
+            "attr other",
+            c.add_attr_readonly(c"other", |s: &Self| s.value.get(), AttrOptions::new()),
+        );
+        rec(
+            "attr other again",
+            c.add_attr_readonly(c"other", |s: &Self| s.value.get(), AttrOptions::new()),
+        );
     }
 }
 
@@ -149,10 +178,19 @@ impl MSPObjWrapped for SetupDsp {
             r.push((what.to_string(), res.map_err(|e| format!("{e:?}"))));
         };
         rec("sel signal", c.add_sel(c"signal", |_: &Self| {}, 0));
-        rec("gimme enable", c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
-        rec("bang userconnect", c.add_sel(c"userconnect", |_: &Self| {}, 0));
+        rec(
+            "gimme enable",
+            c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+        );
+        rec(
+            "bang userconnect",
+            c.add_sel(c"userconnect", |_: &Self| {}, 0),
+        );
         rec("sel nsiginlets", c.add_sel(c"nsiginlets", |_: &Self| {}, 0));
-        rec("sel in1", c.add_sel(c"in1", |_: &Self, _v: t_atom_long| {}, 0));
+        rec(
+            "sel in1",
+            c.add_sel(c"in1", |_: &Self, _v: t_atom_long| {}, 0),
+        );
         rec("sel enabled", c.add_sel(c"enabled", |_: &Self| {}, 0));
     }
 }
@@ -296,7 +334,10 @@ fn msp_selectors_are_reserved_for_msp_classes_only() {
         .cloned()
         .collect();
     assert_eq!(errors.len(), 1, "{errors:?}");
-    assert!(errors[0].contains("failed to register the methods: Duplicate"), "{errors:?}");
+    assert!(
+        errors[0].contains("failed to register the methods: Duplicate"),
+        "{errors:?}"
+    );
     //and `Class::add_*` refuses them in an MSP class's `class_setup`
     assert!(k.class_exists("reg.setup~"));
     let dup = Err(format!("{:?}", MaxError::Duplicate));
@@ -343,11 +384,21 @@ fn attribute_getters_ignore_null_pointers_and_use_a_given_array() {
         assert_eq!((r.code, r.atoms.len()), (0, 0), "{args:?}");
     }
     //an array Max supplies is filled in place
-    let r = k.attr_get_with(obj, "value", GetterArgs::Buffer(1)).unwrap();
-    assert_eq!((r.code, r.atoms.as_slice(), r.used_buffer), (0, &[MockAtom::Long(3)][..], true));
+    let r = k
+        .attr_get_with(obj, "value", GetterArgs::Buffer(1))
+        .unwrap();
+    assert_eq!(
+        (r.code, r.atoms.as_slice(), r.used_buffer),
+        (0, &[MockAtom::Long(3)][..], true)
+    );
     //none: the getter allocates
-    let r = k.attr_get_with(obj, "value", GetterArgs::Buffer(0)).unwrap();
-    assert_eq!((r.atoms.as_slice(), r.used_buffer), (&[MockAtom::Long(3)][..], false));
+    let r = k
+        .attr_get_with(obj, "value", GetterArgs::Buffer(0))
+        .unwrap();
+    assert_eq!(
+        (r.atoms.as_slice(), r.used_buffer),
+        (&[MockAtom::Long(3)][..], false)
+    );
     //a setter given a count but no atoms does nothing
     assert_eq!(k.attr_set_null_argv(obj, "value", 1), Ok(0));
     assert_eq!(k.attr_get(obj, "value").unwrap(), [MockAtom::Long(3)]);

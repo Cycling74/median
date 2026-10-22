@@ -214,8 +214,8 @@ mod test {
     use super::*;
     use crate::atom::Atom;
     use std::convert::From;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// An `ExactSizeIterator` whose `len()` does not match what it yields.
     struct Liar<I> {

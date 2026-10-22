@@ -60,7 +60,10 @@ pub(crate) fn create(name: &str, channels: usize, frames: usize, sample_rate: f6
 /// Unregister the buffer (its clients are sent `globalsymbol_unbinding`) and forget it. Claims
 /// or an edit still outstanding are reported.
 pub(crate) fn destroy(name: &str) {
-    let found = state().buffers.get(name).map(|b| (b.ptr, b.locks, b.editing));
+    let found = state()
+        .buffers
+        .get(name)
+        .map(|b| (b.ptr, b.locks, b.editing));
     if let Some((ptr, locks, editing)) = found {
         if locks > 0 {
             state().post_error(ptr, format!("median-mock: buffer~ \"{name}\" destroyed with {locks} buffer_locksamples claim(s) not unlocked"));
@@ -247,7 +250,10 @@ pub unsafe extern "C" fn buffer_edit_begin(buffer_object: *mut t_buffer_obj) -> 
             problems.push(format!("median-mock: nested buffer_edit_begin on buffer~ \"{}\", which is already being edited (Max deadlocks or aliases)", b.name));
         }
         if audio {
-            problems.push(format!("median-mock: buffer_edit_begin on buffer~ \"{}\" on the audio thread", b.name));
+            problems.push(format!(
+                "median-mock: buffer_edit_begin on buffer~ \"{}\" on the audio thread",
+                b.name
+            ));
         }
         if b.locks > 0 {
             problems.push(format!(
@@ -281,10 +287,16 @@ pub unsafe extern "C" fn buffer_edit_begin(buffer_object: *mut t_buffer_obj) -> 
 /// # Safety
 /// As `buffer_locksamples`.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn buffer_edit_end(buffer_object: *mut t_buffer_obj, valid: c_long) -> t_max_err {
+pub unsafe extern "C" fn buffer_edit_end(
+    buffer_object: *mut t_buffer_obj,
+    valid: c_long,
+) -> t_max_err {
     let r = with_buffer(buffer_object, |b| {
         if b.editing == 0 {
-            return Err(format!("median-mock: buffer_edit_end on buffer~ \"{}\" without buffer_edit_begin", b.name));
+            return Err(format!(
+                "median-mock: buffer_edit_end on buffer~ \"{}\" without buffer_edit_begin",
+                b.name
+            ));
         }
         b.editing -= 1;
         b.edits_ended += 1;
@@ -306,7 +318,10 @@ pub unsafe extern "C" fn buffer_edit_end(buffer_object: *mut t_buffer_obj, valid
 /// # Safety
 /// As `buffer_locksamples`; `info` must be null or writable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn buffer_getinfo(buffer_object: *mut t_buffer_obj, info: *mut t_buffer_info) -> t_max_err {
+pub unsafe extern "C" fn buffer_getinfo(
+    buffer_object: *mut t_buffer_obj,
+    info: *mut t_buffer_info,
+) -> t_max_err {
     if info.is_null() {
         return err::MAX_ERR_INVALID_PTR as t_max_err;
     }

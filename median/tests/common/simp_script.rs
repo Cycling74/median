@@ -7,7 +7,11 @@ use std::ffi::c_void;
 /// One line per console entry or outlet event, in order.
 fn drain(k: &Kernel, obj: *mut c_void, out: &mut Vec<String>) {
     for e in k.take_console_log() {
-        let who = if e.object == obj as usize { "obj" } else { "global" };
+        let who = if e.object == obj as usize {
+            "obj"
+        } else {
+            "global"
+        };
         let level = match e.level {
             Level::Post => "post",
             Level::Warn => "warn",
@@ -28,11 +32,16 @@ pub fn run(k: &Kernel, class: &str) -> Vec<String> {
     t.push(format!("outlets {}", k.outlet_count(obj)));
     t.push(format!("inlets {}", k.extra_inlet_count(obj)));
     t.push(format!("attributes {:?}", k.attr_names(obj)));
-    for sel in ["bang", "int", "list", "anything", "set", "read", "symbol", "float"] {
+    for sel in [
+        "bang", "int", "list", "anything", "set", "read", "symbol", "float",
+    ] {
         t.push(format!("method {sel} {}", k.method(obj, sel).is_some()));
     }
     for name in ["label", "category", "save"] {
-        t.push(format!("value {name} {:?}", k.attr_attr(obj, "value", name)));
+        t.push(format!(
+            "value {name} {:?}",
+            k.attr_attr(obj, "value", name)
+        ));
     }
 
     k.send_bang(obj).unwrap();
@@ -72,7 +81,8 @@ pub fn run(k: &Kernel, class: &str) -> Vec<String> {
     //deferred: nothing until the main thread's queue runs, then the `changed` queue (set by
     //every `int` above, once) and the deferred `read` (one of the object's two deferred-call
     //qelems runs it, the other runs empty: 3 runs)
-    k.send(obj, "read", &[Atom::Sym("file.txt".into())]).unwrap();
+    k.send(obj, "read", &[Atom::Sym("file.txt".into())])
+        .unwrap();
     drain(k, obj, &mut t);
     t.push(format!("main queue {}", k.run_main_queue()));
     drain(k, obj, &mut t);
@@ -139,7 +149,12 @@ pub fn run_args(k: &Kernel, class: &str) -> Vec<String> {
     let obj = k.new_object(class, &[Atom::Sym("x".into())]);
     t.push(format!("null {}", obj.is_null()));
     for e in k.take_console_log() {
-        t.push(format!("{:?} for an object {}: {}", e.level, e.object != 0, e.text));
+        t.push(format!(
+            "{:?} for an object {}: {}",
+            e.level,
+            e.object != 0,
+            e.text
+        ));
     }
     t.push(format!("live {}", k.live_object_count()));
     t

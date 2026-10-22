@@ -662,7 +662,12 @@ impl<W> Class<W> {
 
     /// [`add_sel_gimme`](Self::add_sel_gimme), deferred (see
     /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call.
-    pub fn add_sel_gimme_deferred<T, F, R>(&mut self, sel: &CStr, f: F, mode: Defer) -> MaxResult<()>
+    pub fn add_sel_gimme_deferred<T, F, R>(
+        &mut self,
+        sel: &CStr,
+        f: F,
+        mode: Defer,
+    ) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         T: 'static,
@@ -785,8 +790,28 @@ impl<W> Class<W> {
 /// [`Class::add_sel`], [`Class::add_sel_gimme`] and `#[sel]` refuse them: registering one would
 /// replace or collide with the wrapper's own method.
 pub const RESERVED_SELECTORS: &[&str] = &[
-    "notify", "assist", "inletinfo", "dsp64", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7",
-    "ft8", "ft9", "in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8", "in9",
+    "notify",
+    "assist",
+    "inletinfo",
+    "dsp64",
+    "ft1",
+    "ft2",
+    "ft3",
+    "ft4",
+    "ft5",
+    "ft6",
+    "ft7",
+    "ft8",
+    "ft9",
+    "in1",
+    "in2",
+    "in3",
+    "in4",
+    "in5",
+    "in6",
+    "in7",
+    "in8",
+    "in9",
 ];
 
 /// The selectors `class_dspinit` adds to an MSP class (`z_dsp.h`: "you should avoid binding
@@ -835,4 +860,3 @@ pub(crate) fn default_types(
     }
     Ok(())
 }
-

@@ -328,7 +328,9 @@ impl SelArg for SymbolRef {
 ///
 /// `Args` is the tuple of the argument types and `R` the return type; they only exist to let
 /// one impl per arity coexist, and are inferred.
-pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static + sealed::SealedSelFn<T, Args, R> {
+pub trait SelFn<T, Args, R>:
+    Copy + Send + Sync + 'static + sealed::SealedSelFn<T, Args, R>
+{
     /// The atom type of each argument.
     #[doc(hidden)]
     const TYPES: &'static [max_sys::e_max_atomtypes::Type];
@@ -730,7 +732,11 @@ where
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + 'static,
     R: MethodResult,
 {
-    let p = deferred!(mode, extern "C" fn(&W, max_sys::t_atom_long), int_deferred_tramp::<W, T, F, R>);
+    let p = deferred!(
+        mode,
+        extern "C" fn(&W, max_sys::t_atom_long),
+        int_deferred_tramp::<W, T, F, R>
+    );
     // SAFETY: the trampoline takes the object and a `t_atom_long`, as registered for `int`
     unsafe { erase(p) }
 }
@@ -742,7 +748,11 @@ where
     F: Fn(&T, f64) -> R + Copy + Send + 'static,
     R: MethodResult,
 {
-    let p = deferred!(mode, extern "C" fn(&W, f64), float_deferred_tramp::<W, T, F, R>);
+    let p = deferred!(
+        mode,
+        extern "C" fn(&W, f64),
+        float_deferred_tramp::<W, T, F, R>
+    );
     // SAFETY: the trampoline takes the object and a double, as registered for `float`
     unsafe { erase(p) }
 }
@@ -754,7 +764,11 @@ where
     F: Fn(&T, SymbolRef) -> R + Copy + Send + 'static,
     R: MethodResult,
 {
-    let p = deferred!(mode, extern "C" fn(&W, *mut max_sys::t_symbol), sym_deferred_tramp::<W, T, F, R>);
+    let p = deferred!(
+        mode,
+        extern "C" fn(&W, *mut max_sys::t_symbol),
+        sym_deferred_tramp::<W, T, F, R>
+    );
     // SAFETY: the trampoline takes the object and a symbol, as registered for `symbol`
     unsafe { erase(p) }
 }
@@ -778,7 +792,12 @@ where
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
     R: MethodResult,
 {
-    let p = deferred!(mode, GimmeTramp<W>, gimme_deferred_tramp::<W, T, F, R>, true);
+    let p = deferred!(
+        mode,
+        GimmeTramp<W>,
+        gimme_deferred_tramp::<W, T, F, R>,
+        true
+    );
     // SAFETY: as `list_method`
     unsafe { erase(p) }
 }
@@ -790,7 +809,12 @@ where
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
     R: MethodResult,
 {
-    let p = deferred!(mode, GimmeTramp<W>, gimme_deferred_tramp::<W, T, F, R>, false);
+    let p = deferred!(
+        mode,
+        GimmeTramp<W>,
+        gimme_deferred_tramp::<W, T, F, R>,
+        false
+    );
     // SAFETY: as `list_method`
     unsafe { erase(p) }
 }

@@ -29,7 +29,10 @@ fn hello_dsp_performs_and_has_its_attribute_and_methods() {
     let adds = k.dsp64(obj, 48000., 2).unwrap();
     let c = k.take_console_log();
     assert_eq!(c.len(), 1);
-    assert_eq!((c[0].level, c[0].text.as_str()), (Level::Post, "sample rate: 48000"));
+    assert_eq!(
+        (c[0].level, c[0].text.as_str()),
+        (Level::Post, "sample rate: 48000")
+    );
     let mut ins = vec![vec![0.; 2], vec![0.; 2]];
     let mut outs = vec![vec![9.; 2], vec![9.; 2]];
     adds[0].run(&mut ins, &mut outs);

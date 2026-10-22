@@ -5,8 +5,8 @@ use crate::attr_opts::AttrOpts;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{
-    Attribute, FnArg, ImplItem, ImplItemFn, ItemImpl, LitInt, LitStr, ReturnType, Signature,
-    Type, spanned::Spanned,
+    Attribute, FnArg, ImplItem, ImplItemFn, ItemImpl, LitInt, LitStr, ReturnType, Signature, Type,
+    spanned::Spanned,
 };
 
 /// Markers that are planned but not there yet.
@@ -70,16 +70,13 @@ impl Marker {
 
     /// `#[sel("name")]`, `#[sel("name", defaults = n)]` or `#[sel("name", gimme)]`.
     fn parse_sel(attr: &Attribute) -> syn::Result<Self> {
-        const FORM: &str =
-            "expected `#[sel(\"name\")]`, `#[sel(\"name\", defaults = n)]` or `#[sel(\"name\", gimme)]`";
+        const FORM: &str = "expected `#[sel(\"name\")]`, `#[sel(\"name\", defaults = n)]` or `#[sel(\"name\", gimme)]`";
         let list = match &attr.meta {
             syn::Meta::List(l) => l,
             other => return Err(syn::Error::new(other.span(), FORM)),
         };
         list.parse_args_with(|input: syn::parse::ParseStream| {
-            let name: LitStr = input
-                .parse()
-                .map_err(|e| syn::Error::new(e.span(), FORM))?;
+            let name: LitStr = input.parse().map_err(|e| syn::Error::new(e.span(), FORM))?;
             crate::cstr::check(&name)?;
             if crate::reserved::RESERVED_SELECTORS.contains(&name.value().as_str()) {
                 return Err(syn::Error::new(
@@ -188,16 +185,24 @@ fn arg_matches(ty: &Type, want: Arg) -> bool {
 fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Result<usize> {
     let err = || syn::Error::new(sig.span(), expected);
     if let Some(a) = &sig.asyncness {
-        return Err(syn::Error::new(a.span(), "a median method can't be `async`"));
+        return Err(syn::Error::new(
+            a.span(),
+            "a median method can't be `async`",
+        ));
     }
     if let Some(u) = &sig.unsafety {
-        return Err(syn::Error::new(u.span(), "a median method can't be `unsafe`"));
+        return Err(syn::Error::new(
+            u.span(),
+            "a median method can't be `unsafe`",
+        ));
     }
     if let Some(a) = &sig.abi {
-        return Err(syn::Error::new(a.span(), "a median method can't have an ABI"));
+        return Err(syn::Error::new(
+            a.span(),
+            "a median method can't have an ABI",
+        ));
     }
-    if sig.generics.type_params().next().is_some() || sig.generics.const_params().next().is_some()
-    {
+    if sig.generics.type_params().next().is_some() || sig.generics.const_params().next().is_some() {
         return Err(syn::Error::new(
             sig.generics.span(),
             "a median method can't be generic",
@@ -353,7 +358,9 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                 Some((Marker::Attr(_), _)) => {
                     push_err(syn::Error::new(
                         span,
-                        format!("`#[{name}]` doesn't go with `#[attr]`: attribute accessors aren't deferred"),
+                        format!(
+                            "`#[{name}]` doesn't go with `#[attr]`: attribute accessors aren't deferred"
+                        ),
                     ));
                     continue;
                 }
@@ -482,7 +489,9 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             (Marker::Sym, None) => quote_spanned!(span=> c.add_sym(#path)?;),
             (Marker::List, None) => quote_spanned!(span=> c.add_list(#path)?;),
             (Marker::Any, None) => quote_spanned!(span=> c.add_any(#path)?;),
-            (Marker::Bang, Some(mode)) => quote_spanned!(span=> c.add_bang_deferred(#path, #mode)?;),
+            (Marker::Bang, Some(mode)) => {
+                quote_spanned!(span=> c.add_bang_deferred(#path, #mode)?;)
+            }
             (Marker::Int, Some(mode)) => quote_spanned!(span=> c.add_int_deferred(#path, #mode)?;),
             (Marker::Float, Some(mode)) => {
                 quote_spanned!(span=> c.add_float_deferred(#path, #mode)?;)
@@ -521,10 +530,8 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     .name
                     .as_ref()
                     .map_or_else(|| m.ident.unraw_string(), LitStr::value);
-                let name_expr = crate::cstr::expr(
-                    &name,
-                    opts.name.as_ref().map_or(span, LitStr::span),
-                );
+                let name_expr =
+                    crate::cstr::expr(&name, opts.name.as_ref().map_or(span, LitStr::span));
                 let options = opts.options();
                 let setter_name = format!("set_{}", m.ident.unraw_string());
                 let setter = fns.iter().find(|f| f.sig.ident == setter_name);

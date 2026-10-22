@@ -252,7 +252,7 @@ macro_rules! ext_main {
 /// The common imports for writing an external: `use median::prelude::*;`.
 pub mod prelude {
     pub use crate::{
-        MaxObject, ext_main, methods, object_error, object_post, object_warn, post, sym,
+        MaxObject,
         atom::Atom,
         attr::{AttrField, AttrOptions},
         builder::{MSPBuilder, ManagedBufferRef, MaxBuilder},
@@ -260,12 +260,17 @@ pub mod prelude {
         clock::Clock,
         defer::Defer,
         error::{MaxResult, NewError},
+        ext_main,
         inlet::{Inlet, InletId},
         max_sys::t_atom_long,
+        methods,
         num::{Float32, Float64, Int64},
         object::{MaxObj, ObjRef},
+        object_error, object_post, object_warn,
         outlet::{Any, Bang, Float, Int, List, Outlet, Signal, StackOverflow},
+        post,
         queue::Queue,
+        sym,
         symbol::SymbolRef,
         wrapper::{
             FieldAttrs, IoLet, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods,
@@ -287,7 +292,6 @@ pub mod __private {
         }
     }
 }
-
 
 /// Post a message to the Max console, using the same format as `std::format!`.
 #[macro_export]

@@ -12,7 +12,10 @@ pub fn check(name: &LitStr) -> syn::Result<()> {
     if v.is_empty() {
         Err(syn::Error::new(name.span(), "the name must not be empty"))
     } else if v.contains('\0') {
-        Err(syn::Error::new(name.span(), "the name must not contain a NUL"))
+        Err(syn::Error::new(
+            name.span(),
+            "the name must not contain a NUL",
+        ))
     } else {
         Ok(())
     }

@@ -33,8 +33,8 @@ use median::{
         FieldAttrs, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass,
     },
 };
-use std::ffi::CStr;
 use median_mock::{Atom as MockAtom, AttrError, Level, Role, SendError};
+use std::ffi::CStr;
 use std::sync::{
     Once,
     atomic::{AtomicUsize, Ordering},
@@ -352,7 +352,8 @@ fn derived_object_handles_messages_and_sends_to_outlets() {
     assert_eq!(k.attr_get(obj, "blah").unwrap(), [long(21)]);
 
     //list: reversed, to the right outlet
-    k.send_list(obj, &[1.into(), 2.5.into(), "x".into()]).unwrap();
+    k.send_list(obj, &[1.into(), 2.5.into(), "x".into()])
+        .unwrap();
     let log = k.take_outlet_log();
     assert_eq!(log.len(), 1);
     assert_eq!(log[0].selector, "list");
@@ -412,7 +413,10 @@ fn typed_methods_send_and_post() {
     k.send_float(obj, 0.25).unwrap();
     k.send_list(obj, &[1.into(), "a".into()]).unwrap();
     let log = k.take_outlet_log();
-    let sent: Vec<_> = log.iter().map(|e| (e.selector.as_str(), &e.atoms[..])).collect();
+    let sent: Vec<_> = log
+        .iter()
+        .map(|e| (e.selector.as_str(), &e.atoms[..]))
+        .collect();
     assert_eq!(
         sent,
         [
