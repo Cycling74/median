@@ -36,7 +36,8 @@ aborting if a partly staged file needs formatting. `rustfmt.toml` pins edition 2
 `max-sys/`), so single-file `rustfmt` agrees with `cargo fmt`. The generated bindings
 (`max-sys/src/ffi-*.rs`) and the trybuild cases (`median/tests/ui/*.rs`, whose `.stderr` files
 record line numbers) are left alone. To format everything, run `cargo fmt` in each crate and
-`rustfmt templates/max/src/lib.rs`.
+`rustfmt templates/max/src/lib.rs`. A commit that only reformats goes in `.git-blame-ignore-revs`
+(the install script sets `blame.ignoreRevsFile`).
 
 Externals are `cdylib`s linked with `-undefined dynamic_lookup` (see the `.cargo/config*` files
 next to each example and the template); Max symbols resolve at load time. Nothing in this repo
