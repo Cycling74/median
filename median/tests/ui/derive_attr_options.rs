@@ -1,8 +1,20 @@
 use median::prelude::*;
 
 #[derive(MaxObject)]
-pub struct LaterOption {
-    #[attr(label = "Value")]
+pub struct SaveTwice {
+    #[attr(save, label = "Value", save)]
+    value: Int64,
+}
+
+#[derive(MaxObject)]
+pub struct LabelNotAString {
+    #[attr(label = 5)]
+    value: Int64,
+}
+
+#[derive(MaxObject)]
+pub struct BadRange {
+    #[attr(range(1))]
     value: Int64,
 }
 

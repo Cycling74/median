@@ -97,9 +97,15 @@
 //!   without a `#[median::methods]` block.
 //!
 //! `#[attr]` on a field registers an attribute backed by it. The field's type must implement
-//! [`AttrField`](attr::AttrField), as the [`num`] atomics do. Options: `name = ".."` (default: the
-//! field name), `clip(min, max)`, `readonly`. Other attribute options (label, style, category,
-//! order, default, save, enum) are not supported yet, and are rejected.
+//! [`AttrField`](attr::AttrField), as the [`num`] atomics do. Options:
+//!
+//! * `name = ".."`: the attribute's name, by default the field name;
+//! * `clip(min, max)`: values are limited to the range; `readonly`: users can't set it;
+//! * for the inspector and the patcher file (see [`AttrOptions`](attr::AttrOptions), each is the
+//!   SDK's `CLASS_ATTR_*` macro of the same name): `label = ".."`, `style = ".."`,
+//!   `category = ".."`, `order = n`, `default = value` (a number, or a parse string),
+//!   `save` (stored with the patcher), `enum = "a b c"` (a menu: `enum` style for a symbol
+//!   attribute, `enumindex` for a number), `range(min, max)` (shown, not enforced), `hidden`.
 //!
 //! # Construction
 //!
@@ -136,7 +142,14 @@
 //! | `#[any]` | `anything` | `fn(&self, &SymbolRef, &[Atom])` |
 //! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`, either all `f64` or none (Max can't pass a mix: use `gimme`); the last `n` may be left out (they are then 0 or the empty symbol) |
 //! | `#[sel("name", gimme)]` | `name` | `fn(&self, &SymbolRef, &[Atom])` |
-//! | `#[attr]`, `#[attr(name = "..", clip(min, max), readonly)]` | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
+//! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
+//! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
+//! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
+//!
+//! A message marker (not `#[attr]`, `#[dblclick]` or `#[loadbang]`) can be paired with
+//! `#[defer_low]` (always run later on the main thread) or `#[defer]` (run now on the main thread,
+//! otherwise later on it): `#[sel("read", gimme)] #[defer_low]`. See [`defer`]; never send a
+//! deferred message from `perform`.
 //!
 //! A message method (and an attribute setter) may return `()` or `Result<(), E>` for any
 //! `E: Display`. An `Err` goes to the type's `report_error` hook
@@ -157,6 +170,11 @@
 //! Max calls message methods on the main and scheduler threads while `perform` runs on the
 //! audio thread, so every method takes `&self` and the struct must be `Sync`: keep state in
 //! atomics (the [`num`] types) or locks, and don't lock or allocate in `perform`.
+//!
+//! To run code later or elsewhere: a [`Clock`](clock::Clock) calls a method on the scheduler
+//! thread after a delay, a [`Queue`](queue::Queue) calls one on the main thread soon (once per
+//! burst of `set`s), `#[defer]`/`#[defer_low]` move a message method to the main thread
+//! ([`defer`]), and a [`fifo`] carries values out of `perform`.
 //!
 pub mod alloc;
 pub mod atom;

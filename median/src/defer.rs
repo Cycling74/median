@@ -66,7 +66,7 @@
 //!
 //! * **Never send a deferred message from `perform`** (the audio thread). Queuing allocates
 //!   (the copy of the arguments and the boxed call) and takes a lock, on the thread that sends
-//!   the message. Use a [`fifo`](crate::fifo) and a [`Queue`](crate::queue::Queue) to get data
+//!   the message. Use a [`fifo`](crate::fifo) and a [`Queue`] to get data
 //!   from the audio thread to the main thread.
 //! * A deferred method must not free its own object (by deleting its box through scripting,
 //!   say): it runs inside the object's queue callback, and freeing the object waits for that

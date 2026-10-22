@@ -242,8 +242,9 @@ impl<T> Class<T> {
         self.deferred
     }
 
-    /// Add a built attribute to the class. `Err(MaxError::Duplicate)` (and the attribute is
-    /// freed) if an attribute of the same name was added through this `Class` already: field
+    /// Add a built attribute to the class, then the attributes of the attribute its options ask
+    /// for (label, save ..., see [`AttrOptions`]). `Err(MaxError::Duplicate)` (and the attribute
+    /// is freed) if an attribute of the same name was added through this `Class` already: field
     /// attributes, `#[attr]` getters and `class_setup` all add to the same class.
     pub fn add_attribute(&mut self, attr: Attr<T>) -> MaxResult<()> {
         if self.attr_names.iter().any(|n| n == attr.name()) {
@@ -252,12 +253,17 @@ impl<T> Class<T> {
             return Err(MaxError::Duplicate);
         }
         let name = attr.name().to_string();
+        let (val_type, options) = (attr.val_type(), *attr.options());
         let r = MaxError::from(
             unsafe { max_sys::class_addattr(self.inner(), attr.into()) as _ },
             (),
         );
         if r.is_ok() {
-            self.attr_names.push(name);
+            self.attr_names.push(name.clone());
+            //the attributes of the attribute, now that it is in the class
+            let name = std::ffi::CString::new(name).map_err(|_| MaxError::Generic)?;
+            // SAFETY: the class is valid and has the attribute `name`, added above
+            unsafe { crate::attr::add_attr_attrs(self.class, &name, val_type, &options)? };
         }
         r
     }
@@ -748,7 +754,7 @@ impl<W> Class<W> {
     }
 
     fn add_built_attr(&mut self, b: &mut AttrBuilder<W>, options: AttrOptions) -> MaxResult<()> {
-        b.clip(options.clip_value());
+        b.options(options);
         let attr = b.build().map_err(|_| MaxError::Generic)?;
         self.add_attribute(attr)
     }

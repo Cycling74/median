@@ -1,23 +1,35 @@
-error: the attribute option `label` is not supported yet; only `name`, `clip` and `readonly` are (the others come with the attribute options of the API redesign, step 7)
- --> tests/ui/derive_attr_options.rs:5:12
+error: `save` given twice
+ --> tests/ui/derive_attr_options.rs:5:35
   |
-5 |     #[attr(label = "Value")]
-  |            ^^^^^
+5 |     #[attr(save, label = "Value", save)]
+  |                                   ^^^^
 
-error: unknown attribute option, expected `name = ".."`, `clip(min, max)` or `readonly`
-  --> tests/ui/derive_attr_options.rs:11:12
+error: expected string literal
+  --> tests/ui/derive_attr_options.rs:11:20
    |
-11 |     #[attr(clamp(0, 1))]
+11 |     #[attr(label = 5)]
+   |                    ^
+
+error: expected `range(min, max)`
+  --> tests/ui/derive_attr_options.rs:17:12
+   |
+17 |     #[attr(range(1))]
+   |            ^^^^^^^^
+
+error: unknown attribute option, expected `name = ".."`, `clip(min, max)`, `readonly`, `label = ".."`, `style = ".."`, `category = ".."`, `order = n`, `default = value`, `save`, `enum = ".."`, `range(min, max)` or `hidden`
+  --> tests/ui/derive_attr_options.rs:23:12
+   |
+23 |     #[attr(clamp(0, 1))]
    |            ^^^^^
 
 error: expected `clip(min, max)`
-  --> tests/ui/derive_attr_options.rs:17:12
+  --> tests/ui/derive_attr_options.rs:29:12
    |
-17 |     #[attr(clip(0))]
+29 |     #[attr(clip(0))]
    |            ^^^^^^^
 
 error: the attribute `a` is defined twice
-  --> tests/ui/derive_attr_options.rs:25:19
+  --> tests/ui/derive_attr_options.rs:37:19
    |
-25 |     #[attr(name = "a")]
+37 |     #[attr(name = "a")]
    |                   ^^^
