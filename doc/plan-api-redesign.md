@@ -612,6 +612,25 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     conversions, `simp`/`simp_explicit` arguments. `median-mock` gained
     `live_buffer_ref_count`, and reports an object freed after `z_dsp_setup` without
     `z_dsp_free` and an unfreed proxy, so every test checks those.
+  - Review fixes (steps 4 and 5, after step 6):
+    - Inlet order: `finalize` makes the non-signal inlets first (right to left) and calls
+      `z_dsp_setup(n)` **last**, as the pre-step-4 builder did; the `dsp_pending`/`z_dsp_free`
+      pairing is unchanged. This supersedes "`z_dsp_setup(n)` first" in step 4 and its
+      **Assumption**: `intin`'s documentation (`ext_proto.h`) says each new inlet goes just right
+      of the leftmost, so inlets made after `z_dsp_setup` would land left of signal inlets 1..n-1
+      unless Max pins those; made before, they end up right of them under either reading. The
+      mock no longer pins `z_dsp_setup`'s inlets (ordinary inserts), and `tests/iolets.rs`
+      asserts the creation order and the resulting layout.
+    - `class::MSP_RESERVED_SELECTORS` (`signal`, `userconnect`, `nsiginlets`, `enable`: what
+      `class_dspinit` adds, which `z_dsp.h` says not to bind; it runs after user registration,
+      so one would silently replace the other) are refused by `Class::add_*` and `#[sel]` for
+      every class: neither `Class` nor the macro knows the class's kind. Mirrored in
+      `median_macros/src/reserved.rs` (a test compares both lists); UI case in
+      `methods_reserved`.
+    - `Outlet<Int>` is made with the type `"int"` (as the SDK's `intout`), not `"long"`.
+    - median-mock: the outlet calls return non-null (1, as Max) on success, so `Outlet::send`
+      is `Ok` under the mock (it was always `Err(StackOverflow)`); `Kernel::set_outlet_overflow`
+      makes them fail (null, nothing sent). Tested in both crates.
 - [x] 6. `SymbolRef`, `BufferLocked` (section G; abeaf31, 43d09b8, aa595ef).
   - `SymbolRef`: `#[derive(Copy, Clone, PartialEq, Eq, Hash)]` over `NonNull<t_symbol>`,
     `repr(transparent)`; `assign`, `new`, `inner`, `to_cstring` and the `Result`-returning

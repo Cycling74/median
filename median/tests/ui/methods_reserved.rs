@@ -21,6 +21,10 @@ impl Simp {
     #[sel("notify")]
     pub fn c(&self) {}
 
+    // `class_dspinit`'s, refused for every class
+    #[sel("enable")]
+    pub fn e(&self, _v: t_atom_long) {}
+
     // fine
     #[sel("in10")]
     pub fn d(&self) {}

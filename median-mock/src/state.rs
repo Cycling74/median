@@ -237,6 +237,9 @@ pub(crate) struct State {
     pub buffer_ref_notifications: Vec<(usize, String, String)>,
     /// The names of the buffers `buffer_view` was called on, in order.
     pub buffer_views: Vec<String>,
+    /// While set, the outlet calls fail as on a stack overflow (see
+    /// [`crate::Kernel::set_outlet_overflow`]).
+    pub outlet_overflow: bool,
     pub outlet_log: Vec<OutletEvent>,
     pub console: Vec<ConsoleEntry>,
     /// `(object, attribute name)` for every `object_attr_touch`.
@@ -263,6 +266,7 @@ impl State {
             buffers: HashMap::new(),
             buffer_ref_notifications: Vec::new(),
             buffer_views: Vec::new(),
+            outlet_overflow: false,
             outlet_log: Vec::new(),
             console: Vec::new(),
             touches: Vec::new(),
@@ -302,6 +306,7 @@ impl State {
         self.buffers.clear();
         self.buffer_ref_notifications.clear();
         self.buffer_views.clear();
+        self.outlet_overflow = false;
         self.outlet_log.clear();
         self.console.clear();
         self.touches.clear();

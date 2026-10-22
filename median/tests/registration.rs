@@ -2,7 +2,7 @@
 //! registers itself), and attribute getters cope with the null pointers Max may pass. Run
 //! through the `median-mock` kernel.
 
-use median::class::{RESERVED_SELECTORS, is_reserved_selector};
+use median::class::{MSP_RESERVED_SELECTORS, RESERVED_SELECTORS, is_reserved_selector};
 use median::error::MaxError;
 use median::prelude::*;
 use median_mock::{Atom as MockAtom, GetterArgs, Kernel, Level};
@@ -61,6 +61,10 @@ impl MaxObjWrapped for Setup {
         rec("gimme notify", c.add_sel_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
         rec("gimme dsp64", c.add_sel_gimme(c"dsp64", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
         rec("sel ft10", c.add_sel(c"ft10", |_: &Self| {}, 0));
+        rec("sel signal", c.add_sel(c"signal", |_: &Self| {}, 0));
+        rec("gimme enable", c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
+        rec("bang userconnect", c.add_sel(c"userconnect", |_: &Self| {}, 0));
+        rec("sel nsiginlets", c.add_sel(c"nsiginlets", |_: &Self| {}, 0));
         rec(
             "attr value",
             c.add_attr(c"value", |s: &Self| s.value.get(), |s: &Self, v| s.value.set(v), AttrOptions::new()),
@@ -149,6 +153,10 @@ fn class_setup_is_refused_reserved_selectors_and_duplicate_attributes() {
         ("gimme notify", dup.clone()),
         ("gimme dsp64", dup.clone()),
         ("sel ft10", Ok(())),
+        ("sel signal", dup.clone()),
+        ("gimme enable", dup.clone()),
+        ("bang userconnect", dup.clone()),
+        ("sel nsiginlets", dup.clone()),
         ("attr value", dup.clone()),
         ("readonly value", dup.clone()),
         ("field value", dup.clone()),
@@ -183,22 +191,27 @@ fn the_reserved_list_is_what_the_wrapper_registers() {
     assert_eq!(k.method_names(obj), reserved);
     assert!(k.free_object(obj));
     assert!(is_reserved_selector(c"ft9") && !is_reserved_selector(c"ft10"));
+    assert!(MSP_RESERVED_SELECTORS.iter().all(|s| {
+        is_reserved_selector(&std::ffi::CString::new(*s).unwrap())
+    }));
 }
 
 #[test]
-fn the_macro_mirrors_the_reserved_list() {
+fn the_macro_mirrors_the_reserved_lists() {
     let src = include_str!("../../median_macros/src/reserved.rs");
-    let list = src
-        .split_once("RESERVED_SELECTORS: &[&str] = &[")
-        .and_then(|(_, rest)| rest.split_once("];"))
-        .map(|(list, _)| list)
-        .expect("the list in median_macros/src/reserved.rs");
-    let names: Vec<&str> = list
-        .split(',')
-        .map(|s| s.trim().trim_matches('"'))
-        .filter(|s| !s.is_empty())
-        .collect();
-    assert_eq!(names, RESERVED_SELECTORS);
+    let list = |name: &str| -> Vec<&'static str> {
+        let start = format!("pub(crate) const {name}: &[&str] = &[");
+        src.split_once(start.as_str())
+            .and_then(|(_, rest)| rest.split_once("];"))
+            .map(|(list, _)| list)
+            .unwrap_or_else(|| panic!("{name} in median_macros/src/reserved.rs"))
+            .split(',')
+            .map(|s| s.trim().trim_matches('"'))
+            .filter(|s| !s.is_empty())
+            .collect()
+    };
+    assert_eq!(list("RESERVED_SELECTORS"), RESERVED_SELECTORS);
+    assert_eq!(list("MSP_RESERVED_SELECTORS"), MSP_RESERVED_SELECTORS);
 }
 
 #[test]

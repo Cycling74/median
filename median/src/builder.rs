@@ -393,9 +393,9 @@ impl<T> Iolets<T> {
 }
 
 impl<T, K: BuilderKind> Builder<T, K> {
-    /// Make the inlets (for MSP, `z_dsp_setup` first, then the other inlets right to left, as
-    /// `z_dsp.h` says) and hand over the table and the callbacks. Nothing is made if the
-    /// description has a mistake.
+    /// Make the inlets (the non-signal inlets right to left, then, for MSP, `z_dsp_setup` last,
+    /// so that the signal inlets end up leftmost) and hand over the table and the callbacks.
+    /// Nothing is made if the description has a mistake.
     pub(crate) fn finalize(&mut self) -> Result<Iolets<T>, String> {
         if let Some(e) = self.error.take() {
             return Err(format!("median: {e}"));
@@ -406,11 +406,6 @@ impl<T, K: BuilderKind> Builder<T, K> {
             .filter(|e| matches!(e.kind, InletKind::Signal))
             .count();
         let obj = self.obj.as_ptr();
-        if K::MSP {
-            // SAFETY: `obj` is a valid `t_pxobject` under construction (see `new`)
-            unsafe { max_sys::z_dsp_setup(obj.cast(), signal_inlets as _) };
-            self.dsp_pending = true;
-        }
 
         //the table, by position; inlet 0 exists even if it wasn't described
         let count = entries.last().map_or(1, |e| e.position + 1);
@@ -449,6 +444,14 @@ impl<T, K: BuilderKind> Builder<T, K> {
                     floats[e.id - 1] = Some(f);
                 }
             }
+        }
+        //`z_dsp_setup` last: every new inlet is inserted just right of the leftmost (`intin` in
+        //`ext_proto.h`), so making the others first and the signal inlets last puts the signal
+        //inlets at 0..n whether or not Max keeps `z_dsp_setup`'s inlets next to the leftmost
+        if K::MSP {
+            // SAFETY: `obj` is a valid `t_pxobject` under construction (see `new`)
+            unsafe { max_sys::z_dsp_setup(obj.cast(), signal_inlets as _) };
+            self.dsp_pending = true;
         }
         Ok(Iolets {
             ints,

@@ -481,7 +481,7 @@ impl<W> Class<W> {
     /// The last `defaults` arguments are optional (`A_DEFFLOAT` and so on): Max passes 0, 0.0 or
     /// the empty symbol when the message leaves them out. It is an error if `defaults` is more
     /// than the number of arguments, and `Err(MaxError::Duplicate)` if `sel` is one of
-    /// [`RESERVED_SELECTORS`].
+    /// [`RESERVED_SELECTORS`] or [`MSP_RESERVED_SELECTORS`].
     pub fn add_sel<T, F, A, R>(&mut self, sel: &CStr, _f: F, defaults: usize) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
@@ -502,7 +502,7 @@ impl<W> Class<W> {
 
     /// Register the method `sel` with the arguments as a list of atoms (`A_GIMME`). The callable
     /// gets the selector as well, so that one can serve several selectors. `sel` must not be one of
-    /// [`RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
+    /// [`RESERVED_SELECTORS`] or [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
     pub fn add_sel_gimme<T, F, R>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
@@ -625,10 +625,19 @@ pub const RESERVED_SELECTORS: &[&str] = &[
     "ft8", "ft9", "in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8", "in9",
 ];
 
-/// Whether `sel` is one of [`RESERVED_SELECTORS`].
+/// The selectors `class_dspinit` adds to an MSP class (`z_dsp.h`: "you should avoid binding
+/// anything to their names"). The wrapper calls `class_dspinit` after the user's methods are
+/// registered, so a user method of one of these names would be silently replaced (or replace
+/// MSP's). They are refused for every class, Max objects included, because neither `Class` nor
+/// `#[median::methods]` knows whether the class is an MSP one.
+pub const MSP_RESERVED_SELECTORS: &[&str] = &["signal", "userconnect", "nsiginlets", "enable"];
+
+/// Whether `sel` is one of [`RESERVED_SELECTORS`] or [`MSP_RESERVED_SELECTORS`], which
+/// [`Class::add_sel`], [`Class::add_sel_gimme`] (any `add_*` in fact) and `#[sel]` refuse.
 pub fn is_reserved_selector(sel: &CStr) -> bool {
-    sel.to_str()
-        .is_ok_and(|s| RESERVED_SELECTORS.contains(&s))
+    sel.to_str().is_ok_and(|s| {
+        RESERVED_SELECTORS.contains(&s) || MSP_RESERVED_SELECTORS.contains(&s)
+    })
 }
 
 /// Turn the last `defaults` of `types` into their `A_DEF*` variants. An error if there are fewer

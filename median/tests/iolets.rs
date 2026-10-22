@@ -55,15 +55,20 @@ impl IoMax {
 
     #[sel("fire")]
     pub fn fire(&self) {
-        let _ = self.bang.send();
-        let _ = self.int.send(3);
-        let _ = self.float.send(1.5);
-        let _ = self.list.send(&[1i64.into(), 2.5.into()]);
-        let _ = self.any.send(&SymbolRef::from(c"foo"), &[7i64.into()]);
-        let _ = self.any.send_bang();
-        let _ = self.any.send_int(4);
-        let _ = self.any.send_float(0.25);
-        let _ = self.any.send_list(&[SymbolRef::from(c"x").into()]);
+        let results = [
+            self.bang.send(),
+            self.int.send(3),
+            self.float.send(1.5),
+            self.list.send(&[1i64.into(), 2.5.into()]),
+            self.any.send(&SymbolRef::from(c"foo"), &[7i64.into()]),
+            self.any.send_bang(),
+            self.any.send_int(4),
+            self.any.send_float(0.25),
+            self.any.send_list(&[SymbolRef::from(c"x").into()]),
+        ];
+        let ok = results.iter().filter(|r| r.is_ok()).count();
+        let overflow = results.iter().filter(|r| **r == Err(StackOverflow)).count();
+        self.obj.post(format!("sent {ok}, overflow {overflow}"));
     }
 }
 
@@ -354,7 +359,7 @@ fn typed_outlets_send_with_the_right_outlet_calls() {
         k.outlet_types(obj),
         [
             Some("bang".to_string()),
-            Some("long".to_string()),
+            Some("int".to_string()),
             Some("float".to_string()),
             Some("list".to_string()),
             None
@@ -380,23 +385,35 @@ fn typed_outlets_send_with_the_right_outlet_calls() {
             (4, "list".to_string(), vec![MockAtom::Sym("x".into())]),
         ]
     );
+    //every send succeeded: Max's outlet calls return non-null unless the stack overflowed
+    let log = k.take_console_log();
+    assert_eq!(log.last().map(|e| e.text.as_str()), Some("sent 9, overflow 0"));
+    //a stack overflow: each send is an `Err(StackOverflow)` and nothing goes out
+    k.set_outlet_overflow(true);
+    k.send(obj, "fire", &[]).unwrap();
+    assert!(k.take_outlet_log().is_empty());
+    let log = k.take_console_log();
+    assert_eq!(log.last().map(|e| e.text.as_str()), Some("sent 0, overflow 9"));
+    k.set_outlet_overflow(false);
     assert!(k.free_object(obj));
 }
 
 #[test]
-fn msp_signal_inlets_come_first_and_dsp_setup_runs_before_the_others() {
+fn msp_signal_inlets_come_first_and_dsp_setup_runs_after_the_others() {
     let k = setup();
     let obj = k.new_object("io.dsp~", &[]);
     assert!(!obj.is_null());
     assert_eq!(k.signal_inlets(obj), Some(3));
-    //`z_dsp_setup` (the two signal inlets after the leftmost), then right to left
+    //the other inlets right to left, then `z_dsp_setup` (the two signal inlets after the
+    //leftmost). The mock inserts every inlet, `z_dsp_setup`'s too, just right of the leftmost,
+    //so this order is what puts the signal inlets at 0..3
     assert_eq!(
         k.inlets_created(obj),
         [
-            InletKind::Signal,
-            InletKind::Signal,
             InletKind::Float(1),
             InletKind::Proxy { id: 3, stuffloc: 0 },
+            InletKind::Signal,
+            InletKind::Signal,
         ]
     );
     assert_eq!(

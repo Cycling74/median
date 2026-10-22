@@ -56,9 +56,10 @@ only implemented for the wrapper types. Do not add impls of the old shape. Docum
 `ObjRef` is `!Clone`, `!Send`, but safe code can still deliberately leak it (`Box::leak`,
 `thread_local!`) and use it after the object is deleted. Redesign step 4 replaced the boxed
 outlet aliases with `Outlet<K>`, which has the same shape and the same documented limit (M10 is
-fixed modulo deliberate leaking). The iolet table is filled once at construction; `z_dsp_setup`
-runs before the other inlets are made (unverified in Max for objects with 2+ signal inlets and
-other inlets, see the plan's step 4 status). Step 5 made `new` return `Result<Self, NewError>`;
+fixed modulo deliberate leaking). The iolet table is filled once at construction; the non-signal inlets
+are made first (right to left) and `z_dsp_setup` last, which puts the signal inlets leftmost
+whether or not Max keeps `z_dsp_setup`'s inlets next to the leftmost (the mock does not: it
+inserts every inlet just right of the leftmost, as `intin`'s documentation says). Step 5 made `new` return `Result<Self, NewError>`;
 a refused or panicking `new` releases what the builder made, and an MSP object's `z_dsp_setup`
 is always paired with `z_dsp_free` (the builder owes it until construction finishes). Step 6
 fixed H5, H7 and M1: `SymbolRef` is a `Copy` handle over `NonNull<t_symbol>` with no interior

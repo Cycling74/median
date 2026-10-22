@@ -9,11 +9,11 @@ use crate::thread::{Role, with_role};
 use max_sys::{t_object, t_perfroutine64, t_pxobject};
 use std::ffi::{c_long, c_void};
 
-/// Creates `nsignals - 1` signal inlets next to the object's leftmost, as Max does. They stay
-/// there when more inlets are made afterwards: `z_dsp.h` says to create the non-signal inlets
-/// after `dsp_setup`, which only makes sense if they then go to the right of the signal inlets.
-/// (That is the reading of the header the kernel follows; where Max really puts them has not
-/// been checked.) See [`crate::Kernel::inlets`].
+/// Creates `nsignals - 1` signal inlets, each inserted just right of the object's leftmost like
+/// any other inlet (`intin`'s documentation in `ext_proto.h`). They are not pinned there: inlets
+/// made afterwards go to their left. That is the conservative reading; an object that makes its
+/// other inlets first and calls `z_dsp_setup` last (as median does) gets the signal inlets
+/// leftmost under either reading. See [`crate::Kernel::inlets`].
 ///
 /// # Safety
 /// `x` must be a live object whose struct starts with a `t_pxobject`.

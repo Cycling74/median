@@ -15,3 +15,9 @@ error: `notify` is a selector median registers for itself (inlets, assist, dsp);
    |
 21 |     #[sel("notify")]
    |           ^^^^^^^^
+
+error: `enable` is a selector MSP registers for its dsp chain (`class_dspinit`; `z_dsp.h` says not to bind it), refused for every class; pick another name
+  --> tests/ui/methods_reserved.rs:25:11
+   |
+25 |     #[sel("enable")]
+   |           ^^^^^^^^

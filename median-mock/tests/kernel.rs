@@ -607,6 +607,33 @@ fn dispatch_bang_int_float_list_anything_and_outlets_are_recorded() {
 }
 
 #[test]
+fn outlet_calls_return_non_null_unless_a_stack_overflow_is_simulated() {
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1);
+    unsafe {
+        let out = (*x).out_left;
+        assert!(!max_sys::outlet_bang(out).is_null());
+        assert!(!max_sys::outlet_int(out, 1).is_null());
+        assert!(!max_sys::outlet_float(out, 1.0).is_null());
+        assert!(!max_sys::outlet_anything(out, sym(c"foo"), 0, null_mut()).is_null());
+        assert_eq!(k.take_outlet_log().len(), 4);
+        k.set_outlet_overflow(true);
+        assert!(max_sys::outlet_bang(out).is_null());
+        assert!(max_sys::outlet_list(out, null_mut(), 0, null_mut()).is_null());
+        assert!(k.take_outlet_log().is_empty());
+        k.set_outlet_overflow(false);
+        assert!(!max_sys::outlet_bang(out).is_null());
+        // a reset turns it off too
+        k.set_outlet_overflow(true);
+        k.reset();
+        let x = thing(&k, 2);
+        assert!(!max_sys::outlet_bang((*x).out_left).is_null());
+    }
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+}
+
+#[test]
 fn outlet_append_adds_to_the_right_and_outlet_new_to_the_left() {
     let k = median_mock::lock();
     register();
@@ -712,7 +739,7 @@ fn proxy_and_intin_inlets() {
 }
 
 #[test]
-fn signal_inlets_stay_left_of_the_inlets_made_after_dsp_setup() {
+fn dsp_setup_signal_inlets_are_ordinary_inserts() {
     use median_mock::InletKind;
     let k = median_mock::lock();
     register();
@@ -726,13 +753,14 @@ fn signal_inlets_stay_left_of_the_inlets_made_after_dsp_setup() {
             InletKind::Proxy { id: 2, stuffloc: 0 }
         ]
     );
-    // the signal inlet is inlet 1, then the proxy, then the float inlet (made first, rightmost)
+    // each inlet is inserted just right of the leftmost, `z_dsp_setup`'s too: the class calls it
+    // first, so its signal inlet ends up rightmost
     assert_eq!(
         k.inlets(o),
         [
-            InletKind::Signal,
             InletKind::Proxy { id: 2, stuffloc: 0 },
-            InletKind::Float(1)
+            InletKind::Float(1),
+            InletKind::Signal
         ]
     );
     assert!(k.free_object(o));

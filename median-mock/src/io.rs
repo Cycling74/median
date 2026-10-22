@@ -3,8 +3,9 @@
 //!
 //! Outlets record what is sent through them (see [`crate::OutletEvent`]); they are not connected
 //! to anything. Like Max, inlets and `outlet_new` outlets are created right to left: the first one
-//! created is the rightmost. `outlet_append` outlets are created left to right. The signal inlets
-//! of `z_dsp_setup` are the exception: they stay next to the leftmost inlet.
+//! created is the rightmost (each new inlet is inserted just right of the leftmost, as
+//! `ext_proto.h` documents for `intin`). `outlet_append` outlets are created left to right. The
+//! signal inlets of `z_dsp_setup` are ordinary inlets in this respect (see `z_dsp_setup`).
 
 use crate::atoms::{Atom, atoms_from_raw};
 use crate::class::current_inlet;
@@ -40,20 +41,10 @@ fn add_outlet(st: &mut State, x: usize, ty: Option<String>, append: bool) -> *mu
     ptr as *mut c_void
 }
 
-/// The inlets of `o` from left to right, not counting the leftmost: the signal inlets made by
-/// `z_dsp_setup` first, then the others, the last one created first (see `z_dsp_setup`).
-pub(crate) fn inlets_left_to_right(st: &State, o: &crate::state::ObjData) -> Vec<usize> {
-    let is_signal = |p: &usize| {
-        matches!(
-            st.subs.get(p).map(|s| &s.kind),
-            Some(SubKind::Inlet {
-                kind: InletKind::Signal
-            })
-        )
-    };
-    let mut v: Vec<usize> = o.inlets.iter().copied().filter(is_signal).collect();
-    v.extend(o.inlets.iter().rev().copied().filter(|p| !is_signal(p)));
-    v
+/// The inlets of `o` from left to right, not counting the leftmost: the last one created first,
+/// whatever made it (`z_dsp_setup` included).
+pub(crate) fn inlets_left_to_right(_st: &State, o: &crate::state::ObjData) -> Vec<usize> {
+    o.inlets.iter().rev().copied().collect()
 }
 
 pub(crate) fn add_inlet(st: &mut State, x: usize, kind: InletKind) -> *mut c_void {
@@ -99,6 +90,12 @@ pub unsafe extern "C" fn outlet_append(
     add_outlet(&mut state(), op as usize, ty, true)
 }
 
+/// What the outlet calls return on success: Max's return 1 (`ext_proto.h`: "Returns 0 if a stack
+/// overflow occurred, otherwise returns 1").
+const SENT: *mut c_void = std::ptr::without_provenance_mut(1);
+
+/// Log the call and return [`SENT`]; null (and nothing logged) for a bad outlet or while a stack
+/// overflow is simulated.
 fn log_outlet(x: *mut t_outlet, selector: &str, atoms: Vec<Atom>) -> *mut c_void {
     let mut st = state();
     let addr = x as usize;
@@ -113,6 +110,9 @@ fn log_outlet(x: *mut t_outlet, selector: &str, atoms: Vec<Atom>) -> *mut c_void
         st.post_error(0, format!("median-mock: {selector} sent through {addr:#x}, which is not a live outlet"));
         return std::ptr::null_mut();
     };
+    if st.outlet_overflow {
+        return std::ptr::null_mut();
+    }
     let outlets = &st.objects[&owner].outlets;
     let index = outlets.iter().position(|&o| o == addr).unwrap_or(0);
     let event = OutletEvent {
@@ -125,7 +125,7 @@ fn log_outlet(x: *mut t_outlet, selector: &str, atoms: Vec<Atom>) -> *mut c_void
         time: st.now,
     };
     st.outlet_log.push(event);
-    std::ptr::null_mut()
+    SENT
 }
 
 /// # Safety

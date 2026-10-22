@@ -105,7 +105,7 @@ kinds! {
     /// An outlet that sends `bang`: `send(&self)`.
     Bang, "bang", common_symbols().s_bang;
     /// An outlet that sends `int`: `send(&self, t_atom_long)`.
-    Int, "int", common_symbols().s_long;
+    Int, "int", common_symbols().s_int;
     /// An outlet that sends `float`: `send(&self, f64)`.
     Float, "float", common_symbols().s_float;
     /// An outlet that sends `list`: `send(&self, &[Atom])`.

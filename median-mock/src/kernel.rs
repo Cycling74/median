@@ -157,8 +157,8 @@ impl Kernel {
     /// * `inlet_new(x, "sel")`: the atoms go to the method `sel`; with a null `sel` as usual;
     /// * a signal inlet made by `z_dsp_setup`: as a proxy whose id is the inlet number.
     ///
-    /// Inlets are created right to left, so the last inlet created is inlet 1; the signal inlets
-    /// of `z_dsp_setup` come first (see [`inlets`](Self::inlets)).
+    /// Inlets are created right to left, so the last inlet created is inlet 1, `z_dsp_setup`'s
+    /// signal inlets included (see [`inlets`](Self::inlets)).
     pub fn send_inlet(
         &self,
         obj: *mut c_void,
@@ -285,9 +285,8 @@ impl Kernel {
     }
 
     /// How each inlet was made, from left to right, not counting the leftmost (which is the
-    /// object itself). Inlets are created right to left, so the last one created comes first,
-    /// except the signal inlets of `z_dsp_setup`, which stay next to the leftmost however many
-    /// inlets are made after them. Freed inlets are included.
+    /// object itself). Inlets are created right to left, so the last one created comes first;
+    /// the signal inlets of `z_dsp_setup` are no exception. Freed inlets are included.
     pub fn inlets(&self, obj: *mut c_void) -> Vec<InletKind> {
         let st = state();
         let Some(o) = st.objects.get(&(obj as usize)) else {
@@ -369,6 +368,12 @@ impl Kernel {
             );
         }
         Some(t == 0)
+    }
+
+    /// Make every outlet call fail as on a stack overflow (return null, send nothing, log
+    /// nothing) until it is turned off again or the kernel is reset.
+    pub fn set_outlet_overflow(&self, overflow: bool) {
+        state().outlet_overflow = overflow;
     }
 
     /// Call the object's `dblclick` method (`A_CANT`, `(x)`) as Max does when the box is
