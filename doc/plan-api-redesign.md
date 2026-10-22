@@ -688,4 +688,99 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   - Tests: `symbol::tests` (interning equality, names, NUL errors, null/default, threads),
     `ui/sym_nul`, `tests/buffer.rs`, `tests/hello_dsp.rs` with a buffer, mock tests in
     `median-mock/tests/kernel.rs`.
-- [ ] 7. Clock/queue/fifo, attribute options
+- [x] 7. Clock/queue/fifo (H), attribute options (I). One commit per piece (mock, 7a-7f, then the
+  examples). Every user is ported; there are no aliases for the old names.
+  - `Clock` (was `ClockHandle`): `b.clock(Self::tick)` takes a zero-sized `Copy` callable (a
+    post-monomorphisation `const` assert, like `Class::add_*`, whose message points to
+    `clock_with`), `b.clock_with(closure)` any `Fn(&T) + Send + Sync + 'static`. Addition: the
+    callback may return `Result<(), E>`, the `Err` goes to `report_error`. `delay(c_long)` (was
+    `i32`), `fdelay(f64)`, `cancel()`, plus `trigger`, `ftime`, `time` and the unsafe
+    `Clock::new` as before. `with_clockfn`/`with_clock` are removed. The `ClockShared` protocol
+    is unchanged (armed after construction, cleared before `T` drops); the two known clock
+    issues of plan-soundness-fixes' Status are not addressed. Not done: min's
+    `defer_delivery()` option.
+  - `Queue` (`median::queue`): `b.queue(Self::m)` / `b.queue_with(closure)`, `set()`
+    (`qelem_set`), `front()` (`qelem_front`), `cancel()` (`qelem_unset`); the callback runs on the
+    main thread and may return `Result`. Its target is a `ClockShared` (the clocks' type, reused),
+    so the wrapper arms and clears it with the clocks. The qelem's `obj` is a strong count of that
+    `Arc` (not a nobox object, which qelems don't need), released after `qelem_free`.
+    **Difference**: the wrapper *disables* the queue (clears its target, so a pending run does
+    nothing) before `T` is dropped; the qelem itself is freed (`qelem_free`, which also cancels a
+    pending run) when the `Queue` is dropped with `T`. Freeing it from the wrapper first would let
+    `perform` (which runs until `z_dsp_free`, after the targets are cleared) `set` a freed qelem.
+    No public unsafe `Queue::new`. The SDK headers give no thread rules for `qelem_set`; the
+    `simplethread` example calls it from its own thread. Real-time safety on the audio thread is
+    **unverified** and documented as such on `queue` and `fifo`.
+  - `#[defer]`/`#[defer_low]` (`median::defer`): each object of a class with a deferred method
+    has a `DeferQueue` in the wrapper internals: a `parking_lot` mutex over a `VecDeque` of boxed
+    calls with their arguments copied (scalars, `SymbolRef`, atoms in `OwnedAtoms`), and one
+    `Queue` whose callback takes the whole batch and runs each call in its own panic guard.
+    `Class` records that a deferred method was added, `CLASSES` keeps the flag per class, and
+    `construct` makes the queue only then. Modes `Defer::Low` (always queued at the back,
+    `qelem_set`) and `Defer::Front` (at once on the main thread, otherwise queued at the front of
+    the object's calls and `qelem_front`; a qelem already queued at the back stays there; several
+    `Front` calls run latest first, as Max's `defer`s do). Hand-written:
+    `Class::add_{bang,int,float,sym,list,any}_deferred(f, mode)`,
+    `add_sel_deferred(sel, f, defaults, mode)`, `add_sel_gimme_deferred(sel, f, mode)` (typed
+    selectors get a hidden `SelFn::deferred_trampoline`; `SelArg: Copy + Send + 'static`). The
+    trampolines reach the queue through a hidden `WrapperWrapped::defer_call` (default panics).
+    Markers pair with a message marker only; with `#[attr]`, `#[dblclick]`, `#[loadbang]` or alone
+    they are spanned errors, as are both on one method. A pending call is dropped without running
+    (and its atoms freed) when the object is freed. Rules documented: queuing allocates and locks,
+    so never from `perform`; a deferred method must not free its own object (it runs inside the
+    queue callback; deadlock, as for clocks). Removed: `wrapper::defer_tramp`
+    (`median_macros::wrapped_defer_tramp`, `tramp.rs`), `wrapper::DeferMethodWrapped`,
+    `ObjRef::defer`/`defer_low`, `thread::{DeferMethod, defer, defer_low}`; `thread::SysThread`
+    stays. `method::sel_list` is now unused by median but left (public).
+  - `median::fifo`: `rtrb` 0.4's `RingBuffer`, `Producer`, `Consumer`, `PushError`, `PopError`
+    re-exported, module docs with the perform-push / `Queue::set` / main-thread-drain pattern.
+    **Difference**: a small wrapper, `fifo::Shared<E>`, is needed after all: `push`/`pop` take
+    `&mut self` and median's methods and `perform` get `&self`. `Shared::try_with` is
+    `parking_lot`'s `try_lock` (one CAS, never blocks or allocates; `None` only if two threads use
+    the same end). Not a `Fifo<T>` type as section H sketched.
+  - `#[dblclick]` and `#[loadbang]` (`A_CANT`, `fn(&self)`), `Class::add_loadbang`. The SDK
+    headers declare neither signature; `(x)` is what the SDK's `dblclick` examples use and what is
+    assumed for `loadbang` (unverified). `#[notify]`, `#[savestate]` stay "not supported yet".
+  - Attribute options: `AttrOptions` gains `label`, `style`, `category` (`&'static CStr`),
+    `order(t_atom_long)`, `default(impl Into<AttrDefault>)` (`Int`, `Float` or a `Parse` string;
+    from `i32`/`i64`/`isize`/`f32`/`f64`/`&'static CStr`), `save`, `enum_vals`, `range(min, max)`,
+    `hidden`; `AttrBuilder` gains the same setters plus `options(AttrOptions)` (clip, read-only as
+    `ATTR_SET_OPAQUE_USER`, the rest); `Attr` carries its type and options, and
+    `Class::add_attribute` adds them after `class_addattr`, as the `CLASS_ATTR_*` macros expand:
+    `class_attr_addattr_parse` with the macro's type (`long` for `order`/`save`/`invisible`,
+    `symbol` for `style`/`category`, `atom` for `enumvals`, the attribute's own type for
+    `default`/`min`/`max`, which the macros get with `object_method(attr, gettype)`), the label
+    with `class_attr_addattr_atoms` and one symbol from `gensym_tr` (what
+    `CLASS_ATTR_ATTR_FORMAT(.., "s", gensym_tr(label))` makes), the category through `str_tr`
+    then parsed (as the macro). `enum_vals` is `CLASS_ATTR_ENUM` (style `enum`) for a symbol
+    attribute and `CLASS_ATTR_ENUMINDEX` (`enumindex`) otherwise; an explicit `style` is applied
+    after it. `range` is `CLASS_ATTR_MIN`+`_MAX` (a hint; `clip` limits). `hidden` is
+    `CLASS_ATTR_INVISIBLE`. Numbers are written as the attribute's type (whole for `long`).
+    `save` needs nothing else from the class: the SDK's `attrtester` (a plain box class without
+    a dictionary constructor or obex) uses `CLASS_ATTR_SAVE` alone and calls `attr_args_process`
+    in `new`, as median does. `default` is only set automatically for dictionary constructors
+    (`ext_obex_util.h`), so it is documented as informational. `#[attr(..)]` on fields and
+    getters takes `label = ".."`, `style`, `category`, `order = n`, `default = value` (a string
+    literal becomes a parse string), `save`, `enum = ".."`, `range(min, max)`, `hidden`. Not
+    added: `basic`, `paint`, `selfsave`, `defaultname`. Issue #17's hand-written
+    `class_attr_addattr_parse(.., "save", ..)` is now `save`.
+  - Examples: `simp`/`simp_explicit` have a `Queue` (`changed`, set by `int`), a deferred
+    `read` (`#[sel("read", gimme)] #[defer_low]` / `add_sel_gimme_deferred`) and `value` with
+    `label`, `category`, `save`; `hello_dsp` and the template use attribute options. The shared
+    simp script checks all three.
+  - `median-mock` (dbec6cd): `qelem_front`, `qelem_free` of a dead qelem reported,
+    `live_qelem_count`, attributes of attributes (`class_attr_addattr_parse`/`_atoms`,
+    `object_addattr_parse` on an attribute, read back with `attr_attr`/`attr_attr_names`; parse
+    strings split by `attr::parse_atoms`, an approximation of `atom_setparse`), `gensym_tr` and
+    `str_tr` without translation, `Kernel::loadbang`.
+  - Tests: `tests/clock.rs`, `tests/queue.rs`, `tests/defer.rs`, `tests/fifo.rs`,
+    `tests/special.rs` (dblclick/loadbang), `tests/attr_options.rs`, the `defer` unit test (a
+    pending call's atoms are freed at free), `fifo::Shared`, the half-built refusal of the
+    deferring trampolines, compile-fail doctests for a capturing closure in `b.clock`, UI cases
+    for the marker and option errors, the simp script.
+  - To check in Max: a deferred `read` from a `metro` (Overdrive on) runs on the main thread
+    and a pending one is dropped when the box is deleted; `Queue::set` from `perform` (the fifo
+    pattern) under load, for glitches; `loadbang` is called with only the object (`(x)`);
+    `label`, `category`, `order`, `style`, `enum`/`enumindex`, `range` and `hidden` show in the
+    inspector; a `save` attribute is restored when the patcher is reopened; `default` shows as
+    the default in the inspector.

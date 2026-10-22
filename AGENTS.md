@@ -9,8 +9,8 @@ to any other checkout.
 | path | what it is |
 |---|---|
 | `max-sys/` | Low-level FFI crate. Pre-generated bindgen output per target in `max-sys/src/ffi-*.rs`, selected by `cfg` in `max-sys/src/lib.rs`. The Max SDK headers are the git submodule at `max-sys/thirdparty/max-sdk` (`source/c74support/{max,msp,jit}-includes`). Regeneration instructions are in `max-sys/README.md`; the generated files are committed, so regenerate only when `build.rs`, the `wrapper*.h` files or the SDK change, and regenerate every target together. |
-| `median/` | The safe(r) wrapper crate: `src/wrapper.rs` (object wrappers and trampolines), `builder.rs` (inlets/outlets/clocks at construction), `class.rs`/`method.rs` (class registration: `Class::add_*` take a zero-sized callable and build the trampoline generically; no build script), `attr.rs` (also the generic attribute accessors, `AttrField`, `AttrOptions`), `lib.rs` (crate docs, `ext_main!`, `prelude`), `atom.rs`, `symbol.rs`, `outlet.rs`, `inlet.rs`, `clock.rs`, `buffer.rs`, `notify.rs`, `thread.rs`, `file.rs`, `num.rs`, `slice.rs`, `alloc.rs`. |
-| `median_macros/` | Proc macros re-exported by `median`: `#[derive(MaxObject)]` (`derive.rs`: `ObjClass`, `register()`, `FieldAttrs`), `#[median::methods]` (`methods.rs`: re-emits the impl without markers, implements `Methods` with `Class::add_*` calls), shared `#[attr(..)]` options (`attr_opts.rs`), and `wrapped_defer_tramp` (re-exported as `median::wrapper::defer_tramp`). The generated code calls only public `median` API; `ext_main!` is a `macro_rules!` in `median`. |
+| `median/` | The safe(r) wrapper crate: `src/wrapper.rs` (object wrappers and trampolines), `builder.rs` (inlets/outlets/clocks/queues at construction), `class.rs`/`method.rs` (class registration: `Class::add_*` take a zero-sized callable and build the trampoline generically; no build script), `attr.rs` (also the generic attribute accessors, `AttrField`, `AttrOptions`), `lib.rs` (crate docs, `ext_main!`, `prelude`), `atom.rs`, `symbol.rs`, `outlet.rs`, `inlet.rs`, `clock.rs` (`Clock`, and `ClockShared`, the callback target clocks, queues and deferred calls share), `queue.rs` (`Queue`, a qelem), `defer.rs` (`#[defer]`/`#[defer_low]`: the per-object deferred-call queue), `fifo.rs` (re-exported `rtrb` ring buffers, `Shared`), `buffer.rs`, `notify.rs`, `thread.rs`, `file.rs`, `num.rs`, `slice.rs`, `alloc.rs`. |
+| `median_macros/` | Proc macros re-exported by `median`: `#[derive(MaxObject)]` (`derive.rs`: `ObjClass`, `register()`, `FieldAttrs`), `#[median::methods]` (`methods.rs`: re-emits the impl without markers, implements `Methods` with `Class::add_*` calls; markers `#[bang]` .. `#[sel]`, `#[attr]`, `#[dblclick]`, `#[loadbang]`, each message marker optionally with `#[defer]`/`#[defer_low]`), shared `#[attr(..)]` options (`attr_opts.rs`), and the reserved-selector mirror (`reserved.rs`). The generated code calls only public `median` API; `ext_main!` is a `macro_rules!` in `median`. |
 | `median/examples/` | `simp` (Max object, derive + `#[median::methods]`), `simp_explicit` (the same without the macros: the reference for the hand-written style), `hello_dsp` (MSP), `multi` (two classes in one external). Each is a `cdylib` built with `cargo make` using `median/utils/Makefile.toml`; `median/tests/` also compiles each into a test (`#[path]` modules) and runs it against `median-mock`. |
 | `templates/` | `cargo generate` template for a new external. Note `templates/max/Makefile.toml` downloads `median/utils/Makefile.toml` from the `develop` branch at build time, so changes to that file affect template users immediately. |
 | `doc/` | Design notes: the October 2026 review of the crate and the plans that follow from it. Start with `doc/README.md`. |
@@ -51,7 +51,7 @@ done: `perform64`/`dsp64` take `&self`, `num` types are real atomics, raw-pointe
 and every trampoline catches panics. Redesign step 1 (`doc/plan-api-redesign.md`) fixed H3 and
 the `object_post!`/`object_error!` hole: the offset-based blanket `MaxObj`/`MSPObj for T` impls and
 the `field-offset` dependency are gone; an object keeps an `ObjRef` (from `builder.obj()`) and
-posts/touches attributes/defers through it, and the macros take `&ObjRef`. `MaxObj`/`MSPObj` are
+posts/touches attributes through it, and the macros take `&ObjRef`. `MaxObj`/`MSPObj` are
 only implemented for the wrapper types. Do not add impls of the old shape. Documented limit:
 `ObjRef` is `!Clone`, `!Send`, but safe code can still deliberately leak it (`Box::leak`,
 `thread_local!`) and use it after the object is deleted. Redesign step 4 replaced the boxed
@@ -70,8 +70,18 @@ mutability (`median::sym!("..")` for literals); `BufferLocked` (the shared
 while an edit is in progress (the mock models it so; `BufferEdit`'s exclusivity rests on it), and
 `buffer_getinfo`'s `b_samples` is the pointer to edit. Still open, and reachable from safe code:
 
-- A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
-  `ClockShared` in `median/src/clock.rs`.
+- A clock or queue callback, or a deferred method (it runs in its object's queue callback), must
+  not free its own owner or drop its own `Clock`/`Queue` (it deadlocks); see `ClockShared` in
+  `median/src/clock.rs`. Two clock issues found in step 1 remain open (a callback Max has
+  dispatched but that has not taken the `ClockShared` lock yet can read the freed clock target;
+  a possible deadlock between that lock and a Max lock): see the Status section of
+  `doc/plan-soundness-fixes.md`. Step 7 did not change them.
+- Deferred methods (`#[defer]`, `#[defer_low]`, `Class::add_*_deferred`) are not Max's
+  `defer`/`defer_low`: each object of a class with deferred methods has its own queue of pending
+  calls (arguments copied) and one qelem, owned by the wrapper, disabled and freed with the
+  object, so a pending call can't outlive it. Queuing allocates and locks: a deferred message must
+  not be sent from `perform`. Whether `qelem_set` (`Queue::set`) is real-time safe is not in the
+  SDK headers; calling it from `perform` (the `median::fifo` pattern) is unverified.
 
 `doc/plan-soundness-fixes.md` is the ordered list of fixes that keep the public API;
 `doc/plan-api-redesign.md` is the breaking redesign (derive + `#[methods]` instead of
@@ -94,7 +104,7 @@ it in the same change.
   `class_setup`.
 - Every `extern "C"` function Max can call is a trampoline. A panic escaping one aborts Max, so
   each trampoline (hand-written in `wrapper.rs`, generic over a zero-sized callable in
-  `method.rs`/`attr.rs`, or generated by `defer_tramp`) runs the user's code
+  `method.rs`/`attr.rs`, the deferring ones in `method.rs`, clock and queue callbacks) runs the user's code
   inside a `median::ffi::guard*` helper, which catches the panic, posts it to the Max console and
   returns a neutral value (null from `new`, `MAX_ERR_GENERIC` from attribute accessors, silence
   from `perform`). That relies on `panic = "unwind"` (the template and examples set it). New
