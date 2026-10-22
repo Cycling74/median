@@ -4,7 +4,7 @@
 
 Toolchain: `median` is edition 2024 with `rust-version = "1.85"`, so use Rust 1.85 or newer. Your own crate may be on edition 2018 or later, but `c"..."` literals (used below) need edition 2021+; the examples and the template are on 2024. Keep `panic = "unwind"` in the release profile (the trampolines catch panics).
 
-The new forms below are checked against the code at `xnor/api-redesign`; `median/examples/simp` and `median/examples/simp_explicit` are the reference. Everything is in `median::prelude::*` unless a path is given.
+The new forms below are checked against the code at `xnor/api-redesign`; `median/examples/simp` and `median/examples/simp_explicit` are the reference. Most names are in `median::prelude::*`; the attribute builder (`median::attr::AttrBuilder`), errors (`median::error::MaxError`) and the buffer types (`median::buffer::{BufferReference, BufferLocked, BufferEdit, EditError, AtomicSample}`) are not.
 
 ## Old to new
 
