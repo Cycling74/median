@@ -85,9 +85,10 @@ With the redesign (step 2, §J):
 ### 3e. Small branches
 - `origin/clippy`: rebase onto `develop`, resolve `slice.rs` in favour of `develop`, keep the
   `is_empty` addition; most of its `wrapper.rs` edits are superseded by step 1.
-- `origin/igk/examples`: rename `.cargo/config` to `config.toml`, add to `examples/README.md`, port
-  to the current API.
-- Delete `template-updates` and `origin/xnor/assist` (merged). Keep `feature/maxcore-test` local.
+- `origin/igk/examples`: deleted on GitHub (pruned 2026-10-22). Its one commit was an unfinished
+  port of the SDK's `basics/simplemax` (a post in `new`, an empty hand-registered `assist`); a
+  port to the new API is written from `simplemax.c` instead.
+- Delete `template-updates`. `origin/xnor/assist` (merged) is already deleted on GitHub. Keep `feature/maxcore-test` local.
 - `xnor/inletinfo`: do not merge; its idea lands via the iolet descriptors (step 2 F).
 
 ## Step 4: build, packaging, testing
