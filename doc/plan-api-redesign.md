@@ -738,7 +738,8 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   - `#[defer]`/`#[defer_low]` (`median::defer`): each object of a class with a deferred method
     has a `DeferQueue` in the wrapper internals: a `parking_lot` mutex over a `VecDeque` of boxed
     calls with their arguments copied (scalars, `SymbolRef`, atoms in `OwnedAtoms`), and one
-    `Queue` whose callback takes the whole batch and runs each call in its own panic guard.
+    `Queue` whose callback takes the whole batch and runs each call in its own panic guard
+    (since the step 7 review fixes below: two qelems, and the drain pops one call at a time).
     `Class` records that a deferred method was added, `CLASSES` keeps the flag per class, and
     `construct` makes the queue only then. Modes `Defer::Low` (always queued at the back,
     `qelem_set`) and `Defer::Front` (at once on the main thread, otherwise queued at the front of
@@ -849,3 +850,44 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
       model. To check in Max: `front()` on a queue already set at the back.
     - Prelude: `AttrField` and `ManagedBufferRef` added (the gap the migration guide listed;
       its note is removed). `hello_dsp` imports only the prelude.
+    - A qelem is unset *after* its function returns (`ext_proto.h:1012-1013`, `qelem_set`: "A
+      Qelem object is unset after its queue function has been called"), so a `qelem_set` or
+      `qelem_front` made while it runs is a no-op. The crate and the mock assumed the opposite
+      (unset before the call). Consequence: a deferred call queued during the object's drain
+      (by a deferred method, or from the scheduler meanwhile) beyond `run_deferred`'s bound was
+      stranded until an unrelated later push, and dropped at free if none came. Fixed:
+      - `DeferQueue` has two qelems, both running `run_deferred` through their own
+        `ClockShared` target (both in `targets`, so armed after construction and cleared before
+        `T` drops; both freed with the `DeferQueue`). Every push sets both (`qelem_set` for
+        `Low`, `qelem_front` for `Front`); whichever is not running picks the call up, under
+        either unset model. Cost: the other qelem usually runs empty (a deferred message now
+        costs two qelem runs). The bound stays, so a self-requeueing method runs once per qelem
+        run, alternating. A call queued while both run (one nested inside the other, in a modal
+        loop) sets neither, so `run_deferred` ends with `set_if_pending` (both, `qelem_set`):
+        the inner drain's is lost too, the outer one's, after the inner qelem returned, is not;
+        that call runs after the loop closes, at the back even if it was `Front`.
+      - `median-mock`: `run_main_queue` (and `run_main_queue_nested`) unset a qelem after its
+        function returns, so a set from inside it is a no-op; a running qelem is not run again
+        by a nested loop. Mock test `a_qelem_set_inside_its_own_function_stays_unset`;
+        `a_nested_main_queue_runs_inside_the_callback` now expects the self-set to do nothing.
+      - `Queue`: a `set`/`front` during its own callback is a no-op, documented on `Queue::set`,
+        `Queue::front` and the module docs (not worked around for user queues).
+        `tests/queue.rs::a_queue_callback_can_run_again_nested_inside_itself` is replaced by
+        `a_queue_set_inside_its_own_callback_does_nothing`.
+      - Tests (`tests/defer.rs`): a self-requeueing deferred method runs once per qelem run with
+        no unrelated later push; a `#[defer]` call queued from the scheduler role during a drain
+        runs; a call queued while both qelems run nested runs after the outer drain. Counts in
+        the existing tests and `simp_script` follow the second qelem. Under an unset-before mock
+        (checked by hand, not committed) the same calls all run once; only run counts and, in the
+        nested case, where `later` runs differ.
+      - Docs: `ClockShared` re-entry (Max should not run the same qelem nested; not relied on),
+        the `SyncPtr` safety note (the guarantee is `running`, not the target's lock), the
+        `defer` module and `run_deferred`.
+      - Freeing an object, or dropping its `Clock`/`Queue`, inside its own callback now also posts
+        an `object_error` for the owner before parking (the owner is alive: its free can't
+        return). `tests/free_inside_callback.rs` checks the callback started, that the thread
+        parked in that path (hidden `median::clock::parked_in_own_callback()`, a counter), and
+        the console error, so it fails if the thread hung elsewhere or never ran.
+      - To check in Max: that a `qelem_set` from inside the qelem's own function is a no-op (the
+        header's reading); a self-requeueing `#[defer_low]` method keeps running; a `metro`
+        sending `#[defer]` messages to an object whose deferred method is running loses none.

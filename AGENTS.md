@@ -72,20 +72,24 @@ while an edit is in progress (the mock models it so; `BufferEdit`'s exclusivity 
 at a time (`EditError::Busy`), so its own edits never nest. Still open, and reachable from safe code:
 
 - A clock or queue callback, or a deferred method (it runs in its object's queue callback), must
-  not free its own owner or drop its own `Clock`/`Queue`: `ClockShared::clear` then parks that
-  thread forever (deliberately, instead of a use-after-free); see `ClockShared` in
-  `median/src/clock.rs`. A callback that re-enters on the same thread (a nested event loop, such
-  as a modal dialog's, running the same qelem or clock) runs nested: the exclusion is a
+  not free its own owner or drop its own `Clock`/`Queue`: `ClockShared::clear` then posts an
+  error for the owner and parks that thread forever (deliberately, instead of a use-after-free);
+  see `ClockShared` in `median/src/clock.rs`. A callback that re-enters on the same thread (a nested event loop, such
+  as a modal dialog's, running the same clock) runs nested: the exclusion is a
   `ReentrantMutex` and nothing else is held across user code. Two clock issues found in step 1 remain open (a callback Max has
   dispatched but that has not taken the `ClockShared` lock yet can read the freed clock target;
   a possible deadlock between that lock and a Max lock): see the Status section of
   `doc/plan-soundness-fixes.md`. Step 7 and its review fixes did not change them.
 - Deferred methods (`#[defer]`, `#[defer_low]`, `Class::add_*_deferred`) are not Max's
   `defer`/`defer_low`: each object of a class with deferred methods has its own queue of pending
-  calls (arguments copied) and one qelem, owned by the wrapper, disabled and freed with the
-  object, so a pending call can't outlive it. Queuing allocates and locks: a deferred message must
-  not be sent from `perform`. Whether `qelem_set` (`Queue::set`) is real-time safe is not in the
-  SDK headers; calling it from `perform` (the `median::fifo` pattern) is unverified. So is what
+  calls (arguments copied) and two qelems, owned by the wrapper, disabled and freed with the
+  object, so a pending call can't outlive it. Two because a qelem is unset only after its
+  function returns (`ext_proto.h`, `qelem_set`), so setting the one that is draining does
+  nothing; every push sets both. The same rule makes `Queue::set` from inside its own callback a
+  no-op (documented, not worked around), and `median-mock` models it. Queuing allocates and
+  locks: a deferred message must not be sent from `perform`. Whether `qelem_set` (`Queue::set`)
+  is real-time safe is not in the SDK headers; calling it from `perform` (the `median::fifo`
+  pattern) is unverified. So is what
   `qelem_front` (`Queue::front`, `#[defer]` from another thread) does to a qelem that is already
   set: median and the mock assume it stays where it is.
 
