@@ -95,6 +95,10 @@ pub(crate) struct AttrData {
     pub offset: Option<i64>,
     pub set_clip: Option<Clip>,
     pub get_clip: Option<Clip>,
+    /// Attributes of the attribute (`label`, `save`, `enumvals`, ...), added with
+    /// `class_attr_addattr_parse`/`_atoms` or `object_addattr_parse`/`_atoms` on the attribute:
+    /// name -> (type name, atoms). Adding one again replaces it.
+    pub attr_attrs: std::collections::BTreeMap<String, (String, Vec<Atom>)>,
 }
 
 pub(crate) enum SubKind {

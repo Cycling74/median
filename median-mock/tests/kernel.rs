@@ -171,6 +171,10 @@ extern "C" fn thing_deferred(_x: *mut Thing, s: *mut t_symbol, argc: c_long, arg
     DEFERRED.lock().unwrap().push((name, atoms));
 }
 
+extern "C" fn thing_loadbang(x: *mut Thing) {
+    unsafe { (*x).qcalls += 100 };
+}
+
 extern "C" fn thing_qelem(x: *mut Thing) {
     unsafe { (*x).qcalls += 1 };
 }
@@ -422,6 +426,25 @@ fn register() {
             meth!(level_set, unsafe extern "C" fn(*mut Thing, *mut t_object, c_long, *mut t_atom) -> t_max_err),
         );
         assert_eq!(max_sys::class_addattr(c, level), 0);
+        // attributes of attributes, the three ways
+        assert_eq!(
+            max_sys::class_attr_addattr_parse(c, c"level".as_ptr(), c"enumvals".as_ptr(), sym(c"atom"), 0, c"zero one \"two three\" 4 5.5 -6".as_ptr()),
+            0
+        );
+        let mut label: t_atom = std::mem::zeroed();
+        max_sys::atom_setsym(&mut label, max_sys::gensym_tr(c"The Level".as_ptr()));
+        assert_eq!(
+            max_sys::class_attr_addattr_atoms(c, c"level".as_ptr(), c"label".as_ptr(), sym(c"symbol"), 0, 1, &mut label),
+            0
+        );
+        assert_eq!(
+            max_sys::object_addattr_parse(gain, c"save".as_ptr(), sym(c"long"), 0, c"1".as_ptr()),
+            0
+        );
+        // replaced by a second add
+        max_sys::object_addattr_parse(gain, c"order".as_ptr(), sym(c"long"), 0, c"1".as_ptr());
+        max_sys::object_addattr_parse(gain, c"order".as_ptr(), sym(c"long"), 0, c"2".as_ptr());
+        add(c"loadbang", meth!(thing_loadbang, extern "C" fn(*mut Thing)), &[ct]);
         assert_eq!(max_sys::class_register(sym(c"box"), c), 0);
         THING_CLASS.store(c, Ordering::SeqCst);
 
@@ -989,6 +1012,53 @@ fn defer_and_qelem_run_from_the_main_queue() {
     );
 }
 
+#[test]
+fn qelem_front_queues_at_the_front_and_frees_are_checked() {
+    let k = median_mock::lock();
+    register();
+    DEFERRED.lock().unwrap().clear();
+    let x = thing(&k, 1);
+    let o = x as *mut c_void;
+    let before = k.live_qelem_count();
+    unsafe {
+        let f = meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom));
+        max_sys::defer_low(o, f, sym(c"back"), 0, null_mut());
+        let q = max_sys::qelem_new(o, meth!(thing_qelem, extern "C" fn(*mut Thing)));
+        assert_eq!(k.live_qelem_count(), before + 1);
+        max_sys::qelem_front(q);
+        // already set: neither call queues it again
+        max_sys::qelem_front(q);
+        max_sys::qelem_set(q);
+        assert_eq!(k.main_queue_len(), 2);
+        // the qelem runs first: when the deferred call runs, it has already counted
+        assert_eq!(k.run_main_queue(), 2);
+        assert_eq!((*x).qcalls, 1);
+        assert_eq!(DEFERRED.lock().unwrap().len(), 1);
+
+        // freeing a set qelem cancels it; freeing it again is reported
+        max_sys::qelem_set(q);
+        max_sys::qelem_free(q);
+        assert_eq!(k.live_qelem_count(), before);
+        assert_eq!(k.run_main_queue(), 0);
+        assert!(k.console_log().is_empty());
+        max_sys::qelem_free(q);
+        let log = k.take_console_log();
+        assert_eq!(log.len(), 1);
+        assert!(log[0].text.contains("not a live qelem"), "{log:?}");
+    }
+}
+
+#[test]
+fn loadbang_calls_the_method() {
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1);
+    assert!(k.loadbang(x as *mut c_void));
+    unsafe { assert_eq!((*x).qcalls, 100) };
+    let a = k.new_object("append.thing", &[]);
+    assert!(!k.loadbang(a));
+}
+
 // ---------------------------------------------------------------------------------------------
 // console
 
@@ -1180,6 +1250,62 @@ fn attributes_through_offset_clip_and_accessors() {
 
     unsafe { max_sys::object_attr_touch(x as _, sym(c"gain")) };
     assert_eq!(k.attr_touches(), vec![(x as usize, "gain".to_string())]);
+}
+
+#[test]
+fn attributes_of_attributes_are_recorded_per_attribute() {
+    let k = median_mock::lock();
+    register();
+    let o = thing(&k, 1) as *mut c_void;
+    assert_eq!(k.attr_attr_names(o, "level"), ["enumvals", "label"]);
+    assert_eq!(
+        k.attr_attr(o, "level", "enumvals"),
+        Some((
+            "atom".to_string(),
+            vec![
+                Atom::Sym("zero".into()),
+                Atom::Sym("one".into()),
+                Atom::Sym("two three".into()),
+                Atom::Long(4),
+                Atom::Float(5.5),
+                Atom::Long(-6),
+            ]
+        ))
+    );
+    assert_eq!(
+        k.attr_attr(o, "level", "label"),
+        Some(("symbol".to_string(), vec![Atom::Sym("The Level".into())]))
+    );
+    assert_eq!(k.attr_attr(o, "gain", "save"), Some(("long".to_string(), vec![Atom::Long(1)])));
+    assert_eq!(k.attr_attr(o, "gain", "order"), Some(("long".to_string(), vec![Atom::Long(2)])));
+    assert_eq!(k.attr_attr(o, "gain", "label"), None);
+    assert_eq!(k.attr_attr(o, "nope", "label"), None);
+    // an attribute the class doesn't have is an error
+    let c = THING_CLASS.load(Ordering::SeqCst);
+    let code = unsafe {
+        max_sys::class_attr_addattr_parse(c, c"nope".as_ptr(), c"save".as_ptr(), sym(c"long"), 0, c"1".as_ptr())
+    };
+    assert_ne!(code, 0);
+    assert_eq!(k.take_console_log().len(), 1);
+}
+
+#[test]
+fn parse_strings_split_like_atom_setparse() {
+    use median_mock::attr::parse_atoms;
+    assert_eq!(parse_atoms(""), []);
+    assert_eq!(
+        parse_atoms("  a 1 -2 3.5 .5 1e3 -x \"q \\\" r\" "),
+        [
+            Atom::Sym("a".into()),
+            Atom::Long(1),
+            Atom::Long(-2),
+            Atom::Float(3.5),
+            Atom::Float(0.5),
+            Atom::Float(1000.0),
+            Atom::Sym("-x".into()),
+            Atom::Sym("q \" r".into()),
+        ]
+    );
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -252,8 +252,11 @@ pub unsafe extern "C" fn hashtab_lookup(
     }
 }
 
-/// Only for method objects (from [`hashtab_lookup`]): records the attribute with its type and
-/// parse string, which [`crate::Kernel::method_attr`] reads back. The string is not parsed.
+/// For method objects (from [`hashtab_lookup`]): records the attribute with its type and parse
+/// string, which [`crate::Kernel::method_attr`] reads back; the string is not parsed. For
+/// attribute objects (from `attribute_new`/`attr_offset_new`): records the attribute of the
+/// attribute, with the string split as [`crate::attr::parse_atoms`] does, which
+/// [`crate::Kernel::attr_attr`] reads back.
 ///
 /// # Safety
 /// `attrname` and `parsestr` must be NUL-terminated strings, `type_` a symbol.
@@ -287,8 +290,19 @@ pub unsafe extern "C" fn object_addattr_parse(
             kind: SubKind::Method { class, name },
             ..
         }) => (*class, name.clone()),
+        Some(crate::state::Sub {
+            kind: SubKind::Attr(_),
+            ..
+        }) => {
+            drop(st);
+            let atoms = crate::attr::parse_atoms(&parse);
+            return match crate::attr::add_attr_attr(x as usize, attr, ty_name, atoms) {
+                Ok(()) => max_err(err::MAX_ERR_NONE),
+                Err(()) => max_err(err::MAX_ERR_INVALID_PTR),
+            };
+        }
         _ => {
-            st.post_error(0, format!("median-mock: object_addattr_parse on {x:?}: only method objects are supported"));
+            st.post_error(0, format!("median-mock: object_addattr_parse on {x:?}: only method and attribute objects are supported"));
             return max_err(err::MAX_ERR_INVALID_PTR);
         }
     };

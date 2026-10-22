@@ -1,4 +1,5 @@
-//! The main thread queue: `defer`, `defer_low`, `qelem_*`.
+//! The main thread queue: `defer`, `defer_low`, `qelem_*` (`qelem_set` queues at the back,
+//! `qelem_front` at the front).
 //!
 //! Queued work runs when a test calls [`crate::Kernel::run_main_queue`].
 
@@ -115,6 +116,26 @@ pub unsafe extern "C" fn qelem_set(x: *mut t_qelem) {
     }
 }
 
+/// Like `qelem_set`, but the qelem goes to the front of the main queue. An already queued qelem
+/// stays where it is (as `qelem_set`, it is not set again).
+///
+/// # Safety
+/// As `qelem_set`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qelem_front(x: *mut t_qelem) {
+    let mut st = state();
+    let addr = x as usize;
+    let Some(s) = st.subs.get_mut(&addr) else {
+        return;
+    };
+    if let SubKind::Qelem { set, .. } = &mut s.kind {
+        if s.alive && !*set {
+            *set = true;
+            st.queue.push_front(Deferred::Qelem(addr));
+        }
+    }
+}
+
 /// # Safety
 /// As `qelem_set`.
 #[unsafe(no_mangle)]
@@ -126,11 +147,24 @@ pub unsafe extern "C" fn qelem_unset(x: *mut t_qelem) {
     }
 }
 
+/// Freeing something that is not a live qelem (twice, say) is reported on the console.
+///
 /// # Safety
 /// As `qelem_set`; `x` must not be used afterwards.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qelem_free(x: *mut t_qelem) {
-    crate::class::kill_sub(x as usize);
+    let live = matches!(
+        state().subs.get(&(x as usize)),
+        Some(s) if s.alive && matches!(s.kind, SubKind::Qelem { .. })
+    );
+    if live {
+        crate::class::kill_sub(x as usize);
+    } else {
+        state().post_error(
+            0,
+            format!("median-mock: qelem_free of {:#x}, which is not a live qelem", x as usize),
+        );
+    }
 }
 
 /// Run queued calls and qelems on the calling thread (with the main role), first in first out,

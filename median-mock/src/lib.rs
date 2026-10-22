@@ -45,7 +45,7 @@
 //! * Clocks: `clock_new`, `clock_new_withscheduler` (one scheduler only), `clock_delay`,
 //!   `clock_fdelay`, `clock_unset`, `clock_getftime`, `gettime`, `scheduler_fromobject` (always
 //!   null). Time moves only in [`Kernel::advance`].
-//! * Main queue: `defer`, `defer_low`, `qelem_new/set/unset/free`, run by
+//! * Main queue: `defer`, `defer_low`, `qelem_new/set/front/unset/free`, run by
 //!   [`Kernel::run_main_queue`]. `defer` queues only when called from the timer role.
 //! * MSP: `z_dsp_setup`, `z_dsp_free`, `dsp_add64` (see [`Kernel::dsp64`], [`DspAdd::run`]). An
 //!   object freed after `z_dsp_setup` without `z_dsp_free` is reported on the console.
@@ -55,6 +55,9 @@
 //! * Attributes: `attribute_new`, `attr_offset_new`, `attr_addfilter*_clip`, `object_attr_touch`;
 //!   `attr_args_process` does nothing. [`Kernel::attr_get`]/[`Kernel::attr_set`] call the
 //!   accessors or read/write the offset.
+//! * Attributes of attributes: `class_attr_addattr_parse`, `class_attr_addattr_atoms`, and
+//!   `object_addattr_parse` on an attribute object, recorded per attribute (see
+//!   [`Kernel::attr_attr`]); `gensym_tr` and `str_tr` without translation.
 //! * Registration: `object_register`, `object_findregistered`, `object_unregister`,
 //!   `object_subscribe`, `object_unsubscribe`, `object_attach`, `object_detach`, `object_notify`,
 //!   `object_obex_lookup`, `object_obex_storeflags`.

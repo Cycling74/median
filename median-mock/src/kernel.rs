@@ -90,6 +90,15 @@ impl Kernel {
             .count()
     }
 
+    /// How many qelems made by `qelem_new` have not been freed (to check for leaks).
+    pub fn live_qelem_count(&self) -> usize {
+        state()
+            .subs
+            .values()
+            .filter(|s| s.alive && matches!(s.kind, SubKind::Qelem { .. }))
+            .count()
+    }
+
     /// How many buffer references made by `buffer_ref_new` have not been freed (to check for
     /// leaks).
     pub fn live_buffer_ref_count(&self) -> usize {
@@ -387,6 +396,17 @@ impl Kernel {
         true
     }
 
+    /// Call the object's `loadbang` method (`A_CANT`, `(x)`) as Max does when the patcher it is
+    /// in has finished loading. `false` if the object has no `loadbang` method.
+    pub fn loadbang(&self, obj: *mut c_void) -> bool {
+        let Some((fun, _)) = self.method(obj, "loadbang") else {
+            return false;
+        };
+        // SAFETY: `loadbang` methods are `(x)`
+        unsafe { call_raw(fun, &[Raw::I(obj as usize)]) };
+        true
+    }
+
     /// The `n` of `z_dsp_setup(x, n)`, if it was called.
     pub fn signal_inlets(&self, obj: *mut c_void) -> Option<usize> {
         state()
@@ -561,6 +581,18 @@ impl Kernel {
     /// The flags an attribute was created with (`ATTR_GET_OPAQUE_USER` and so on).
     pub fn attr_flags(&self, obj: *mut c_void, name: &str) -> Option<i64> {
         attr::flags(obj as usize, name)
+    }
+
+    /// An attribute of the attribute `attr` of the object's class (`label`, `save`, `enumvals`
+    /// ...: what the `CLASS_ATTR_*` macros add with `class_attr_addattr_parse` and friends), as
+    /// `(type name, atoms)`. Parse strings are split as [`attr::parse_atoms`] does.
+    pub fn attr_attr(&self, obj: *mut c_void, attr: &str, name: &str) -> Option<(String, Vec<Atom>)> {
+        attr::attr_attrs(obj as usize, attr)?.remove(name)
+    }
+
+    /// The names of the attributes of the attribute `attr` of the object's class, sorted.
+    pub fn attr_attr_names(&self, obj: *mut c_void, attr: &str) -> Vec<String> {
+        attr::attr_attrs(obj as usize, attr).map_or_else(Vec::new, |m| m.into_keys().collect())
     }
 
     /// `(object, attribute)` of every `object_attr_touch` since the last reset.

@@ -40,6 +40,7 @@ fn new_attr(
         offset,
         set_clip: None,
         get_clip: None,
+        attr_attrs: Default::default(),
     })) as *mut t_object
 }
 
@@ -432,6 +433,22 @@ pub(crate) fn flags(obj: usize, name: &str) -> Option<i64> {
         })
 }
 
+/// The attributes of the attribute `name` of the object's class.
+pub(crate) fn attr_attrs(
+    obj: usize,
+    name: &str,
+) -> Option<std::collections::BTreeMap<String, (String, Vec<Atom>)>> {
+    let st = state();
+    let o = st.objects.get(&obj)?;
+    st.classes[&o.class]
+        .attrs
+        .iter()
+        .find_map(|p| match &st.subs.get(p)?.kind {
+            SubKind::Attr(a) if a.name == name => Some(a.attr_attrs.clone()),
+            _ => None,
+        })
+}
+
 /// The names of the attributes of the object's class, in the order they were added.
 pub(crate) fn names(obj: usize) -> Vec<String> {
     let st = state();
@@ -446,4 +463,164 @@ pub(crate) fn names(obj: usize) -> Vec<String> {
             _ => None,
         })
         .collect()
+}
+
+// ---------------------------------------------------------------------------------------------
+// attributes of attributes
+
+/// Split a parse string into atoms, roughly as Max's `atom_setparse` does: whitespace separates
+/// atoms, a double-quoted run (with `\"` and `\\` escapes) is one symbol, a token that reads as an
+/// integer is a long, one that reads as a decimal number is a float, anything else a symbol.
+pub fn parse_atoms(s: &str) -> Vec<Atom> {
+    let mut atoms = Vec::new();
+    let mut chars = s.chars().peekable();
+    loop {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
+            chars.next();
+        }
+        let Some(&first) = chars.peek() else { break };
+        if first == '"' {
+            chars.next();
+            let mut text = String::new();
+            while let Some(c) = chars.next() {
+                match c {
+                    '"' => break,
+                    '\\' => {
+                        if let Some(n) = chars.next() {
+                            text.push(n);
+                        }
+                    }
+                    c => text.push(c),
+                }
+            }
+            atoms.push(Atom::Sym(text));
+            continue;
+        }
+        let mut token = String::new();
+        while let Some(&c) = chars.peek() {
+            if c.is_whitespace() {
+                break;
+            }
+            token.push(c);
+            chars.next();
+        }
+        let numeric = token
+            .trim_start_matches(['-', '+'])
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit() || c == '.');
+        atoms.push(if let (true, Ok(v)) = (numeric, token.parse::<i64>()) {
+            Atom::Long(v)
+        } else if let (true, Ok(v)) = (numeric, token.parse::<f64>()) {
+            Atom::Float(v)
+        } else {
+            Atom::Sym(token)
+        });
+    }
+    atoms
+}
+
+/// Record the attribute `name` on the attribute object `attr`. Anything that is not an attribute
+/// is `Err(())`.
+pub(crate) fn add_attr_attr(
+    attr: usize,
+    name: String,
+    type_name: String,
+    atoms: Vec<Atom>,
+) -> Result<(), ()> {
+    match state().subs.get_mut(&attr).map(|s| &mut s.kind) {
+        Some(SubKind::Attr(a)) => {
+            a.attr_attrs.insert(name, (type_name, atoms));
+            Ok(())
+        }
+        _ => Err(()),
+    }
+}
+
+/// The attribute object called `name` of the class `c`, 0 if there is none.
+fn class_attr(c: usize, name: &str) -> usize {
+    let st = state();
+    st.classes.get(&c).map_or(0, |class| {
+        class
+            .attrs
+            .iter()
+            .copied()
+            .find(|p| matches!(st.subs.get(p).map(|s| &s.kind), Some(SubKind::Attr(a)) if a.name == name))
+            .unwrap_or(0)
+    })
+}
+
+/// # Safety
+/// `s` must be null or a NUL-terminated string.
+unsafe fn c_string(s: *const c_char) -> String {
+    if s.is_null() {
+        String::new()
+    } else {
+        // SAFETY: the caller's contract
+        unsafe { CStr::from_ptr(s) }.to_string_lossy().into_owned()
+    }
+}
+
+/// Add an attribute to the class's attribute `attrname` (what the `CLASS_ATTR_*` macros of
+/// `ext_obex_util.h` expand to). An unknown class or attribute is an error on the console and
+/// `MAX_ERR_GENERIC`.
+fn class_attr_add(
+    c: *mut t_class,
+    attrname: *const c_char,
+    attrname2: *const c_char,
+    type_: *mut t_symbol,
+    atoms: Vec<Atom>,
+) -> t_max_err {
+    if attrname.is_null() || attrname2.is_null() {
+        return e(err::MAX_ERR_INVALID_PTR);
+    }
+    // SAFETY: the callers pass NUL-terminated strings (checked non-null above)
+    let (name, name2) = unsafe { (c_string(attrname), c_string(attrname2)) };
+    let attr = class_attr(c as usize, &name);
+    if attr == 0 {
+        state().post_error(
+            0,
+            format!("median-mock: class_attr_addattr: the class has no attribute {name}"),
+        );
+        return e(err::MAX_ERR_GENERIC);
+    }
+    match add_attr_attr(attr, name2, name_of(type_ as usize), atoms) {
+        Ok(()) => e(err::MAX_ERR_NONE),
+        Err(()) => e(err::MAX_ERR_GENERIC),
+    }
+}
+
+/// The parse string is split as [`parse_atoms`] does.
+///
+/// # Safety
+/// `c` must be a class, the strings NUL-terminated, `type_` a symbol.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn class_attr_addattr_parse(
+    c: *mut t_class,
+    attrname: *const c_char,
+    attrname2: *const c_char,
+    type_: *mut t_symbol,
+    _flags: c_long,
+    parsestr: *const c_char,
+) -> t_max_err {
+    // SAFETY: the caller's contract
+    let atoms = parse_atoms(&unsafe { c_string(parsestr) });
+    class_attr_add(c, attrname, attrname2, type_, atoms)
+}
+
+/// # Safety
+/// As `class_attr_addattr_parse`, and `av` valid for `ac` atoms.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn class_attr_addattr_atoms(
+    c: *mut t_class,
+    attrname: *const c_char,
+    attrname2: *const c_char,
+    type_: *mut t_symbol,
+    _flags: c_long,
+    ac: c_long,
+    av: *mut t_atom,
+) -> t_max_err {
+    // SAFETY: the caller's contract
+    let atoms = unsafe { atoms_from_raw(ac.max(0) as usize, av) };
+    class_attr_add(c, attrname, attrname2, type_, atoms)
 }

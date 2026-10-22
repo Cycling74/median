@@ -61,6 +61,26 @@ pub unsafe extern "C" fn gensym(s: *const c_char) -> *mut t_symbol {
     intern(unsafe { CStr::from_ptr(s) }.to_bytes())
 }
 
+/// Max's `gensym_tr`: `gensym` of the localized string. The mock has no translations, so it is
+/// `gensym`.
+///
+/// # Safety
+/// As `gensym`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn gensym_tr(s: *const c_char) -> *mut t_symbol {
+    // SAFETY: the caller's contract
+    unsafe { gensym(s) }
+}
+
+/// Max's `str_tr`: the localized string. The mock has no translations, so it returns `s`.
+///
+/// # Safety
+/// No requirements; `s` is returned as it is.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn str_tr(s: *const c_char) -> *mut c_char {
+    s as *mut c_char
+}
+
 include!(concat!(env!("OUT_DIR"), "/common_syms_gen.rs"));
 
 static COMMON: OnceLock<usize> = OnceLock::new();
