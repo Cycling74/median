@@ -1,18 +1,33 @@
-//! `buffer~` basics: `buffer_ref_*`, `buffer_locksamples` and the accessors.
+//! `buffer~` basics: `buffer_ref_*`, `buffer_locksamples`, `buffer_edit_*`, `buffer_getinfo`,
+//! `buffer_view` and the accessors.
 //!
 //! A buffer~ is made by a test with [`crate::Kernel::create_buffer`]; it is registered in the
 //! `globalsymbol` namespace under its name, so `object_subscribe`/`object_attach` clients (such as
 //! a `buffer_ref`) are bound to it and notified like in Max. Sample data is interleaved
-//! (frame major, channel minor) as in Max, which is the layout review M1 is about. Locking is
-//! counted but never refuses.
+//! (frame major, channel minor) as in Max, which is the layout review M1 is about.
+//!
+//! Claims and edits are tracked, and misuse is reported on the console (as an error for the
+//! buffer object):
+//!
+//! * `buffer_locksamples` claims are counted ([`crate::Kernel::buffer_state`]). An unbalanced
+//!   `buffer_unlocksamples`, a perform routine that returns still holding a claim it took
+//!   ([`crate::DspAdd::run`]), and destroying a buffer with claims outstanding are reported.
+//! * `buffer_edit_begin`/`buffer_edit_end` must pair: a nested begin, an end without a begin and
+//!   destroying a buffer mid-edit are reported (and the nested begin / stray end are refused with
+//!   `MAX_ERR_GENERIC`), as is a begin on the audio thread or while claims are held (Max's
+//!   `buffer_edit_begin` waits for the claims to be released, which never happens if the claim
+//!   is held by the caller).
+//! * **Assumption**: while an edit is in progress `buffer_locksamples` returns null (the
+//!   header says `buffer_edit_begin` clears the buffer's valid flag and waits for the in-use
+//!   count, which is what `buffer_locksamples` raises). To check in Max.
 
 use crate::state::{BufferData, SubKind, state};
-use crate::symbols::name_of;
+use crate::symbols::{intern, name_of};
 use max_sys::{
-    e_max_errorcodes as err, t_atom_float, t_atom_long, t_buffer_obj, t_buffer_ref, t_max_err,
-    t_object, t_symbol,
+    e_max_errorcodes as err, t_atom_float, t_atom_long, t_buffer_info, t_buffer_obj, t_buffer_ref,
+    t_max_err, t_object, t_symbol,
 };
-use std::ffi::c_void;
+use std::ffi::{c_long, c_void};
 
 const NAMESPACE: &str = "globalsymbol";
 
@@ -30,16 +45,26 @@ pub(crate) fn create(name: &str, channels: usize, frames: usize, sample_rate: f6
             data: vec![0.0; channels * frames],
             locks: 0,
             dirty: false,
+            editing: false,
+            edits_begun: 0,
+            edits_ended: 0,
         },
     );
     crate::notify::register_with_class(NAMESPACE, name, ptr, Some("buffer~"));
     ptr
 }
 
-/// Unregister the buffer (its clients are sent `globalsymbol_unbinding`) and forget it.
+/// Unregister the buffer (its clients are sent `globalsymbol_unbinding`) and forget it. Claims
+/// or an edit still outstanding are reported.
 pub(crate) fn destroy(name: &str) {
-    let ptr = state().buffers.get(name).map(|b| b.ptr);
-    if let Some(ptr) = ptr {
+    let found = state().buffers.get(name).map(|b| (b.ptr, b.locks, b.editing));
+    if let Some((ptr, locks, editing)) = found {
+        if locks > 0 {
+            state().post_error(ptr, format!("median-mock: buffer~ \"{name}\" destroyed with {locks} buffer_locksamples claim(s) not unlocked"));
+        }
+        if editing {
+            state().post_error(ptr, format!("median-mock: buffer~ \"{name}\" destroyed between buffer_edit_begin and buffer_edit_end"));
+        }
         let _ = crate::notify::unregister_addr(ptr);
         state().buffers.remove(name);
     }
@@ -124,7 +149,12 @@ pub unsafe extern "C" fn buffer_ref_notify(
     err::MAX_ERR_NONE as t_max_err
 }
 
-/// Null if `buffer_object` is not a buffer~.
+/// The claims (`buffer_locksamples` without `buffer_unlocksamples`) outstanding on all buffers.
+pub(crate) fn total_locks() -> usize {
+    state().buffers.values().map(|b| b.locks).sum()
+}
+
+/// Null if `buffer_object` is not a buffer~, or while it is being edited (see the module docs).
 ///
 /// # Safety
 /// `buffer_object` must be a buffer from [`crate::Kernel::create_buffer`] or null. The returned
@@ -132,6 +162,9 @@ pub unsafe extern "C" fn buffer_ref_notify(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn buffer_locksamples(buffer_object: *mut t_buffer_obj) -> *mut f32 {
     with_buffer(buffer_object, |b| {
+        if b.editing {
+            return std::ptr::null_mut();
+        }
         b.locks += 1;
         b.data.as_mut_ptr()
     })
@@ -192,6 +225,122 @@ pub unsafe extern "C" fn buffer_setdirty(buffer_object: *mut t_buffer_obj) -> t_
     match with_buffer(buffer_object, |b| b.dirty = true) {
         Some(()) => err::MAX_ERR_NONE as t_max_err,
         None => err::MAX_ERR_INVALID_PTR as t_max_err,
+    }
+}
+
+/// Start an exclusive edit. Refused (`MAX_ERR_GENERIC`, reported) if one is in progress;
+/// reported, but done, on the audio thread or while claims are held (see the module docs).
+///
+/// # Safety
+/// As `buffer_locksamples`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn buffer_edit_begin(buffer_object: *mut t_buffer_obj) -> t_max_err {
+    let audio = crate::thread::current_role() == crate::thread::Role::Audio;
+    let r = with_buffer(buffer_object, |b| {
+        if b.editing {
+            return Err(format!("median-mock: buffer_edit_begin on buffer~ \"{}\", which is already being edited", b.name));
+        }
+        let mut problems = Vec::new();
+        if audio {
+            problems.push(format!("median-mock: buffer_edit_begin on buffer~ \"{}\" on the audio thread", b.name));
+        }
+        if b.locks > 0 {
+            problems.push(format!(
+                "median-mock: buffer_edit_begin on buffer~ \"{}\" while {} buffer_locksamples claim(s) are held (Max waits for them)",
+                b.name, b.locks
+            ));
+        }
+        b.editing = true;
+        b.edits_begun += 1;
+        Ok(problems)
+    });
+    let addr = buffer_object as usize;
+    match r {
+        None => err::MAX_ERR_INVALID_PTR as t_max_err,
+        Some(Err(e)) => {
+            state().post_error(addr, e);
+            err::MAX_ERR_GENERIC as t_max_err
+        }
+        Some(Ok(problems)) => {
+            for p in problems {
+                state().post_error(addr, p);
+            }
+            err::MAX_ERR_NONE as t_max_err
+        }
+    }
+}
+
+/// End an edit. Refused (`MAX_ERR_GENERIC`, reported) without a matching `buffer_edit_begin`.
+/// `valid` is not modelled.
+///
+/// # Safety
+/// As `buffer_locksamples`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn buffer_edit_end(buffer_object: *mut t_buffer_obj, valid: c_long) -> t_max_err {
+    let _ = valid;
+    let r = with_buffer(buffer_object, |b| {
+        if !b.editing {
+            return Err(format!("median-mock: buffer_edit_end on buffer~ \"{}\" without buffer_edit_begin", b.name));
+        }
+        b.editing = false;
+        b.edits_ended += 1;
+        Ok(())
+    });
+    match r {
+        None => err::MAX_ERR_INVALID_PTR as t_max_err,
+        Some(Err(e)) => {
+            state().post_error(buffer_object as usize, e);
+            err::MAX_ERR_GENERIC as t_max_err
+        }
+        Some(Ok(())) => err::MAX_ERR_NONE as t_max_err,
+    }
+}
+
+/// Fill `info` (`b_modtime` is 0, `b_rfu` zeroed).
+///
+/// # Safety
+/// As `buffer_locksamples`; `info` must be null or writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn buffer_getinfo(buffer_object: *mut t_buffer_obj, info: *mut t_buffer_info) -> t_max_err {
+    if info.is_null() {
+        return err::MAX_ERR_INVALID_PTR as t_max_err;
+    }
+    let r = with_buffer(buffer_object, |b| {
+        // SAFETY: `t_buffer_info` is plain data, all zeros is a valid value
+        let mut i: t_buffer_info = unsafe { std::mem::zeroed() };
+        i.b_name = intern(b.name.as_bytes());
+        i.b_samples = b.data.as_mut_ptr();
+        i.b_frames = b.frames as c_long;
+        i.b_nchans = b.channels as c_long;
+        i.b_size = (b.frames * b.channels) as c_long;
+        i.b_sr = b.sample_rate as f32;
+        i
+    });
+    match r {
+        Some(i) => {
+            // SAFETY: the caller passes a writable `t_buffer_info`
+            unsafe { info.write(i) };
+            err::MAX_ERR_NONE as t_max_err
+        }
+        None => err::MAX_ERR_INVALID_PTR as t_max_err,
+    }
+}
+
+/// Records the buffer's name (see [`crate::Kernel::buffer_views`]); a null or unknown buffer is
+/// reported.
+///
+/// # Safety
+/// As `buffer_locksamples`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn buffer_view(buffer_object: *mut t_buffer_obj) {
+    let name = with_buffer(buffer_object, |b| b.name.clone());
+    let mut st = state();
+    match name {
+        Some(n) => st.buffer_views.push(n),
+        None => st.post_error(
+            buffer_object as usize,
+            format!("median-mock: buffer_view on {buffer_object:?}, which is not a buffer~"),
+        ),
     }
 }
 

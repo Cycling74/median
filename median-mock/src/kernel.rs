@@ -371,6 +371,17 @@ impl Kernel {
         Some(t == 0)
     }
 
+    /// Call the object's `dblclick` method (`A_CANT`, `(x)`) as Max does when the box is
+    /// double-clicked in a locked patcher. `false` if the object has no `dblclick` method.
+    pub fn dblclick(&self, obj: *mut c_void) -> bool {
+        let Some((fun, _)) = self.method(obj, "dblclick") else {
+            return false;
+        };
+        // SAFETY: `dblclick` methods are `(x)`
+        unsafe { call_raw(fun, &[Raw::I(obj as usize)]) };
+        true
+    }
+
     /// The `n` of `z_dsp_setup(x, n)`, if it was called.
     pub fn signal_inlets(&self, obj: *mut c_void) -> Option<usize> {
         state()
@@ -590,6 +601,29 @@ impl Kernel {
     /// `(locks outstanding, dirty)` of a buffer~.
     pub fn buffer_state(&self, name: &str) -> Option<(usize, bool)> {
         state().buffers.get(name).map(|b| (b.locks, b.dirty))
+    }
+
+    /// Whether a buffer~ is between `buffer_edit_begin` and `buffer_edit_end`.
+    pub fn buffer_editing(&self, name: &str) -> Option<bool> {
+        state().buffers.get(name).map(|b| b.editing)
+    }
+
+    /// `(begun, ended)`: how many `buffer_edit_begin` and `buffer_edit_end` calls on a buffer~
+    /// were accepted.
+    pub fn buffer_edits(&self, name: &str) -> Option<(usize, usize)> {
+        state().buffers.get(name).map(|b| (b.edits_begun, b.edits_ended))
+    }
+
+    /// Clear a buffer~'s dirty flag (set by `buffer_setdirty`).
+    pub fn clear_buffer_dirty(&self, name: &str) {
+        if let Some(b) = state().buffers.get_mut(name) {
+            b.dirty = false;
+        }
+    }
+
+    /// The names of the buffers `buffer_view` opened since the last reset, in order.
+    pub fn buffer_views(&self) -> Vec<String> {
+        state().buffer_views.clone()
     }
 
     /// The `buffer_ref_notify` calls so far as `(buffer ref, sender name, message)`.

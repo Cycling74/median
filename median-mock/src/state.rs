@@ -147,8 +147,14 @@ pub(crate) struct BufferData {
     pub sample_rate: f64,
     /// Interleaved samples.
     pub data: Vec<f32>,
+    /// Outstanding `buffer_locksamples` claims.
     pub locks: usize,
     pub dirty: bool,
+    /// Between `buffer_edit_begin` and `buffer_edit_end`.
+    pub editing: bool,
+    /// Calls of `buffer_edit_begin` and of `buffer_edit_end` that were accepted.
+    pub edits_begun: usize,
+    pub edits_ended: usize,
 }
 
 pub(crate) struct Subscription {
@@ -229,6 +235,8 @@ pub(crate) struct State {
     pub buffers: HashMap<String, BufferData>,
     /// Calls to `buffer_ref_notify`: (ref, sender name, message).
     pub buffer_ref_notifications: Vec<(usize, String, String)>,
+    /// The names of the buffers `buffer_view` was called on, in order.
+    pub buffer_views: Vec<String>,
     pub outlet_log: Vec<OutletEvent>,
     pub console: Vec<ConsoleEntry>,
     /// `(object, attribute name)` for every `object_attr_touch`.
@@ -254,6 +262,7 @@ impl State {
             subscriptions: Vec::new(),
             buffers: HashMap::new(),
             buffer_ref_notifications: Vec::new(),
+            buffer_views: Vec::new(),
             outlet_log: Vec::new(),
             console: Vec::new(),
             touches: Vec::new(),
@@ -292,6 +301,7 @@ impl State {
         self.subscriptions.clear();
         self.buffers.clear();
         self.buffer_ref_notifications.clear();
+        self.buffer_views.clear();
         self.outlet_log.clear();
         self.console.clear();
         self.touches.clear();

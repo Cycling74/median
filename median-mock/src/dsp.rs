@@ -93,7 +93,9 @@ pub unsafe extern "C" fn dsp_add64(
 
 impl DspAdd {
     /// Call the perform routine on the calling thread (with the audio role) with the given
-    /// buffers, `sampleframes` being the length of the longest.
+    /// buffers, `sampleframes` being the length of the longest. A perform routine that returns
+    /// holding more buffer~ claims (`buffer_locksamples` without `buffer_unlocksamples`) than
+    /// there were before the call is reported on the console, as an error for the object.
     ///
     /// # Panics
     /// If a buffer is shorter than the longest.
@@ -122,6 +124,7 @@ impl DspAdd {
                     *mut c_void,
                 ),
             >(self.perform);
+            let locks = crate::buffer::total_locks();
             with_role(Role::Audio, || {
                 f(
                     self.object as *mut t_object,
@@ -135,6 +138,13 @@ impl DspAdd {
                     self.userparam as *mut c_void,
                 )
             });
+            let held = crate::buffer::total_locks().saturating_sub(locks);
+            if held > 0 {
+                crate::state::state().post_error(
+                    self.object,
+                    format!("median-mock: perform returned holding {held} buffer~ claim(s) (buffer_locksamples without buffer_unlocksamples)"),
+                );
+            }
         }
     }
 }

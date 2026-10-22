@@ -1274,6 +1274,121 @@ fn buffer_refs_bind_to_buffers() {
     }
 }
 
+fn errors(k: &median_mock::Kernel) -> Vec<String> {
+    k.take_console_log()
+        .into_iter()
+        .filter(|e| e.level == Level::Error)
+        .map(|e| e.text)
+        .collect()
+}
+
+#[test]
+fn buffer_edits_pair_and_exclude_claims() {
+    let k = median_mock::lock();
+    let b = k.create_buffer("ed", 2, 3, 48000.0);
+    unsafe {
+        assert_eq!(k.buffer_edits("ed"), Some((0, 0)));
+        assert_eq!(max_sys::buffer_edit_begin(b), 0);
+        assert_eq!(k.buffer_editing("ed"), Some(true));
+        // no claims while editing
+        assert!(max_sys::buffer_locksamples(b).is_null());
+        assert_eq!(k.buffer_state("ed"), Some((0, false)));
+        // the samples, through buffer_getinfo
+        let mut info: max_sys::t_buffer_info = std::mem::zeroed();
+        assert_eq!(max_sys::buffer_getinfo(b, &mut info), 0);
+        assert_eq!((info.b_frames as i64, info.b_nchans as i64, info.b_size as i64), (3, 2, 6));
+        assert_eq!(info.b_sr, 48000.0);
+        assert_eq!(info.b_name, sym(c"ed"));
+        *info.b_samples.add(5) = 7.0;
+        // nested begin is refused and reported
+        assert_ne!(max_sys::buffer_edit_begin(b), 0);
+        assert_eq!(errors(&k).len(), 1);
+        assert_eq!(max_sys::buffer_edit_end(b, 1), 0);
+        assert_eq!(k.buffer_editing("ed"), Some(false));
+        assert_eq!(k.buffer_edits("ed"), Some((1, 1)));
+        assert_eq!(k.buffer_samples("ed").unwrap(), [0., 0., 0., 0., 0., 7.]);
+        // an end without a begin is refused and reported
+        assert_ne!(max_sys::buffer_edit_end(b, 1), 0);
+        assert_eq!(k.buffer_edits("ed"), Some((1, 1)));
+        let e = errors(&k);
+        assert_eq!(e.len(), 1);
+        assert!(e[0].contains("without buffer_edit_begin"), "{e:?}");
+        // a begin while a claim is held, or on the audio thread, is reported (but done)
+        assert!(!max_sys::buffer_locksamples(b).is_null());
+        assert_eq!(max_sys::buffer_edit_begin(b), 0);
+        let e = errors(&k);
+        assert!(e.len() == 1 && e[0].contains("claim(s) are held"), "{e:?}");
+        assert_eq!(max_sys::buffer_edit_end(b, 1), 0);
+        max_sys::buffer_unlocksamples(b);
+        k.with_role(Role::Audio, || assert_eq!(max_sys::buffer_edit_begin(b), 0));
+        let e = errors(&k);
+        assert!(e.len() == 1 && e[0].contains("audio thread"), "{e:?}");
+        assert_eq!(max_sys::buffer_edit_end(b, 1), 0);
+        // destroying mid-edit or with claims is reported
+        assert!(!max_sys::buffer_locksamples(b).is_null());
+        assert_eq!(max_sys::buffer_edit_begin(b), 0);
+        assert_eq!(errors(&k).len(), 1);
+    }
+    k.destroy_buffer("ed");
+    let e = errors(&k);
+    assert_eq!(e.len(), 2, "{e:?}");
+    assert!(e[0].contains("not unlocked") && e[1].contains("buffer_edit_begin"), "{e:?}");
+}
+
+#[test]
+fn buffer_view_and_dirty() {
+    let k = median_mock::lock();
+    let b = k.create_buffer("v", 1, 1, 44100.0);
+    unsafe {
+        max_sys::buffer_view(b);
+        max_sys::buffer_view(null_mut());
+        max_sys::buffer_setdirty(b);
+    }
+    assert_eq!(k.buffer_views(), ["v"]);
+    assert_eq!(errors(&k).len(), 1);
+    assert_eq!(k.buffer_state("v"), Some((0, true)));
+    k.clear_buffer_dirty("v");
+    assert_eq!(k.buffer_state("v"), Some((0, false)));
+}
+
+unsafe extern "C" fn leaky_perform(
+    _x: *mut t_object,
+    _dsp64: *mut t_object,
+    _ins: *mut *mut f64,
+    _numins: c_long,
+    _outs: *mut *mut f64,
+    _numouts: c_long,
+    _frames: c_long,
+    _flags: c_long,
+    buffer: *mut c_void,
+) {
+    // claims the buffer twice and releases it once
+    unsafe {
+        max_sys::buffer_locksamples(buffer as _);
+        max_sys::buffer_locksamples(buffer as _);
+        max_sys::buffer_unlocksamples(buffer as _);
+    }
+}
+
+#[test]
+fn a_perform_routine_that_keeps_a_claim_is_reported() {
+    let k = median_mock::lock();
+    let b = k.create_buffer("leak", 1, 4, 44100.0);
+    // a claim from before the call is not the perform routine's
+    unsafe { max_sys::buffer_locksamples(b) };
+    let add = median_mock::DspAdd {
+        object: b as usize,
+        perform: leaky_perform as *const () as usize,
+        flags: 0,
+        userparam: b as usize,
+        dsp64: 0,
+    };
+    add.run(&mut [], &mut [vec![0.0; 4]]);
+    let e = errors(&k);
+    assert!(e.len() == 1 && e[0].contains("holding 1 buffer~ claim"), "{e:?}");
+    assert_eq!(k.buffer_state("leak"), Some((2, false)));
+}
+
 // ---------------------------------------------------------------------------------------------
 // obex and threads
 

@@ -58,8 +58,10 @@
 //! * Registration: `object_register`, `object_findregistered`, `object_unregister`,
 //!   `object_subscribe`, `object_unsubscribe`, `object_attach`, `object_detach`, `object_notify`,
 //!   `object_obex_lookup`, `object_obex_storeflags`.
-//! * Buffers: `buffer_ref_*`, `buffer_locksamples` and friends, over buffers made by
-//!   [`Kernel::create_buffer`].
+//! * Buffers: `buffer_ref_*`, `buffer_locksamples` and friends, `buffer_edit_begin`/`end`,
+//!   `buffer_getinfo`, `buffer_view`, over buffers made by [`Kernel::create_buffer`]. Claims and
+//!   edits are tracked and misuse (a claim not released, unpaired edits) is reported; see
+//!   [`buffer`].
 //! * Symbols and memory: `gensym`, `common_symbols_gettable`, `atom_*`, `sysmem_*`,
 //!   `strncpy_zero`, `systhread_is*thread`, `sys_getsr`.
 //!
