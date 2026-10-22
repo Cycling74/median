@@ -72,11 +72,14 @@ while an edit is in progress (the mock models it so; `BufferEdit`'s exclusivity 
 at a time (`EditError::Busy`), so its own edits never nest. Still open, and reachable from safe code:
 
 - A clock or queue callback, or a deferred method (it runs in its object's queue callback), must
-  not free its own owner or drop its own `Clock`/`Queue` (it deadlocks); see `ClockShared` in
-  `median/src/clock.rs`. Two clock issues found in step 1 remain open (a callback Max has
+  not free its own owner or drop its own `Clock`/`Queue`: `ClockShared::clear` then parks that
+  thread forever (deliberately, instead of a use-after-free); see `ClockShared` in
+  `median/src/clock.rs`. A callback that re-enters on the same thread (a nested event loop, such
+  as a modal dialog's, running the same qelem or clock) runs nested: the exclusion is a
+  `ReentrantMutex` and nothing else is held across user code. Two clock issues found in step 1 remain open (a callback Max has
   dispatched but that has not taken the `ClockShared` lock yet can read the freed clock target;
   a possible deadlock between that lock and a Max lock): see the Status section of
-  `doc/plan-soundness-fixes.md`. Step 7 did not change them.
+  `doc/plan-soundness-fixes.md`. Step 7 and its review fixes did not change them.
 - Deferred methods (`#[defer]`, `#[defer_low]`, `Class::add_*_deferred`) are not Max's
   `defer`/`defer_low`: each object of a class with deferred methods has its own queue of pending
   calls (arguments copied) and one qelem, owned by the wrapper, disabled and freed with the

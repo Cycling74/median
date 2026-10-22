@@ -1009,11 +1009,20 @@ where
 
     /// Run the object's pending deferred calls, in order, each inside the panic guard (called
     /// by the qelem of its deferred-call queue, on the main thread).
+    ///
+    /// The calls are taken off the queue one at a time and nothing is held while one runs, so a
+    /// call that makes Max run this qelem again (a nested event loop, such as a modal dialog's)
+    /// drains the rest of the queue, in order, and this drain then finds it empty. At most as
+    /// many calls run as were pending at the start, so a deferred method that queues itself again
+    /// runs once per run of the qelem (the push set the qelem again) instead of looping here.
     fn run_deferred(&self) {
         let Some(q) = self.internal().defer_queue() else {
             return;
         };
-        for call in q.take() {
+        for _ in 0..q.len() {
+            let Some(call) = q.pop() else {
+                break;
+            };
             let what = call.what();
             self.guard_or(what, (), || {
                 call.run(self.internal().wrapped(), &mut |err| {

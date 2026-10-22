@@ -6,10 +6,24 @@ use crate::class::{self, Raw, SendError, call_raw, with_inlet};
 use crate::state::{ConsoleEntry, DspAdd, InletKind, OutletEvent, SubKind, state};
 use crate::thread::{Role, with_role};
 use max_sys::t_buffer_obj;
+use std::cell::Cell;
 use std::ffi::{c_long, c_void};
 use std::sync::{Mutex, MutexGuard};
 
 static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+thread_local! {
+    /// Whether this thread holds the kernel (a live [`Kernel`]), for the `*_nested` functions.
+    static HELD: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Panic unless the calling thread holds the kernel.
+fn assert_held(what: &str) {
+    assert!(
+        HELD.with(Cell::get),
+        "median-mock: {what} called on a thread that does not hold the kernel (from `lock()`)"
+    );
+}
 
 /// Take the exclusive right to use the kernel and reset it.
 ///
@@ -20,6 +34,7 @@ static TEST_LOCK: Mutex<()> = Mutex::new(());
 /// panics does not poison the kernel for the others.
 pub fn lock() -> Kernel {
     let guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    HELD.with(|h| h.set(true));
     let kernel = Kernel { _guard: guard };
     kernel.reset();
     kernel
@@ -32,6 +47,13 @@ pub fn lock() -> Kernel {
 /// and refuse anything else instead of dereferencing it.
 pub struct Kernel {
     _guard: MutexGuard<'static, ()>,
+}
+
+impl Drop for Kernel {
+    fn drop(&mut self) {
+        //the guard is not `Send`, so this is the thread `lock` set it on
+        HELD.with(|h| h.set(false));
+    }
 }
 
 impl Kernel {
@@ -458,6 +480,32 @@ impl Kernel {
     /// calls ran.
     pub fn run_main_queue(&self) -> usize {
         crate::queue::run_main_queue()
+    }
+
+    /// Run the main queue from inside a callback, the way a nested event loop does in Max: a
+    /// modal dialog opened by a method, or by a qelem or clock callback, services the main
+    /// thread's queue until it closes, so qelems (the one running among them, if it was set
+    /// again) and deferred calls run nested inside that callback. As
+    /// [`run_main_queue`](Self::run_main_queue), but an associated function, for code that runs
+    /// under the [`Kernel`] (a method, a clock or qelem callback) and has no handle to it.
+    ///
+    /// # Panics
+    /// If the calling thread does not hold the kernel (a [`Kernel`] from [`lock`] that is alive).
+    pub fn run_main_queue_nested() -> usize {
+        assert_held("Kernel::run_main_queue_nested");
+        crate::queue::run_main_queue()
+    }
+
+    /// Like [`run_main_queue_nested`](Self::run_main_queue_nested), for clocks: move logical time
+    /// forward from inside a callback, firing what falls due, nested inside it (as Max's
+    /// scheduler does when it is serviced by the main thread's event loop, with Overdrive off,
+    /// and a modal dialog runs that loop). As [`advance`](Self::advance) otherwise.
+    ///
+    /// # Panics
+    /// If the calling thread does not hold the kernel.
+    pub fn advance_nested(ms: f64) -> usize {
+        assert_held("Kernel::advance_nested");
+        crate::clock::advance(ms)
     }
 
     /// How many calls are waiting in the main queue.

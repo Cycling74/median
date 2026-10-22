@@ -47,6 +47,8 @@
 //!   null). Time moves only in [`Kernel::advance`].
 //! * Main queue: `defer`, `defer_low`, `qelem_new/set/front/unset/free`, run by
 //!   [`Kernel::run_main_queue`]. `defer` queues only when called from the timer role.
+//!   [`Kernel::run_main_queue_nested`] and [`Kernel::advance_nested`] run the queue or the
+//!   clocks from inside a callback, as a nested event loop (a modal dialog) does in Max.
 //! * MSP: `z_dsp_setup`, `z_dsp_free`, `dsp_add64` (see [`Kernel::dsp64`], [`DspAdd::run`]). An
 //!   object freed after `z_dsp_setup` without `z_dsp_free` is reported on the console.
 //! * Method attributes (`CLASS_METHOD_ATTR_PARSE`): `class_extra_lookup` for `"methods"`,

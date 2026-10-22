@@ -17,8 +17,10 @@ pub struct Thing {
     redraw: Queue,
     counted: Queue,
     failing: Queue,
+    nested: Queue,
     out: Outlet<Int>,
     value: Int64,
+    nested_runs: Int64,
 }
 
 static COUNTED: AtomicUsize = AtomicUsize::new(0);
@@ -33,8 +35,10 @@ impl MaxObjWrapped for Thing {
                 COUNTED.fetch_add(step, Ordering::SeqCst);
             }),
             failing: b.queue(|_: &Self| -> Result<(), &'static str> { Err("the queue failed") }),
+            nested: b.queue(Self::nested_run),
             out: b.outlet(Outlet::int()),
             value: Int64::new(0),
+            nested_runs: Int64::new(0),
         })
     }
 }
@@ -65,6 +69,24 @@ impl Thing {
     #[sel("fail")]
     pub fn fail(&self) {
         self.failing.set();
+    }
+
+    #[sel("nested")]
+    pub fn nested(&self) {
+        self.nested.set();
+    }
+
+    /// The first time, sets itself again and runs the main queue nested (as a modal dialog's
+    /// event loop would), which runs it again inside this call.
+    pub fn nested_run(&self) {
+        let n = self.nested_runs.get() + 1;
+        self.nested_runs.set(n);
+        self.obj.post(format!("nested {n} start"));
+        if n == 1 {
+            self.nested.set();
+            median_mock::Kernel::run_main_queue_nested();
+        }
+        self.obj.post(format!("nested {n} end"));
     }
 
     pub fn redraw(&self) {
@@ -140,7 +162,7 @@ fn a_queue_pending_at_free_never_runs_and_is_freed() {
     register();
     let qelems = k.live_qelem_count();
     let obj = k.new_object("queue.thing", &[]);
-    assert_eq!(k.live_qelem_count(), qelems + 3);
+    assert_eq!(k.live_qelem_count(), qelems + 4);
     k.send_int(obj, 1).unwrap();
     k.send(obj, "count", &[]).unwrap();
     COUNTED.store(0, Ordering::SeqCst);
@@ -171,5 +193,18 @@ fn queue_with_runs_a_capturing_closure_and_errs_are_reported() {
         (log[0].level, log[0].object, log[0].text.as_str()),
         (Level::Error, obj as usize, "the queue failed")
     );
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_queue_callback_can_run_again_nested_inside_itself() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("queue.thing", &[]);
+    k.send(obj, "nested", &[]).unwrap();
+    assert_eq!(k.run_main_queue(), 1);
+    let log: Vec<_> = k.take_console_log().into_iter().map(|e| e.text).collect();
+    assert_eq!(log, ["nested 1 start", "nested 2 start", "nested 2 end", "nested 1 end"]);
+    assert_eq!(k.main_queue_len(), 0);
     assert!(k.free_object(obj));
 }

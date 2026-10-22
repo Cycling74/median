@@ -95,6 +95,22 @@ impl Thing {
         panic!("deferred panic");
     }
 
+    /// Runs a nested event loop (a modal dialog, say), after a `bang` arrives from the scheduler
+    /// thread: the bang and whatever else is pending run inside it.
+    #[sel("modal")]
+    #[defer_low]
+    pub fn modal(&self) {
+        self.log("modal start".into());
+        median_mock::thread::with_role(Role::Timer, || {
+            // SAFETY: the object is alive, and `bang` takes no arguments
+            unsafe {
+                max_sys::object_method(self.obj.as_ptr().cast(), max_sys::gensym(c"bang".as_ptr()));
+            }
+        });
+        median_mock::Kernel::run_main_queue_nested();
+        self.log("modal end".into());
+    }
+
     /// not deferred, for comparison
     #[sel("now")]
     pub fn now(&self) {
@@ -259,5 +275,23 @@ fn errors_and_panics_of_deferred_methods_are_reported_when_they_run() {
             (Level::Post, obj as usize, "int 9"),
         ]
     );
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_deferred_method_can_run_the_deferred_queue_nested() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("defer.thing", &[]);
+    k.send(obj, "modal", &[]).unwrap();
+    k.send_int(obj, 3).unwrap();
+    assert_eq!(k.main_queue_len(), 1);
+    //`modal` queues a bang from the scheduler thread and runs the main queue: the bang (at the
+    //front) and the pending `int 3` run inside it, in order, and the outer run finds nothing left
+    assert_eq!(k.run_main_queue(), 1);
+    assert_eq!(posts(&k), ["modal start", "bang", "int 3", "modal end"]);
+    assert_eq!(k.main_queue_len(), 0);
+    assert_eq!(k.run_main_queue(), 0);
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
     assert!(k.free_object(obj));
 }

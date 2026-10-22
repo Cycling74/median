@@ -240,7 +240,9 @@ Where the implementation differs from the text above:
 Known remaining issues found in review, not fixed here:
 
 - A clock callback that frees its own owner (or drops its own `ClockHandle`) deadlocks instead of
-  using freed memory. Documented on `ClockShared`.
+  using freed memory. Documented on `ClockShared`. (Since the redesign's step 7 review fixes the
+  lock is reentrant, so a callback re-entered on the same thread runs nested, and only this case
+  blocks, deliberately; see `doc/plan-api-redesign.md`.)
 - A clock callback that Max has dispatched but that hasn't taken the `ClockShared` lock yet still
   reads the `ClockInner` object, which `ClockHandle::drop` can free in that window: `clock_unset`
   and `freeobject` aren't documented to wait for a running callback. The window is a few

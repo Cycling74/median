@@ -808,3 +808,32 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `label`, `category`, `order`, `style`, `enum`/`enumindex`, `range` and `hidden` show in the
     inspector; a `save` attribute is restored when the patcher is reopened; `default` shows as
     the default in the inspector.
+  - Step 7 review fixes:
+    - Re-entrant callbacks (was a hang). `ClockShared` held a non-reentrant mutex for the whole
+      callback, so a callback that made Max service its queues on the same thread (a
+      `#[defer_low] read` opening a modal dialog while a `#[defer]` call is queued from the
+      scheduler) locked it again and hung the main thread. Now a callback holds `running`, a
+      `parking_lot::ReentrantMutex<()>`, and the target sits behind a separate mutex that is only
+      held to read it (the callback is an `Arc`, cloned out before the call; it is never the last
+      reference, so the clone's drop never frees on the scheduler thread). A nested callback on
+      the same thread runs inside the outer one, as Max's own `defer` did. `clear` from another
+      thread still waits on `running` and empties the target, so later callbacks are no-ops.
+      `clear` from a thread that is running a callback of that target (the owner freed, or its
+      `Clock`/`Queue` dropped, from inside its own callback, outer or nested) can neither wait nor
+      return (the owner's memory is freed when it returns, under the callback), so it writes a
+      line to stderr and parks the thread forever: the old deadlock, now only in that case.
+      Chosen over refusing (Max frees the object's memory after the free method whatever median
+      does) and over deferring the drop (only the closure could be deferred, not the object). The
+      deferred-call drain (`run_deferred`) pops one call at a time (at most as many as were
+      pending when it started) instead of taking the batch, so a nested drain runs the calls
+      after the current one in order; the `calls` lock is never held across a call.
+      `median-mock`: `Kernel::run_main_queue_nested` and `Kernel::advance_nested` (associated
+      functions, for code running under the kernel; they panic on a thread that doesn't hold
+      it) run the main queue or the clocks from inside a callback, as a nested event loop does.
+      Tests: `clock::tests` (nested call, clear from inside blocks, cross-thread clear waits),
+      `tests/defer.rs` (a deferred method's nested drain runs a scheduler-queued `#[defer]` call
+      and a pending `Low` one, in order), `tests/queue.rs`, `tests/clock.rs` (nested re-entry),
+      `tests/free_inside_callback.rs` (an object freed from its own clock callback blocks that
+      thread, the object stays alive), mock tests for the nested helpers. To check in Max: a
+      `#[defer_low] read` that opens a dialog while a `metro` sends `#[defer]` messages (Overdrive
+      on) neither hangs nor runs them out of order.

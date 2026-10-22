@@ -160,6 +160,16 @@ extern "C" fn thing_tick(x: *mut Thing) {
                     max_sys::clock_fdelay((*x).clock, 5.0);
                 }
             }
+            3 => {
+                // the first time: reschedule ourselves and fire nested, as a modal dialog's
+                // event loop would with Overdrive off
+                if (*x).qcalls == 0 {
+                    (*x).qcalls += 1;
+                    max_sys::clock_fdelay((*x).clock, 1.0);
+                    assert_eq!(median_mock::Kernel::advance_nested(1.0), 1);
+                    TICKS.lock().unwrap().push(((*x).id, -1.0, true));
+                }
+            }
             _ => {}
         }
     }
@@ -177,6 +187,26 @@ extern "C" fn thing_loadbang(x: *mut Thing) {
 
 extern "C" fn thing_qelem(x: *mut Thing) {
     unsafe { (*x).qcalls += 1 };
+}
+
+/// The qelem `thing_qelem_nested` sets again.
+static NESTED_QELEM: AtomicPtr<c_void> = AtomicPtr::new(null_mut());
+
+/// The first time: queue a deferred call, set this qelem again, and run the main queue nested
+/// (a modal dialog's event loop), which runs both inside this call.
+extern "C" fn thing_qelem_nested(x: *mut Thing) {
+    unsafe {
+        (*x).qcalls += 1;
+        if (*x).qcalls == 1 {
+            let f = meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom));
+            max_sys::defer_low(x as _, f, sym(c"nested"), 0, null_mut());
+            max_sys::qelem_set(NESTED_QELEM.load(Ordering::SeqCst) as _);
+            assert_eq!(median_mock::Kernel::run_main_queue_nested(), 2);
+            // both ran before this returns
+            assert_eq!((*x).qcalls, 2);
+            assert_eq!(DEFERRED.lock().unwrap().len(), 1);
+        }
+    }
 }
 
 extern "C" fn thing_notify(
@@ -1010,6 +1040,47 @@ fn defer_and_qelem_run_from_the_main_queue() {
             ("from_timer".to_string(), vec![]),
         ]
     );
+}
+
+#[test]
+fn a_nested_main_queue_runs_inside_the_callback() {
+    let k = median_mock::lock();
+    register();
+    DEFERRED.lock().unwrap().clear();
+    let x = thing(&k, 1);
+    unsafe {
+        let q = max_sys::qelem_new(x as _, meth!(thing_qelem_nested, extern "C" fn(*mut Thing)));
+        NESTED_QELEM.store(q as _, Ordering::SeqCst);
+        max_sys::qelem_set(q);
+        // the outer run counts only what it ran itself
+        assert_eq!(k.run_main_queue(), 1);
+        assert_eq!((*x).qcalls, 2);
+        assert_eq!(DEFERRED.lock().unwrap()[0].0, "nested");
+        assert_eq!(k.main_queue_len(), 0);
+        max_sys::qelem_free(q);
+    }
+    // only the thread that holds the kernel may run it
+    let other = std::thread::spawn(median_mock::Kernel::run_main_queue_nested).join();
+    assert!(other.is_err());
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+}
+
+#[test]
+fn a_nested_advance_fires_inside_the_clock_callback() {
+    let k = median_mock::lock();
+    register();
+    TICKS.lock().unwrap().clear();
+    DEFER_FROM_TICK.store(3, Ordering::SeqCst);
+    let a = thing(&k, 1) as *mut c_void;
+    k.send(a, "sched", &[Atom::Float(5.0)]).unwrap();
+    assert_eq!(k.advance(10.0), 1);
+    DEFER_FROM_TICK.store(0, Ordering::SeqCst);
+    // outer tick at 5, nested tick at 6, then the outer callback finishes
+    let ticks = TICKS.lock().unwrap().clone();
+    assert_eq!(ticks, [(1, 5.0, true), (1, 6.0, true), (1, -1.0, true)]);
+    assert_eq!(k.time(), 10.0);
+    let other = std::thread::spawn(|| median_mock::Kernel::advance_nested(1.0)).join();
+    assert!(other.is_err());
 }
 
 #[test]

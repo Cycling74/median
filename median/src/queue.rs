@@ -47,7 +47,9 @@
 //! made with the builder does nothing until `new` has returned and is disabled before the object
 //! is dropped (a pending run is dropped), as for a [`Clock`](crate::clock::Clock). A callback
 //! must not free its own object (by deleting its box through scripting, say) or drop its own
-//! `Queue`: that deadlocks.
+//! `Queue`: that blocks the main thread forever (rather than free the object under the running
+//! callback). A callback may make Max run its queues (a modal dialog's event loop does); if the
+//! queue was set again meanwhile, its callback then runs again, nested inside the first.
 //!
 //! **Threads.** The callback always runs on the main thread. [`set`](Queue::set),
 //! [`front`](Queue::front) and [`cancel`](Queue::cancel) may be called from any thread: the SDK's

@@ -62,6 +62,12 @@
 //! qelem is set with `qelem_front` for them, but if it is already waiting at the back it stays
 //! there.
 //!
+//! A deferred method may run a nested event loop (a `#[defer_low] read` that opens a modal file
+//! dialog, as the SDK recommends): if Max runs the object's qelem in it, the calls queued after
+//! the method run there, in order, nested inside it, and the outer run then has nothing left to
+//! do. Nothing that the nested run needs is held while a deferred method runs, so this does not
+//! deadlock.
+//!
 //! Rules:
 //!
 //! * **Never send a deferred message from `perform`** (the audio thread). Queuing allocates
@@ -69,8 +75,9 @@
 //!   the message. Use a [`fifo`](crate::fifo) and a [`Queue`] to get data
 //!   from the audio thread to the main thread.
 //! * A deferred method must not free its own object (by deleting its box through scripting,
-//!   say): it runs inside the object's queue callback, and freeing the object waits for that
-//!   callback to finish, which deadlocks (the same rule as for clocks and queues).
+//!   say): it runs inside the object's queue callback, and freeing the object from inside that
+//!   callback blocks the main thread forever, rather than free the object under the running
+//!   method (the same rule as for clocks and queues).
 //! * An `Err` from a deferred method goes to `report_error`, and a panic is posted for the
 //!   object, when it runs.
 
@@ -159,13 +166,13 @@ mod pending {
             }
         }
 
-        /// The pending calls, to run now. Calls queued while they run wait for the next run of the
-        /// qelem (which was unset before its callback was called, so the push sets it again).
-        pub(crate) fn take(&self) -> VecDeque<DeferredCall<T>> {
-            std::mem::take(&mut *self.calls.lock())
+        /// The next pending call, removed from the queue. The lock is released before the call
+        /// runs, so a nested drain (see `Wrapper::run_deferred`) can take the ones after it.
+        pub(crate) fn pop(&self) -> Option<DeferredCall<T>> {
+            self.calls.lock().pop_front()
         }
 
-        #[cfg(test)]
+        /// How many calls are pending.
         pub(crate) fn len(&self) -> usize {
             self.calls.lock().len()
         }

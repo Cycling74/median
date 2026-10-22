@@ -41,8 +41,11 @@
 //! `Result<(), E>`; an `Err` goes to the type's `report_error`. A clock made with the builder
 //! does nothing until `new` has returned, and is disabled before the object is dropped, so a
 //! callback never sees a half-built or freed object. A callback must not free its own object (by
-//! deleting its box through scripting, say) or drop its own `Clock`: that deadlocks, see
-//! `ClockShared`.
+//! deleting its box through scripting, say) or drop its own `Clock`: that blocks the thread
+//! forever (rather than free the object under the running callback), see `ClockShared`. A
+//! callback that makes Max service its scheduler (with Overdrive off, the scheduler runs in the
+//! main thread's event loop, which a modal dialog runs nested) may see the clock fire again,
+//! nested inside it; that is allowed.
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
@@ -51,7 +54,7 @@ use crate::{
     wrapper::{FieldAttrs, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
 };
 
-use parking_lot::Mutex;
+use parking_lot::{Mutex, ReentrantMutex};
 use std::{
     ffi::{CStr, c_long, c_void},
     sync::{
@@ -89,26 +92,43 @@ mod shared {
     ///   inside `T::new`, before the wrapped value is initialised (a `delay` in `new` can fire on the
     ///   scheduler thread right away), so the owning wrapper arms them once construction is done.
     ///   A callback that fires before that is skipped.
-    /// * The clock callback holds `target`'s lock for the whole call.
-    /// * The owning wrapper calls [`ClockShared::clear`] *before* it drops the user's `T`. That
-    ///   waits for an in-flight callback to finish and makes every later callback a no-op, so
-    ///   the callback can never run against a freed or half-dropped owner, even if the
-    ///   `Clock` was moved somewhere that outlives the object.
+    /// * A callback holds `running`, a *reentrant* lock, for the whole call. `target`'s own lock
+    ///   is only held to read or replace the target, never while the callback runs.
+    /// * The owning wrapper calls [`ClockShared::clear`] *before* it drops the user's `T`. From
+    ///   another thread, that waits (on `running`) for an in-flight callback to finish and makes
+    ///   every later callback a no-op, so the callback can never run against a freed or
+    ///   half-dropped owner, even if the `Clock` was moved somewhere that outlives the object.
+    ///
+    /// Re-entry: a callback may run again, nested, on the thread that is already running it.
+    /// That happens when user code in a callback makes Max service its queues (a deferred
+    /// `read` that opens a modal file dialog runs a nested event loop, in which the same qelem,
+    /// or a clock with Overdrive off, can fire). The nested call takes `running` again (it is
+    /// reentrant) and runs to completion inside the outer one; nothing else is held across the
+    /// user's code, so it doesn't deadlock. Max's own `defer` behaves the same way.
     ///
     /// Invariant relied on: **a callback never (directly, or by messages it sends that Max
-    /// handles synchronously) frees its own owning object or drops its own `Clock`/`Queue`.** Both
-    /// call `clear`, which would try to take the lock the callback already holds on the same thread
-    /// and deadlock. A deferred method (`#[defer]`, `#[defer_low]`) runs inside the callback of
-    /// its object's queue, so the same holds for it.
+    /// handles synchronously) frees its own owning object or drops its own `Clock`/`Queue`.**
+    /// Both call `clear`; on the thread that is running a callback of this target (outer or
+    /// nested), `clear` cannot wait for that callback (it is further up the same stack) and
+    /// cannot return either, because the owner's memory is freed when it does while the
+    /// callback still holds a reference into it. So `clear` blocks that thread forever: the
+    /// deadlock of the original design, now limited to this case, and never a use-after-free.
+    /// A deferred method (`#[defer]`, `#[defer_low]`) runs inside the callback of its object's
+    /// queue, so the same holds for it.
     ///
     /// Known gap (not fixed): a clock callback that Max has dispatched but that has not taken the
     /// lock yet still reads the clock's target object, which `Clock::drop` can free in that
-    /// window, and the callback holds this lock while it calls into Max, which can deadlock
+    /// window, and the callback holds `running` while it calls into Max, which can deadlock
     /// against a Max lock held by a thread that waits in `clear`. See the Status section of
     /// `doc/plan-soundness-fixes.md`.
     pub struct ClockShared {
         pub(super) armed: AtomicBool,
-        pub(super) target: Mutex<Option<(SyncPtr<max_sys::t_object>, ClockFn)>>,
+        /// Held by a running callback (taken again by a nested one on the same thread) and by
+        /// `clear` while it disables the target.
+        pub(super) running: ReentrantMutex<()>,
+        /// The owner and its callback. The callback is an `Arc` so that a call can take its own
+        /// reference and release this lock before it runs.
+        pub(super) target: Mutex<Option<(SyncPtr<max_sys::t_object>, SharedFn)>>,
     }
 }
 pub(crate) use shared::ClockShared;
@@ -117,6 +137,7 @@ impl ClockShared {
     pub(crate) fn new() -> Self {
         Self {
             armed: AtomicBool::new(false),
+            running: ReentrantMutex::new(()),
             target: Mutex::new(None),
         }
     }
@@ -127,45 +148,78 @@ impl ClockShared {
         self.armed.store(true, Ordering::Release);
     }
 
+    /// Set the target. Only called on a new target, before its clock or qelem exists, so no
+    /// callback is running.
     pub(crate) fn set(&self, target: *mut max_sys::t_object, func: ClockFn) {
-        let old = self.target.lock().replace((SyncPtr(target), func));
+        let old = self.target.lock().replace((SyncPtr(target), Arc::from(func)));
         drop(old);
     }
 
-    /// Run the callback, if the target is armed and still set. Holds the lock for the duration,
+    /// Run the callback, if the target is armed and still set. Holds `running` for the duration,
     /// including reporting a panic against the target (as a panic in `what`).
     pub(crate) fn call(&self, what: &str) {
         self.call_with(|target, msg| {
-            // SAFETY: called with the lock held, so the owner hasn't been freed (its free path
-            // clears this target, which waits for the lock)
+            // SAFETY: called with `running` held, so the owner hasn't been freed (its free path
+            // clears this target, which waits for `running`, or blocks forever on this thread)
             unsafe { crate::object::error(target, crate::ffi::panic_text(what, msg)) }
         })
     }
 
-    /// `call`, with `report` called (still under the lock) if the callback panics.
+    /// `call`, with `report` called (still under `running`) if the callback panics.
     fn call_with<P: FnOnce(*mut max_sys::t_object, &str)>(&self, report: P) {
         if !self.armed.load(Ordering::Acquire) {
             return;
         }
-        let guard = self.target.lock();
-        if let Some((target, func)) = &*guard {
-            let target = target.0;
+        let _running = self.running.lock();
+        //take a reference to the callback and release `target` before running it: a nested call
+        //on this thread needs to read it again. (Cloning the `Arc` doesn't allocate, and this
+        //reference is never the last one: the target can only be replaced by `set`, before any
+        //callback, or taken by `clear`, which waits for `running` or never returns.)
+        let current = self.target.lock().as_ref().map(|(t, f)| (t.0, f.clone()));
+        if let Some((target, func)) = current {
             crate::ffi::guard_with((), || (func)(target), |msg| report(target, msg));
         }
     }
 
     /// Wait for an in-flight callback to finish and make all later callbacks no-ops.
     ///
-    /// Must not be called from within a callback of this clock (see the type's invariant).
+    /// Called on a thread that is running a callback of this target (the owner freed, or the
+    /// `Clock`/`Queue` dropped, from inside its own callback), this blocks that thread forever,
+    /// see the type's invariant.
     pub(crate) fn clear(&self) {
-        //drop the closure after releasing the lock
-        let old = self.target.lock().take();
+        if self.running.is_owned_by_current_thread() {
+            clear_inside_own_callback();
+        }
+        let old = {
+            let _running = self.running.lock();
+            self.target.lock().take()
+        };
+        //drop the closure after releasing the locks
         drop(old);
+    }
+}
+
+/// `clear` from inside the target's own callback: returning would let the caller free the owner
+/// while the callback, further up this thread's stack, still uses it. Block instead (the
+/// documented deadlock), after saying why on stderr (Max's system console).
+#[cold]
+fn clear_inside_own_callback() -> ! {
+    use std::io::Write;
+    let _ = writeln!(
+        std::io::stderr(),
+        "median: an object was freed, or its Clock/Queue dropped, from inside its own clock, \
+         queue or deferred callback; blocking this thread forever instead of using freed memory"
+    );
+    loop {
+        std::thread::park();
     }
 }
 
 /// What a [`ClockShared`] calls: the owner's callback, given the owner.
 pub(crate) type ClockFn = Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>;
+
+/// A [`ClockFn`] as `ClockShared` keeps it.
+type SharedFn = Arc<dyn Fn(*mut max_sys::t_object) + Send + Sync>;
 
 struct ClockInner {
     shared: Arc<ClockShared>,
@@ -225,7 +279,7 @@ impl MaxObjWrapped for ClockInner {
 /// [`clock_with`](crate::builder::Builder::clock_with)) and keep it in your struct. Dropping it
 /// unsets and frees the clock. A clock made with the builder is also disabled when its object is
 /// freed, so a `Clock` that outlives its object does nothing when it fires. A callback must not
-/// free its own object or drop its own `Clock` (it deadlocks).
+/// free its own object or drop its own `Clock` (that blocks the thread forever).
 ///
 /// Creating one registers median's clock class the first time, under median's class table lock:
 /// don't create a clock during class registration (`FieldAttrs::register_attrs`,
@@ -468,12 +522,66 @@ mod tests {
         shared.set(std::ptr::null_mut(), Box::new(|_| panic!("callback failed")));
         let mut reported = None;
         shared.call_with(|_, msg| {
-            //the report runs while the lock is still held
-            assert!(shared.target.try_lock().is_none());
+            //the report runs while `running` is still held, and `target` is not
+            assert!(shared.running.is_owned_by_current_thread());
+            assert!(shared.target.try_lock().is_some());
             reported = Some(msg.to_string());
         });
         assert_eq!(reported.as_deref(), Some("callback failed"));
-        //the lock was released afterwards: this would deadlock otherwise
+        //`running` was released afterwards: this would block forever otherwise
+        assert!(!shared.running.is_locked());
         shared.clear();
+    }
+
+    #[test]
+    fn a_nested_callback_on_the_same_thread_runs() {
+        //a callback that makes its own target run again on the same thread (Max servicing its
+        //queues from inside the callback: a modal dialog's event loop) runs nested
+        let depth = Arc::new(AtomicUsize::new(0));
+        let calls = Arc::new(AtomicUsize::new(0));
+        let shared = Arc::new(ClockShared::new());
+        shared.arm();
+        let (d, c, sh) = (depth.clone(), calls.clone(), Arc::downgrade(&shared));
+        shared.set(
+            std::ptr::null_mut(),
+            Box::new(move |_| {
+                c.fetch_add(1, Ordering::SeqCst);
+                if d.fetch_add(1, Ordering::SeqCst) < 2 {
+                    call(&sh.upgrade().unwrap());
+                }
+            }),
+        );
+        call(&shared);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        //everything was released: a clear from here doesn't block
+        shared.clear();
+        call(&shared);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn clear_from_inside_the_callback_blocks_that_thread() {
+        //documented: the callback's thread never returns from `clear` (returning would let the
+        //owner be freed under the callback), and the callback never finishes
+        let cleared = Arc::new(AtomicUsize::new(0));
+        let shared = Arc::new(ClockShared::new());
+        shared.arm();
+        let (c, sh) = (cleared.clone(), Arc::downgrade(&shared));
+        shared.set(
+            std::ptr::null_mut(),
+            Box::new(move |_| {
+                sh.upgrade().unwrap().clear();
+                c.store(1, Ordering::SeqCst);
+            }),
+        );
+        let sh = shared.clone();
+        //the thread is never joined: it stays parked until the test binary exits
+        let t = std::thread::spawn(move || call(&sh));
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        assert!(!t.is_finished());
+        assert_eq!(cleared.load(Ordering::SeqCst), 0);
+        //the target is still set and `running` still held by the blocked thread
+        assert!(shared.running.is_locked());
+        assert!(shared.target.lock().is_some());
     }
 }

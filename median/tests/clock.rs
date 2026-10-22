@@ -18,8 +18,10 @@ pub struct Ticker {
     tick: Clock,
     counted: Clock,
     failing: Clock,
+    nested: Clock,
     out: Outlet<Int>,
     ticks: Int64,
+    nested_runs: Int64,
 }
 
 /// What the `clock_with` closure of the last `Ticker` counts.
@@ -37,8 +39,10 @@ impl MaxObjWrapped for Ticker {
                 COUNTED.store(n, Ordering::SeqCst);
             }),
             failing: b.clock(|_: &Self| -> Result<(), String> { Err("the clock failed".into()) }),
+            nested: b.clock(Self::nested_tick),
             out: b.outlet(Outlet::int()),
             ticks: Int64::new(0),
+            nested_runs: Int64::new(0),
         })
     }
 }
@@ -68,6 +72,24 @@ impl Ticker {
     #[sel("fail")]
     pub fn fail(&self) {
         self.failing.delay(1);
+    }
+
+    #[sel("nested")]
+    pub fn nested(&self) {
+        self.nested.delay(1);
+    }
+
+    /// The first time, fires itself again nested: it reschedules and runs the scheduler from
+    /// inside the callback (with Overdrive off, a modal dialog's event loop does).
+    pub fn nested_tick(&self) {
+        let n = self.nested_runs.get() + 1;
+        self.nested_runs.set(n);
+        self.obj.post(format!("nested {n} start"));
+        if n == 1 {
+            self.nested.delay(1);
+            median_mock::Kernel::advance_nested(1.0);
+        }
+        self.obj.post(format!("nested {n} end"));
     }
 
     pub fn tick(&self) {
@@ -134,7 +156,7 @@ fn a_clock_pending_at_free_does_not_fire_and_is_freed() {
     register();
     let clocks = k.live_clock_count();
     let obj = k.new_object("clock.ticker", &[]);
-    assert_eq!(k.live_clock_count(), clocks + 3);
+    assert_eq!(k.live_clock_count(), clocks + 4);
     k.send_int(obj, 10).unwrap();
     k.send(obj, "count", &[]).unwrap();
     assert!(k.free_object(obj));
@@ -171,5 +193,19 @@ fn an_err_from_a_clock_callback_is_reported_for_the_object() {
         (log[0].level, log[0].object, log[0].text.as_str()),
         (Level::Error, obj as usize, "the clock failed")
     );
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_clock_callback_can_run_again_nested_inside_itself() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("clock.ticker", &[]);
+    k.send(obj, "nested", &[]).unwrap();
+    //the outer advance fires it once; the second run is nested inside the first
+    assert_eq!(k.advance(10.0), 1);
+    let log: Vec<_> = k.take_console_log().into_iter().map(|e| e.text).collect();
+    assert_eq!(log, ["nested 1 start", "nested 2 start", "nested 2 end", "nested 1 end"]);
+    //and the object can still be freed: nothing is left held
     assert!(k.free_object(obj));
 }
