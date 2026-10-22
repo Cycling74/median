@@ -53,3 +53,52 @@ fn hello_dsp_performs_and_has_its_attribute_and_methods() {
     assert!(k.take_console_log().is_empty());
     assert!(k.free_object(obj));
 }
+
+#[test]
+fn hello_dsp_buffers_come_from_its_arguments_and_set_set2() {
+    let k = median_mock::lock();
+    // SAFETY: that is how Max calls it, on its main thread
+    unsafe { hello_dsp::ext_main(std::ptr::null_mut()) };
+    k.create_buffer("a", 1, 2, 44100.);
+    k.set_buffer_samples("a", &[0.5, 0.25]);
+    k.create_buffer("b", 1, 2, 44100.);
+    k.create_buffer("c", 1, 2, 44100.);
+    k.set_buffer_samples("c", &[-1., -2.]);
+
+    //run one vector of 2 and return the two outlets
+    let run = |obj| {
+        let adds = k.dsp64(obj, 48000., 2).unwrap();
+        let mut ins = vec![vec![0.; 2], vec![0.; 2]];
+        let mut outs = vec![vec![9.; 2], vec![9.; 2]];
+        adds[0].run(&mut ins, &mut outs);
+        outs
+    };
+
+    //`[hello_dsp~ a b @blah 4]`: both buffers from the arguments; `@blah` ends the names (Max
+    //applies the attribute; the mock's `attr_args_process` doesn't)
+    let args = [
+        Atom::Sym("a".into()),
+        Atom::Sym("b".into()),
+        Atom::Sym("@blah".into()),
+        Atom::Long(4),
+    ];
+    let obj = k.new_object("hello_dsp~", &args);
+    assert!(!obj.is_null());
+    assert_eq!(run(obj), [[2., 2.], [0.5, 0.25]]);
+
+    //`set2` repoints buffer2 only: at a buffer~ that doesn't exist, then at one that does
+    k.send(obj, "set2", &[Atom::Sym("nonesuch".into())])
+        .unwrap();
+    assert_eq!(run(obj), [[1., 1.], [0.5, 0.25]]);
+    k.send(obj, "set2", &[Atom::Sym("c".into())]).unwrap();
+    //`set` repoints buffer1, which the right outlet plays
+    k.send(obj, "set", &[Atom::Sym("c".into())]).unwrap();
+    assert_eq!(run(obj), [[2., 2.], [-1., -2.]]);
+    assert!(k.free_object(obj));
+
+    //one argument: only buffer1; a number ends the names
+    let obj = k.new_object("hello_dsp~", &[Atom::Sym("a".into()), Atom::Long(3)]);
+    assert!(!obj.is_null());
+    assert_eq!(run(obj), [[1., 1.], [0.5, 0.25]]);
+    assert!(k.free_object(obj));
+}
