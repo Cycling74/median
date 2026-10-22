@@ -143,6 +143,14 @@ impl<T> Inlet<T> {
         self.hot = Some(false);
         self
     }
+
+    /// [`hot`](Self::hot) if `hot`, otherwise [`cold`](Self::cold): for a hot/cold choice
+    /// computed in `new`, e.g. every other inlet hot:
+    /// `b.inlet(Inlet::proxy().hot_if(i % 2 == 0))`.
+    pub fn hot_if(mut self, hot: bool) -> Self {
+        self.hot = Some(hot);
+        self
+    }
 }
 
 impl<T> SignalInlet<T> {
@@ -161,6 +169,12 @@ impl<T> SignalInlet<T> {
     /// As [`Inlet::cold`].
     pub fn cold(mut self) -> Self {
         self.hot = Some(false);
+        self
+    }
+
+    /// As [`Inlet::hot_if`].
+    pub fn hot_if(mut self, hot: bool) -> Self {
+        self.hot = Some(hot);
         self
     }
 }
