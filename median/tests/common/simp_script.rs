@@ -1,0 +1,110 @@
+//! The same script run against `simp` (`tests/simp.rs`, written with the macros) and
+//! `simp_explicit` (`tests/simp_explicit.rs`, written by hand): both must produce `EXPECTED`.
+
+use median_mock::{Atom, Kernel, Level};
+use std::ffi::c_void;
+
+/// One line per console entry or outlet event, in order.
+fn drain(k: &Kernel, obj: *mut c_void, out: &mut Vec<String>) {
+    for e in k.take_console_log() {
+        let who = if e.object == obj as usize { "obj" } else { "global" };
+        let level = match e.level {
+            Level::Post => "post",
+            Level::Warn => "warn",
+            Level::Error => "error",
+        };
+        out.push(format!("{level} {who}: {}", e.text));
+    }
+    for e in k.take_outlet_log() {
+        out.push(format!("outlet {} {} {:?}", e.index, e.selector, e.atoms));
+    }
+}
+
+/// Make an object of `class` (registered already) and put it through its paces.
+pub fn run(k: &Kernel, class: &str) -> Vec<String> {
+    let mut t = Vec::new();
+    let obj = k.new_object(class, &[]);
+    assert!(!obj.is_null());
+    t.push(format!("outlets {}", k.outlet_count(obj)));
+    t.push(format!("inlets {}", k.extra_inlet_count(obj)));
+    t.push(format!("attributes {:?}", k.attr_names(obj)));
+    for sel in ["bang", "int", "list", "anything", "set", "symbol", "float"] {
+        t.push(format!("method {sel} {}", k.method(obj, sel).is_some()));
+    }
+
+    k.send_bang(obj).unwrap();
+    drain(k, obj, &mut t);
+    t.push(format!("advance {}", k.advance(10.)));
+    drain(k, obj, &mut t);
+
+    k.send_int(obj, 5).unwrap();
+    drain(k, obj, &mut t);
+    t.push(format!("touches {:?}", k.attr_touches().len()));
+    t.push(format!("value {:?}", k.attr_get(obj, "value").unwrap()));
+    //set by the method, past the clip: the attribute getter clips
+    k.send_int(obj, 500).unwrap();
+    drain(k, obj, &mut t);
+    t.push(format!("value {:?}", k.attr_get(obj, "value").unwrap()));
+    k.attr_set(obj, "value", &[Atom::Long(-20)]).unwrap();
+    t.push(format!("value {:?}", k.attr_get(obj, "value").unwrap()));
+
+    t.push(format!("foo {:?}", k.attr_get(obj, "foo").unwrap()));
+    k.attr_set(obj, "foo", &[Atom::Float(2.5)]).unwrap();
+    t.push(format!("foo {:?}", k.attr_get(obj, "foo").unwrap()));
+
+    k.send_list(obj, &[Atom::Long(1), Atom::Float(2.)]).unwrap();
+    k.send(obj, "frob", &[Atom::Long(1)]).unwrap();
+    k.send(obj, "set", &[Atom::Sym("abc".into())]).unwrap();
+    k.send(obj, "set", &[]).unwrap();
+    drain(k, obj, &mut t);
+
+    //the inlets: float (`ft1`), int (`in2`), proxy
+    k.send_inlet(obj, 1, "float", &[Atom::Float(1.5)]).unwrap();
+    k.send_inlet(obj, 2, "int", &[Atom::Long(7)]).unwrap();
+    k.send_inlet(obj, 3, "bang", &[]).unwrap();
+    drain(k, obj, &mut t);
+    t.push(format!("advance {}", k.advance(10.)));
+    drain(k, obj, &mut t);
+
+    assert!(k.free_object(obj));
+    t.push(format!("live {}", k.live_object_count()));
+    t
+}
+
+pub const EXPECTED: &[&str] = &[
+    "outlets 1",
+    "inlets 3",
+    "attributes [\"value\", \"foo\"]",
+    "method bang true",
+    "method int true",
+    "method list true",
+    "method anything true",
+    "method set true",
+    "method symbol false",
+    "method float false",
+    "post obj: from rust 0 inlet 0",
+    "advance 1",
+    "post global: clocked",
+    "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
+    "post global: from rust 5 inlet 0",
+    "touches 1",
+    "value [Long(5)]",
+    "post global: from rust 500 inlet 0",
+    //the field holds 500, the attribute's clip applies when it is got
+    "value [Long(100)]",
+    "value [Long(0)]",
+    "foo [Float(0.0)]",
+    "foo [Float(2.5)]",
+    "post global: got list with length 2",
+    "post global: got any with sel frob and length 1",
+    "post obj: set abc",
+    //`set` without a name returns `Err`, posted by the default `report_error`
+    "error obj: set needs a name",
+    "post global: got float 1.5",
+    "post global: from rust 7 inlet 0",
+    "post obj: from rust 7 inlet 3",
+    "advance 1",
+    "post global: clocked",
+    "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
+    "live 0",
+];

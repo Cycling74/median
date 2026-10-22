@@ -1,0 +1,19 @@
+[package]
+name = "simp_explicit"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2024"
+
+[lib]
+name = "simp_explicit"
+crate-type = ["cdylib"]
+
+[dependencies]
+median = { path = "../../" }
+
+[profile.release]
+lto = true
+# Max calls into the external through trampolines that catch panics (median::ffi) and post
+# them to the Max console. That only works if panics unwind: with "abort" any panic would
+# crash Max.
+panic = "unwind"

@@ -1,77 +1,43 @@
-use median::{
-    attr::{AttrBuilder, AttrType},
-    builder::MaxWrappedBuilder,
-    class::Class,
-    max_sys::t_atom_long,
-    num::Float64,
-    object::ObjRef,
-    post,
-    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper},
-};
+use median::prelude::*;
 
-//you need to wrap your external in this macro to get the system to register your object and
-//automatically generate trampolines and what not.
-median::external! {
-    #[name="{{crate_name}}"]
-    pub struct MaxExtern {
-        obj: ObjRef,
-        fvalue: Float64
-    }
+//`#[derive(MaxObject)]` makes the struct a Max class; `ext_main!` at the bottom registers it.
+#[derive(MaxObject)]
+#[max(name = "{{crate_name}}")]
+pub struct MaxExtern {
+    obj: ObjRef,
+    //an attribute "foo" backed by this field (see `median::attr::AttrField` for the types)
+    #[attr]
+    foo: Float64,
+}
 
-    //implement the max object wrapper
-    impl MaxObjWrapped<MaxExtern> for MaxExtern {
-        //create an instance of your object
-        //setup inlets/outlets and clocks
-        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            Self { obj: builder.obj(), fvalue: Float64::new(0.0) }
-        }
-
-        // Register any methods you need for your class
-        fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            //register a attribute "foo" with the given type, getter and setter
-            c.add_attribute(
-                AttrBuilder::new_accessors(
-                    "foo",
-                    AttrType::Float64,
-                    Self::foo_tramp,
-                    Self::set_foo_tramp,
-                    )
-                .build()
-                .unwrap(),
-                )
-                .expect("failed to add attribute");
-        }
-    }
-
-    //implement any methods you might want for your object that aren't part of the wrapper
-    impl MaxExtern {
-        //create a "bang" method and automatically register it.
-        //the name of the method can be anything you want
-        #[bang]
-        pub fn bang(&self) {
-            let i = self.obj.proxy_inlet();
-            median::object_post!(&self.obj, "bang inlet {}", i);
-        }
-
-        //create an "int" method and automatically register it.
-        //the name of the method can be anything you want, it must take 1 argument other than &self
-        //that is of type t_atom_long
-        #[int]
-        pub fn int(&self, v: t_atom_long) {
-            let i = self.obj.proxy_inlet();
-            post!("int {} inlet {}", v, i);
-        }
-
-        //create a float attribute getter trampoline (see registration in class setup)
-        #[attr_get_tramp]
-        pub fn foo(&self) -> f64 {
-            self.fvalue.get()
-        }
-
-        //create a float attribute setter trampoline (see registration in class setup)
-        #[attr_set_tramp]
-        pub fn set_foo(&self, v: f64) {
-            self.fvalue.set(v);
+//implement the max object wrapper
+impl MaxObjWrapped for MaxExtern {
+    //create an instance of your object
+    //setup inlets/outlets and clocks
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        Self {
+            obj: builder.obj(),
+            foo: Float64::new(0.0),
         }
     }
 }
+
+//`#[median::methods]` registers the marked methods with Max
+#[median::methods]
+impl MaxExtern {
+    //a "bang" method. The name of the method can be anything you want
+    #[bang]
+    pub fn bang(&self) {
+        let i = self.obj.proxy_inlet();
+        median::object_post!(&self.obj, "bang inlet {} foo {}", i, self.foo);
+    }
+
+    //an "int" method: takes 1 argument other than &self, of type t_atom_long
+    #[int]
+    pub fn int(&self, v: t_atom_long) {
+        let i = self.obj.proxy_inlet();
+        post!("int {} inlet {}", v, i);
+    }
+}
+
+median::ext_main! { MaxExtern }

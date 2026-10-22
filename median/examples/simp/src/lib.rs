@@ -1,167 +1,125 @@
-use median::{
-    atom::Atom,
-    attr::{AttrBuilder, AttrType},
-    builder::MaxWrappedBuilder,
-    class::Class,
-    clock::ClockHandle,
-    inlet::MaxInlet,
-    max_sys::t_atom_long,
-    num::{Float64, Int64},
-    object::ObjRef,
-    outlet::OutList,
-    post,
-    symbol::SymbolRef,
-    wrapper::{attr_get_tramp, attr_set_tramp, MaxObjWrapped, MaxObjWrapper},
-};
+use median::prelude::*;
 
-use std::convert::{From, TryFrom};
+//the struct is an ordinary struct: `#[derive(MaxObject)]` makes it a Max class named "simp"
+//(the type name in lower case, or `#[max(name = "..")]`), with a `Simp::register()` that
+//`ext_main!` below calls.
+#[derive(MaxObject)]
+#[max(name = "simp")]
+pub struct Simp {
+    obj: ObjRef,
+    //an attribute "value" backed by this field, clipped to 0..=100. The field's type must be
+    //one of the `median::num` atomics (anything that implements `median::attr::AttrField`):
+    //Max reads and writes attributes from other threads while methods run.
+    #[attr(clip(0, 100))]
+    value: Int64,
+    fvalue: Float64,
+    _v: String,
+    clock: ClockHandle,
+    list_out: OutList,
+}
 
-//you need to wrap your external in this macro to get the system to register your object and
-//automatically generate trampolines and what not.
-median::external! {
-    //#[name="simp"]
-    pub struct Simp {
-        obj: ObjRef,
-        value: Int64,
-        fvalue: Float64,
-        _v: String,
-        clock: ClockHandle,
-        list_out: OutList,
-    }
+//implement the max object wrapper
+impl MaxObjWrapped for Simp {
+    //create an instance of your object
+    //setup inlets/outlets and clocks
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        builder.with_default_inlet_assist("first inlet");
 
-    //implement the max object wrapper
-    impl MaxObjWrapped<Simp> for Simp {
-        //create an instance of your object
-        //setup inlets/outlets and clocks
-        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            builder.with_default_inlet_assist("first inlet");
-
-            //can call closure
-            builder.add_inlet_with_assist(MaxInlet::Float(Box::new(|_s, v| {
+        //can call closure
+        builder.add_inlet_with_assist(
+            MaxInlet::Float(Box::new(|_s, v| {
                 post!("got float {}", v);
-            })), "my float inlet");
-            //also can call method
-            builder.add_inlet(MaxInlet::Int(Box::new(Self::int))); //default assist
-            let _ = builder.add_inlet_with_assist(MaxInlet::Proxy, "my proxy inlet");
-            Self {
-                obj: builder.obj(),
-                value: Default::default(),
-                fvalue: Default::default(),
-                _v: String::from("blah"),
-                clock: builder.with_clockfn(Self::clocked),
-                list_out: builder.add_list_outlet_with_assist("my list out"),
-            }
-        }
-
-        // Register any methods you need for your class
-        fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-
-            //register a attribute "foo" with the given type, getter and setter
-            c.add_attribute(
-                AttrBuilder::new_accessors(
-                    "foo",
-                    AttrType::Float64,
-                    Self::foo_tramp,
-                    Self::set_foo_tramp,
-                )
-                .build()
-                .unwrap(),
-            )
-                .expect("failed to add attribute");
-
-            //register a attribute "blah" with the given type, getter and setter
-            c.add_attribute(
-                AttrBuilder::new_accessors(
-                    "blah",
-                    AttrType::Int64,
-                    Self::blah_tramp,
-                    Self::set_blah_tramp,
-                )
-                .build()
-                .unwrap(),
-            )
-                .expect("failed to add attribute");
-        }
-    }
-
-    //implement any methods you might want for your object that aren't part of the wrapper
-    impl Simp {
-        //create a "bang" method and automatically register it.
-        //the name of the method can be anything you want
-        #[bang]
-        pub fn bang(&self) {
-            let i = self.obj.proxy_inlet();
-            median::object_post!(&self.obj, "from rust {} inlet {}", self.value, i);
-            self.clock.delay(10);
-        }
-
-        pub fn int(&self, v: t_atom_long) {
-            let i = self.obj.proxy_inlet();
-            self.value.set(v);
-            self.obj.attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
-                .unwrap();
-            post!("direct int from rust {} inlet {}", self.value, i);
-        }
-
-        //create an "int" method and automatically register it.
-        //the name of the method can be anything you want, it must take 1 argument other than &self
-        //that is of type t_atom_long
-        #[int]
-        pub fn proxied(&self, v: t_atom_long) {
-            let i = self.obj.proxy_inlet();
-            self.value.set(v);
-            self.obj
-                .attr_touch_with_name(SymbolRef::try_from("blah").unwrap())
-                .unwrap();
-            //XXX won't compile, needs mutex
-            //self._v = format!("from rust {}", self.value);
-            post!("proxied from rust {} inlet {}", self.value, i);
-        }
-
-        //create a "list" method and automatically register it
-        #[list]
-        pub fn list(&self, atoms: &[Atom]) {
-            post!("got list with length {}", atoms.len());
-        }
-
-        //create anl "any" method and automatically register it
-        #[any]
-        pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
-            post!("got any with sel {} and length {}", sel, atoms.len());
-        }
-
-        //create a float attribute getter trampoline (see registration in class setup)
-        #[attr_get_tramp]
-        pub fn foo(&self) -> f64 {
-            self.fvalue.get()
-        }
-
-        //create a float attribute setter trampoline (see registration in class setup)
-        #[attr_set_tramp]
-        pub fn set_foo(&self, v: f64) {
-            self.fvalue.set(v);
-        }
-
-        //create a long attribute getter trampoline (see registration in class setup)
-        #[attr_get_tramp]
-        pub fn blah(&self) -> t_atom_long {
-            self.value.get()
-        }
-
-        //create a long attribute setter trampoline (see registration in class setup)
-        #[attr_set_tramp]
-        pub fn set_blah(&self, v: t_atom_long) {
-            self.value.set(v);
-        }
-
-        //called via the `clock` member (see the `bang` method and `new` above)
-        pub fn clocked(&self) {
-            post("clocked".to_string());
-            let _ = self.list_out.send(&[
-                self.value.get().into(),
-                self.fvalue.get().into(),
-                SymbolRef::try_from("foo").unwrap().into(),
-            ]);
+            })),
+            "my float inlet",
+        );
+        //also can call method
+        builder.add_inlet(MaxInlet::Int(Box::new(Self::int))); //default assist
+        let _ = builder.add_inlet_with_assist(MaxInlet::Proxy, "my proxy inlet");
+        Self {
+            obj: builder.obj(),
+            value: Default::default(),
+            fvalue: Default::default(),
+            _v: String::from("blah"),
+            clock: builder.with_clockfn(Self::clocked),
+            list_out: builder.add_list_outlet_with_assist("my list out"),
         }
     }
 }
+
+//the methods are ordinary methods; `#[median::methods]` registers the marked ones with Max (the
+//impl is emitted as written, without the markers)
+#[median::methods]
+impl Simp {
+    //a "bang" method. The name of the method can be anything you want
+    #[bang]
+    pub fn bang(&self) {
+        let i = self.obj.proxy_inlet();
+        median::object_post!(&self.obj, "from rust {} inlet {}", self.value, i);
+        self.clock.delay(10);
+    }
+
+    //the typed integer inlet calls this method directly
+    pub fn int(&self, v: t_atom_long) {
+        let i = self.obj.proxy_inlet();
+        self.value.set(v);
+        let _ = self.obj.attr_touch_with_name(c"value");
+        post!("direct int from rust {} inlet {}", self.value, i);
+    }
+
+    //an "int" method: takes 1 argument other than &self, of type t_atom_long
+    #[int]
+    pub fn proxied(&self, v: t_atom_long) {
+        let i = self.obj.proxy_inlet();
+        self.value.set(v);
+        let _ = self.obj.attr_touch_with_name(c"value");
+        post!("proxied from rust {} inlet {}", self.value, i);
+    }
+
+    //a "list" method
+    #[list]
+    pub fn list(&self, atoms: &[Atom]) {
+        post!("got list with length {}", atoms.len());
+    }
+
+    //an "anything" method: gets the selector too
+    #[any]
+    pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
+        post!("got any with sel {} and length {}", sel, atoms.len());
+    }
+
+    //a "set" message with a symbol argument, which may be left out (it defaults to the empty
+    //symbol). A method can return `Result<(), E>` (any `E: Display`): the error is posted to the
+    //console for the object.
+    #[sel("set", defaults = 1)]
+    pub fn set(&self, name: SymbolRef) -> Result<(), String> {
+        if name == SymbolRef::default() {
+            return Err("set needs a name".into());
+        }
+        median::object_post!(&self.obj, "set {}", name);
+        Ok(())
+    }
+
+    //an attribute "foo": the getter is marked, `set_foo` is found by its name (without one the
+    //attribute is read-only)
+    #[attr]
+    pub fn foo(&self) -> f64 {
+        self.fvalue.get()
+    }
+
+    pub fn set_foo(&self, v: f64) {
+        self.fvalue.set(v);
+    }
+
+    //called via the `clock` member (see the `bang` method and `new` above)
+    pub fn clocked(&self) {
+        post("clocked".to_string());
+        let _ = self.list_out.send(&[
+            self.value.get().into(),
+            self.fvalue.get().into(),
+            SymbolRef::from(c"foo").into(),
+        ]);
+    }
+}
+
+//the `ext_main` that Max calls to register the class
+median::ext_main! { Simp }
