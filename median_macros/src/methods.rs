@@ -1,0 +1,454 @@
+//! `#[median::methods]`: re-emits an inherent impl without its marker attributes, and implements
+//! `median::wrapper::Methods` for the type with one `Class::add_*` call per marked method.
+
+use crate::attr_opts::AttrOpts;
+use proc_macro2::{Span, TokenStream};
+use quote::{quote, quote_spanned};
+use syn::{
+    Attribute, FnArg, ImplItem, ImplItemFn, ItemImpl, LitInt, LitStr, ReturnType, Signature,
+    Type, spanned::Spanned,
+};
+
+/// Markers that are planned but not there yet.
+const LATER: &[&str] = &["defer", "defer_low", "dblclick", "loadbang", "notify", "savestate"];
+
+/// The most typed arguments a `#[sel]` method can have (what `class_addmethod` takes).
+const MAX_SEL_ARGS: usize = 7;
+
+enum Marker {
+    Bang,
+    Int,
+    Float,
+    Sym,
+    List,
+    Any,
+    Sel {
+        name: LitStr,
+        defaults: Option<LitInt>,
+        gimme: bool,
+    },
+    Attr(AttrOpts),
+}
+
+impl Marker {
+    /// The marker of `attr`, `None` if it isn't one.
+    fn parse(attr: &Attribute) -> Option<syn::Result<Self>> {
+        let ident = attr.path().get_ident()?.to_string();
+        let no_args = |m: Marker| match &attr.meta {
+            syn::Meta::Path(_) => Ok(m),
+            other => Err(syn::Error::new(
+                other.span(),
+                format!("`#[{ident}]` takes no arguments"),
+            )),
+        };
+        Some(match ident.as_str() {
+            "bang" => no_args(Marker::Bang),
+            "int" => no_args(Marker::Int),
+            "float" => no_args(Marker::Float),
+            "sym" => no_args(Marker::Sym),
+            "list" => no_args(Marker::List),
+            "any" => no_args(Marker::Any),
+            "sel" => Self::parse_sel(attr),
+            "attr" => AttrOpts::parse(attr).map(Marker::Attr),
+            k if LATER.contains(&k) => Err(syn::Error::new(
+                attr.span(),
+                format!("`#[{k}]` is not supported yet"),
+            )),
+            _ => return None,
+        })
+    }
+
+    /// `#[sel("name")]`, `#[sel("name", defaults = n)]` or `#[sel("name", gimme)]`.
+    fn parse_sel(attr: &Attribute) -> syn::Result<Self> {
+        const FORM: &str =
+            "expected `#[sel(\"name\")]`, `#[sel(\"name\", defaults = n)]` or `#[sel(\"name\", gimme)]`";
+        let list = match &attr.meta {
+            syn::Meta::List(l) => l,
+            other => return Err(syn::Error::new(other.span(), FORM)),
+        };
+        list.parse_args_with(|input: syn::parse::ParseStream| {
+            let name: LitStr = input
+                .parse()
+                .map_err(|e| syn::Error::new(e.span(), FORM))?;
+            crate::cstr::check(&name)?;
+            let mut defaults = None;
+            let mut gimme = false;
+            while !input.is_empty() {
+                input.parse::<syn::Token![,]>()?;
+                if input.is_empty() {
+                    break;
+                }
+                let key: syn::Ident = input.parse()?;
+                match key.to_string().as_str() {
+                    "defaults" if defaults.is_none() => {
+                        input.parse::<syn::Token![=]>()?;
+                        let n: LitInt = input.parse()?;
+                        n.base10_parse::<usize>()?;
+                        defaults = Some(n);
+                    }
+                    "gimme" if !gimme => gimme = true,
+                    "defaults" | "gimme" => {
+                        return Err(syn::Error::new(key.span(), format!("`{key}` given twice")));
+                    }
+                    _ => {
+                        return Err(syn::Error::new(
+                            key.span(),
+                            "unknown option, expected `defaults = n` or `gimme`",
+                        ));
+                    }
+                }
+            }
+            if gimme && defaults.is_some() {
+                return Err(syn::Error::new(
+                    name.span(),
+                    "`gimme` and `defaults` don't go together: a `gimme` method gets all the atoms",
+                ));
+            }
+            Ok(Marker::Sel {
+                name,
+                defaults,
+                gimme,
+            })
+        })
+    }
+
+    /// The expected signature, for errors.
+    fn expected(&self) -> &'static str {
+        match self {
+            Marker::Bang => "`#[bang]` method must take `(&self)`",
+            Marker::Int => "`#[int]` method must take `(&self, t_atom_long)`",
+            Marker::Float => "`#[float]` method must take `(&self, f64)`",
+            Marker::Sym => "`#[sym]` method must take `(&self, SymbolRef)`",
+            Marker::List => "`#[list]` method must take `(&self, &[Atom])`",
+            Marker::Any => "`#[any]` method must take `(&self, &SymbolRef, &[Atom])`",
+            Marker::Sel { gimme: true, .. } => {
+                "`#[sel(.., gimme)]` method must take `(&self, &SymbolRef, &[Atom])`"
+            }
+            Marker::Sel { .. } => {
+                "`#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, \
+                 `t_atom_long` or `SymbolRef`"
+            }
+            Marker::Attr(_) => {
+                "`#[attr]` getter must take `(&self)` and return the value (`f64`, `f32`, \
+                 `t_atom_long` or `SymbolRef`)"
+            }
+        }
+    }
+}
+
+/// What an argument has to look like, syntactically. The compiler checks the actual types (the
+/// `Class::add_*` bounds); this only catches what can be told from the syntax, so the error says
+/// which signature is expected.
+#[derive(Clone, Copy)]
+enum Arg {
+    /// Not a reference (`t_atom_long`, `f64`, `SymbolRef`).
+    Value,
+    /// `&[..]`
+    Slice,
+    /// `&T`, not a slice
+    Ref,
+}
+
+fn arg_matches(ty: &Type, want: Arg) -> bool {
+    match (ty, want) {
+        (Type::Reference(_), Arg::Value) => false,
+        (_, Arg::Value) => true,
+        (Type::Reference(r), Arg::Slice) => matches!(*r.elem, Type::Slice(_)),
+        (Type::Reference(r), Arg::Ref) => !matches!(*r.elem, Type::Slice(_)),
+        _ => false,
+    }
+}
+
+/// Check that `sig` is `(&self, <args>)` with arguments that look like `want`, and that it is a
+/// plain method (no generics, not async/unsafe/extern). `want` of `None`: any number of value
+/// arguments, up to `MAX_SEL_ARGS`. Returns the number of arguments after `&self`.
+fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Result<usize> {
+    let err = || syn::Error::new(sig.span(), expected);
+    if let Some(a) = &sig.asyncness {
+        return Err(syn::Error::new(a.span(), "a median method can't be `async`"));
+    }
+    if let Some(u) = &sig.unsafety {
+        return Err(syn::Error::new(u.span(), "a median method can't be `unsafe`"));
+    }
+    if let Some(a) = &sig.abi {
+        return Err(syn::Error::new(a.span(), "a median method can't have an ABI"));
+    }
+    if sig.generics.type_params().next().is_some() || sig.generics.const_params().next().is_some()
+    {
+        return Err(syn::Error::new(
+            sig.generics.span(),
+            "a median method can't be generic",
+        ));
+    }
+    if let Some(v) = &sig.variadic {
+        return Err(syn::Error::new(v.span(), expected));
+    }
+    let mut inputs = sig.inputs.iter();
+    match inputs.next() {
+        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
+        _ => return Err(err()),
+    }
+    let args: Vec<&Type> = inputs
+        .map(|a| match a {
+            FnArg::Typed(t) => Ok(&*t.ty),
+            FnArg::Receiver(_) => Err(err()),
+        })
+        .collect::<syn::Result<_>>()?;
+    match want {
+        Some(want) => {
+            if args.len() != want.len() || args.iter().zip(want).any(|(t, w)| !arg_matches(t, *w)) {
+                return Err(err());
+            }
+        }
+        None => {
+            if args.len() > MAX_SEL_ARGS || args.iter().any(|t| !arg_matches(t, Arg::Value)) {
+                return Err(err());
+            }
+        }
+    }
+    Ok(args.len())
+}
+
+/// A marked method, checked.
+struct Marked {
+    ident: syn::Ident,
+    marker: Marker,
+    marker_span: Span,
+}
+
+pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
+    let mut errors: Option<syn::Error> = None;
+    let mut push_err = |e: syn::Error| match &mut errors {
+        Some(errs) => errs.combine(e),
+        None => errors = Some(e),
+    };
+    if !args.is_empty() {
+        push_err(syn::Error::new(
+            args.span(),
+            "#[median::methods] takes no arguments",
+        ));
+    }
+    if let Some((_, path, _)) = &item.trait_ {
+        push_err(syn::Error::new(
+            path.span(),
+            "#[median::methods] goes on an inherent impl (`impl MyObject { .. }`), not a trait impl",
+        ));
+    }
+    if !item.generics.params.is_empty() {
+        push_err(syn::Error::new(
+            item.generics.span(),
+            "#[median::methods] does not support generic impls: a Max class is one concrete type",
+        ));
+    }
+
+    //take the markers off the methods, checking each
+    let mut marked: Vec<Marked> = Vec::new();
+    for it in item.items.iter_mut() {
+        let ImplItem::Fn(f) = it else { continue };
+        let mut found: Option<(Marker, Span)> = None;
+        let mut keep = Vec::new();
+        for attr in std::mem::take(&mut f.attrs) {
+            match Marker::parse(&attr) {
+                None => keep.push(attr),
+                Some(Err(e)) => push_err(e),
+                Some(Ok(m)) => {
+                    if found.is_some() {
+                        push_err(syn::Error::new(
+                            attr.span(),
+                            "a method can have only one median marker",
+                        ));
+                    } else {
+                        found = Some((m, attr.span()));
+                    }
+                }
+            }
+        }
+        f.attrs = keep;
+        let Some((marker, marker_span)) = found else {
+            continue;
+        };
+        use Arg::*;
+        let want: Option<&[Arg]> = match &marker {
+            Marker::Bang | Marker::Attr(_) => Some(&[]),
+            Marker::Int | Marker::Float | Marker::Sym => Some(&[Value]),
+            Marker::List => Some(&[Slice]),
+            Marker::Any | Marker::Sel { gimme: true, .. } => Some(&[Ref, Slice]),
+            Marker::Sel { .. } => None,
+        };
+        match check_sig(&f.sig, want, marker.expected()) {
+            Ok(arity) => {
+                if let Marker::Attr(_) = &marker {
+                    if !returns_value(&f.sig) {
+                        push_err(syn::Error::new(f.sig.span(), marker.expected()));
+                        continue;
+                    }
+                }
+                if let Marker::Sel {
+                    defaults: Some(d), ..
+                } = &marker
+                {
+                    if d.base10_parse::<usize>().unwrap_or(0) > arity {
+                        push_err(syn::Error::new(
+                            d.span(),
+                            format!(
+                                "`defaults = {d}` is more than the method's {arity} argument(s)"
+                            ),
+                        ));
+                        continue;
+                    }
+                }
+                marked.push(Marked {
+                    ident: f.sig.ident.clone(),
+                    marker,
+                    marker_span,
+                });
+            }
+            Err(e) => push_err(e),
+        }
+    }
+
+    //the setters, by name, for `#[attr]` getters
+    let fns: Vec<&ImplItemFn> = item
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            ImplItem::Fn(f) => Some(f),
+            _ => None,
+        })
+        .collect();
+
+    let mut selectors: Vec<String> = Vec::new();
+    let mut calls = Vec::new();
+    for m in &marked {
+        let span = m.ident.span();
+        let path = {
+            let ident = &m.ident;
+            quote_spanned!(span=> Self::#ident)
+        };
+        let selector = match &m.marker {
+            Marker::Bang => Some("bang".to_string()),
+            Marker::Int => Some("int".to_string()),
+            Marker::Float => Some("float".to_string()),
+            Marker::Sym => Some("symbol".to_string()),
+            Marker::List => Some("list".to_string()),
+            Marker::Any => Some("anything".to_string()),
+            Marker::Sel { name, .. } => Some(name.value()),
+            Marker::Attr(o) => Some(
+                o.name
+                    .as_ref()
+                    .map_or_else(|| m.ident.unraw_string(), LitStr::value),
+            ),
+        };
+        if let Some(sel) = selector {
+            if selectors.contains(&sel) {
+                push_err(syn::Error::new(
+                    m.marker_span,
+                    format!("`{sel}` is registered twice in this impl"),
+                ));
+                continue;
+            }
+            selectors.push(sel);
+        }
+        let call = match &m.marker {
+            Marker::Bang => quote_spanned!(span=> c.add_bang(#path)?;),
+            Marker::Int => quote_spanned!(span=> c.add_int(#path)?;),
+            Marker::Float => quote_spanned!(span=> c.add_float(#path)?;),
+            Marker::Sym => quote_spanned!(span=> c.add_sym(#path)?;),
+            Marker::List => quote_spanned!(span=> c.add_list(#path)?;),
+            Marker::Any => quote_spanned!(span=> c.add_any(#path)?;),
+            Marker::Sel {
+                name,
+                defaults,
+                gimme,
+            } => {
+                let sel = crate::cstr::expr(&name.value(), name.span());
+                if *gimme {
+                    quote_spanned!(span=> c.add_sel_gimme(#sel, #path)?;)
+                } else {
+                    let d = defaults
+                        .as_ref()
+                        .map_or(0, |d| d.base10_parse::<usize>().unwrap_or(0));
+                    quote_spanned!(span=> c.add_sel(#sel, #path, #d)?;)
+                }
+            }
+            Marker::Attr(opts) => {
+                let name = opts
+                    .name
+                    .as_ref()
+                    .map_or_else(|| m.ident.unraw_string(), LitStr::value);
+                let name_expr = crate::cstr::expr(
+                    &name,
+                    opts.name.as_ref().map_or(span, LitStr::span),
+                );
+                let options = opts.options();
+                let setter_name = format!("set_{}", m.ident.unraw_string());
+                let setter = fns.iter().find(|f| f.sig.ident == setter_name);
+                match setter {
+                    Some(_) if opts.readonly => {
+                        quote_spanned!(span=> c.add_attr_readonly(#name_expr, #path, #options)?;)
+                    }
+                    Some(s) => {
+                        let expected = format!(
+                            "`{setter_name}`, the setter of the `#[attr]` `{}`, must take \
+                             `(&self, value)`",
+                            m.ident
+                        );
+                        if let Err(e) = check_sig(&s.sig, Some(&[Arg::Value]), &expected) {
+                            push_err(e);
+                            continue;
+                        }
+                        let set_ident = &s.sig.ident;
+                        let set_path = quote_spanned!(set_ident.span()=> Self::#set_ident);
+                        quote_spanned!(span=> c.add_attr(#name_expr, #path, #set_path, #options)?;)
+                    }
+                    None => {
+                        quote_spanned!(span=> c.add_attr_readonly(#name_expr, #path, #options)?;)
+                    }
+                }
+            }
+        };
+        calls.push(call);
+    }
+
+    let self_ty = &item.self_ty;
+    let methods_impl = match &errors {
+        //an empty impl, so the errors aren't followed by "`Methods` is not implemented"
+        Some(_) => quote!(impl ::median::wrapper::Methods for #self_ty {}),
+        None => quote! {
+            impl ::median::wrapper::Methods for #self_ty {
+                #[allow(unused_variables)]
+                fn register<W>(c: &mut ::median::class::Class<W>) -> ::median::error::MaxResult<()>
+                where
+                    W: ::median::wrapper::WrapperWrapped<Self> + ::median::object::MaxObj,
+                {
+                    #(#calls)*
+                    ::core::result::Result::Ok(())
+                }
+            }
+        },
+    };
+    let errors = errors.map(|e| e.to_compile_error());
+    quote! {
+        #item
+        #methods_impl
+        #errors
+    }
+}
+
+/// The method returns something other than `()`.
+fn returns_value(sig: &Signature) -> bool {
+    match &sig.output {
+        ReturnType::Default => false,
+        ReturnType::Type(_, t) => !matches!(&**t, Type::Tuple(t) if t.elems.is_empty()),
+    }
+}
+
+trait UnrawString {
+    fn unraw_string(&self) -> String;
+}
+
+impl UnrawString for syn::Ident {
+    fn unraw_string(&self) -> String {
+        syn::ext::IdentExt::unraw(self).to_string()
+    }
+}

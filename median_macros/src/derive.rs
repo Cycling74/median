@@ -1,0 +1,250 @@
+//! `#[derive(MaxObject)]`: the class identity (`ObjClass`), `register()`, and the field
+//! attributes (`FieldAttrs`) of a struct.
+
+use crate::attr_opts::AttrOpts;
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote, quote_spanned};
+use syn::{
+    Data, DeriveInput, Fields, Ident, LitStr, Member, ext::IdentExt, spanned::Spanned,
+};
+
+/// Options of `#[max(..)]` that are planned (maxref generation) but not there yet.
+const LATER: &[&str] = &["description", "author", "tags"];
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Max,
+    Msp,
+}
+
+pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
+    let ident = &input.ident;
+    if !input.generics.params.is_empty() {
+        return Err(syn::Error::new(
+            input.generics.span(),
+            "#[derive(MaxObject)] does not support generic types: a Max class is one concrete type",
+        ));
+    }
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        Data::Enum(e) => {
+            return Err(syn::Error::new(
+                e.enum_token.span(),
+                "#[derive(MaxObject)] only works on a struct",
+            ));
+        }
+        Data::Union(u) => {
+            return Err(syn::Error::new(
+                u.union_token.span(),
+                "#[derive(MaxObject)] only works on a struct",
+            ));
+        }
+    };
+
+    let mut name: Option<LitStr> = None;
+    let mut kind: Option<Kind> = None;
+    let mut class_type: Option<Ident> = None;
+    let mut no_methods = false;
+    for attr in input.attrs.iter().filter(|a| a.path().is_ident("max")) {
+        attr.parse_nested_meta(|meta| {
+            let key = meta
+                .path
+                .get_ident()
+                .map(|i| i.to_string())
+                .unwrap_or_default();
+            match key.as_str() {
+                "name" => {
+                    if name.is_some() {
+                        return Err(meta.error("`name` given twice"));
+                    }
+                    let n: LitStr = meta.value()?.parse()?;
+                    crate::cstr::check(&n)?;
+                    name = Some(n);
+                }
+                "kind" => {
+                    if kind.is_some() {
+                        return Err(meta.error("`kind` given twice"));
+                    }
+                    let k = meta.value()?.call(Ident::parse_any)?;
+                    kind = Some(match k.to_string().as_str() {
+                        "max" => Kind::Max,
+                        "msp" => Kind::Msp,
+                        _ => {
+                            return Err(syn::Error::new(
+                                k.span(),
+                                "expected `kind = max` (a Max object, the default) or `kind = msp` \
+                                 (an MSP object)",
+                            ));
+                        }
+                    });
+                }
+                "class_type" => {
+                    if class_type.is_some() {
+                        return Err(meta.error("`class_type` given twice"));
+                    }
+                    let t = meta.value()?.call(Ident::parse_any)?;
+                    class_type = Some(match t.to_string().as_str() {
+                        "box" => Ident::new("Box", t.span()),
+                        "nobox" => Ident::new("NoBox", t.span()),
+                        _ => {
+                            return Err(syn::Error::new(
+                                t.span(),
+                                "expected `class_type = box` (the default) or `class_type = nobox`",
+                            ));
+                        }
+                    });
+                }
+                "no_methods" => {
+                    if no_methods {
+                        return Err(meta.error("`no_methods` given twice"));
+                    }
+                    no_methods = true;
+                }
+                k if LATER.contains(&k) => {
+                    return Err(meta.error(format!("`{k}` is not supported yet")));
+                }
+                _ => {
+                    return Err(meta.error(
+                        "unknown option, expected `name = \"..\"`, `kind = max|msp`, \
+                         `class_type = box|nobox` or `no_methods`",
+                    ));
+                }
+            }
+            Ok(())
+        })?;
+    }
+
+    let class_name = name
+        .as_ref()
+        .map(LitStr::value)
+        .unwrap_or_else(|| ident.to_string().to_lowercase());
+    let name_span = name.as_ref().map_or(ident.span(), LitStr::span);
+    let class_name_expr = crate::cstr::expr(&class_name, name_span);
+    let wrapper = match kind.unwrap_or(Kind::Max) {
+        Kind::Max => format_ident!("MaxObjWrapper"),
+        Kind::Msp => format_ident!("MSPObjWrapper"),
+    };
+    let class_type = class_type.unwrap_or_else(|| format_ident!("Box"));
+
+    //field attributes
+    let mut errors: Option<syn::Error> = None;
+    let mut push_err = |e: syn::Error| match &mut errors {
+        Some(errs) => errs.combine(e),
+        None => errors = Some(e),
+    };
+    let mut attr_names: Vec<String> = Vec::new();
+    let mut attr_calls = Vec::new();
+    let members: Vec<(Member, &syn::Field)> = match fields {
+        Fields::Named(f) => f
+            .named
+            .iter()
+            .map(|f| (Member::Named(f.ident.clone().unwrap()), f))
+            .collect(),
+        Fields::Unnamed(f) => f
+            .unnamed
+            .iter()
+            .enumerate()
+            .map(|(i, f)| (Member::Unnamed(i.into()), f))
+            .collect(),
+        Fields::Unit => Vec::new(),
+    };
+    for (member, field) in &members {
+        let mut seen = false;
+        for attr in field.attrs.iter().filter(|a| a.path().is_ident("attr")) {
+            if seen {
+                push_err(syn::Error::new(
+                    attr.span(),
+                    "only one `#[attr]` per field",
+                ));
+                continue;
+            }
+            seen = true;
+            let opts = match AttrOpts::parse(attr) {
+                Ok(o) => o,
+                Err(e) => {
+                    push_err(e);
+                    continue;
+                }
+            };
+            let attr_name = match (&opts.name, member) {
+                (Some(n), _) => n.value(),
+                (None, Member::Named(i)) => i.unraw().to_string(),
+                (None, Member::Unnamed(_)) => {
+                    push_err(syn::Error::new(
+                        attr.span(),
+                        "an attribute on a tuple field needs a name: `#[attr(name = \"..\")]`",
+                    ));
+                    continue;
+                }
+            };
+            if attr_names.contains(&attr_name) {
+                push_err(syn::Error::new(
+                    opts.name.as_ref().map_or(attr.span(), LitStr::span),
+                    format!("the attribute `{attr_name}` is defined twice"),
+                ));
+                continue;
+            }
+            let name_expr = crate::cstr::expr(
+                &attr_name,
+                opts.name.as_ref().map_or(member.span(), LitStr::span),
+            );
+            attr_names.push(attr_name);
+            let options = opts.options();
+            let ty = &field.ty;
+            //spanned at the field's type, so that a type that isn't an `AttrField` is reported
+            //there
+            attr_calls.push(quote_spanned! {ty.span()=>
+                c.add_field_attr(#name_expr, |s: &Self| -> &#ty { &s.#member }, #options)?;
+            });
+        }
+    }
+    if let Some(e) = errors {
+        return Err(e);
+    }
+
+    let methods_impl = if no_methods {
+        quote!(impl ::median::wrapper::Methods for #ident {})
+    } else {
+        quote!()
+    };
+    let register_doc = format!(
+        "Register the class `{class_name}` with Max: call it from `ext_main` \
+         (`median::ext_main! {{ {ident} }}` does). A failure is posted to the Max console."
+    );
+
+    Ok(quote! {
+        impl ::median::wrapper::ObjClass for #ident {
+            type Wrapper = ::median::wrapper::#wrapper<Self>;
+
+            fn class_name() -> &'static ::core::ffi::CStr {
+                #class_name_expr
+            }
+
+            fn class_type() -> ::median::class::ClassType {
+                ::median::class::ClassType::#class_type
+            }
+        }
+
+        impl #ident {
+            #[doc = #register_doc]
+            pub fn register() {
+                ::median::ffi::guard_ext_main(#class_name, || {
+                    ::median::wrapper::#wrapper::<Self>::register()
+                })
+            }
+        }
+
+        impl ::median::wrapper::FieldAttrs for #ident {
+            #[allow(unused_variables)]
+            fn register_attrs<W>(c: &mut ::median::class::Class<W>) -> ::median::error::MaxResult<()>
+            where
+                W: ::median::wrapper::WrapperWrapped<Self> + ::median::object::MaxObj,
+            {
+                #(#attr_calls)*
+                ::core::result::Result::Ok(())
+            }
+        }
+
+        #methods_impl
+    })
+}
