@@ -476,16 +476,18 @@ impl Kernel {
     }
 
     /// Run work queued by `defer_low` (and `defer` from the timer thread) and `qelem_set`, first in
-    /// first out, with the main thread role, including work queued while running. Returns how many
-    /// calls ran.
+    /// first out, with the main thread role, including work queued while running. A qelem is
+    /// unset after its function returns (`ext_proto.h`), so a `qelem_set` of the qelem whose
+    /// function is running does nothing. Returns how many calls ran.
     pub fn run_main_queue(&self) -> usize {
         crate::queue::run_main_queue()
     }
 
     /// Run the main queue from inside a callback, the way a nested event loop does in Max: a
     /// modal dialog opened by a method, or by a qelem or clock callback, services the main
-    /// thread's queue until it closes, so qelems (the one running among them, if it was set
-    /// again) and deferred calls run nested inside that callback. As
+    /// thread's queue until it closes, so other qelems and deferred calls run nested inside that
+    /// callback. A running qelem is not among them: it stays set, and so can't be queued again,
+    /// until its function returns. As
     /// [`run_main_queue`](Self::run_main_queue), but an associated function, for code that runs
     /// under the [`Kernel`] (a method, a clock or qelem callback) and has no handle to it.
     ///

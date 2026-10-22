@@ -12,11 +12,15 @@ use std::sync::Once;
 #[max(name = "defer.thing")]
 pub struct Thing {
     obj: ObjRef,
+    chained: Int64,
 }
 
 impl MaxObjWrapped for Thing {
     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
-        Ok(Self { obj: b.obj() })
+        Ok(Self {
+            obj: b.obj(),
+            chained: Int64::new(0),
+        })
     }
 }
 
@@ -24,6 +28,14 @@ impl Thing {
     fn log(&self, what: String) {
         let main = median::thread::SysThread::is_main();
         self.obj.post(format!("{what}{}", if main { "" } else { " (not main)" }));
+    }
+
+    /// Send this object the message `sel`, without arguments, on the calling thread.
+    fn send_self(&self, sel: &std::ffi::CStr) {
+        // SAFETY: the object is alive, and the messages sent this way take no arguments
+        unsafe {
+            max_sys::object_method(self.obj.as_ptr().cast(), max_sys::gensym(sel.as_ptr()));
+        }
     }
 }
 
@@ -101,14 +113,53 @@ impl Thing {
     #[defer_low]
     pub fn modal(&self) {
         self.log("modal start".into());
-        median_mock::thread::with_role(Role::Timer, || {
-            // SAFETY: the object is alive, and `bang` takes no arguments
-            unsafe {
-                max_sys::object_method(self.obj.as_ptr().cast(), max_sys::gensym(c"bang".as_ptr()));
-            }
-        });
+        median_mock::thread::with_role(Role::Timer, || self.send_self(c"bang"));
         median_mock::Kernel::run_main_queue_nested();
         self.log("modal end".into());
+    }
+
+    /// Queues itself again (on the main thread, so `Low` queues), three times in all.
+    #[sel("chain")]
+    #[defer_low]
+    pub fn chain(&self) {
+        let n = self.chained.get() + 1;
+        self.chained.set(n);
+        self.log(format!("chain {n}"));
+        if n < 3 {
+            self.send_self(c"chain");
+        }
+    }
+
+    /// A bang arrives from the scheduler thread while this runs.
+    #[sel("poke")]
+    #[defer_low]
+    pub fn poke(&self) {
+        self.log("poke".into());
+        median_mock::thread::with_role(Role::Timer, || self.send_self(c"bang"));
+    }
+
+    /// Queues `inner` and runs a nested event loop, in which `inner` runs.
+    #[sel("modal2")]
+    #[defer_low]
+    pub fn modal2(&self) {
+        self.log("modal2 start".into());
+        self.send_self(c"inner");
+        median_mock::Kernel::run_main_queue_nested();
+        self.log("modal2 end".into());
+    }
+
+    /// Queues `later`.
+    #[sel("inner")]
+    #[defer_low]
+    pub fn inner(&self) {
+        self.log("inner".into());
+        self.send_self(c"later");
+    }
+
+    #[sel("later")]
+    #[defer_low]
+    pub fn later(&self) {
+        self.log("later".into());
     }
 
     /// not deferred, for comparison
@@ -292,6 +343,55 @@ fn a_deferred_method_can_run_the_deferred_queue_nested() {
     //inside it, in order; the outer run counts only the first qelem and finds nothing left
     assert_eq!(k.run_main_queue(), 1);
     assert_eq!(posts(&k), ["modal start", "bang", "int 3", "modal end"]);
+    assert_eq!(k.main_queue_len(), 0);
+    assert_eq!(k.run_main_queue(), 0);
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_deferred_method_that_queues_itself_runs_once_per_qelem_run() {
+    //each run's push is made while that qelem runs, which doesn't set it again (`ext_proto.h`:
+    //"A Qelem object is unset after its queue function has been called"); the object's other
+    //qelem picks it up
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("defer.thing", &[]);
+    k.send(obj, "chain", &[]).unwrap();
+    //one call per qelem run (the drain's bound), alternating between the two qelems; no
+    //unrelated later message is needed for the second and third to run
+    assert_eq!(k.run_main_queue(), 3);
+    assert_eq!(posts(&k), ["chain 1", "chain 2", "chain 3"]);
+    assert_eq!(k.main_queue_len(), 0);
+    assert_eq!(k.run_main_queue(), 0);
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_call_queued_from_the_scheduler_during_a_drain_runs() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("defer.thing", &[]);
+    k.send(obj, "poke", &[]).unwrap();
+    //`poke` runs in the first qelem, whose `qelem_front` for the bang does nothing; the second
+    //runs the bang
+    assert_eq!(k.run_main_queue(), 2);
+    assert_eq!(posts(&k), ["poke", "bang"]);
+    assert_eq!(k.main_queue_len(), 0);
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_call_queued_while_both_qelems_run_nested_runs() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("defer.thing", &[]);
+    k.send(obj, "modal2", &[]).unwrap();
+    //`modal2` runs in the first qelem and `inner` in the second, nested inside it: `inner`'s
+    //push of `later` sets neither. The first qelem's drain ends with calls left over and sets
+    //them again, so the second runs `later` after the nested loop
+    assert_eq!(k.run_main_queue(), 2);
+    assert_eq!(posts(&k), ["modal2 start", "inner", "modal2 end", "later"]);
     assert_eq!(k.main_queue_len(), 0);
     assert_eq!(k.run_main_queue(), 0);
     assert!(k.console_log().is_empty(), "{:?}", k.console_log());

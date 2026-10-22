@@ -40,16 +40,19 @@
 //!
 //! Setting a queue that is already set does nothing (`qelem_set`: "if the Qelem object has
 //! already been set, it will not be set again"), so a burst of `set`s from any thread runs the
-//! callback once, on the main thread, after the burst. A queue is unset just before its callback
-//! runs, so a `set` during the callback runs it again later.
+//! callback once, on the main thread, after the burst. A queue is unset only *after* its
+//! callback has run (`ext_proto.h`, `qelem_set`: "A Qelem object is unset after its queue
+//! function has been called"), so a [`set`](Queue::set) or [`front`](Queue::front) made while
+//! the callback runs, from the callback itself or from another thread, does nothing: that run is
+//! the last one until the queue is set again after it returns (by the next message, say).
 //!
 //! The callback may return `Result<(), E>`; an `Err` goes to the type's `report_error`. A queue
 //! made with the builder does nothing until `new` has returned and is disabled before the object
 //! is dropped (a pending run is dropped), as for a [`Clock`](crate::clock::Clock). A callback
 //! must not free its own object (by deleting its box through scripting, say) or drop its own
 //! `Queue`: that blocks the main thread forever (rather than free the object under the running
-//! callback). A callback may make Max run its queues (a modal dialog's event loop does); if the
-//! queue was set again meanwhile, its callback then runs again, nested inside the first.
+//! callback). A callback may make Max run its queues (a modal dialog's event loop does): other
+//! queues and clocks may then run nested inside it, but its own queue, still set, does not.
 //!
 //! **Threads.** The callback always runs on the main thread. [`set`](Queue::set),
 //! [`front`](Queue::front) and [`cancel`](Queue::cancel) may be called from any thread: the SDK's
@@ -126,6 +129,10 @@ impl Queue {
 
     /// Run the callback on the main thread, at the back of Max's queue, unless it is already set
     /// (`qelem_set`).
+    ///
+    /// A queue stays set while its callback runs (`ext_proto.h`: "A Qelem object is unset after
+    /// its queue function has been called"), so a `set` during the callback, from the callback
+    /// itself or from another thread, does nothing.
     pub fn set(&self) {
         // SAFETY: `qelem` lives until `drop`
         unsafe { max_sys::qelem_set(self.qelem.as_ptr().cast()) }
@@ -135,7 +142,8 @@ impl Queue {
     /// it "only for special time-critical applications". What it does to a queue that is already
     /// set is **unverified in Max**: `ext_proto.h` only says it is "identical to `qelem_set()`"
     /// apart from the position, so it is assumed (and modelled by `median-mock`) that the queue
-    /// is not set again and stays where it is, rather than being moved to the front.
+    /// is not set again and stays where it is, rather than being moved to the front. As for
+    /// `set`, a `front` while the callback runs does nothing.
     pub fn front(&self) {
         // SAFETY: as in `set`
         unsafe { max_sys::qelem_front(self.qelem.as_ptr().cast()) }

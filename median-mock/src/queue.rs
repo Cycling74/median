@@ -1,7 +1,9 @@
 //! The main thread queue: `defer`, `defer_low`, `qelem_*` (`qelem_set` queues at the back,
 //! `qelem_front` at the front).
 //!
-//! Queued work runs when a test calls [`crate::Kernel::run_main_queue`].
+//! Queued work runs when a test calls [`crate::Kernel::run_main_queue`]. A qelem is unset after
+//! its function has returned, as `ext_proto.h` says ("A Qelem object is unset after its queue
+//! function has been called"), so setting it from inside its own function does nothing.
 
 use crate::atoms::{Atom, atoms_from_raw};
 use crate::class::{Raw, call_raw};
@@ -170,7 +172,8 @@ pub unsafe extern "C" fn qelem_free(x: *mut t_qelem) {
 }
 
 /// Run queued calls and qelems on the calling thread (with the main role), first in first out,
-/// including ones queued while running, until the queue is empty. Returns how many ran.
+/// including ones queued while running, until the queue is empty. A qelem stays set while its
+/// function runs and is unset when it returns. Returns how many ran.
 pub(crate) fn run_main_queue() -> usize {
     let mut ran = 0;
     with_role(Role::Main, || {
@@ -191,14 +194,13 @@ pub(crate) fn run_main_queue() -> usize {
                     ran += 1;
                 }
                 Deferred::Qelem(addr) => {
+                    //still set while its function runs, so a `qelem_set`/`qelem_front` from
+                    //inside it does nothing
                     let due = {
-                        let mut st = state();
-                        match st.subs.get_mut(&addr) {
-                            Some(s) if s.alive => match &mut s.kind {
-                                SubKind::Qelem { obj, fun, set } if *set => {
-                                    *set = false;
-                                    Some((*obj, *fun))
-                                }
+                        let st = state();
+                        match st.subs.get(&addr) {
+                            Some(s) if s.alive => match &s.kind {
+                                SubKind::Qelem { obj, fun, set } if *set => Some((*obj, *fun)),
                                 _ => None,
                             },
                             _ => None,
@@ -211,6 +213,12 @@ pub(crate) fn run_main_queue() -> usize {
                                 usize,
                                 unsafe extern "C" fn(*mut c_void) -> *mut c_void,
                             >(fun)(obj as *mut c_void);
+                        }
+                        //unset after the function (it may have freed the qelem)
+                        if let Some(s) = state().subs.get_mut(&addr) {
+                            if let SubKind::Qelem { set, .. } = &mut s.kind {
+                                *set = false;
+                            }
                         }
                         ran += 1;
                     }

@@ -189,11 +189,12 @@ extern "C" fn thing_qelem(x: *mut Thing) {
     unsafe { (*x).qcalls += 1 };
 }
 
-/// The qelem `thing_qelem_nested` sets again.
+/// The qelem `thing_qelem_nested` and `thing_qelem_self` set again.
 static NESTED_QELEM: AtomicPtr<c_void> = AtomicPtr::new(null_mut());
 
-/// The first time: queue a deferred call, set this qelem again, and run the main queue nested
-/// (a modal dialog's event loop), which runs both inside this call.
+/// The first time: queue a deferred call, set this qelem again (which does nothing: it is unset
+/// only after this returns), and run the main queue nested (a modal dialog's event loop), which
+/// runs the deferred call inside this call, and not this qelem.
 extern "C" fn thing_qelem_nested(x: *mut Thing) {
     unsafe {
         (*x).qcalls += 1;
@@ -201,11 +202,21 @@ extern "C" fn thing_qelem_nested(x: *mut Thing) {
             let f = meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom));
             max_sys::defer_low(x as _, f, sym(c"nested"), 0, null_mut());
             max_sys::qelem_set(NESTED_QELEM.load(Ordering::SeqCst) as _);
-            assert_eq!(median_mock::Kernel::run_main_queue_nested(), 2);
-            // both ran before this returns
-            assert_eq!((*x).qcalls, 2);
+            assert_eq!(median_mock::Kernel::run_main_queue_nested(), 1);
+            // the deferred call ran before this returns; this qelem didn't run again
+            assert_eq!((*x).qcalls, 1);
             assert_eq!(DEFERRED.lock().unwrap().len(), 1);
         }
+    }
+}
+
+/// Sets its own qelem, at the back and at the front, every time it runs.
+extern "C" fn thing_qelem_self(x: *mut Thing) {
+    unsafe {
+        (*x).qcalls += 1;
+        let q = NESTED_QELEM.load(Ordering::SeqCst) as *mut max_sys::t_qelem;
+        max_sys::qelem_set(q);
+        max_sys::qelem_front(q);
     }
 }
 
@@ -1054,7 +1065,7 @@ fn a_nested_main_queue_runs_inside_the_callback() {
         max_sys::qelem_set(q);
         // the outer run counts only what it ran itself
         assert_eq!(k.run_main_queue(), 1);
-        assert_eq!((*x).qcalls, 2);
+        assert_eq!((*x).qcalls, 1);
         assert_eq!(DEFERRED.lock().unwrap()[0].0, "nested");
         assert_eq!(k.main_queue_len(), 0);
         max_sys::qelem_free(q);
@@ -1062,6 +1073,32 @@ fn a_nested_main_queue_runs_inside_the_callback() {
     // only the thread that holds the kernel may run it
     let other = std::thread::spawn(median_mock::Kernel::run_main_queue_nested).join();
     assert!(other.is_err());
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+}
+
+#[test]
+fn a_qelem_set_inside_its_own_function_stays_unset() {
+    // `ext_proto.h`: "A Qelem object is unset after its queue function has been called"
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1);
+    unsafe {
+        let q = max_sys::qelem_new(x as _, meth!(thing_qelem_self, extern "C" fn(*mut Thing)));
+        NESTED_QELEM.store(q as _, Ordering::SeqCst);
+        max_sys::qelem_set(q);
+        assert_eq!(k.main_queue_len(), 1);
+        // its `qelem_set` and `qelem_front` did nothing: it ran once and is not queued
+        assert_eq!(k.run_main_queue(), 1);
+        assert_eq!((*x).qcalls, 1);
+        assert_eq!(k.main_queue_len(), 0);
+        assert_eq!(k.run_main_queue(), 0);
+        // set after its function returned, it runs again
+        max_sys::qelem_set(q);
+        assert_eq!(k.run_main_queue(), 1);
+        assert_eq!((*x).qcalls, 2);
+        assert_eq!(k.main_queue_len(), 0);
+        max_sys::qelem_free(q);
+    }
     assert!(k.console_log().is_empty(), "{:?}", k.console_log());
 }
 

@@ -77,7 +77,7 @@ impl Thing {
     }
 
     /// The first time, sets itself again and runs the main queue nested (as a modal dialog's
-    /// event loop would), which runs it again inside this call.
+    /// event loop would). The `set` does nothing: Max unsets a qelem after its function returns.
     pub fn nested_run(&self) {
         let n = self.nested_runs.get() + 1;
         self.nested_runs.set(n);
@@ -122,7 +122,7 @@ fn a_queue_set_many_times_runs_once_on_the_main_thread() {
     assert_eq!(log.len(), 1);
     assert_eq!((log[0].atoms.as_slice(), log[0].role), (&[MockAtom::Long(6)][..], Role::Main));
     assert_eq!(k.take_console_log()[0].text, "main thread: true");
-    //it is unset when it runs, so it can be set again
+    //it is unset once it has run, so it can be set again
     k.send_int(obj, 7).unwrap();
     assert_eq!(k.run_main_queue(), 1);
     assert!(k.free_object(obj));
@@ -198,14 +198,22 @@ fn queue_with_runs_a_capturing_closure_and_errs_are_reported() {
 }
 
 #[test]
-fn a_queue_callback_can_run_again_nested_inside_itself() {
+fn a_queue_set_inside_its_own_callback_does_nothing() {
+    //`ext_proto.h`: "A Qelem object is unset after its queue function has been called"
     let k = median_mock::lock();
     register();
     let obj = k.new_object("queue.thing", &[]);
     k.send(obj, "nested", &[]).unwrap();
     assert_eq!(k.run_main_queue(), 1);
+    //neither the nested event loop nor a later run runs it again
     let log: Vec<_> = k.take_console_log().into_iter().map(|e| e.text).collect();
-    assert_eq!(log, ["nested 1 start", "nested 2 start", "nested 2 end", "nested 1 end"]);
+    assert_eq!(log, ["nested 1 start", "nested 1 end"]);
     assert_eq!(k.main_queue_len(), 0);
+    assert_eq!(k.run_main_queue(), 0);
+    //a set after the callback returned runs it again
+    k.send(obj, "nested", &[]).unwrap();
+    assert_eq!(k.run_main_queue(), 1);
+    let log: Vec<_> = k.take_console_log().into_iter().map(|e| e.text).collect();
+    assert_eq!(log, ["nested 2 start", "nested 2 end"]);
     assert!(k.free_object(obj));
 }
