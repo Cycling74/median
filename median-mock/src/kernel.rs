@@ -211,6 +211,17 @@ impl Kernel {
         res.map(|_| ())
     }
 
+    /// The selectors of the methods of the object's class, sorted.
+    pub fn method_names(&self, obj: *mut c_void) -> Vec<String> {
+        let st = state();
+        let Some(o) = st.objects.get(&(obj as usize)) else {
+            return Vec::new();
+        };
+        let mut v: Vec<String> = st.classes[&o.class].methods.keys().cloned().collect();
+        v.sort();
+        v
+    }
+
     /// An attribute of the method `selector` of the object's class, added with
     /// `object_addattr_parse` (`CLASS_METHOD_ATTR_PARSE`), as `(type name, parse string)`.
     pub fn method_attr(
@@ -512,6 +523,23 @@ impl Kernel {
     /// [`attr_get`](Self::attr_get)); the clip filters added with `attr_addfilter*_clip` apply.
     pub fn attr_set(&self, obj: *mut c_void, name: &str, atoms: &[Atom]) -> Result<(), AttrError> {
         attr::set(obj as usize, name, atoms)
+    }
+
+    /// Call an attribute's getter as [`attr_get`](Self::attr_get) does, but with the pointers
+    /// chosen by `args`: null ones (which Max may pass; a getter must not dereference them) or a
+    /// caller supplied array. No clip filter is applied.
+    pub fn attr_get_with(
+        &self,
+        obj: *mut c_void,
+        name: &str,
+        args: attr::GetterArgs,
+    ) -> Result<attr::GetterResult, AttrError> {
+        attr::get_with(obj as usize, name, args)
+    }
+
+    /// Call an attribute's setter with `ac` atoms and a null `av`, returning its code.
+    pub fn attr_set_null_argv(&self, obj: *mut c_void, name: &str, ac: i64) -> Result<i64, AttrError> {
+        attr::set_null_argv(obj as usize, name, ac)
     }
 
     /// The flags an attribute was created with (`ATTR_GET_OPAQUE_USER` and so on).

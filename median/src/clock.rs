@@ -171,6 +171,10 @@ impl MaxObjWrapped for ClockInner {
 /// disabled when the owning object is freed, so a handle that outlives its object does nothing
 /// when it fires. A clock callback must not free its own object or drop its own handle, see
 /// [`ClockShared`].
+///
+/// Creating one registers median's clock class the first time, under median's class table lock:
+/// don't create a clock during class registration (`FieldAttrs::register_attrs`,
+/// `Methods::register`, `class_setup`), which already holds that lock and would deadlock.
 pub struct ClockHandle {
     _target: crate::object::ObjBox<MaxObjWrapper<ClockInner>>,
     clock: *mut c_void,

@@ -198,6 +198,10 @@ unsafe extern "C" fn level_get(
     argv: *mut *mut t_atom,
 ) -> t_max_err {
     unsafe {
+        // as the SDK's accessors do (attrtester.c)
+        if argc.is_null() || argv.is_null() {
+            return 0;
+        }
         if *argc < 1 || (*argv).is_null() {
             *argc = 1;
             *argv = max_sys::sysmem_newptr(size_of::<t_atom>() as _) as *mut t_atom;
@@ -213,7 +217,7 @@ unsafe extern "C" fn level_set(
     argv: *mut t_atom,
 ) -> t_max_err {
     unsafe {
-        if argc > 0 {
+        if argc > 0 && !argv.is_null() {
             (*x).level = max_sys::atom_getlong(argv) as i64;
         }
     }
@@ -1152,6 +1156,27 @@ fn attributes_through_offset_clip_and_accessors() {
 
 // ---------------------------------------------------------------------------------------------
 // registration, notification, buffers
+
+#[test]
+fn getters_and_setters_with_null_pointers_and_a_caller_buffer() {
+    use median_mock::GetterArgs;
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1) as *mut c_void;
+    k.attr_set(x, "level", &[Atom::Long(4)]).unwrap();
+    for args in [GetterArgs::NullAc, GetterArgs::NullAv, GetterArgs::NullBoth] {
+        let r = k.attr_get_with(x, "level", args).unwrap();
+        assert_eq!((r.code, r.atoms.len(), r.used_buffer), (0, 0, false), "{args:?}");
+    }
+    let r = k.attr_get_with(x, "level", GetterArgs::Buffer(2)).unwrap();
+    assert_eq!((r.code, r.atoms.as_slice(), r.used_buffer), (0, &[Atom::Long(4), Atom::Long(0)][..], true));
+    let r = k.attr_get_with(x, "level", GetterArgs::Buffer(0)).unwrap();
+    assert_eq!((r.atoms.as_slice(), r.used_buffer), (&[Atom::Long(4)][..], false));
+    assert_eq!(k.attr_set_null_argv(x, "level", 1), Ok(0));
+    assert_eq!(k.attr_get(x, "level").unwrap(), [Atom::Long(4)]);
+    assert!(k.method_names(x).contains(&"bang".to_string()));
+    assert!(k.free_object(x));
+}
 
 #[test]
 fn register_attach_and_notify() {

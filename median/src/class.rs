@@ -162,6 +162,8 @@ use std::os::raw::c_long;
 /// [`FieldAttrs::register_attrs`]: crate::wrapper::FieldAttrs::register_attrs
 pub struct Class<T> {
     class: *mut max_sys::t_class,
+    /// The attributes added through this `Class`, to refuse a duplicate name.
+    attr_names: Vec<String>,
     _phantom: PhantomData<T>,
 }
 
@@ -194,6 +196,7 @@ impl<T> Class<T> {
     pub unsafe fn new_registered(class: *mut max_sys::t_class) -> Self {
         Self {
             class,
+            attr_names: Vec::new(),
             _phantom: PhantomData,
         }
     }
@@ -229,11 +232,33 @@ impl<T> Class<T> {
         self.class
     }
 
+    /// Add a built attribute to the class. `Err(MaxError::Duplicate)` (and the attribute is
+    /// freed) if an attribute of the same name was added through this `Class` already: field
+    /// attributes, `#[attr]` getters and `class_setup` all add to the same class.
     pub fn add_attribute(&mut self, attr: Attr<T>) -> MaxResult<()> {
-        MaxError::from(
+        if self.attr_names.iter().any(|n| n == attr.name()) {
+            // SAFETY: `attr` was made by `AttrBuilder::build` and is not in any class
+            unsafe { max_sys::object_free(attr.inner() as _) };
+            return Err(MaxError::Duplicate);
+        }
+        let name = attr.name().to_string();
+        let r = MaxError::from(
             unsafe { max_sys::class_addattr(self.inner(), attr.into()) as _ },
             (),
-        )
+        );
+        if r.is_ok() {
+            self.attr_names.push(name);
+        }
+        r
+    }
+
+    /// `Err(MaxError::Duplicate)` if the attribute `name` was added already.
+    fn check_attr_name(&self, name: &str) -> MaxResult<()> {
+        if self.attr_names.iter().any(|n| n == name) {
+            Err(MaxError::Duplicate)
+        } else {
+            Ok(())
+        }
     }
 
     /// `class_addmethod` with the argument types given as a slice.
@@ -417,7 +442,8 @@ impl<W> Class<W> {
     ///
     /// The last `defaults` arguments are optional (`A_DEFFLOAT` and so on): Max passes 0, 0.0 or
     /// the empty symbol when the message leaves them out. It is an error if `defaults` is more
-    /// than the number of arguments.
+    /// than the number of arguments, and `Err(MaxError::Duplicate)` if `sel` is one of
+    /// [`RESERVED_SELECTORS`].
     pub fn add_sel<T, F, A, R>(&mut self, sel: &CStr, _f: F, defaults: usize) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
@@ -437,7 +463,8 @@ impl<W> Class<W> {
     }
 
     /// Register the method `sel` with the arguments as a list of atoms (`A_GIMME`). The callable
-    /// gets the selector as well, so that one can serve several selectors.
+    /// gets the selector as well, so that one can serve several selectors. `sel` must not be one of
+    /// [`RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
     pub fn add_sel_gimme<T, F, R>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
@@ -478,6 +505,7 @@ impl<W> Class<W> {
         let get: AttrTrampGetMethod<W> = crate::attr::get_tramp::<W, T, G, V>;
         let set: AttrTrampSetMethod<W> = crate::attr::set_tramp::<W, T, S, V, R>;
         let name = name.to_str().map_err(|_| MaxError::Generic)?;
+        self.check_attr_name(name)?;
         let mut b = AttrBuilder::new_accessors(name, V::ATTR_TYPE, get, set);
         self.add_built_attr(&mut b, options)
     }
@@ -497,6 +525,7 @@ impl<W> Class<W> {
     {
         let get: AttrTrampGetMethod<W> = crate::attr::get_tramp::<W, T, G, V>;
         let name = name.to_str().map_err(|_| MaxError::Generic)?;
+        self.check_attr_name(name)?;
         let mut b = AttrBuilder::new_get(name, V::ATTR_TYPE, get);
         self.add_built_attr(&mut b, options)
     }
@@ -540,10 +569,28 @@ impl<W> Class<W> {
         m: MaxMethod,
         types: &[max_sys::e_max_atomtypes::Type],
     ) -> MaxResult<()> {
+        if is_reserved_selector(sel) {
+            return Err(MaxError::Duplicate);
+        }
         // SAFETY: guaranteed by the caller
         let r = unsafe { self.add_method_types(sel, Some(m), types) };
         MaxError::from(r as _, ())
     }
+}
+
+/// The selectors the wrapper registers for every class (`notify`, `assist`, `inletinfo`, the
+/// `int`/`float` inlet messages `in1`..`in9` and `ft1`..`ft9`, and `dsp64` for MSP objects).
+/// [`Class::add_sel`], [`Class::add_sel_gimme`] and `#[sel]` refuse them: registering one would
+/// replace or collide with the wrapper's own method.
+pub const RESERVED_SELECTORS: &[&str] = &[
+    "notify", "assist", "inletinfo", "dsp64", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7",
+    "ft8", "ft9", "in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8", "in9",
+];
+
+/// Whether `sel` is one of [`RESERVED_SELECTORS`].
+pub fn is_reserved_selector(sel: &CStr) -> bool {
+    sel.to_str()
+        .is_ok_and(|s| RESERVED_SELECTORS.contains(&s))
 }
 
 /// Turn the last `defaults` of `types` into their `A_DEF*` variants. An error if there are fewer

@@ -71,6 +71,16 @@ impl Marker {
                 .parse()
                 .map_err(|e| syn::Error::new(e.span(), FORM))?;
             crate::cstr::check(&name)?;
+            if crate::reserved::RESERVED_SELECTORS.contains(&name.value().as_str()) {
+                return Err(syn::Error::new(
+                    name.span(),
+                    format!(
+                        "`{}` is a selector median registers for itself (inlets, assist, dsp); \
+                         pick another name",
+                        name.value()
+                    ),
+                ));
+            }
             let mut defaults = None;
             let mut gimme = false;
             while !input.is_empty() {

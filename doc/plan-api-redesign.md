@@ -504,6 +504,20 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     build`, not `cargo check`. `#[median::methods]` also reports it with a spanned error when the
     argument types are written `f64` (best effort: an alias hides it). The tests that mixed were
     changed to same-typed selectors.
+  - Review fixes (after step 5): attribute getters (`attr::get`, `get_tramp`) do nothing and
+    return `MAX_ERR_NONE` when `ac` or `av` is null, as the SDK's accessors do
+    (`attrtester.c`; the getter isn't called), and setters already ignored a null `av`.
+    `class::RESERVED_SELECTORS` (`notify`, `assist`, `inletinfo`, `dsp64`, `ft1..9`, `in1..9`,
+    checked against what the wrapper registers) is refused by `Class::add_sel*`
+    (`Err(MaxError::Duplicate)`, any `add_*` in fact) and by `#[sel]` (spanned error; the macro
+    keeps a mirror in `median_macros/src/reserved.rs`, compared by a test). `Class` tracks the
+    attribute names added through it and refuses a duplicate (`Err(Duplicate)` from `add_attr*`
+    and `add_attribute`, which frees the extra attribute), so a field `#[attr]` and an `#[attr]`
+    getter of the same name fail the registration. The deadlock of registering a class or making
+    a `ClockHandle` inside `register_attrs`/`Methods::register`/`class_setup` is documented on
+    those and on `ClockHandle`. Tests: `tests/registration.rs`, UI `methods_reserved`; the mock
+    gained `attr_get_with` (null pointers, a caller array), `attr_set_null_argv`,
+    `method_names`.
 - [x] 4. Iolet descriptors (section F). Every user is ported (`simp`, `simp_explicit`,
   `hello_dsp`, `multi`, the template, crate docs, READMEs, tests). Public API:
   - `builder::Builder<T, K>` with `K` = `builder::Max` or `builder::Msp` (sealed `BuilderKind`),

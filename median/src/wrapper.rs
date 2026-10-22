@@ -189,6 +189,9 @@ pub trait ObjClass: Sized {
 /// The wrapper calls it once, when the class is registered, after [`FieldAttrs::register_attrs`]
 /// and before `class_setup`. An `Err` stops the registration: the error is posted to the Max
 /// console and the class is not registered.
+///
+/// It runs while median holds its class table lock: registering a class (any wrapper's
+/// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
 pub trait Methods: Sized {
     /// Register the methods. `W` is the wrapper type, it is inferred.
     fn register<W>(_class: &mut Class<W>) -> MaxResult<()>
@@ -219,6 +222,9 @@ pub trait Methods: Sized {
 /// ```
 ///
 /// Called first when the class is registered, before [`Methods::register`] and `class_setup`.
+///
+/// It runs while median holds its class table lock: registering a class (any wrapper's
+/// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
 pub trait FieldAttrs: Sized {
     /// Register the attributes. `W` is the wrapper type, it is inferred.
     fn register_attrs<W>(_class: &mut Class<W>) -> MaxResult<()>
@@ -253,6 +259,9 @@ pub trait MaxObjWrapped:
 
     /// Register anything else your class needs (aliases, methods with computed names, ...),
     /// after the field attributes and the methods.
+    ///
+    /// It runs while median holds its class table lock: registering a class (any wrapper's
+    /// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
     fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
         //default, do nothing
     }
@@ -313,6 +322,9 @@ pub trait MSPObjWrapped:
 
     /// Register anything else your class needs (aliases, methods with computed names, ...),
     /// after the field attributes and the methods.
+    ///
+    /// It runs while median holds its class table lock: registering a class (any wrapper's
+    /// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
         //default, do nothing
     }
@@ -1104,7 +1116,10 @@ where
     /// Call it from `ext_main`, on Max's main thread. Internally, it locks a mutex and looks up
     /// your class by type name. If your class has already been registered it won't re-register.
     ///
-    /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
+    /// Registration holds median's class table lock while it runs `T::register_attrs`,
+    /// `T::register` (the `Methods`) and `T::class_setup`. Inside any of them, registering a
+    /// class (this `register()` or another wrapper's) or creating a `ClockHandle` (which
+    /// registers median's clock class) deadlocks.
     ///
     /// # Panics
     /// If Max fails to register the class, or one of its attributes or methods.
@@ -1201,7 +1216,10 @@ where
     /// Call it from `ext_main`, on Max's main thread. Internally, it locks a mutex and looks up
     /// your class by type name. If your class has already been registered it won't re-register.
     ///
-    /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
+    /// Registration holds median's class table lock while it runs `T::register_attrs`,
+    /// `T::register` (the `Methods`) and `T::class_setup`. Inside any of them, registering a
+    /// class (this `register()` or another wrapper's) or creating a `ClockHandle` (which
+    /// registers median's clock class) deadlocks.
     ///
     /// # Panics
     /// If Max fails to register the class, or one of its attributes or methods.

@@ -270,6 +270,99 @@ pub(crate) fn get(obj: usize, name: &str) -> Result<Vec<Atom>, AttrError> {
     Ok(apply_clip(atoms, a.get_clip))
 }
 
+/// How [`crate::Kernel::attr_get_with`] calls a getter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GetterArgs {
+    /// `ac` is null (`av` valid, pointing to null).
+    NullAc,
+    /// `av` is null (`ac` valid, 0).
+    NullAv,
+    /// Both null.
+    NullBoth,
+    /// A caller supplied array of this many atoms (`*ac` is the count, `*av` the array), which
+    /// the getter may fill in place or replace with its own allocation.
+    Buffer(usize),
+}
+
+/// What [`crate::Kernel::attr_get_with`] saw.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GetterResult {
+    /// The getter's return code.
+    pub code: i64,
+    /// The atoms it returned (none for the null cases).
+    pub atoms: Vec<Atom>,
+    /// It wrote into the caller's array rather than allocating its own.
+    pub used_buffer: bool,
+}
+
+pub(crate) fn get_with(obj: usize, name: &str, args: GetterArgs) -> Result<GetterResult, AttrError> {
+    let a = find_attr(obj, name)?;
+    if a.getter == 0 {
+        return Err(AttrError::Unsupported("no getter".into()));
+    }
+    // the caller's array, which must outlive the call
+    let mut buffer: Vec<t_atom> = match args {
+        GetterArgs::Buffer(n) => (0..n).map(|_| Atom::Long(0).to_raw()).collect(),
+        _ => Vec::new(),
+    };
+    let mut argc: c_long = buffer.len() as c_long;
+    let mut argv: *mut t_atom = if buffer.is_empty() {
+        std::ptr::null_mut()
+    } else {
+        buffer.as_mut_ptr()
+    };
+    let given = argv;
+    let (pac, pav) = match args {
+        GetterArgs::NullAc => (0, &raw mut argv as usize),
+        GetterArgs::NullAv => (&raw mut argc as usize, 0),
+        GetterArgs::NullBoth => (0, 0),
+        GetterArgs::Buffer(_) => (&raw mut argc as usize, &raw mut argv as usize),
+    };
+    // SAFETY: attribute getters are `(x, attr, long *argc, t_atom **argv)`; the pointers are
+    // null or valid
+    let code = unsafe {
+        call_raw(
+            a.getter,
+            &[Raw::I(obj), Raw::I(a.ptr), Raw::I(pac), Raw::I(pav)],
+        )
+    } as isize as i64;
+    if pac == 0 || pav == 0 {
+        return Ok(GetterResult {
+            code,
+            atoms: Vec::new(),
+            used_buffer: false,
+        });
+    }
+    let used_buffer = !given.is_null() && argv == given;
+    // SAFETY: the getter filled in `argc` atoms at `argv`
+    let atoms = unsafe { atoms_from_raw(argc.max(0) as usize, argv) };
+    if !used_buffer {
+        // SAFETY: a getter that allocates uses `sysmem_newptr`, and the caller frees
+        unsafe { crate::sysmem::sysmem_freeptr(argv as *mut c_void) };
+    }
+    Ok(GetterResult {
+        code,
+        atoms,
+        used_buffer,
+    })
+}
+
+/// Call the setter with `ac` and a null `av`.
+pub(crate) fn set_null_argv(obj: usize, name: &str, ac: i64) -> Result<i64, AttrError> {
+    let a = find_attr(obj, name)?;
+    if a.setter == 0 {
+        return Err(AttrError::Unsupported("no setter".into()));
+    }
+    // SAFETY: attribute setters are `(x, attr, long argc, t_atom *argv)`
+    let code = unsafe {
+        call_raw(
+            a.setter,
+            &[Raw::I(obj), Raw::I(a.ptr), Raw::I(ac as c_long as usize), Raw::I(0)],
+        )
+    } as isize as i64;
+    Ok(code)
+}
+
 pub(crate) fn set(obj: usize, name: &str, atoms: &[Atom]) -> Result<(), AttrError> {
     let a = find_attr(obj, name)?;
     let atoms = apply_clip(atoms.to_vec(), a.set_clip);

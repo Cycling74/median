@@ -9,6 +9,7 @@ mod cstr;
 mod derive;
 mod error;
 mod methods;
+mod reserved;
 mod tramp;
 
 /// See `median::MaxObject`.

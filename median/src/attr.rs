@@ -29,6 +29,7 @@ pub type AttrTrampSetMethod<T> = unsafe extern "C" fn(
 /// A wrapper for a max attribute. `T` refers to the object that the attribute is attributed to.
 pub struct Attr<T> {
     inner: *mut max_sys::t_object,
+    name: String,
     _phantom: PhantomData<T>,
 }
 
@@ -49,6 +50,11 @@ pub struct AttrBuilder<T> {
 impl<T> Attr<T> {
     pub fn inner(&self) -> *mut max_sys::t_object {
         self.inner
+    }
+
+    /// The attribute's name.
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -318,6 +324,7 @@ impl<T> AttrBuilder<T> {
         .map_err(|e| format!("error {:?} setting clip", e))?;
         Ok(Attr {
             inner,
+            name: self.name.clone(),
             _phantom: PhantomData,
         })
     }
@@ -453,10 +460,13 @@ pub unsafe fn touch_with_name<I: Into<SymbolRef>>(
 
 /// handle the boiler plate of dealing with attribute atoms
 ///
+/// If `ac` or `av` is null nothing is done (the getter isn't called) and `MAX_ERR_NONE` is
+/// returned, as the SDK's own accessors do (`attrtester.c`).
+///
 /// # Safety
-/// `ac` and `av` must be the (non-null) out-parameters Max passes to an attribute getter: `ac`
-/// must point to a valid `c_long`, `av` must point to a valid `*mut t_atom` that is either null
-/// or points to at least `*ac` atoms (if `*ac >= 1`) that Max or the caller owns. When a new atom
+/// `ac` and `av` must be the out-parameters Max passes to an attribute getter: each null, or
+/// `ac` pointing to a valid `c_long` and `av` to a valid `*mut t_atom` that is either null or
+/// points to at least `*ac` atoms (if `*ac >= 1`) that Max or the caller owns. When a new atom
 /// is allocated for the result, ownership passes to the caller as Max expects.
 pub unsafe fn get<T, F>(
     ac: *mut c_long,
@@ -467,6 +477,9 @@ where
     F: Fn() -> T,
     T: Into<Atom>,
 {
+    if ac.is_null() || av.is_null() {
+        return max_sys::e_max_errorcodes::MAX_ERR_NONE as _;
+    }
     //before touching `ac`/`av`, so a panicking getter leaves no uninitialised atom behind
     let value: Atom = getter().into();
     unsafe {
@@ -688,8 +701,13 @@ where
     V: AttrValue,
 {
     crate::ffi::guard_or(w, "attribute getter", crate::ffi::ERR_GENERIC, || {
+        let t = w.wrapped();
+        //nowhere to put the value: as the SDK's accessors, do nothing (and don't call the getter)
+        if ac.is_null() || av.is_null() {
+            return max_sys::e_max_errorcodes::MAX_ERR_NONE as _;
+        }
         // SAFETY: `G` is a zero-sized `Copy` callable, see `zst`
-        let v = (unsafe { zst::<G>() })(w.wrapped());
+        let v = (unsafe { zst::<G>() })(t);
         // SAFETY: the caller guarantees that `ac` and `av` are what Max passes to a getter
         unsafe { get(ac, av, || v.to_atom()) }
     })

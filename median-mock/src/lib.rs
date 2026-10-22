@@ -91,7 +91,7 @@ pub mod sysmem;
 pub mod thread;
 
 pub use atoms::Atom;
-pub use attr::AttrError;
+pub use attr::{AttrError, GetterArgs, GetterResult};
 pub use class::SendError;
 pub use kernel::{Kernel, lock};
 pub use state::{ConsoleEntry, DspAdd, InletKind, Level, OutletEvent};
