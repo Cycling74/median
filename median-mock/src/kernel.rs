@@ -642,7 +642,13 @@ impl Kernel {
 
     /// Whether a buffer~ is between `buffer_edit_begin` and `buffer_edit_end`.
     pub fn buffer_editing(&self, name: &str) -> Option<bool> {
-        state().buffers.get(name).map(|b| b.editing)
+        state().buffers.get(name).map(|b| b.editing > 0)
+    }
+
+    /// The `valid` argument of the last accepted `buffer_edit_end` on a buffer~ (`Some(None)`
+    /// before any).
+    pub fn buffer_last_edit_valid(&self, name: &str) -> Option<Option<i64>> {
+        state().buffers.get(name).map(|b| b.last_edit_valid)
     }
 
     /// `(begun, ended)`: how many `buffer_edit_begin` and `buffer_edit_end` calls on a buffer~

@@ -21,7 +21,8 @@ impl Simp {
     #[sel("notify")]
     pub fn c(&self) {}
 
-    // `class_dspinit`'s, refused for every class
+    // `class_dspinit`'s: not refused here (the kind isn't known); `Class::add_*` refuses it for
+    // an MSP class, a Max class may have it
     #[sel("enable")]
     pub fn e(&self, _v: t_atom_long) {}
 

@@ -194,6 +194,12 @@ impl ObjRef {
 /// This is implemented for the wrapper types (and not for your own struct): to post, touch
 /// attributes and so on from your own struct, keep an [`ObjRef`] in it.
 pub unsafe trait MaxObj: Sized {
+    /// The object is an MSP object (`t_pxobject`): `Class` refuses the selectors
+    /// `class_dspinit` adds ([`MSP_RESERVED_SELECTORS`](crate::class::MSP_RESERVED_SELECTORS))
+    /// for its class.
+    #[doc(hidden)]
+    const IS_MSP: bool = false;
+
     fn max_obj(&self) -> *mut max_sys::t_object {
         unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self) }
     }

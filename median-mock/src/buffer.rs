@@ -13,10 +13,12 @@
 //!   `buffer_unlocksamples`, a perform routine that returns still holding a claim it took
 //!   ([`crate::DspAdd::run`]), and destroying a buffer with claims outstanding are reported.
 //! * `buffer_edit_begin`/`buffer_edit_end` must pair: a nested begin, an end without a begin and
-//!   destroying a buffer mid-edit are reported (and the nested begin / stray end are refused with
-//!   `MAX_ERR_GENERIC`), as is a begin on the audio thread or while claims are held (Max's
-//!   `buffer_edit_begin` waits for the claims to be released, which never happens if the claim
-//!   is held by the caller).
+//!   destroying a buffer mid-edit are reported (the stray end is refused with `MAX_ERR_GENERIC`;
+//!   the nested begin is done, since what Max does, deadlock or two editors on the same samples,
+//!   isn't modelled: code under test must never get there), as is a begin on the audio thread or
+//!   while claims are held (Max's `buffer_edit_begin` waits for the claims to be released, which
+//!   never happens if the claim is held by the caller). The `valid` given to `buffer_edit_end`
+//!   is recorded.
 //! * **Assumption**: while an edit is in progress `buffer_locksamples` returns null (the
 //!   header says `buffer_edit_begin` clears the buffer's valid flag and waits for the in-use
 //!   count, which is what `buffer_locksamples` raises). To check in Max.
@@ -45,7 +47,8 @@ pub(crate) fn create(name: &str, channels: usize, frames: usize, sample_rate: f6
             data: vec![0.0; channels * frames],
             locks: 0,
             dirty: false,
-            editing: false,
+            editing: 0,
+            last_edit_valid: None,
             edits_begun: 0,
             edits_ended: 0,
         },
@@ -62,7 +65,7 @@ pub(crate) fn destroy(name: &str) {
         if locks > 0 {
             state().post_error(ptr, format!("median-mock: buffer~ \"{name}\" destroyed with {locks} buffer_locksamples claim(s) not unlocked"));
         }
-        if editing {
+        if editing > 0 {
             state().post_error(ptr, format!("median-mock: buffer~ \"{name}\" destroyed between buffer_edit_begin and buffer_edit_end"));
         }
         let _ = crate::notify::unregister_addr(ptr);
@@ -162,7 +165,7 @@ pub(crate) fn total_locks() -> usize {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn buffer_locksamples(buffer_object: *mut t_buffer_obj) -> *mut f32 {
     with_buffer(buffer_object, |b| {
-        if b.editing {
+        if b.editing > 0 {
             return std::ptr::null_mut();
         }
         b.locks += 1;
@@ -228,8 +231,10 @@ pub unsafe extern "C" fn buffer_setdirty(buffer_object: *mut t_buffer_obj) -> t_
     }
 }
 
-/// Start an exclusive edit. Refused (`MAX_ERR_GENERIC`, reported) if one is in progress;
-/// reported, but done, on the audio thread or while claims are held (see the module docs).
+/// Start an exclusive edit. Reported, but done, on the audio thread, while claims are held, and
+/// when an edit is already in progress (a nested begin: in Max that self-deadlocks on the
+/// buffer's mutex, or, if the mutex is recursive, gives two editors the same samples; the mock
+/// doesn't model either, it only reports that the code under test got here).
 ///
 /// # Safety
 /// As `buffer_locksamples`.
@@ -237,10 +242,10 @@ pub unsafe extern "C" fn buffer_setdirty(buffer_object: *mut t_buffer_obj) -> t_
 pub unsafe extern "C" fn buffer_edit_begin(buffer_object: *mut t_buffer_obj) -> t_max_err {
     let audio = crate::thread::current_role() == crate::thread::Role::Audio;
     let r = with_buffer(buffer_object, |b| {
-        if b.editing {
-            return Err(format!("median-mock: buffer_edit_begin on buffer~ \"{}\", which is already being edited", b.name));
-        }
         let mut problems = Vec::new();
+        if b.editing > 0 {
+            problems.push(format!("median-mock: nested buffer_edit_begin on buffer~ \"{}\", which is already being edited (Max deadlocks or aliases)", b.name));
+        }
         if audio {
             problems.push(format!("median-mock: buffer_edit_begin on buffer~ \"{}\" on the audio thread", b.name));
         }
@@ -250,9 +255,9 @@ pub unsafe extern "C" fn buffer_edit_begin(buffer_object: *mut t_buffer_obj) -> 
                 b.name, b.locks
             ));
         }
-        b.editing = true;
+        b.editing += 1;
         b.edits_begun += 1;
-        Ok(problems)
+        Ok::<_, String>(problems)
     });
     let addr = buffer_object as usize;
     match r {
@@ -271,19 +276,19 @@ pub unsafe extern "C" fn buffer_edit_begin(buffer_object: *mut t_buffer_obj) -> 
 }
 
 /// End an edit. Refused (`MAX_ERR_GENERIC`, reported) without a matching `buffer_edit_begin`.
-/// `valid` is not modelled.
+/// `valid` is recorded ([`crate::Kernel::buffer_last_edit_valid`]), not modelled.
 ///
 /// # Safety
 /// As `buffer_locksamples`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn buffer_edit_end(buffer_object: *mut t_buffer_obj, valid: c_long) -> t_max_err {
-    let _ = valid;
     let r = with_buffer(buffer_object, |b| {
-        if !b.editing {
+        if b.editing == 0 {
             return Err(format!("median-mock: buffer_edit_end on buffer~ \"{}\" without buffer_edit_begin", b.name));
         }
-        b.editing = false;
+        b.editing -= 1;
         b.edits_ended += 1;
+        b.last_edit_valid = Some(valid as i64);
         Ok(())
     });
     match r {

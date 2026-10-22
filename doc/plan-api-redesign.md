@@ -688,6 +688,30 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   - Tests: `symbol::tests` (interning equality, names, NUL errors, null/default, threads),
     `ui/sym_nul`, `tests/buffer.rs`, `tests/hello_dsp.rs` with a buffer, mock tests in
     `median-mock/tests/kernel.rs`.
+  - Review fixes (after step 7):
+    - One `BufferEdit` per `buffer~`: median keeps a process-wide list of the buffer objects it
+      is editing (a `Mutex<Vec<usize>>`; edits are refused on the audio and scheduler threads,
+      so the lock never is taken there), checked before `buffer_edit_begin`; a second edit,
+      through the same reference, another reference to the same buffer, a cloned `Arc` or
+      another thread, is the new `EditError::Busy`. Released in `BufferEdit::drop` after
+      `buffer_edit_end` (also on unwind). It does not coordinate with another external's copy of
+      median. The mock no longer refuses a nested `buffer_edit_begin` (Max deadlocks or aliases,
+      which isn't modelled): it reports it and carries on, and the tests check it is never
+      reached.
+    - `channel_iter`/`channel_iter_mut` of `BufferLocked` and `BufferEdit` yield nothing for a
+      0-frame multichannel buffer (they panicked slicing `[][channel..]`).
+    - `BufferEdit::drop` passes `valid = -1` (`ext_buffer.h`: "negative=RESTORE_OLD_VALID") to
+      `buffer_edit_end` when the buffer had no sample memory (null `b_samples` or 0 frames) when
+      the edit began, `1` otherwise. The mock records the value
+      (`Kernel::buffer_last_edit_valid`).
+    - Leaking (`mem::forget`) a `BufferLocked` or `BufferEdit` is documented as a Max-wide hang
+      on that buffer (the in-use count stays raised, or the mutex held and the valid flag
+      cleared), not a local leak.
+    - `MSP_RESERVED_SELECTORS` are refused only for MSP classes: `MaxObj` has a hidden
+      `IS_MSP` (true for `MSPObjWrapper`), `Class::add_*` checks it and
+      `class::is_reserved_selector(sel, msp)` takes the kind. `#[median::methods]` no longer
+      mirrors or rejects them (it can't know the kind); an MSP class's `#[sel("enable")]` fails
+      at registration. This supersedes "refused for every class" in the step 4/5 review fixes.
 - [x] 7. Clock/queue/fifo (H), attribute options (I). One commit per piece (mock, 7a-7f, then the
   examples). Every user is ported; there are no aliases for the old names.
   - `Clock` (was `ClockHandle`): `b.clock(Self::tick)` takes a zero-sized `Copy` callable (a

@@ -68,7 +68,8 @@ mutability (`median::sym!("..")` for literals); `BufferLocked` (the shared
 `BufferEdit` (`buffer_edit_begin/end`, refused on the audio and scheduler threads) is the only
 `&mut [f32]`. Two buffer assumptions are unverified in Max: `buffer_locksamples` returns null
 while an edit is in progress (the mock models it so; `BufferEdit`'s exclusivity rests on it), and
-`buffer_getinfo`'s `b_samples` is the pointer to edit. Still open, and reachable from safe code:
+`buffer_getinfo`'s `b_samples` is the pointer to edit. median allows one `BufferEdit` per `buffer~`
+at a time (`EditError::Busy`), so its own edits never nest. Still open, and reachable from safe code:
 
 - A clock or queue callback, or a deferred method (it runs in its object's queue callback), must
   not free its own owner or drop its own `Clock`/`Queue` (it deadlocks); see `ClockShared` in

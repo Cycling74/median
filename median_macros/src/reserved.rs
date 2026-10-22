@@ -6,6 +6,6 @@ pub(crate) const RESERVED_SELECTORS: &[&str] = &[
     "ft8", "ft9", "in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8", "in9",
 ];
 
-/// A mirror of `median::class::MSP_RESERVED_SELECTORS`: the methods `class_dspinit` adds to an
-/// MSP class. Rejected whatever the class's kind, since the impl doesn't say it.
-pub(crate) const MSP_RESERVED_SELECTORS: &[&str] = &["signal", "userconnect", "nsiginlets", "enable"];
+// `median::class::MSP_RESERVED_SELECTORS` (what `class_dspinit` adds) is not mirrored: they are
+// only reserved for an MSP class, and the impl doesn't say the kind. `Class::add_*` refuses them
+// for an MSP class when the methods are registered.

@@ -484,7 +484,9 @@ mod sealed {
 use sealed::WrapperInternal;
 
 unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
-unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {}
+unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {
+    const IS_MSP: bool = true;
+}
 unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
 
 impl<T> WrapperInternal<max_sys::t_object, T> for MaxWrapperInternal<T>

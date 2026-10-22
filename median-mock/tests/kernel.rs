@@ -1454,16 +1454,22 @@ fn buffer_edits_pair_and_exclude_claims() {
         assert_eq!(info.b_sr, 48000.0);
         assert_eq!(info.b_name, sym(c"ed"));
         *info.b_samples.add(5) = 7.0;
-        // nested begin is refused and reported
-        assert_ne!(max_sys::buffer_edit_begin(b), 0);
-        assert_eq!(errors(&k).len(), 1);
+        // a nested begin is reported, not refused: Max would deadlock or alias, which the
+        // mock doesn't model; it pairs with an end of its own
+        assert_eq!(max_sys::buffer_edit_begin(b), 0);
+        let e = errors(&k);
+        assert!(e.len() == 1 && e[0].contains("nested buffer_edit_begin"), "{e:?}");
+        assert_eq!(max_sys::buffer_edit_end(b, -1), 0);
+        assert_eq!(k.buffer_editing("ed"), Some(true));
+        assert_eq!(k.buffer_last_edit_valid("ed"), Some(Some(-1)));
         assert_eq!(max_sys::buffer_edit_end(b, 1), 0);
         assert_eq!(k.buffer_editing("ed"), Some(false));
-        assert_eq!(k.buffer_edits("ed"), Some((1, 1)));
+        assert_eq!(k.buffer_last_edit_valid("ed"), Some(Some(1)));
+        assert_eq!(k.buffer_edits("ed"), Some((2, 2)));
         assert_eq!(k.buffer_samples("ed").unwrap(), [0., 0., 0., 0., 0., 7.]);
         // an end without a begin is refused and reported
         assert_ne!(max_sys::buffer_edit_end(b, 1), 0);
-        assert_eq!(k.buffer_edits("ed"), Some((1, 1)));
+        assert_eq!(k.buffer_edits("ed"), Some((2, 2)));
         let e = errors(&k);
         assert_eq!(e.len(), 1);
         assert!(e[0].contains("without buffer_edit_begin"), "{e:?}");

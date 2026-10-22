@@ -55,6 +55,34 @@ pub enum EditError {
     WrongThread,
     /// `buffer_edit_begin` or `buffer_getinfo` returned this error code.
     Failed(max_sys::t_max_err),
+    /// The `buffer~` is being edited through median already (a [`BufferEdit`] of it exists, made
+    /// through this reference or another one, on any thread). A second edit would deadlock on
+    /// the buffer's mutex, or, if Max's mutex is recursive, give two `&mut [f32]` to the same
+    /// samples.
+    Busy,
+}
+
+/// The `buffer~` objects (by address) that have a [`BufferEdit`] now. Edits are refused on the
+/// audio and scheduler threads, so this lock is never taken there.
+static EDITING: std::sync::Mutex<Vec<usize>> = std::sync::Mutex::new(Vec::new());
+
+/// Claim `buffer` for an edit in [`EDITING`]: `false` if it is claimed already.
+fn claim_edit(buffer: NonNull<max_sys::t_buffer_obj>) -> bool {
+    let mut e = EDITING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let addr = buffer.as_ptr() as usize;
+    if e.contains(&addr) {
+        false
+    } else {
+        e.push(addr);
+        true
+    }
+}
+
+/// Release a claim made by [`claim_edit`].
+fn release_edit(buffer: NonNull<max_sys::t_buffer_obj>) {
+    let mut e = EDITING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let addr = buffer.as_ptr() as usize;
+    e.retain(|&a| a != addr);
 }
 
 /// One `f32` sample that may be read and written concurrently, by this object and by others.
@@ -162,6 +190,11 @@ pub trait BufferReference: Send + Sync {
     /// (defer to it from a clock) or a thread of your own. Do not hold a [`BufferLocked`] of the
     /// same buffer on the same thread while calling it: the edit would wait for that claim
     /// forever.
+    ///
+    /// **One at a time.** While a [`BufferEdit`] of a `buffer~` exists, another `edit` of it,
+    /// through this reference or any other, on any thread, is [`EditError::Busy`] (median keeps
+    /// a list of the buffers it is editing): a second `buffer_edit_begin` would deadlock, or alias
+    /// the samples.
     fn edit(&self) -> Result<BufferEdit<'_>, EditError>;
 
     /// Open the `buffer~`'s window (`buffer_view`), as `index~` does on a double-click. Returns
@@ -340,18 +373,26 @@ impl BufferReference for BufferRef {
             return Err(EditError::WrongThread);
         }
         let buffer = self.object().ok_or(EditError::BufferDoesNotExist)?;
+        //one median edit per buffer~, whichever reference it is made through: checked before
+        //`buffer_edit_begin`, which would deadlock (or alias) on a second edit
+        if !claim_edit(buffer) {
+            return Err(EditError::Busy);
+        }
         // SAFETY: a buffer object; paired with `buffer_edit_end` in `BufferEdit::drop`
         let r = unsafe { max_sys::buffer_edit_begin(buffer.as_ptr()) };
         if r != max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err {
+            release_edit(buffer);
             return Err(EditError::Failed(r));
         }
-        //the edit is in progress from here: make the guard first so that every path ends it
+        //the edit is in progress from here: make the guard first so that every path ends it (and
+        //releases the claim)
         let mut edit = BufferEdit {
             buffer,
             samples: NonNull::dangling(),
             frames: 0,
             channels: 0,
             dirty: false,
+            restore_valid: true,
             _ref: PhantomData,
         };
         // SAFETY: `t_buffer_info` is plain data, all zeros is a valid value
@@ -372,6 +413,8 @@ impl BufferReference for BufferRef {
             edit.samples = samples;
             edit.frames = frames;
             edit.channels = channels;
+            //it had sample memory: valid after the edit
+            edit.restore_valid = frames == 0;
         }
         Ok(edit)
     }
@@ -405,6 +448,11 @@ impl Drop for BufferRef {
 /// resized while it is claimed.
 ///
 /// Not `Send`: release a claim on the thread that took it.
+///
+/// **Don't leak it** (`mem::forget`, a reference cycle): the claim (the buffer's in-use count)
+/// is then never released, and every later `buffer_edit_begin` on that `buffer~`, by any object in
+/// Max, waits for it forever: a hang of whatever thread edits the buffer (usually the main
+/// thread), not a local leak.
 pub struct BufferLocked<'a> {
     buffer: NonNull<max_sys::t_buffer_obj>,
     samples: NonNull<AtomicSample>,
@@ -481,7 +529,8 @@ impl BufferLocked<'_> {
             "channel {channel} out of range ({} channels)",
             self.channels
         );
-        self.as_slice()[channel..].iter().step_by(self.channels)
+        //`get`: an empty buffer (0 frames) has no samples at all, whatever the channel count
+        self.as_slice().get(channel..).unwrap_or_default().iter().step_by(self.channels)
     }
 
     /// Mark the buffer as changed (`buffer_setdirty`, when the claim is released), so that its
@@ -523,12 +572,21 @@ impl Drop for BufferLocked<'_> {
 ///
 /// Not `Send`: `buffer_edit_end` must run on the thread that began the edit (it unlocks the
 /// buffer's mutex).
+///
+/// Only one `BufferEdit` of a `buffer~` exists at a time (a second [`BufferReference::edit`] is
+/// [`EditError::Busy`]). **Don't leak it** (`mem::forget`, a reference cycle): the edit never
+/// ends, so the buffer's mutex stays held and its valid flag cleared. Every perform routine in Max
+/// that plays the buffer then fails to claim it (silence), and the next `buffer_edit_begin` on
+/// it, by any object, waits forever: a Max-wide hang on that `buffer~`, not a local leak.
 pub struct BufferEdit<'a> {
     buffer: NonNull<max_sys::t_buffer_obj>,
     samples: NonNull<f32>,
     frames: usize,
     channels: usize,
     dirty: bool,
+    /// The buffer had no sample memory when the edit began: end the edit restoring its old
+    /// valid flag instead of marking it valid.
+    restore_valid: bool,
     _ref: PhantomData<&'a ()>,
 }
 
@@ -598,7 +656,8 @@ impl BufferEdit<'_> {
             "channel {channel} out of range ({} channels)",
             self.channels
         );
-        self.as_slice()[channel..].iter().step_by(self.channels)
+        //`get`: an empty buffer (0 frames) has no samples at all, whatever the channel count
+        self.as_slice().get(channel..).unwrap_or_default().iter().step_by(self.channels)
     }
 
     /// The samples of one channel, for writing. Marks the buffer dirty.
@@ -615,7 +674,8 @@ impl BufferEdit<'_> {
             self.channels
         );
         let c = self.channels;
-        self.as_mut_slice()[channel..].iter_mut().step_by(c)
+        //as in `channel_iter`
+        self.as_mut_slice().get_mut(channel..).unwrap_or_default().iter_mut().step_by(c)
     }
 
     /// Mark the buffer as changed even if no mutable view was taken.
@@ -626,12 +686,18 @@ impl BufferEdit<'_> {
 
 impl Drop for BufferEdit<'_> {
     fn drop(&mut self) {
-        // SAFETY: the buffer object we began editing, ended once, here; `1` marks it valid again
+        //`ext_buffer.h`: `buffer_edit_end(t_buffer_obj *, long valid); // valid 0=FALSE,
+        //positive=TRUE, negative=RESTORE_OLD_VALID (not common)`. A buffer that had samples is
+        //valid after the edit; one without sample memory gets its old valid flag back rather than
+        //being declared valid
+        let valid = if self.restore_valid { -1 } else { 1 };
+        // SAFETY: the buffer object we began editing, ended once, here
         unsafe {
-            max_sys::buffer_edit_end(self.buffer.as_ptr(), 1);
+            max_sys::buffer_edit_end(self.buffer.as_ptr(), valid);
             if self.dirty {
                 max_sys::buffer_setdirty(self.buffer.as_ptr());
             }
         }
+        release_edit(self.buffer);
     }
 }

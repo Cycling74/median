@@ -154,8 +154,11 @@ pub(crate) struct BufferData {
     /// Outstanding `buffer_locksamples` claims.
     pub locks: usize,
     pub dirty: bool,
-    /// Between `buffer_edit_begin` and `buffer_edit_end`.
-    pub editing: bool,
+    /// How many `buffer_edit_begin`s are not ended yet (more than one only after a nested begin,
+    /// which is reported).
+    pub editing: usize,
+    /// The `valid` argument of the last `buffer_edit_end`.
+    pub last_edit_valid: Option<i64>,
     /// Calls of `buffer_edit_begin` and of `buffer_edit_end` that were accepted.
     pub edits_begun: usize,
     pub edits_ended: usize,

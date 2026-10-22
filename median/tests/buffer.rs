@@ -346,3 +346,72 @@ fn binding_notifications_reach_the_buffer_reference() {
     assert_eq!(k.buffer_ref_notifications().len(), n + 1);
     assert!(k.free_object(obj));
 }
+
+#[test]
+fn a_second_edit_of_a_buffer_is_busy_through_any_reference() {
+    let k = setup();
+    let obj = object_and_buffer(&k);
+    let r = reference(obj, "b");
+    let r2 = std::sync::Arc::new(reference(obj, "b"));
+    k.create_buffer("other", 1, 2, 48000.);
+    let other = reference(obj, "other");
+    {
+        let e = r.edit().unwrap();
+        //the same reference, another reference to the same `buffer~`, a clone of an `Arc`
+        assert_eq!(r.edit().err(), Some(EditError::Busy));
+        assert_eq!(r2.edit().err(), Some(EditError::Busy));
+        let r3 = r2.clone();
+        assert_eq!(r3.edit().err(), Some(EditError::Busy));
+        //and from another thread
+        let busy = std::thread::scope(|s| s.spawn(|| r2.edit().err()).join().unwrap());
+        assert_eq!(busy, Some(EditError::Busy));
+        //another buffer is not affected
+        assert_eq!(other.edit().map(|e| e.frames()), Ok(2));
+        drop(e);
+    }
+    //`buffer_edit_begin` was never called a second time (the mock reports a nested begin)
+    assert_eq!(k.buffer_edits("b"), Some((1, 1)));
+    assert!(errors(&k).is_empty());
+    //free again once the edit ended, also after a panic
+    assert!(r2.edit().is_ok());
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let _e = r.edit().unwrap();
+        panic!("while editing");
+    }));
+    assert!(res.is_err());
+    assert!(r2.edit().is_ok());
+    assert_eq!(k.buffer_edits("b"), Some((4, 4)));
+    drop((r, r2, other));
+    assert!(k.free_object(obj));
+    assert!(errors(&k).is_empty());
+}
+
+#[test]
+fn an_empty_multichannel_buffer_has_empty_channels_and_keeps_its_valid_flag() {
+    let k = setup();
+    let obj = object_and_buffer(&k);
+    k.create_buffer("empty", 3, 0, 48000.);
+    let r = reference(obj, "empty");
+    {
+        let l = r.try_lock().unwrap();
+        assert_eq!((l.frames(), l.channels()), (0, 3));
+        for ch in 0..3 {
+            assert_eq!(l.channel_iter(ch).count(), 0);
+        }
+    }
+    {
+        let mut e = r.edit().unwrap();
+        assert_eq!((e.frames(), e.channels()), (0, 3));
+        assert_eq!(e.channel_iter(2).count(), 0);
+        assert_eq!(e.channel_iter_mut(2).count(), 0);
+    }
+    //`buffer_edit_end(b, -1)`: restore the old valid flag of a buffer without samples
+    assert_eq!(k.buffer_last_edit_valid("empty"), Some(Some(-1)));
+    //and `1` for one with samples
+    let b = reference(obj, "b");
+    drop(b.edit().unwrap());
+    assert_eq!(k.buffer_last_edit_valid("b"), Some(Some(1)));
+    drop((r, b));
+    assert!(k.free_object(obj));
+    assert!(errors(&k).is_empty());
+}

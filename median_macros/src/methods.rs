@@ -91,17 +91,6 @@ impl Marker {
                     ),
                 ));
             }
-            if crate::reserved::MSP_RESERVED_SELECTORS.contains(&name.value().as_str()) {
-                return Err(syn::Error::new(
-                    name.span(),
-                    format!(
-                        "`{}` is a selector MSP registers for its dsp chain (`class_dspinit`; \
-                         `z_dsp.h` says not to bind it), refused for every class; pick another \
-                         name",
-                        name.value()
-                    ),
-                ));
-            }
             let mut defaults = None;
             let mut gimme = false;
             while !input.is_empty() {
