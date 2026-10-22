@@ -209,6 +209,17 @@ impl MaxObjWrapped for Plain {
     }
 }
 
+/// A `nobox` class.
+#[derive(MaxObject)]
+#[max(name = "derive.nobox", class_type = nobox, no_methods)]
+pub struct NoBox;
+
+impl MaxObjWrapped for NoBox {
+    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        NoBox
+    }
+}
+
 /// Its registration fails (in `class_setup`), which must not stop the classes after it.
 #[derive(MaxObject)]
 #[max(name = "derive.broken", no_methods)]
@@ -224,7 +235,7 @@ impl MaxObjWrapped for Broken {
     }
 }
 
-median::ext_main! { Marks, Reporter, Broken, Gain, Plain }
+median::ext_main! { Marks, Reporter, Broken, Gain, Plain, NoBox }
 
 /// The console errors posted while `ext_main` ran.
 static EXT_MAIN_ERRORS: OnceLock<Vec<String>> = OnceLock::new();
@@ -275,6 +286,11 @@ fn ext_main_registers_every_class_and_survives_a_failing_one() {
     //`Broken` panicked in `class_setup`: posted, not registered, and the classes after it
     //(`Gain`, `Plain`) still were
     assert!(!k.class_exists("derive.broken"));
+    //registered in the `nobox` namespace
+    assert_eq!(<NoBox as ObjClass>::class_type() as u8, ClassType::NoBox as u8);
+    assert!(Class::<MaxObjWrapper<NoBox>>::exists_in_max(c"derive.nobox", ClassType::NoBox));
+    assert!(!Class::<MaxObjWrapper<NoBox>>::exists_in_max(c"derive.nobox", ClassType::Box));
+    assert!(Class::<MaxObjWrapper<Plain>>::exists_in_max(c"plain", ClassType::Box));
     let ext_errors = EXT_MAIN_ERRORS.get().unwrap();
     assert_eq!(ext_errors.len(), 1, "{ext_errors:?}");
     assert!(
