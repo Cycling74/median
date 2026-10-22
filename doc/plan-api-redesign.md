@@ -837,3 +837,6 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
       thread, the object stays alive), mock tests for the nested helpers. To check in Max: a
       `#[defer_low] read` that opens a dialog while a `metro` sends `#[defer]` messages (Overdrive
       on) neither hangs nor runs them out of order.
+    - `AttrDefault::Int` is written as a whole number for every attribute type except
+      `float32`/`float64` (it went through `number_text(v as f64, ..)`, so an `atom`, `symbol` or
+      pointer attribute got `"5.0"`). Test: an `atom` attribute in `tests/attr_options.rs`.

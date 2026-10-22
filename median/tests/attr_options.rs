@@ -59,6 +59,21 @@ impl MaxObjWrapped for Thing {
         let mut b = AttrBuilder::new_get("built", AttrType::Float64, get);
         b.label(c"Built").save().order(7);
         c.add_attribute(b.build().unwrap()).unwrap();
+        //an atom attribute with an integer default
+        extern "C" fn get_atom(
+            s: &MaxObjWrapper<Thing>,
+            _attr: *mut std::ffi::c_void,
+            ac: *mut std::ffi::c_long,
+            av: *mut *mut median::max_sys::t_atom,
+        ) -> median::max_sys::t_max_err {
+            median::ffi::guard_or(s, "any", median::ffi::ERR_GENERIC, || {
+                // SAFETY: Max passes `ac` and `av` as for a getter
+                unsafe { median::attr::get(ac, av, || Atom::from(s.wrapped().plain.get())) }
+            })
+        }
+        let mut b = AttrBuilder::new_get("any", AttrType::AtomPtr, get_atom);
+        b.default(5);
+        c.add_attribute(b.build().unwrap()).unwrap();
         //by hand, with `add_attr` and options, a symbol default
         c.add_attr(
             c"named",
@@ -161,6 +176,8 @@ fn getter_and_hand_written_attribute_options() {
     //`AttrBuilder` options
     assert_eq!(k.attr_attr_names(obj, "built"), ["label", "order", "save"]);
     assert_eq!(aa(&k, obj, "built", "order"), ("long".into(), vec![MockAtom::Long(7)]));
+    //an integer default of an atom attribute is written as an integer ("5", not "5.0")
+    assert_eq!(aa(&k, obj, "any", "default"), ("atom".into(), vec![MockAtom::Long(5)]));
     //`add_attr` with a parse-string default for a symbol attribute
     assert_eq!(aa(&k, obj, "named", "default"), ("symbol".into(), vec![s("two words")]));
     assert_eq!(aa(&k, obj, "named", "category"), ("symbol".into(), vec![s("Names")]));

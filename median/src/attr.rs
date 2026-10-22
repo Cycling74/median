@@ -860,7 +860,9 @@ impl AttrOptions {
     /// The default value (`CLASS_ATTR_DEFAULT`, typed as the attribute). The SDK says it is set
     /// automatically at creation only for objects with a dictionary constructor, which median's
     /// objects are not: give the field its initial value in `new` as well. Numbers are written
-    /// as the attribute's type (a long attribute gets a whole number).
+    /// as the attribute's type: a float attribute gets a float (`5` as `5.0`), a long attribute
+    /// a whole number (`0.5` truncated), and an integer stays an integer for every other type
+    /// (`atom`, `symbol`, pointers).
     pub fn default(mut self, value: impl Into<AttrDefault>) -> Self {
         self.default = Some(value.into());
         self
@@ -991,10 +993,12 @@ pub(crate) unsafe fn add_attr_attrs(
     }
     if let Some(default) = o.default {
         let t = match default {
-            AttrDefault::Int(v) if matches!(ty, AttrType::Int64 | AttrType::Char) => {
-                text(v.to_string())?
+            //a float attribute gets a float ("5.0", so Max parses it as one); every other type
+            //(long, char, atom, symbol, pointers) the whole number as written
+            AttrDefault::Int(v) if matches!(ty, AttrType::Float64 | AttrType::Float32) => {
+                text(number_text(v as f64, ty))?
             }
-            AttrDefault::Int(v) => text(number_text(v as f64, ty))?,
+            AttrDefault::Int(v) => text(v.to_string())?,
             AttrDefault::Float(v) => text(number_text(v, ty))?,
             AttrDefault::Parse(s) => s.to_owned(),
         };
