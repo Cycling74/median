@@ -9,7 +9,7 @@ use crate::{
     method::*,
     object::{MaxObj, ObjRef},
     symbol::SymbolRef,
-    wrapper::{ObjWrapped, WrapperWrapped},
+    wrapper::WrapperWrapped,
 };
 use max_sys::t_atom_long;
 use median_mock::{Kernel, Level};
@@ -53,9 +53,22 @@ impl<T> Wrap<T> {
 // SAFETY: `repr(C)` with a `t_object` first
 unsafe impl<T> MaxObj for Wrap<T> {}
 
-impl<T> WrapperWrapped<T> for Wrap<T> {
+/// The `report_error` hook of a wrapped type, as `MaxObjWrapped` has it.
+trait Hook {
+    fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
+        obj.error(err);
+    }
+}
+
+impl<T: Hook> WrapperWrapped<T> for Wrap<T> {
     fn wrapped(&self) -> &T {
         &self.t
+    }
+    fn report_error(&self, err: &dyn Display) {
+        //what the real wrappers do: a handle for the call only
+        // SAFETY: `obj` is the header of this live object, the handle is dropped on return
+        let obj = unsafe { ObjRef::from_raw(std::ptr::NonNull::from(&self.obj)) };
+        self.t.report_error(&obj, err);
     }
 }
 
@@ -76,10 +89,7 @@ impl Probe {
     }
 }
 
-impl ObjWrapped<Probe> for Probe {
-    fn class_name() -> &'static str {
-        "probe"
-    }
+impl Hook for Probe {
     fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
         self.reported
             .lock()
@@ -92,11 +102,7 @@ impl ObjWrapped<Probe> for Probe {
 #[derive(Default)]
 struct Plain;
 
-impl ObjWrapped<Plain> for Plain {
-    fn class_name() -> &'static str {
-        "plain"
-    }
-}
+impl Hook for Plain {}
 
 type W = Wrap<Probe>;
 
@@ -387,10 +393,7 @@ fn panic_is_contained() {
 fn panic_in_report_error_is_contained() {
     let k = median_mock::lock();
     struct Bad;
-    impl ObjWrapped<Bad> for Bad {
-        fn class_name() -> &'static str {
-            "bad"
-        }
+    impl Hook for Bad {
         fn report_error(&self, _obj: &ObjRef, _err: &dyn Display) {
             panic!("report failed");
         }
@@ -457,7 +460,7 @@ unsafe extern "C" fn free_w(w: *mut W) {
 #[test]
 fn class_registers_the_methods() {
     let k = median_mock::lock();
-    let mut c: Class<W> = Class::new("median_test_methods", new_w, Some(free_w));
+    let mut c: Class<W> = Class::new(c"median_test_methods", new_w, Some(free_w));
     CLASS.store(c.inner(), Ordering::SeqCst);
 
     c.add_bang(|p: &Probe| p.log("bang")).unwrap();

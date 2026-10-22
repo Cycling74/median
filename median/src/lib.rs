@@ -5,7 +5,7 @@
 //! A very basic external the has `bang`, `int`, `list`, and `any` methods.
 //! *See the examples folder for more detailed examples.*
 //!
-//! ```no_run
+//! ```ignore
 //! use median::{
 //!     atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::ObjRef, post,
 //!     symbol::SymbolRef, wrapper::*,
@@ -76,12 +76,6 @@ pub use self::max::*;
 
 pub use max_sys;
 
-/// Wrap the given code in ext_main
-pub use median_macros::ext_main;
-/// Create an external with the wrapped contents.
-pub use median_macros::external;
-/// Create an external with the wrapped contents, don't register ext_main.
-pub use median_macros::external_no_main;
 
 /// Post a message to the Max console, using the same format as `std::format!`.
 #[macro_export]

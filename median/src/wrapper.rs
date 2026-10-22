@@ -6,6 +6,7 @@ use crate::{
     buffer::BufferRef,
     builder::{MSPWrappedBuilder, ManagedBufferRefInternal, MaxWrappedBuilder, WrappedBuilder},
     class::{Class, ClassType},
+    error::MaxResult,
     clock::ClockShared,
     inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
@@ -56,18 +57,8 @@ pub enum AssistIOlet {
 }
 
 //reexports
-///trampoline for attribute getters
-pub use median_macros::wrapped_attr_get_tramp as attr_get_tramp;
-///trampoline for attribute setters
-pub use median_macros::wrapped_attr_set_tramp as attr_set_tramp;
 ///trampoline for deffered calls
 pub use median_macros::wrapped_defer_tramp as defer_tramp;
-///trampoline for list methods (ditch selector)
-pub use median_macros::wrapped_list_tramp as list_tramp;
-///trampoline for seletor list methods
-pub use median_macros::wrapped_sel_list_tramp as sel_list_tramp;
-///general use trampoline
-pub use median_macros::wrapped_tramp as tramp;
 
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
 //Send
@@ -75,30 +66,135 @@ pub use median_macros::wrapped_tramp as tramp;
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
 
-/// A trait used by both Max and MSP objects.
+/// The identity of a class: its name, its box type and which wrapper it lives in.
 ///
-/// # Remarks
-/// If you're using the macro system to wrap your external and unless you need to override the
-/// `ClassType` or `handle_notification`, you might not actually implement this explicitly.
-pub trait ObjWrapped<T>: Sized + Sync + 'static {
+/// `#[derive(MaxObject)]` implements this; by hand it is:
+///
+/// ```
+/// # use median::{class::ClassType, wrapper::*};
+/// # use std::ffi::CStr;
+/// # struct Simp;
+/// impl ObjClass for Simp {
+///     type Wrapper = MaxObjWrapper<Self>; // MSPObjWrapper<Self> for an MSP object
+///     fn class_name() -> &'static CStr {
+///         c"simp"
+///     }
+///     // optional, `ClassType::Box` by default
+///     fn class_type() -> ClassType {
+///         ClassType::Box
+///     }
+/// }
+/// ```
+///
+/// [`MaxObjWrapped`] requires `Wrapper = MaxObjWrapper<Self>` and [`MSPObjWrapped`] requires
+/// `Wrapper = MSPObjWrapper<Self>`, so a type can't be both, and a mismatch between the two
+/// impls is a type error.
+pub trait ObjClass: Sized {
+    /// The wrapper that Max allocates for an object of this class: [`MaxObjWrapper<Self>`] or
+    /// [`MSPObjWrapper<Self>`].
+    type Wrapper;
+
     /// The name of your class, this is what you'll type into a box in Max if your class is a
     /// `ClassType::Box`.
-    ///
-    /// You can add additional aliases in the `class_setup` method.
-    fn class_name() -> &'static str;
+    fn class_name() -> &'static CStr;
 
     /// The type of your class. Defaults to 'box' which creates visual objects in Max.
     fn class_type() -> ClassType {
         ClassType::Box
     }
+}
 
-    /// Handle notifications that your object gets
-    fn handle_notification(&self, _notification: &Notification) {}
+/// The message methods of a class, registered with Max when the class is.
+///
+/// `#[median::methods]` on your inherent impl implements this from the marked methods
+/// (`#[bang]`, `#[int]`, `#[sel("name")]` ...). A type without such a block uses
+/// `#[max(no_methods)]` on the derive, or writes `impl Methods for Foo {}`. By hand, call the
+/// [`Class`] registration methods:
+///
+/// ```
+/// # use median::{class::Class, error::MaxResult, object::MaxObj, wrapper::*};
+/// # struct Simp;
+/// # impl Simp { fn bang(&self) {} }
+/// impl Methods for Simp {
+///     fn register<W>(c: &mut Class<W>) -> MaxResult<()>
+///     where
+///         W: WrapperWrapped<Self> + MaxObj,
+///     {
+///         c.add_bang(Self::bang)?;
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// The wrapper calls it once, when the class is registered, after [`FieldAttrs::register_attrs`]
+/// and before `class_setup`. An `Err` stops the registration: the error is posted to the Max
+/// console and the class is not registered.
+pub trait Methods: Sized {
+    /// Register the methods. `W` is the wrapper type, it is inferred.
+    fn register<W>(_class: &mut Class<W>) -> MaxResult<()>
+    where
+        W: WrapperWrapped<Self> + MaxObj,
+    {
+        Ok(())
+    }
+}
 
-    /// Called when a method registered with `Class::add_*` (`add_bang`, `add_int`, `add_sel`, ...)
-    /// returns `Err`, with the error. By default it is posted to the Max console as an error for
-    /// the object. Override it to route errors elsewhere, to a status outlet or a logger for
-    /// example.
+/// The attributes backed by fields of the struct (`#[attr]` on a field, with
+/// `#[derive(MaxObject)]`), registered with Max when the class is.
+///
+/// The derive always implements this, with an empty body when no field has `#[attr]`. By hand,
+/// call [`Class::add_field_attr`] (or write `impl FieldAttrs for Foo {}` for none):
+///
+/// ```
+/// # use median::{attr::AttrOptions, class::Class, error::MaxResult, num::Int64, object::MaxObj, wrapper::*};
+/// # struct Simp { value: Int64 }
+/// impl FieldAttrs for Simp {
+///     fn register_attrs<W>(c: &mut Class<W>) -> MaxResult<()>
+///     where
+///         W: WrapperWrapped<Self> + MaxObj,
+///     {
+///         c.add_field_attr(c"value", |s: &Self| &s.value, AttrOptions::new().clip(0., 100.))
+///     }
+/// }
+/// ```
+///
+/// Called first when the class is registered, before [`Methods::register`] and `class_setup`.
+pub trait FieldAttrs: Sized {
+    /// Register the attributes. `W` is the wrapper type, it is inferred.
+    fn register_attrs<W>(_class: &mut Class<W>) -> MaxResult<()>
+    where
+        W: WrapperWrapped<Self> + MaxObj,
+    {
+        Ok(())
+    }
+}
+
+/// The trait to implement for your object to be wrapped as a Max object.
+///
+/// The supertraits are the class identity ([`ObjClass`], with `Wrapper = MaxObjWrapper<Self>`),
+/// the message methods ([`Methods`]) and the field attributes ([`FieldAttrs`]); with
+/// `#[derive(MaxObject)]` and `#[median::methods]` they are generated. Registration calls
+/// [`FieldAttrs::register_attrs`], then [`Methods::register`], then [`MaxObjWrapped::class_setup`].
+pub trait MaxObjWrapped:
+    ObjClass<Wrapper = MaxObjWrapper<Self>> + Methods + FieldAttrs + Sync + 'static
+{
+    /// A constructor for your object.
+    ///
+    /// # Arguments
+    ///
+    /// * `builder` - A builder for constructing inlets/oulets/etc.
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self;
+
+    /// Register anything else your class needs (aliases, methods with computed names, ...),
+    /// after the field attributes and the methods.
+    fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
+        //default, do nothing
+    }
+
+    /// Called when a method registered with `Class::add_*` (`add_bang`, `add_int`, `add_sel`,
+    /// ..., which is what `#[median::methods]` uses) or an attribute setter returns `Err`, with
+    /// the error. By default it is posted to the Max console as an error for the object.
+    /// Override it to route errors elsewhere, to a status outlet or a logger for example.
     ///
     /// `obj` is the handle of the object the method was called on, valid for the call only. It is
     /// passed in because your struct may not keep an [`ObjRef`].
@@ -106,45 +202,33 @@ pub trait ObjWrapped<T>: Sized + Sync + 'static {
         obj.error(err);
     }
 
+    /// Handle notifications that your object gets
+    fn handle_notification(&self, _notification: &Notification) {}
+
     /// Provide assistance in the case that you don't provide it along with your i/o creation
     fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
-        let v = CString::new(match iolet {
-            AssistIOlet::Inlet(i) => format!("inlet {}", i + 1),
-            AssistIOlet::Outlet(i) => format!("outlet {}", i + 1),
-        })
-        .unwrap();
-        render(v.as_c_str());
-    }
-}
-
-/// The trait to implement for your object to be wrapped as a Max object.
-pub trait MaxObjWrapped<T>: ObjWrapped<T> {
-    /// A constructor for your object.
-    ///
-    /// # Arguments
-    ///
-    /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut dyn MaxWrappedBuilder<T>) -> Self;
-
-    /// Register any methods you need for your class.
-    fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
-        //default, do nothing
+        default_assist(iolet, render)
     }
 }
 
 /// The trait to implement for your object to be wrapped as a MSP object.
-pub trait MSPObjWrapped<T>: ObjWrapped<T> {
+///
+/// As [`MaxObjWrapped`], with `Wrapper = MSPObjWrapper<Self>`, plus `perform` and `dsp_setup`.
+pub trait MSPObjWrapped:
+    ObjClass<Wrapper = MSPObjWrapper<Self>> + Methods + FieldAttrs + Sync + 'static
+{
     /// A constructor for your object.
     ///
     /// # Arguments
     ///
     /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut dyn MSPWrappedBuilder<T>) -> Self;
+    fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self;
 
     /// Perform DSP.
     fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], nframes: usize);
 
-    /// Register any methods you need for your class.
+    /// Register anything else your class needs (aliases, methods with computed names, ...),
+    /// after the field attributes and the methods.
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
         //default, do nothing
     }
@@ -159,11 +243,42 @@ pub trait MSPObjWrapped<T>: ObjWrapped<T> {
     /// * Your best guess of the sample rate before DSP is toggled on is the value from [`max_sys::sys_getsr()`]
     #[allow(unused)]
     fn dsp_setup(&self, sample_rate: f64) {}
+
+    /// As [`MaxObjWrapped::report_error`].
+    fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
+        obj.error(err);
+    }
+
+    /// Handle notifications that your object gets
+    fn handle_notification(&self, _notification: &Notification) {}
+
+    /// Provide assistance in the case that you don't provide it along with your i/o creation
+    fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
+        default_assist(iolet, render)
+    }
 }
 
+/// The assist string for an iolet without one: "inlet N" or "outlet N".
+fn default_assist<F: FnOnce(&CStr)>(iolet: AssistIOlet, render: F) {
+    let v = CString::new(match iolet {
+        AssistIOlet::Inlet(i) => format!("inlet {}", i + 1),
+        AssistIOlet::Outlet(i) => format!("outlet {}", i + 1),
+    })
+    .unwrap();
+    render(v.as_c_str());
+}
+
+/// What a wrapper type gives the generic trampolines (`Class::add_*`): the wrapped value, and the
+/// hooks of the wrapped type that they call.
+///
+/// Implemented by [`MaxObjWrapper`] and [`MSPObjWrapper`].
 pub trait WrapperWrapped<T> {
     /// Retrieve a reference to your wrapped class.
     fn wrapped(&self) -> &T;
+
+    /// Give an error returned by a method of the wrapped value to its `report_error` hook
+    /// ([`MaxObjWrapped::report_error`] or [`MSPObjWrapped::report_error`]).
+    fn report_error(&self, err: &dyn Display);
 }
 
 /// The actual struct that is given to max
@@ -259,6 +374,7 @@ mod sealed {
         fn call_int(&self, index: usize, value: max_sys::t_atom_long);
 
         fn handle_notification(&self, notification: &Notification);
+        fn report_error(&self, obj: &ObjRef, err: &dyn Display);
         /// # Safety
         /// `s` must point to a writable buffer of at least `ASSIST_MAX` bytes, as Max passes to an
         /// assist method.
@@ -273,7 +389,7 @@ unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
 
 impl<T> WrapperInternal<max_sys::t_object, T> for MaxWrapperInternal<T>
 where
-    T: MaxObjWrapped<T> + Sync + 'static,
+    T: MaxObjWrapped,
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
@@ -298,6 +414,7 @@ where
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
+        register_members::<_, T>(class);
         T::class_setup(class);
     }
     fn call_float(&self, index: usize, value: f64) {
@@ -313,6 +430,9 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
+    }
+    fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
+        self.wrapped().report_error(obj, err);
     }
     unsafe fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
         let render = |src: &CStr| unsafe {
@@ -350,7 +470,7 @@ where
 
 impl<T> WrapperInternal<max_sys::t_pxobject, T> for MSPWrapperInternal<T>
 where
-    T: MSPObjWrapped<T> + Sync + 'static,
+    T: MSPObjWrapped,
 {
     fn wrapped(&self) -> &T {
         &self.wrapped
@@ -384,6 +504,7 @@ where
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
+        register_members::<_, T>(class);
         T::class_setup(class);
     }
     fn call_float(&self, index: usize, value: f64) {
@@ -399,6 +520,9 @@ where
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
         self.wrapped().handle_notification(notification);
+    }
+    fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
+        self.wrapped().report_error(obj, err);
     }
     unsafe fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
         let render = |src: &CStr| unsafe {
@@ -431,6 +555,24 @@ where
         };
 
         self.wrapped().assist(iolet, render);
+    }
+}
+
+/// Register the field attributes and the methods of `T`, in that order, before its `class_setup`.
+///
+/// # Panics
+/// If one of them fails: registration stops, and the class is not registered. (`register` runs
+/// inside the panic guard of `ext_main`, or of the derived `register`, which posts the message.)
+fn register_members<W, T>(class: &mut Class<W>)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: FieldAttrs + Methods,
+{
+    if let Err(e) = T::register_attrs(class) {
+        panic!("{}: failed to register the field attributes: {:?}", key::<T>(), e);
+    }
+    if let Err(e) = <T as Methods>::register(class) {
+        panic!("{}: failed to register the methods: {:?}", key::<T>(), e);
     }
 }
 
@@ -469,7 +611,7 @@ const MAX_SIGNAL_IO: usize = 64;
 
 impl<T> MSPWrapperInternal<T>
 where
-    T: MSPObjWrapped<T> + Sync + 'static,
+    T: MSPObjWrapped,
 {
     /// Report (once, at dsp64 time) if this object has more signal inlets/outlets than
     /// `perform64` can hand to user code.
@@ -576,10 +718,19 @@ where
 impl<O, I, T> WrapperWrapped<T> for Wrapper<O, I, T>
 where
     I: WrapperInternal<O, T>,
-    T: ObjWrapped<T>,
 {
     fn wrapped(&self) -> &T {
         self.internal().wrapped()
+    }
+
+    fn report_error(&self, err: &dyn Display) {
+        let internal = self.internal();
+        // SAFETY: `s_obj` is the header of this live object, and the handle is dropped when this
+        // call returns, so it can't outlive the object
+        let obj = unsafe {
+            ObjRef::from_raw(std::ptr::NonNull::from(&self.s_obj).cast::<max_sys::t_object>())
+        };
+        internal.report_error(&obj, err);
     }
 }
 
@@ -624,7 +775,6 @@ macro_rules! int_float_tramps {
 impl<O, I, T> Wrapper<O, I, T>
 where
     I: WrapperInternal<O, T>,
-    T: ObjWrapped<T>,
 {
     /// The internals of an object whose construction has finished.
     ///
@@ -725,6 +875,7 @@ where
         creator: F,
     ) where
         F: Fn() -> Class<Self>,
+        T: ObjClass,
     {
         let key = key::<T>();
         let mut h = CLASSES.lock().unwrap_or_else(PoisonError::into_inner);
@@ -732,7 +883,7 @@ where
             //don't lookup class unless we want to, because max might try to register it which
             //could cause a loop
             let existing = if lookup_class {
-                Class::<T>::find_in_max(T::class_name(), T::class_type())
+                Class::<Self>::find_in_max(T::class_name(), T::class_type())
             } else {
                 std::ptr::null_mut()
             };
@@ -781,18 +932,29 @@ fn key<T>() -> &'static str {
 
 impl<T> Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>
 where
-    T: MaxObjWrapped<T>,
+    T: MaxObjWrapped,
 {
-    /// Register the class with Max.
+    /// Register the class with Max: its field attributes, its methods, then `T::class_setup`.
+    /// `#[derive(MaxObject)]` generates a `T::register()` that calls this, and `ext_main!`
+    /// calls that.
     ///
     /// # Remarks
     ///
-    /// This method expects to only be called from the main thread. Internally, it locks a mutex
-    /// and looks up your class by type name. If your class has alrady been registered it won't
-    /// re-register.
+    /// Call it from `ext_main`, on Max's main thread. Internally, it locks a mutex and looks up
+    /// your class by type name. If your class has already been registered it won't re-register.
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
-    pub unsafe fn register(lookup_class: bool) {
+    ///
+    /// # Panics
+    /// If Max fails to register the class, or one of its attributes or methods.
+    pub fn register() {
+        Self::register_with(false)
+    }
+
+    /// `register`; with `lookup_class`, an existing class of the same name in Max is used
+    /// instead of making one (for median's internal classes, which other externals built with
+    /// the same median may have registered already).
+    pub(crate) fn register_with(lookup_class: bool) {
         Self::register_common(
             lookup_class,
             Self::handle_notification_tramp,
@@ -907,18 +1069,29 @@ where
 
 impl<T> MSPObjWrapper<T>
 where
-    T: MSPObjWrapped<T> + Sync + 'static,
+    T: MSPObjWrapped,
 {
-    /// Register the class with Max.
+    /// Register the class with Max: its field attributes, its methods, then `T::class_setup`.
+    /// `#[derive(MaxObject)]` generates a `T::register()` that calls this, and `ext_main!`
+    /// calls that.
     ///
     /// # Remarks
     ///
-    /// This method expects to only be called from the main thread. Internally, it locks a mutex
-    /// and looks up your class by type name. If your class has alrady been registered it won't
-    /// re-register.
+    /// Call it from `ext_main`, on Max's main thread. Internally, it locks a mutex and looks up
+    /// your class by type name. If your class has already been registered it won't re-register.
     ///
     /// This will deadlock if you call `register()` again inside your `T::class_setup()`.
-    pub unsafe fn register(lookup_class: bool) {
+    ///
+    /// # Panics
+    /// If Max fails to register the class, or one of its attributes or methods.
+    pub fn register() {
+        Self::register_with(false)
+    }
+
+    /// `register`; with `lookup_class`, an existing class of the same name in Max is used
+    /// instead of making one (for median's internal classes, which other externals built with
+    /// the same median may have registered already).
+    pub(crate) fn register_with(lookup_class: bool) {
         Self::register_common(
             lookup_class,
             Self::handle_notification_tramp,
@@ -1192,9 +1365,18 @@ mod tests {
 
     struct P;
 
-    impl ObjWrapped<P> for P {
-        fn class_name() -> &'static str {
-            "p"
+    impl ObjClass for P {
+        type Wrapper = MaxObjWrapper<Self>;
+        fn class_name() -> &'static CStr {
+            c"p"
+        }
+    }
+    impl Methods for P {}
+    impl FieldAttrs for P {}
+
+    impl MaxObjWrapped for P {
+        fn new(_builder: &mut dyn MaxWrappedBuilder<P>) -> Self {
+            P
         }
         fn handle_notification(&self, _n: &Notification) {
             RAN.fetch_add(1, Ordering::SeqCst);
@@ -1204,20 +1386,29 @@ mod tests {
         }
     }
 
-    impl MaxObjWrapped<P> for P {
-        fn new(_builder: &mut dyn MaxWrappedBuilder<P>) -> Self {
-            P
+    /// The MSP twin of `P`.
+    struct Q;
+
+    impl ObjClass for Q {
+        type Wrapper = MSPObjWrapper<Self>;
+        fn class_name() -> &'static CStr {
+            c"q"
         }
     }
+    impl Methods for Q {}
+    impl FieldAttrs for Q {}
 
-    impl MSPObjWrapped<P> for P {
-        fn new(_builder: &mut dyn MSPWrappedBuilder<P>) -> Self {
-            P
+    impl MSPObjWrapped for Q {
+        fn new(_builder: &mut dyn MSPWrappedBuilder<Q>) -> Self {
+            Q
         }
         fn perform(&self, _: &[&[f64]], _: &mut [&mut [f64]], _: usize) {
             RAN.fetch_add(1, Ordering::SeqCst);
         }
         fn dsp_setup(&self, _: f64) {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        }
+        fn handle_notification(&self, _n: &Notification) {
             RAN.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -1230,8 +1421,13 @@ mod tests {
         Box::new(unsafe { MaybeUninit::zeroed().assume_init() })
     }
 
-    /// The refusal that every trampoline posts for a half-built object.
-    const REFUSED: &str = "median: panic in {}: median::wrapper::tests::P: object used before construction finished";
+    /// The refusal that every trampoline posts for a half-built object of type `T`.
+    fn refused_by<T>(what: &str) -> Vec<String> {
+        vec![format!(
+            "median: panic in {what}: {}: object used before construction finished",
+            key::<T>()
+        )]
+    }
 
     /// Run `f` and return the errors that were posted for `w` meanwhile, oldest first.
     fn errors_during<W: MaxObj>(k: &Kernel, w: &W, f: impl FnOnce()) -> Vec<String> {
@@ -1240,9 +1436,9 @@ mod tests {
         errors_for(k, w.max_obj()).split_off(before)
     }
 
-    /// What `errors_during` should return when only the trampoline `what` refused.
+    /// What `errors_during` should return when only the trampoline `what` of a `P` refused.
     fn refused(what: &str) -> Vec<String> {
-        vec![REFUSED.replacen("{}", what, 1)]
+        refused_by::<P>(what)
     }
 
     #[test]
@@ -1295,7 +1491,7 @@ mod tests {
             )),
             refused("assist")
         );
-        //what the trampolines that `median_macros` generates do
+        //what the `defer_tramp` trampolines do
         assert_eq!(
             errors_during(&k, &*w, || crate::ffi::guard(&*w, "method", || {
                 let _: &P = WrapperWrapped::wrapped(&*w);
@@ -1303,14 +1499,49 @@ mod tests {
             })),
             refused("method")
         );
+        //the attribute accessors (`Class::add_attr`, `#[attr]`) return an error to Max
+        fn get(_: &P) -> f64 {
+            RAN.fetch_add(1, Ordering::SeqCst);
+            1.
+        }
+        fn set(_: &P, _: f64) {
+            RAN.fetch_add(1, Ordering::SeqCst);
+        }
+        fn getter<G: Fn(&P) -> f64 + Copy>(_: G) -> crate::attr::AttrTrampGetMethod<W> {
+            crate::attr::get_tramp::<W, P, G, f64>
+        }
+        fn setter<S: Fn(&P, f64) + Copy>(_: S) -> crate::attr::AttrTrampSetMethod<W> {
+            crate::attr::set_tramp::<W, P, S, f64, ()>
+        }
+        let mut ac: c_long = 0;
+        let mut av: *mut max_sys::t_atom = std::ptr::null_mut();
+        let mut code = 0;
+        assert_eq!(
+            errors_during(&k, &*w, || {
+                // SAFETY: `ac` and `av` are what Max passes to a getter
+                code = unsafe { getter(get)(&w, std::ptr::null_mut(), &mut ac, &mut av) };
+            }),
+            refused("attribute getter")
+        );
+        assert_eq!(code, crate::ffi::ERR_GENERIC);
+        assert!(av.is_null());
+        let mut atom: max_sys::t_atom = crate::atom::Atom::from(2.).value;
+        assert_eq!(
+            errors_during(&k, &*w, || {
+                // SAFETY: one valid atom, as Max passes to a setter
+                code = unsafe { setter(set)(&w, std::ptr::null_mut(), 1, &mut atom) };
+            }),
+            refused("attribute setter")
+        );
+        assert_eq!(code, crate::ffi::ERR_GENERIC);
         assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 
     #[test]
     fn msp_object_refuses_a_half_built_object() {
         let k = median_mock::lock();
-        type W = MSPObjWrapper<P>;
-        let w = half_built::<_, _, P>();
+        type W = MSPObjWrapper<Q>;
+        let w = half_built::<_, _, Q>();
         let ran = RAN.load(Ordering::SeqCst);
 
         assert_eq!(
@@ -1327,7 +1558,7 @@ mod tests {
         );
         //no perform routine was added, so `perform64` can't run on it
         assert!(k.dsp_adds().is_empty());
-        assert_eq!(errors_during(&k, &*w, || W::call_in1(&w, 3)), refused("in1"));
+        assert_eq!(errors_during(&k, &*w, || W::call_in1(&w, 3)), refused_by::<Q>("in1"));
         assert_eq!(RAN.load(Ordering::SeqCst), ran);
     }
 }

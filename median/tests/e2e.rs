@@ -14,21 +14,23 @@
 
 use median::{
     atom::Atom,
-    attr::{AttrBuilder, AttrType},
+    attr::AttrOptions,
     builder::{MSPWrappedBuilder, MaxWrappedBuilder},
     class::Class,
     clock::ClockHandle,
+    error::MaxResult,
     inlet::MaxInlet,
     max_sys::t_atom_long,
     num::{Float64, Int64},
-    object::ObjRef,
+    object::{MaxObj, ObjRef},
     outlet::{OutBang, OutInt, OutList},
     symbol::SymbolRef,
     wrapper::{
-        MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, ObjWrapped, attr_get_tramp,
-        attr_set_tramp,
+        FieldAttrs, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass,
+        WrapperWrapped,
     },
 };
+use std::ffi::CStr;
 use median_mock::{Atom as MockAtom, AttrError, Level, Role, SendError};
 use std::sync::{
     Once,
@@ -38,96 +40,84 @@ use std::sync::{
 /// How many `Thing`s and `Typed`s have been dropped.
 static DROPPED: AtomicUsize = AtomicUsize::new(0);
 
-median::external! {
-    #[name = "e2e.thing"]
-    pub struct Thing {
-        obj: ObjRef,
-        value: Int64,
-        fvalue: Float64,
-                int_out: OutInt,
-        list_out: OutList,
+pub struct Thing {
+    obj: ObjRef,
+    value: Int64,
+    fvalue: Float64,
+    int_out: OutInt,
+    list_out: OutList,
+}
+
+impl ObjClass for Thing {
+    type Wrapper = MaxObjWrapper<Self>;
+    fn class_name() -> &'static CStr {
+        c"e2e.thing"
     }
+}
 
-    impl MaxObjWrapped<Thing> for Thing {
-        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            let start = builder.creation_args().first().map_or(0, |a| a.get_int());
-            let _ = builder.add_inlet(MaxInlet::Proxy);
-            Self {
-                obj: builder.obj(),
-                value: Int64::new(start),
-                fvalue: Float64::new(0.),
-                int_out: builder.add_int_outlet(),
-                list_out: builder.add_list_outlet(),
-            }
-        }
+impl FieldAttrs for Thing {}
 
-        fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-            c.add_attribute(
-                AttrBuilder::new_accessors(
-                    "foo",
-                    AttrType::Float64,
-                    Self::foo_tramp,
-                    Self::set_foo_tramp,
-                )
-                .build()
-                .unwrap(),
-            )
-            .unwrap();
-            c.add_attribute(
-                AttrBuilder::new_accessors(
-                    "blah",
-                    AttrType::Int64,
-                    Self::blah_tramp,
-                    Self::set_blah_tramp,
-                )
-                .build()
-                .unwrap(),
-            )
-            .unwrap();
+impl Methods for Thing {
+    fn register<W>(c: &mut Class<W>) -> MaxResult<()>
+    where
+        W: WrapperWrapped<Self> + MaxObj,
+    {
+        c.add_bang(Self::bang)?;
+        c.add_int(Self::int)?;
+        c.add_list(Self::list)?;
+        c.add_attr(c"foo", Self::foo, Self::set_foo, AttrOptions::new())?;
+        c.add_attr(c"blah", Self::blah, Self::set_blah, AttrOptions::new())?;
+        Ok(())
+    }
+}
+
+impl MaxObjWrapped for Thing {
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        let start = builder.creation_args().first().map_or(0, |a| a.get_int());
+        let _ = builder.add_inlet(MaxInlet::Proxy);
+        Self {
+            obj: builder.obj(),
+            value: Int64::new(start),
+            fvalue: Float64::new(0.),
+            int_out: builder.add_int_outlet(),
+            list_out: builder.add_list_outlet(),
         }
     }
+}
 
-    impl Thing {
-        #[bang]
-        pub fn bang(&self) {
-            median::object_post!(&self.obj, "bang from inlet {}", self.obj.proxy_inlet());
-        }
+impl Thing {
+    pub fn bang(&self) {
+        median::object_post!(&self.obj, "bang from inlet {}", self.obj.proxy_inlet());
+    }
 
-        #[int]
-        pub fn int(&self, v: t_atom_long) {
-            self.value.set(v);
-            let _ = self.int_out.send(v * 2);
-        }
+    pub fn int(&self, v: t_atom_long) {
+        self.value.set(v);
+        let _ = self.int_out.send(v * 2);
+    }
 
-        #[list]
-        pub fn list(&self, atoms: &[Atom]) {
-            let rev: Vec<Atom> = atoms
-                .iter()
-                .rev()
-                .map(|a| Atom::from(a.get_value().unwrap()))
-                .collect();
-            let _ = self.list_out.send(&rev);
-        }
+    pub fn list(&self, atoms: &[Atom]) {
+        let rev: Vec<Atom> = atoms
+            .iter()
+            .rev()
+            .map(|a| Atom::from(a.get_value().unwrap()))
+            .collect();
+        let _ = self.list_out.send(&rev);
+    }
 
-        #[attr_get_tramp]
-        pub fn foo(&self) -> f64 {
-            self.fvalue.get()
-        }
+    pub fn foo(&self) -> f64 {
+        self.fvalue.get()
+    }
 
-        #[attr_set_tramp]
-        pub fn set_foo(&self, v: f64) {
-            self.fvalue.set(v);
-        }
+    pub fn set_foo(&self, v: f64) {
+        self.fvalue.set(v);
+    }
 
-        #[attr_get_tramp]
-        pub fn blah(&self) -> t_atom_long {
-            self.value.get()
-        }
+    pub fn blah(&self) -> t_atom_long {
+        self.value.get()
+    }
 
-        #[attr_set_tramp]
-        pub fn set_blah(&self, v: t_atom_long) {
-            self.value.set(v);
-        }
+    pub fn set_blah(&self, v: t_atom_long) {
+        self.value.set(v);
     }
 }
 
@@ -149,13 +139,17 @@ impl Drop for Typed {
     }
 }
 
-impl ObjWrapped<Typed> for Typed {
-    fn class_name() -> &'static str {
-        "e2e.typed"
+impl ObjClass for Typed {
+    type Wrapper = MaxObjWrapper<Self>;
+    fn class_name() -> &'static CStr {
+        c"e2e.typed"
     }
 }
 
-impl MaxObjWrapped<Typed> for Typed {
+impl FieldAttrs for Typed {}
+impl Methods for Typed {}
+
+impl MaxObjWrapped for Typed {
     fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
         if builder.creation_args().first().map(|a| a.get_int()) == Some(-1) {
             panic!("no -1 for you");
@@ -226,13 +220,17 @@ pub struct Ticker {
     ticks: Int64,
 }
 
-impl ObjWrapped<Ticker> for Ticker {
-    fn class_name() -> &'static str {
-        "e2e.ticker"
+impl ObjClass for Ticker {
+    type Wrapper = MaxObjWrapper<Self>;
+    fn class_name() -> &'static CStr {
+        c"e2e.ticker"
     }
 }
 
-impl MaxObjWrapped<Ticker> for Ticker {
+impl FieldAttrs for Ticker {}
+impl Methods for Ticker {}
+
+impl MaxObjWrapped for Ticker {
     fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
         Self {
             clock: builder.with_clockfn(Self::clocked),
@@ -261,13 +259,17 @@ pub struct Dsp {
     obj: ObjRef,
 }
 
-impl ObjWrapped<Dsp> for Dsp {
-    fn class_name() -> &'static str {
-        "e2e.dsp~"
+impl ObjClass for Dsp {
+    type Wrapper = MSPObjWrapper<Self>;
+    fn class_name() -> &'static CStr {
+        c"e2e.dsp~"
     }
 }
 
-impl MSPObjWrapped<Dsp> for Dsp {
+impl FieldAttrs for Dsp {}
+impl Methods for Dsp {}
+
+impl MSPObjWrapped for Dsp {
     fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self {
         builder.add_signal_inlets_with_assist(&["in left", "in right"]);
         builder.add_signal_outlets_with_assist(&["out"]);
@@ -288,15 +290,10 @@ impl MSPObjWrapped<Dsp> for Dsp {
 fn register() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        // `external!` made `ext_main`, which registers `Thing`
-        // SAFETY: that is how Max calls it, on its main thread
-        unsafe { ext_main(std::ptr::null_mut()) };
-        // SAFETY: as above, for the hand written ones
-        unsafe {
-            MaxObjWrapper::<Typed>::register(false);
-            MaxObjWrapper::<Ticker>::register(false);
-            MSPObjWrapper::<Dsp>::register(false);
-        }
+        MaxObjWrapper::<Thing>::register();
+        MaxObjWrapper::<Typed>::register();
+        MaxObjWrapper::<Ticker>::register();
+        MSPObjWrapper::<Dsp>::register();
     });
 }
 
@@ -334,8 +331,7 @@ fn registration_makes_the_classes_with_their_methods_and_attributes() {
     assert!(k.free_object(thing));
 
     //registering again is a no-op: the class is the same
-    // SAFETY: as in `register`
-    unsafe { MaxObjWrapper::<Typed>::register(false) };
+    MaxObjWrapper::<Typed>::register();
     let typed = k.new_object("e2e.typed", &[]);
     for sel in ["bang", "int", "float", "list", "anything", "set", "range"] {
         assert!(k.method(typed, sel).is_some(), "{sel}");

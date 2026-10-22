@@ -3,47 +3,15 @@ use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
-    spanned::Spanned,
-    FnArg, Ident, ImplItemFn, Pat, Type,
+    Ident, ImplItemFn, Type,
 };
 
 type Res<T> = syn::parse::Result<T>;
-
-pub fn wrapped_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
-    crate::error::wrap(wrapped_tramp_with_type(wrapper, meth))
-}
 
 pub fn defer_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
     let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
     let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
     crate::error::wrap(wrapped_defer_tramp_with_type(wrapper, meth))
-}
-
-pub fn wrapped_sel_list_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
-    crate::error::wrap(wrapped_sel_list_tramp_with_type(wrapper, meth))
-}
-
-// tramp still has selector, but it isn't passed on to wrapped method
-pub fn wrapped_list_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
-    crate::error::wrap(wrapped_list_tramp_with_type(wrapper, meth))
-}
-
-pub fn wrapped_attr_get_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
-    crate::error::wrap(wrapped_attr_get_tramp_with_type(wrapper, meth))
-}
-
-pub fn wrapped_attr_set_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let TrampArgs { wrapper } = parse_macro_input!(attr as TrampArgs);
-    let meth: ImplItemFn = parse_macro_input!(item as ImplItemFn);
-    crate::error::wrap(wrapped_attr_set_tramp_with_type(wrapper, meth))
 }
 
 struct Names {
@@ -61,35 +29,6 @@ fn get_names(meth: &ImplItemFn) -> Names {
         meth_name,
         tramp_name,
     }
-}
-
-pub fn wrapped_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
-    let Names {
-        meth_name,
-        tramp_name,
-    } = get_names(&meth);
-    //get args, skip self
-    let args: Vec<&FnArg> = meth.sig.inputs.iter().skip(1).collect();
-    let vars = args
-        .iter()
-        .map(|a| match a {
-            FnArg::Receiver(r) => Err(syn::Error::new(
-                r.span(),
-                format!("unexpected type in signature"),
-            )),
-            FnArg::Typed(t) => Ok(t.clone().pat),
-        })
-        .collect::<Result<Vec<Box<Pat>>, _>>()?;
-    let expanded = quote! {
-        pub extern "C" fn #tramp_name(wrapper: &#t, #(#args),*) {
-            //a panic in the method is posted to the Max console instead of unwinding into Max
-            ::median::ffi::guard(wrapper, stringify!(#meth_name), || {
-                ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*)
-            })
-        }
-        #meth
-    };
-    Ok(expanded.into())
 }
 
 pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
@@ -117,141 +56,6 @@ pub fn wrapped_defer_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStre
                     ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
                 });
             })
-        }
-        #meth
-    };
-    Ok(expanded.into())
-}
-
-pub fn wrapped_sel_list_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
-    let Names {
-        meth_name,
-        tramp_name,
-    } = get_names(&meth);
-    //TODO check signature
-    let expanded = quote! {
-        /// Trampoline called by Max.
-        ///
-        /// # Safety
-        /// Must only be called by Max (or through a pointer registered with Max): the object and
-        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
-        pub unsafe extern "C" fn #tramp_name(
-            wrapper: &#t,
-            sel: *mut ::median::max_sys::t_symbol,
-            ac: ::std::os::raw::c_long,
-            av: *const ::median::max_sys::t_atom,
-        ) {
-            ::median::ffi::guard(wrapper, stringify!(#meth_name), || unsafe {
-                median::method::sel_list(sel, ac, av, |sym, atoms| {
-                    ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(&sym, atoms);
-                });
-            })
-        }
-        #meth
-    };
-    Ok(expanded.into())
-}
-
-pub fn wrapped_list_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
-    let Names {
-        meth_name,
-        tramp_name,
-    } = get_names(&meth);
-    //TODO check signature
-    let expanded = quote! {
-        /// Trampoline called by Max.
-        ///
-        /// # Safety
-        /// Must only be called by Max (or through a pointer registered with Max): the object and
-        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
-        pub unsafe extern "C" fn #tramp_name(
-            wrapper: &#t,
-            sel: *mut ::median::max_sys::t_symbol,
-            ac: ::std::os::raw::c_long,
-            av: *const ::median::max_sys::t_atom,
-        ) {
-            ::median::ffi::guard(wrapper, stringify!(#meth_name), || unsafe {
-                median::method::sel_list(sel, ac, av, |_sym, atoms| {
-                    ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(atoms);
-                });
-            })
-        }
-        #meth
-    };
-    Ok(expanded.into())
-}
-
-pub fn wrapped_attr_get_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
-    let Names {
-        meth_name,
-        tramp_name,
-    } = get_names(&meth);
-    //TODO check signature to make sure it has no inputs and returns a type we support
-    let expanded = quote! {
-        /// Trampoline called by Max.
-        ///
-        /// # Safety
-        /// Must only be called by Max (or through a pointer registered with Max): the object and
-        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
-        pub unsafe extern "C" fn #tramp_name(
-            wrapper: &#t,
-            _attr: *mut ::std::ffi::c_void,
-            ac: *mut ::std::os::raw::c_long,
-            av: *mut *mut ::median::max_sys::t_atom,
-        ) -> ::median::max_sys::t_max_err {
-            ::median::ffi::guard_or(
-                wrapper,
-                stringify!(#meth_name),
-                ::median::ffi::ERR_GENERIC,
-                || unsafe {
-                    ::median::attr::get(ac, av, || ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name())
-                },
-            )
-        }
-        #meth
-    };
-    Ok(expanded.into())
-}
-
-pub fn wrapped_attr_set_tramp_with_type(t: Type, meth: ImplItemFn) -> Res<TokenStream> {
-    let Names {
-        meth_name,
-        tramp_name,
-    } = get_names(&meth);
-
-    //get args, skip self
-    let args: Vec<&FnArg> = meth.sig.inputs.iter().skip(1).collect();
-    let vars = args
-        .iter()
-        .map(|a| match a {
-            FnArg::Receiver(r) => Err(syn::Error::new(
-                r.span(),
-                format!("unexpected type in signature"),
-            )),
-            FnArg::Typed(t) => Ok(t.clone().pat),
-        })
-        .collect::<Result<Vec<Box<Pat>>, _>>()?;
-    //TODO check signature to make sure it has 1 input and no returns with the type we support
-    let expanded = quote! {
-        /// Trampoline called by Max.
-        ///
-        /// # Safety
-        /// Must only be called by Max (or through a pointer registered with Max): the object and
-        /// every pointer argument must be valid as the Max SDK guarantees for this kind of method.
-        pub unsafe extern "C" fn #tramp_name(
-            wrapper: &#t,
-            _attr: *mut ::std::ffi::c_void,
-            ac: ::std::os::raw::c_long,
-            av: *mut ::median::max_sys::t_atom,
-        ) -> ::median::max_sys::t_max_err {
-            ::median::ffi::guard_or(
-                wrapper,
-                stringify!(#meth_name),
-                ::median::ffi::ERR_GENERIC,
-                || unsafe {
-                    ::median::attr::set(ac, av, |#(#args),*| ::median::wrapper::WrapperWrapped::wrapped(wrapper).#meth_name(#(#vars),*))
-                },
-            )
         }
         #meth
     };

@@ -3,8 +3,11 @@
 use crate::atom::Atom;
 use crate::error::{MaxError, MaxResult};
 use crate::max::common_symbols;
-use crate::method::MaxMethod;
+use crate::method::{MaxMethod, MethodResult, zst};
+use crate::num::{Float32, Float64, Int64};
+use crate::object::MaxObj;
 use crate::symbol::SymbolRef;
+use crate::wrapper::WrapperWrapped;
 
 use std::ffi::c_void;
 use std::marker::PhantomData;
@@ -501,18 +504,250 @@ where
     max_sys::e_max_errorcodes::MAX_ERR_NONE as _
 }
 
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for f64 {}
+    impl Sealed for f32 {}
+    impl Sealed for max_sys::t_atom_long {}
+    impl Sealed for crate::symbol::SymbolRef {}
+}
+
+/// A value type an attribute can have: `f64` (`float64`), `f32` (`float32`), `t_atom_long`
+/// (`long`) or [`SymbolRef`] (`symbol`). It decides the attribute type registered with Max and how
+/// the value is converted to and from the atom that Max passes to the accessors.
+///
+/// This trait is sealed.
+pub trait AttrValue: Sized + sealed::Sealed + 'static {
+    /// The attribute type registered with Max.
+    const ATTR_TYPE: AttrType;
+    /// The value as an atom, for the getter.
+    fn to_atom(&self) -> Atom;
+    /// The value from the first atom given to the setter. Numbers convert as with
+    /// `atom_getfloat`/`atom_getlong`.
+    fn from_atom(atom: &Atom) -> Self;
+}
+
+impl AttrValue for f64 {
+    const ATTR_TYPE: AttrType = AttrType::Float64;
+    fn to_atom(&self) -> Atom {
+        Atom::from(*self)
+    }
+    fn from_atom(atom: &Atom) -> Self {
+        atom.get_float()
+    }
+}
+
+impl AttrValue for f32 {
+    const ATTR_TYPE: AttrType = AttrType::Float32;
+    fn to_atom(&self) -> Atom {
+        Atom::from(*self as f64)
+    }
+    fn from_atom(atom: &Atom) -> Self {
+        atom.get_float() as f32
+    }
+}
+
+impl AttrValue for max_sys::t_atom_long {
+    const ATTR_TYPE: AttrType = AttrType::Int64;
+    fn to_atom(&self) -> Atom {
+        Atom::from(*self)
+    }
+    fn from_atom(atom: &Atom) -> Self {
+        atom.get_int()
+    }
+}
+
+impl AttrValue for SymbolRef {
+    const ATTR_TYPE: AttrType = AttrType::SymbolRef;
+    fn to_atom(&self) -> Atom {
+        Atom::from(self)
+    }
+    fn from_atom(atom: &Atom) -> Self {
+        atom.get_symbol()
+    }
+}
+
+/// A field type that can back an attribute: `#[attr]` on a field with `#[derive(MaxObject)]`, or
+/// [`Class::add_field_attr`](crate::class::Class::add_field_attr) by hand. The accessors take
+/// `&self`, because Max reads and writes attributes on the main and scheduler threads while
+/// other methods (and `perform`) run, so the field needs interior mutability that is safe to
+/// share: the [`num`](crate::num) atomics implement this.
+pub trait AttrField: Sync {
+    /// The attribute's value type, which also decides its Max attribute type.
+    type Value: AttrValue;
+    /// The current value, for the attribute getter.
+    fn get(&self) -> Self::Value;
+    /// Store a value given to the attribute setter (after clipping, if the attribute clips).
+    fn set(&self, value: Self::Value);
+}
+
+impl AttrField for Int64 {
+    type Value = max_sys::t_atom_long;
+    fn get(&self) -> Self::Value {
+        Int64::get(self)
+    }
+    fn set(&self, value: Self::Value) {
+        Int64::set(self, value)
+    }
+}
+
+impl AttrField for Float64 {
+    type Value = f64;
+    fn get(&self) -> Self::Value {
+        Float64::get(self)
+    }
+    fn set(&self, value: Self::Value) {
+        Float64::set(self, value)
+    }
+}
+
+impl AttrField for Float32 {
+    type Value = f32;
+    fn get(&self) -> Self::Value {
+        Float32::get(self)
+    }
+    fn set(&self, value: Self::Value) {
+        Float32::set(self, value)
+    }
+}
+
+/// Options for an attribute registered with [`Class::add_attr`](crate::class::Class::add_attr),
+/// [`Class::add_attr_readonly`](crate::class::Class::add_attr_readonly) or
+/// [`Class::add_field_attr`](crate::class::Class::add_field_attr), and what the `#[attr(..)]`
+/// options of the macros turn into.
+///
+/// ```
+/// use median::attr::AttrOptions;
+/// let o = AttrOptions::new().clip(0., 100.);
+/// let ro = AttrOptions::new().readonly();
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct AttrOptions {
+    clip: AttrClip,
+    readonly: bool,
+}
+
+impl AttrOptions {
+    /// No clipping, readable and writable.
+    pub const fn new() -> Self {
+        Self {
+            clip: AttrClip::None,
+            readonly: false,
+        }
+    }
+
+    /// Clip values to `min..=max`, when set and when got (`attr_addfilter_clip`, what the SDK's
+    /// `CLASS_ATTR_FILTER_CLIP` does).
+    pub const fn clip(self, min: f64, max: f64) -> Self {
+        self.clip_with(AttrClip::GetSet(AttrValClip::MinMax(min, max)))
+    }
+
+    /// Any [`AttrClip`].
+    pub const fn clip_with(mut self, clip: AttrClip) -> Self {
+        self.clip = clip;
+        self
+    }
+
+    /// Users can't set the attribute (`ATTR_SET_OPAQUE_USER`); no setter is registered.
+    pub const fn readonly(mut self) -> Self {
+        self.readonly = true;
+        self
+    }
+
+    /// Whether the attribute is read-only.
+    pub const fn is_readonly(&self) -> bool {
+        self.readonly
+    }
+
+    /// The clip setting.
+    pub const fn clip_value(&self) -> AttrClip {
+        self.clip
+    }
+}
+
+impl Default for AttrOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// The attribute getter trampoline for the zero-sized getter `G` (see `Class::add_attr`).
+///
+/// # Safety
+/// Must only be called by Max as an attribute getter of the object `w`, with `ac` and `av` as Max
+/// passes them (see [`get`]).
+pub(crate) unsafe extern "C" fn get_tramp<W, T, G, V>(
+    w: &W,
+    _attr: *mut c_void,
+    ac: *mut c_long,
+    av: *mut *mut max_sys::t_atom,
+) -> max_sys::t_max_err
+where
+    W: WrapperWrapped<T> + MaxObj,
+    G: Fn(&T) -> V + Copy,
+    V: AttrValue,
+{
+    crate::ffi::guard_or(w, "attribute getter", crate::ffi::ERR_GENERIC, || {
+        // SAFETY: `G` is a zero-sized `Copy` callable, see `zst`
+        let v = (unsafe { zst::<G>() })(w.wrapped());
+        // SAFETY: the caller guarantees that `ac` and `av` are what Max passes to a getter
+        unsafe { get(ac, av, || v.to_atom()) }
+    })
+}
+
+/// The attribute setter trampoline for the zero-sized setter `S` (see `Class::add_attr`). An
+/// `Err` from the setter goes to the type's `report_error` hook and Max gets
+/// `MAX_ERR_GENERIC`.
+///
+/// # Safety
+/// Must only be called by Max as an attribute setter of the object `w`, with `ac` and `av` as Max
+/// passes them (see [`set`]).
+pub(crate) unsafe extern "C" fn set_tramp<W, T, S, V, R>(
+    w: &W,
+    _attr: *mut c_void,
+    ac: c_long,
+    av: *mut max_sys::t_atom,
+) -> max_sys::t_max_err
+where
+    W: WrapperWrapped<T> + MaxObj,
+    S: Fn(&T, V) -> R + Copy,
+    V: AttrValue,
+    R: MethodResult,
+{
+    crate::ffi::guard_or(w, "attribute setter", crate::ffi::ERR_GENERIC, || {
+        let t = w.wrapped();
+        if ac < 1 || av.is_null() {
+            return max_sys::e_max_errorcodes::MAX_ERR_NONE as _;
+        }
+        // SAFETY: the caller guarantees `av` points to `ac` (at least one) valid atoms, and
+        // `Atom` is `repr(transparent)` over `t_atom`
+        let v = V::from_atom(unsafe { &*av.cast::<Atom>() });
+        let mut code = max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err;
+        // SAFETY: `S` is a zero-sized `Copy` callable, see `zst`
+        (unsafe { zst::<S>() })(t, v).report_if_err(&mut |err| {
+            w.report_error(err);
+            code = crate::ffi::ERR_GENERIC;
+        });
+        code
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn panicking_getter_leaves_output_untouched() {
+        let _lock = median_mock::lock();
         let mut count = 0;
         let mut atoms = std::ptr::null_mut();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            get(&mut count, &mut atoms, || -> Atom {
-                panic!("getter failed");
-            });
+            // SAFETY: valid output pointers; the getter panics before allocation.
+            unsafe {
+                get(&mut count, &mut atoms, || -> Atom {
+                    panic!("getter failed");
+                });
+            }
         }));
         assert!(result.is_err());
         assert_eq!(count, 0);

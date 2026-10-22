@@ -4,7 +4,6 @@ version = "0.3.0-dev"
 authors = ["Alex Norman <xnor@cycling74.com>"]
 edition = "2024"
 rust-version = "1.85"
-build = "build.rs"
 license = "MIT"
 
 [dependencies]
@@ -16,11 +15,6 @@ parking_lot = "0.11.0"
 
 [dev-dependencies]
 median-mock = { path = "../median-mock" }
-
-[build-dependencies]
-quote = "1.0.7"
-proc-macro2 = "1.0.24"
-syn = "2"
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

@@ -10,7 +10,7 @@ use crate::{
     symbol::SymbolRef,
     wrapper::{
         FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
-        ObjWrapped, WrapperWrapped,
+        WrapperWrapped,
     },
 };
 use std::{collections::HashMap, ffi::CString, marker::PhantomData, ptr::NonNull, sync::Arc};
@@ -308,7 +308,7 @@ impl<'a, T, W> WrappedBuilder<'a, T, W> {
 
 impl<'a, T, W> ObjBuilder<T> for WrappedBuilder<'a, T, W>
 where
-    T: ObjWrapped<T>,
+    T: Sync + 'static,
     W: WrapperWrapped<T>,
 {
     fn with_default_inlet_assist(&mut self, assist: &str) {
@@ -453,7 +453,7 @@ where
 
 impl<'a, T> MaxWrappedBuilder<T> for WrappedBuilder<'a, T, MaxObjWrapper<T>>
 where
-    T: MaxObjWrapped<T>,
+    T: MaxObjWrapped,
 {
     /// Add an inlet, left to right, returns index.
     fn add_inlet(&mut self, inlet_type: MaxInlet<T>) -> usize {
@@ -478,7 +478,7 @@ where
 
 impl<'a, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, T, MSPObjWrapper<T>>
 where
-    T: MSPObjWrapped<T>,
+    T: MSPObjWrapped,
 {
     /// Add signal outlets
     fn add_signal_outlets(&mut self, count: usize) {
@@ -568,7 +568,7 @@ pub struct MSPWrappedBuilderFinalize<T> {
 
 impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
 where
-    T: MaxObjWrapped<T>,
+    T: MaxObjWrapped,
 {
     pub fn finalize(mut self) -> MaxWrappedBuilderFinalize<T> {
         let (callbacks_float, callbacks_int, proxy_inlets) = self.finalize_inlets(None);
@@ -586,7 +586,7 @@ where
 
 impl<'a, T> WrappedBuilder<'a, T, MSPObjWrapper<T>>
 where
-    T: MSPObjWrapped<T>,
+    T: MSPObjWrapped,
 {
     //finalize and return siginal (inlets, outlets) counts
     pub fn finalize(mut self) -> MSPWrappedBuilderFinalize<T> {

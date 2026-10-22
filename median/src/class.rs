@@ -1,13 +1,15 @@
 //! Class registration.
 
 use crate::atom::Atom;
-use crate::attr::Attr;
+use crate::attr::{
+    Attr, AttrBuilder, AttrField, AttrOptions, AttrTrampGetMethod, AttrTrampSetMethod, AttrValue,
+};
 use crate::error::{MaxError, MaxResult};
 use crate::method::*;
 use crate::object::MaxObj;
 use crate::symbol::SymbolRef;
-use crate::wrapper::{ObjWrapped, WrapperWrapped};
-use std::ffi::{CStr, CString};
+use crate::wrapper::WrapperWrapped;
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::c_long;
 
@@ -19,42 +21,66 @@ use std::os::raw::c_long;
 /// closure that captures nothing) and builds the `extern "C"` trampoline that Max calls from the
 /// callable's type, so nothing needs to be written (or generated) per method. Capturing closures
 /// are rejected with a compile error when the method is registered. The callable may return `()`
-/// or a `Result<(), E>` where `E: Display`; an `Err` is given to [`ObjWrapped::report_error`],
-/// which posts it to the Max console by default.
+/// or a `Result<(), E>` where `E: Display`; an `Err` is given to the type's `report_error` hook
+/// ([`MaxObjWrapped::report_error`]), which posts it to the Max console by default.
 ///
-/// This is the hand-written way to register methods, from `class_setup`:
+/// `#[median::methods]` generates these calls from marked methods. Written by hand they go in
+/// [`Methods::register`] (or `class_setup`, for anything registered conditionally or under a
+/// computed name), and attributes in [`FieldAttrs::register_attrs`] or `class_setup`:
 ///
 /// ```
 /// use median::{
-///     atom::Atom, builder::MaxWrappedBuilder, class::Class, max_sys::t_atom_long,
-///     symbol::SymbolRef, wrapper::*,
+///     atom::Atom, attr::AttrOptions, builder::MaxWrappedBuilder, class::Class,
+///     error::MaxResult, max_sys::t_atom_long, num::Int64, object::MaxObj, symbol::SymbolRef,
+///     wrapper::*,
 /// };
+/// use std::ffi::CStr;
 ///
-/// struct Example;
+/// struct Example {
+///     value: Int64,
+/// }
 ///
-/// impl ObjWrapped<Example> for Example {
-///     fn class_name() -> &'static str {
-///         "example"
+/// impl ObjClass for Example {
+///     type Wrapper = MaxObjWrapper<Self>;
+///     fn class_name() -> &'static CStr {
+///         c"example"
 ///     }
 /// }
 ///
-/// impl MaxObjWrapped<Example> for Example {
+/// impl MaxObjWrapped for Example {
 ///     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-///         Example
+///         Example { value: Int64::new(0) }
 ///     }
+/// }
 ///
-///     fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
-///         c.add_bang(Self::bang).unwrap();
-///         c.add_int(Self::int).unwrap();
-///         c.add_list(Self::list).unwrap();
-///         c.add_any(Self::anything).unwrap();
+/// impl FieldAttrs for Example {
+///     fn register_attrs<W>(c: &mut Class<W>) -> MaxResult<()>
+///     where
+///         W: WrapperWrapped<Self> + MaxObj,
+///     {
+///         //an attribute "value" backed by the field, clipped to 0..=10
+///         c.add_field_attr(c"value", |s: &Self| &s.value, AttrOptions::new().clip(0., 10.))
+///     }
+/// }
+///
+/// impl Methods for Example {
+///     fn register<W>(c: &mut Class<W>) -> MaxResult<()>
+///     where
+///         W: WrapperWrapped<Self> + MaxObj,
+///     {
+///         c.add_bang(Self::bang)?;
+///         c.add_int(Self::int)?;
+///         c.add_list(Self::list)?;
+///         c.add_any(Self::anything)?;
 ///         //a "set" message with a symbol argument that defaults if left out
-///         c.add_sel(c"set", Self::set, 1).unwrap();
+///         c.add_sel(c"set", Self::set, 1)?;
 ///         //two floats
-///         c.add_sel(c"range", |_: &Self, _lo: f64, _hi: f64| {}, 0).unwrap();
+///         c.add_sel(c"range", |_: &Self, _lo: f64, _hi: f64| {}, 0)?;
 ///         //a method can fail: the error is posted to the console
-///         c.add_float(|_: &Self, v: f64| if v < 0. { Err("negative") } else { Ok(()) })
-///             .unwrap();
+///         c.add_float(|_: &Self, v: f64| if v < 0. { Err("negative") } else { Ok(()) })?;
+///         //an attribute with a getter and a setter
+///         c.add_attr(c"double", Self::double, Self::set_double, AttrOptions::new())?;
+///         Ok(())
 ///     }
 /// }
 ///
@@ -64,6 +90,12 @@ use std::os::raw::c_long;
 ///     fn list(&self, _atoms: &[Atom]) {}
 ///     fn anything(&self, _selector: &SymbolRef, _atoms: &[Atom]) {}
 ///     fn set(&self, _name: SymbolRef) {}
+///     fn double(&self) -> t_atom_long {
+///         self.value.get() * 2
+///     }
+///     fn set_double(&self, v: t_atom_long) {
+///         self.value.set(v / 2)
+///     }
 /// }
 /// ```
 ///
@@ -73,17 +105,20 @@ use std::os::raw::c_long;
 /// ```compile_fail,E0080
 /// # use median::{builder::MaxWrappedBuilder, class::Class, wrapper::*};
 /// # struct Example;
-/// # impl ObjWrapped<Example> for Example {
-/// #     fn class_name() -> &'static str { "example" }
+/// # impl ObjClass for Example {
+/// #     type Wrapper = MaxObjWrapper<Self>;
+/// #     fn class_name() -> &'static std::ffi::CStr { c"example" }
 /// # }
-/// # impl MaxObjWrapped<Example> for Example {
+/// # impl Methods for Example {}
+/// # impl FieldAttrs for Example {}
+/// # impl MaxObjWrapped for Example {
 /// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
 /// # }
 /// # use median_mock as _;
 /// # fn main() {
 /// # let _k = median_mock::lock();
 /// # let mut c: Class<MaxObjWrapper<Example>> =
-/// #     Class::new("example", MaxObjWrapper::<Example>::new_tramp, None);
+/// #     Class::new(c"example", MaxObjWrapper::<Example>::new_tramp, None);
 /// let n = std::hint::black_box(3);
 /// c.add_bang(move |_: &Example| { std::hint::black_box(n); }).unwrap();
 /// # }
@@ -97,17 +132,20 @@ use std::os::raw::c_long;
 /// ```
 /// # use median::{builder::MaxWrappedBuilder, class::Class, wrapper::*};
 /// # struct Example;
-/// # impl ObjWrapped<Example> for Example {
-/// #     fn class_name() -> &'static str { "example" }
+/// # impl ObjClass for Example {
+/// #     type Wrapper = MaxObjWrapper<Self>;
+/// #     fn class_name() -> &'static std::ffi::CStr { c"example" }
 /// # }
-/// # impl MaxObjWrapped<Example> for Example {
+/// # impl Methods for Example {}
+/// # impl FieldAttrs for Example {}
+/// # impl MaxObjWrapped for Example {
 /// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
 /// # }
 /// # use median_mock as _;
 /// # fn main() {
 /// # let _k = median_mock::lock();
 /// # let mut c: Class<MaxObjWrapper<Example>> =
-/// #     Class::new("example", MaxObjWrapper::<Example>::new_tramp, None);
+/// #     Class::new(c"example", MaxObjWrapper::<Example>::new_tramp, None);
 /// let n = std::hint::black_box(3);
 /// c.add_bang(|_: &Example| { std::hint::black_box(3); }).unwrap();
 /// # let _ = n;
@@ -119,6 +157,9 @@ use std::os::raw::c_long;
 ///
 /// [`MaxObjWrapper<T>`]: crate::wrapper::MaxObjWrapper
 /// [`MSPObjWrapper<T>`]: crate::wrapper::MSPObjWrapper
+/// [`MaxObjWrapped::report_error`]: crate::wrapper::MaxObjWrapped::report_error
+/// [`Methods::register`]: crate::wrapper::Methods::register
+/// [`FieldAttrs::register_attrs`]: crate::wrapper::FieldAttrs::register_attrs
 pub struct Class<T> {
     class: *mut max_sys::t_class,
     _phantom: PhantomData<T>,
@@ -141,12 +182,11 @@ impl Into<*mut max_sys::t_symbol> for ClassType {
 }
 
 impl<T> Class<T> {
-    pub fn exists_in_max(name: &str, class_type: ClassType) -> bool {
+    pub fn exists_in_max(name: &CStr, class_type: ClassType) -> bool {
         !Self::find_in_max(name, class_type).is_null()
     }
 
-    pub fn find_in_max(name: &str, class_type: ClassType) -> *mut max_sys::t_class {
-        let name = CString::new(name).expect("couldn't convert name to CString");
+    pub fn find_in_max(name: &CStr, class_type: ClassType) -> *mut max_sys::t_class {
         unsafe { max_sys::class_findbyname(class_type.into(), max_sys::gensym(name.as_ptr())) }
     }
 
@@ -159,8 +199,7 @@ impl<T> Class<T> {
     }
 
     /// Create a new max class with the given name, new trampoline and optional freem trampoline.
-    pub fn new(name: &str, new: MaxNew, free: Option<MaxFree<T>>) -> Self {
-        let name = CString::new(name).expect("couldn't convert name to CString");
+    pub fn new(name: &CStr, new: MaxNew, free: Option<MaxFree<T>>) -> Self {
         let class = unsafe {
             max_sys::class_new(
                 name.as_ptr(),
@@ -195,25 +234,6 @@ impl<T> Class<T> {
             unsafe { max_sys::class_addattr(self.inner(), attr.into()) as _ },
             (),
         )
-    }
-
-    fn add_sel_method(
-        &self,
-        sel: &str,
-        m: Option<MaxMethod>,
-        types: &mut [max_sys::e_max_atomtypes::Type],
-        defaults: usize,
-    ) -> max_sys::t_max_err {
-        //fill in defaults
-        assert!(types.len() >= defaults);
-        if default_types(types, defaults).is_err() {
-            panic!("type cannot be made default");
-        }
-
-        //register
-        let sel = std::ffi::CString::new(sel).expect("failed to create CString from selector &str");
-        // SAFETY: `self.class` is a valid class and `m` is a method for `types`
-        unsafe { self.add_method_types(sel.as_c_str(), m, types) }
     }
 
     /// `class_addmethod` with the argument types given as a slice.
@@ -299,7 +319,6 @@ impl<W> Class<W> {
     pub fn add_bang<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -312,7 +331,6 @@ impl<W> Class<W> {
     pub fn add_int<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -325,7 +343,6 @@ impl<W> Class<W> {
     pub fn add_float<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T, f64) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -338,7 +355,6 @@ impl<W> Class<W> {
     pub fn add_sym<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T, SymbolRef) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -351,7 +367,6 @@ impl<W> Class<W> {
     pub fn add_list<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -364,7 +379,6 @@ impl<W> Class<W> {
     pub fn add_any<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -382,7 +396,6 @@ impl<W> Class<W> {
     pub fn add_sel<T, F, A, R>(&mut self, sel: &CStr, _f: F, defaults: usize) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: SelFn<T, A, R>,
     {
         let mut types = [0; 7];
@@ -403,13 +416,95 @@ impl<W> Class<W> {
     pub fn add_sel_gimme<T, F, R>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>,
         F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
         let m = sel_gimme_method::<W, T, F, R>(f);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
+    }
+
+    /// Register the attribute `name`, read with `get` and written with `set`, both zero-sized
+    /// `Copy` callables as for the methods (fn items such as `Self::foo` and `Self::set_foo`, or
+    /// closures that capture nothing). The value type `V` (`f64`, `f32`, `t_atom_long` or
+    /// [`SymbolRef`]) decides the Max attribute type.
+    ///
+    /// `set` may return `Result<(), E>` where `E: Display`: an `Err` goes to the type's
+    /// `report_error` hook and Max is told the set failed. A panic in either accessor is posted to
+    /// the console. With [`AttrOptions::readonly`] `set` is not registered (see
+    /// [`Class::add_attr_readonly`]).
+    pub fn add_attr<T, V, G, S, R>(
+        &mut self,
+        name: &CStr,
+        _get: G,
+        _set: S,
+        options: AttrOptions,
+    ) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        V: AttrValue,
+        G: Fn(&T) -> V + Copy + Send + Sync + 'static,
+        S: Fn(&T, V) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        if options.is_readonly() {
+            return self.add_attr_readonly(name, _get, options);
+        }
+        let get: AttrTrampGetMethod<W> = crate::attr::get_tramp::<W, T, G, V>;
+        let set: AttrTrampSetMethod<W> = crate::attr::set_tramp::<W, T, S, V, R>;
+        let name = name.to_str().map_err(|_| MaxError::Generic)?;
+        let mut b = AttrBuilder::new_accessors(name, V::ATTR_TYPE, get, set);
+        self.add_built_attr(&mut b, options)
+    }
+
+    /// Register the read-only attribute `name`, read with `get` (as [`Class::add_attr`]). Users
+    /// can't set it (`ATTR_SET_OPAQUE_USER`), and a set from code does nothing.
+    pub fn add_attr_readonly<T, V, G>(
+        &mut self,
+        name: &CStr,
+        _get: G,
+        options: AttrOptions,
+    ) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        V: AttrValue,
+        G: Fn(&T) -> V + Copy + Send + Sync + 'static,
+    {
+        let get: AttrTrampGetMethod<W> = crate::attr::get_tramp::<W, T, G, V>;
+        let name = name.to_str().map_err(|_| MaxError::Generic)?;
+        let mut b = AttrBuilder::new_get(name, V::ATTR_TYPE, get);
+        self.add_built_attr(&mut b, options)
+    }
+
+    /// Register the attribute `name` backed by a field of the object, given as a zero-sized
+    /// callable that returns a reference to it (`|s: &Self| &s.value`). The field's type
+    /// implements [`AttrField`] (the [`num`](crate::num) atomics do), which gives the accessors
+    /// and the value type. This is what `#[attr]` on a field generates.
+    pub fn add_field_attr<T, A, F>(
+        &mut self,
+        name: &CStr,
+        field: F,
+        options: AttrOptions,
+    ) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        A: AttrField,
+        F: Fn(&T) -> &A + Copy + Send + Sync + 'static,
+    {
+        //these capture only `field`, which is zero-sized and `Copy`, so they are too: the
+        //trampolines can make them from nothing as they can `field`
+        self.add_attr(
+            name,
+            move |t: &T| field(t).get(),
+            move |t: &T, v: A::Value| field(t).set(v),
+            options,
+        )
+    }
+
+    fn add_built_attr(&mut self, b: &mut AttrBuilder<W>, options: AttrOptions) -> MaxResult<()> {
+        b.clip(options.clip_value());
+        let attr = b.build().map_err(|_| MaxError::Generic)?;
+        self.add_attribute(attr)
     }
 
     /// # Safety
@@ -456,4 +551,3 @@ pub(crate) fn default_types(
     Ok(())
 }
 
-include!(concat!(env!("OUT_DIR"), "/class-gen.rs"));

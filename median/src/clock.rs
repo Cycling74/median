@@ -4,12 +4,12 @@ use crate::method::MaxMethod;
 use crate::{
     builder::MaxWrappedBuilder,
     object::MaxObj,
-    wrapper::{MaxObjWrapped, MaxObjWrapper, ObjWrapped, WrapperWrapped},
+    wrapper::{FieldAttrs, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
 };
 
 use parking_lot::Mutex;
 use std::{
-    ffi::c_void,
+    ffi::{CStr, c_void},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -126,15 +126,26 @@ impl ClockInner {
     }
 }
 
-impl ObjWrapped<ClockInner> for ClockInner {
-    fn class_name() -> &'static str {
-        //store version in class name so that other externals compliled with other versions won't
-        //conflict
-        std::concat!(
-            env!("CARGO_CRATE_NAME"),
-            "ClockInner",
-            env!("CARGO_PKG_VERSION")
-        )
+/// The class name: stores the version so that externals compiled with other versions of median
+/// won't conflict.
+const CLOCK_CLASS_NAME: &CStr = match CStr::from_bytes_with_nul(
+    concat!(
+        env!("CARGO_CRATE_NAME"),
+        "ClockInner",
+        env!("CARGO_PKG_VERSION"),
+        "\0"
+    )
+    .as_bytes(),
+) {
+    Ok(n) => n,
+    Err(_) => panic!("the clock class name has a NUL"),
+};
+
+impl ObjClass for ClockInner {
+    type Wrapper = MaxObjWrapper<Self>;
+
+    fn class_name() -> &'static CStr {
+        CLOCK_CLASS_NAME
     }
 
     fn class_type() -> ClassType {
@@ -142,7 +153,10 @@ impl ObjWrapped<ClockInner> for ClockInner {
     }
 }
 
-impl MaxObjWrapped<ClockInner> for ClockInner {
+impl Methods for ClockInner {}
+impl FieldAttrs for ClockInner {}
+
+impl MaxObjWrapped for ClockInner {
     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
         Self {
             shared: Arc::new(ClockShared::new()),
@@ -239,9 +253,8 @@ impl ClockHandle {
         //register wraper if it hasn't already been
         //XXX what if there is another instance of this library that has already registered
         //this clock?
-        // SAFETY: registering the class has no preconditions beyond being called from Max's
-        // main thread, which clock creation already requires of the caller
-        unsafe { MaxObjWrapper::<ClockInner>::register(true) };
+        //(only on Max's main thread, which clock creation already requires of the caller)
+        MaxObjWrapper::<ClockInner>::register_with(true);
         let clock_target = MaxObjWrapper::<ClockInner>::new_noargs();
         clock_target.wrapped().shared.set(target, func);
         //use the scheduler of the owning object if it has one, otherwise the current one

@@ -1,10 +1,5 @@
 //! Method encapsulation and type aliases
-use crate::{
-    atom::Atom,
-    object::{MaxObj, ObjRef},
-    symbol::SymbolRef,
-    wrapper::{ObjWrapped, WrapperWrapped},
-};
+use crate::{atom::Atom, object::MaxObj, symbol::SymbolRef, wrapper::WrapperWrapped};
 use std::{ffi::c_void, fmt::Display, os::raw::c_long};
 
 pub type MaxNew = unsafe extern "C" fn(
@@ -20,10 +15,6 @@ pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void) -> *mut c_void;
 //windows doesnt' use "safe call"
 #[cfg(target_os = "windows")]
 pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
-
-pub type B<T> = unsafe extern "C" fn(&T);
-pub type SelList<T> =
-    unsafe extern "C" fn(&T, *mut max_sys::t_symbol, c_long, *const max_sys::t_atom);
 
 /// helper method to convert between max and median calls selector list method calls
 ///
@@ -57,8 +48,6 @@ pub unsafe fn sel_list<F>(
     };
     f(sym, atoms);
 }
-
-include!(concat!(env!("OUT_DIR"), "/method-gen.rs"));
 
 //
 // Typed, macro-free method registration (see `Class::add_bang` and friends).
@@ -132,10 +121,15 @@ mod sealed {
 }
 
 /// What a method registered with `Class::add_*` may return: `()` or `Result<(), E>` where
-/// `E: Display`. On `Err` the trampoline calls [`ObjWrapped::report_error`], which by default
-/// posts the error to the Max console for the object, so `?` works in methods.
+/// `E: Display`. On `Err` the trampoline calls the type's `report_error` hook
+/// ([`MaxObjWrapped::report_error`](crate::wrapper::MaxObjWrapped::report_error)), which by
+/// default posts the error to the Max console for the object, so `?` works in methods.
 ///
 /// This trait is sealed.
+#[diagnostic::on_unimplemented(
+    message = "a median method must return `()` or `Result<(), E>` where `E: Display`, not `{Self}`",
+    label = "returns `{Self}`"
+)]
 pub trait MethodResult: sealed::Sealed {
     /// If this is an error, give it to `report`.
     #[doc(hidden)]
@@ -154,25 +148,15 @@ impl<E: Display> MethodResult for Result<(), E> {
     }
 }
 
-/// Run `f` on the object's `T` inside the panic guard, giving an `Err` result to
-/// [`ObjWrapped::report_error`].
+/// Run `f` on the object's `T` inside the panic guard, giving an `Err` result to the wrapped
+/// type's `report_error` hook (through [`WrapperWrapped::report_error`]).
 fn run<W, T, R>(w: &W, what: &str, f: impl FnOnce(&T) -> R)
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     R: MethodResult,
 {
     crate::ffi::guard(w, what, || {
-        let t = w.wrapped();
-        f(t).report_if_err(&mut |err| {
-            // `max_obj` is derived from a reference, so it is not null
-            if let Some(ptr) = std::ptr::NonNull::new(w.max_obj()) {
-                // SAFETY: `w` is the live Max object this method was called on, and the handle
-                // is dropped when this closure returns, so it can't outlive the call
-                let obj = unsafe { ObjRef::from_raw(ptr) };
-                t.report_error(&obj, err);
-            }
-        });
+        f(w.wrapped()).report_if_err(&mut |err| w.report_error(err));
     })
 }
 
@@ -192,7 +176,6 @@ unsafe fn atoms<'a>(ac: c_long, av: *const max_sys::t_atom) -> &'a [Atom] {
 pub(crate) extern "C" fn bang_tramp<W, T, F, R>(w: &W)
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -203,7 +186,6 @@ where
 pub(crate) extern "C" fn int_tramp<W, T, F, R>(w: &W, v: max_sys::t_atom_long)
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy,
     R: MethodResult,
 {
@@ -214,7 +196,6 @@ where
 pub(crate) extern "C" fn float_tramp<W, T, F, R>(w: &W, v: f64)
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, f64) -> R + Copy,
     R: MethodResult,
 {
@@ -225,7 +206,6 @@ where
 pub(crate) extern "C" fn sym_tramp<W, T, F, R>(w: &W, s: *mut max_sys::t_symbol)
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, SymbolRef) -> R + Copy,
     R: MethodResult,
 {
@@ -243,7 +223,6 @@ pub(crate) extern "C" fn list_tramp<W, T, F, R>(
     av: *const max_sys::t_atom,
 ) where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -261,7 +240,6 @@ pub(crate) extern "C" fn any_tramp<W, T, F, R>(
     av: *const max_sys::t_atom,
 ) where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -332,8 +310,7 @@ pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static + sealed::SealedSelFn<
     #[doc(hidden)]
     fn trampoline<W>() -> MaxMethod
     where
-        W: WrapperWrapped<T> + MaxObj,
-        T: ObjWrapped<T>;
+        W: WrapperWrapped<T> + MaxObj;
 }
 
 macro_rules! sel_fn_arity {
@@ -341,7 +318,6 @@ macro_rules! sel_fn_arity {
         extern "C" fn $tramp<W, T, F, R, $($A),*>(w: &W, $($a: <$A as SelArg>::C),*)
         where
             W: WrapperWrapped<T> + MaxObj,
-            T: ObjWrapped<T>,
             F: Fn(&T, $($A),*) -> R + Copy,
             R: MethodResult,
             $($A: SelArg),*
@@ -372,7 +348,6 @@ macro_rules! sel_fn_arity {
             fn trampoline<W>() -> MaxMethod
             where
                 W: WrapperWrapped<T> + MaxObj,
-                T: ObjWrapped<T>,
             {
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = $tramp::<W, T, F, R, $($A),*>;
                 // SAFETY: `p` is an `extern "C"` fn whose first argument is the object, which
@@ -399,7 +374,6 @@ pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R>(
     av: *const max_sys::t_atom,
 ) where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -416,7 +390,6 @@ pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R>(
 pub(crate) fn bang_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -427,7 +400,6 @@ where
 pub(crate) fn int_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy,
     R: MethodResult,
 {
@@ -438,7 +410,6 @@ where
 pub(crate) fn float_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, f64) -> R + Copy,
     R: MethodResult,
 {
@@ -449,7 +420,6 @@ where
 pub(crate) fn sym_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, SymbolRef) -> R + Copy,
     R: MethodResult,
 {
@@ -460,7 +430,6 @@ where
 pub(crate) fn list_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -472,7 +441,6 @@ where
 pub(crate) fn any_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -483,7 +451,6 @@ where
 pub(crate) fn sel_gimme_method<W, T, F, R>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    T: ObjWrapped<T>,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
