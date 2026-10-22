@@ -847,3 +847,5 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
       `tests/queue.rs::front_goes_ahead_and_cancel_unsets` and the mock's
       `qelem_front_queues_at_the_front_and_frees_are_checked` are labelled as testing the mock's
       model. To check in Max: `front()` on a queue already set at the back.
+    - Prelude: `AttrField` and `ManagedBufferRef` added (the gap the migration guide listed;
+      its note is removed). `hello_dsp` imports only the prelude.

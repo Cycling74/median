@@ -1,4 +1,4 @@
-use median::{builder::ManagedBufferRef, prelude::*};
+use median::prelude::*;
 
 #[derive(MaxObject)]
 #[max(name = "hello_dsp~", kind = msp)]

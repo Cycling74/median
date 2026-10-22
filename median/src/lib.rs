@@ -254,8 +254,8 @@ pub mod prelude {
     pub use crate::{
         MaxObject, ext_main, methods, object_error, object_post, object_warn, post, sym,
         atom::Atom,
-        attr::AttrOptions,
-        builder::{MSPBuilder, MaxBuilder},
+        attr::{AttrField, AttrOptions},
+        builder::{MSPBuilder, ManagedBufferRef, MaxBuilder},
         class::{Class, ClassType},
         clock::Clock,
         defer::Defer,
