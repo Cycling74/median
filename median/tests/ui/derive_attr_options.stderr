@@ -1,0 +1,23 @@
+error: the attribute option `label` is not supported yet; only `name`, `clip` and `readonly` are (the others come with the attribute options of the API redesign, step 7)
+ --> tests/ui/derive_attr_options.rs:5:12
+  |
+5 |     #[attr(label = "Value")]
+  |            ^^^^^
+
+error: unknown attribute option, expected `name = ".."`, `clip(min, max)` or `readonly`
+  --> tests/ui/derive_attr_options.rs:11:12
+   |
+11 |     #[attr(clamp(0, 1))]
+   |            ^^^^^
+
+error: expected `clip(min, max)`
+  --> tests/ui/derive_attr_options.rs:17:12
+   |
+17 |     #[attr(clip(0))]
+   |            ^^^^^^^
+
+error: the attribute `a` is defined twice
+  --> tests/ui/derive_attr_options.rs:25:19
+   |
+25 |     #[attr(name = "a")]
+   |                   ^^^

@@ -1,0 +1,29 @@
+error: unknown option, expected `name = ".."`, `kind = max|msp`, `class_type = box|nobox` or `no_methods`
+ --> tests/ui/derive_options.rs:4:7
+  |
+4 | #[max(nmae = "x")]
+  |       ^^^^
+
+error: expected `kind = max` (a Max object, the default) or `kind = msp` (an MSP object)
+ --> tests/ui/derive_options.rs:8:14
+  |
+8 | #[max(kind = jitter)]
+  |              ^^^^^^
+
+error: `description` is not supported yet
+  --> tests/ui/derive_options.rs:12:7
+   |
+12 | #[max(description = "not yet")]
+   |       ^^^^^^^^^^^
+
+error: the name must not be empty
+  --> tests/ui/derive_options.rs:16:14
+   |
+16 | #[max(name = "")]
+   |              ^^
+
+error: #[derive(MaxObject)] does not support generic types: a Max class is one concrete type
+  --> tests/ui/derive_options.rs:20:19
+   |
+20 | pub struct Generic<T> {
+   |                   ^

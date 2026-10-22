@@ -1,33 +1,35 @@
-//! End to end tests of the wrapper: externals defined with the current API are registered, made
-//! and sent messages through the `median-mock` kernel, which stands in for Max, and what they do
-//! is read from the kernel's outlet and console logs.
+//! End to end tests of the wrapper: externals are registered, made and sent messages through the
+//! `median-mock` kernel, which stands in for Max, and what they do is read from the kernel's
+//! outlet and console logs.
 //!
 //! Four externals cover the ways of defining one:
-//! * `Thing` uses `median::external!` (macro generated trampolines, `ext_main`);
-//! * `Typed` is hand written: `MaxObjWrapped` + `Class::add_*`, registered with
-//!   `MaxObjWrapper::<T>::register(false)`;
+//! * `Thing` uses `#[derive(MaxObject)]` and `#[median::methods]`, and is registered by the
+//!   `ext_main` that `median::ext_main!` makes;
+//! * `Typed` is hand written: `ObjClass`, `FieldAttrs`, `MaxObjWrapped`, and `Class::add_*` in
+//!   `class_setup`, registered with `MaxObjWrapper::<T>::register()`;
 //! * `Ticker` is hand written too, and has a clock;
-//! * `Dsp` is the same for MSP, with `MSPObjWrapper::<T>::register(false)`.
+//! * `Dsp` is the same for MSP, with `MSPObjWrapper::<T>::register()`.
+//!
+//! (`tests/derive.rs` covers the macros in detail, and `tests/simp*.rs`, `multi.rs` and
+//! `hello_dsp.rs` run the examples.)
 //!
 //! Every test takes `median_mock::lock()` for its whole body. Classes stay registered in the
 //! kernel (and in median) between tests, so registering is done once per process.
 
 use median::{
+    MaxObject,
     atom::Atom,
-    attr::AttrOptions,
     builder::{MSPWrappedBuilder, MaxWrappedBuilder},
     class::Class,
     clock::ClockHandle,
-    error::MaxResult,
     inlet::MaxInlet,
     max_sys::t_atom_long,
     num::{Float64, Int64},
-    object::{MaxObj, ObjRef},
+    object::ObjRef,
     outlet::{OutBang, OutInt, OutList},
     symbol::SymbolRef,
     wrapper::{
         FieldAttrs, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass,
-        WrapperWrapped,
     },
 };
 use std::ffi::CStr;
@@ -40,35 +42,14 @@ use std::sync::{
 /// How many `Thing`s and `Typed`s have been dropped.
 static DROPPED: AtomicUsize = AtomicUsize::new(0);
 
+#[derive(MaxObject)]
+#[max(name = "e2e.thing")]
 pub struct Thing {
     obj: ObjRef,
     value: Int64,
     fvalue: Float64,
     int_out: OutInt,
     list_out: OutList,
-}
-
-impl ObjClass for Thing {
-    type Wrapper = MaxObjWrapper<Self>;
-    fn class_name() -> &'static CStr {
-        c"e2e.thing"
-    }
-}
-
-impl FieldAttrs for Thing {}
-
-impl Methods for Thing {
-    fn register<W>(c: &mut Class<W>) -> MaxResult<()>
-    where
-        W: WrapperWrapped<Self> + MaxObj,
-    {
-        c.add_bang(Self::bang)?;
-        c.add_int(Self::int)?;
-        c.add_list(Self::list)?;
-        c.add_attr(c"foo", Self::foo, Self::set_foo, AttrOptions::new())?;
-        c.add_attr(c"blah", Self::blah, Self::set_blah, AttrOptions::new())?;
-        Ok(())
-    }
 }
 
 impl MaxObjWrapped for Thing {
@@ -85,16 +66,20 @@ impl MaxObjWrapped for Thing {
     }
 }
 
+#[median::methods]
 impl Thing {
+    #[bang]
     pub fn bang(&self) {
         median::object_post!(&self.obj, "bang from inlet {}", self.obj.proxy_inlet());
     }
 
+    #[int]
     pub fn int(&self, v: t_atom_long) {
         self.value.set(v);
         let _ = self.int_out.send(v * 2);
     }
 
+    #[list]
     pub fn list(&self, atoms: &[Atom]) {
         let rev: Vec<Atom> = atoms
             .iter()
@@ -104,6 +89,7 @@ impl Thing {
         let _ = self.list_out.send(&rev);
     }
 
+    #[attr]
     pub fn foo(&self) -> f64 {
         self.fvalue.get()
     }
@@ -112,6 +98,7 @@ impl Thing {
         self.fvalue.set(v);
     }
 
+    #[attr]
     pub fn blah(&self) -> t_atom_long {
         self.value.get()
     }
@@ -287,10 +274,14 @@ impl MSPObjWrapped for Dsp {
     }
 }
 
+median::ext_main! { Thing }
+
 fn register() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        MaxObjWrapper::<Thing>::register();
+        //`ext_main!` made `ext_main`, which registers `Thing`
+        // SAFETY: that is how Max calls it, on its main thread
+        unsafe { ext_main(std::ptr::null_mut()) };
         MaxObjWrapper::<Typed>::register();
         MaxObjWrapper::<Ticker>::register();
         MSPObjWrapper::<Dsp>::register();
@@ -341,7 +332,7 @@ fn registration_makes_the_classes_with_their_methods_and_attributes() {
 }
 
 #[test]
-fn external_macro_object_handles_messages_and_sends_to_outlets() {
+fn derived_object_handles_messages_and_sends_to_outlets() {
     let k = median_mock::lock();
     register();
     let obj = k.new_object("e2e.thing", &[long(5)]);

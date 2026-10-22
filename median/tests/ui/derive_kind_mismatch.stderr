@@ -1,0 +1,40 @@
+error[E0271]: type mismatch resolving `<Simp as ObjClass>::Wrapper == Wrapper<object, MaxWrapperInternal<Simp>, Simp>`
+ --> tests/ui/derive_kind_mismatch.rs:8:24
+  |
+8 | impl MaxObjWrapped for Simp {
+  |                        ^^^^ type mismatch resolving `<Simp as ObjClass>::Wrapper == Wrapper<object, MaxWrapperInternal<Simp>, Simp>`
+  |
+note: expected this to be `median::wrapper::Wrapper<median::max_sys::object, MaxWrapperInternal<Simp>, Simp>`
+ --> tests/ui/derive_kind_mismatch.rs:4:10
+  |
+4 | #[derive(MaxObject)]
+  |          ^^^^^^^^^
+  = note: expected struct `median::wrapper::Wrapper<median::max_sys::object, MaxWrapperInternal<Simp>, Simp>`
+             found struct `median::wrapper::Wrapper<t_pxobject, MSPWrapperInternal<Simp>, Simp>`
+note: required by a bound in `median::wrapper::MaxObjWrapped`
+ --> src/wrapper.rs
+  |
+  | pub trait MaxObjWrapped:
+  |           ------------- required by a bound in this trait
+  |     ObjClass<Wrapper = MaxObjWrapper<Self>> + Methods + FieldAttrs + Sync + 'static
+  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `MaxObjWrapped`
+  = note: this error originates in the derive macro `MaxObject` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the function or associated item `register` exists for struct `median::wrapper::Wrapper<t_pxobject, MSPWrapperInternal<Simp>, Simp>`, but its trait bounds were not satisfied
+ --> tests/ui/derive_kind_mismatch.rs:4:10
+  |
+4 | #[derive(MaxObject)]
+  |          ^^^^^^^^^ function or associated item cannot be called due to unsatisfied trait bounds
+5 | #[max(kind = msp, no_methods)]
+6 | pub struct Simp;
+  | --------------- doesn't satisfy `Simp: MSPObjWrapped`
+  |
+  = note: the following trait bounds were not satisfied:
+          `Simp: MSPObjWrapped`
+note: the trait `MSPObjWrapped` must be implemented
+ --> src/wrapper.rs
+  |
+  | / pub trait MSPObjWrapped:
+  | |     ObjClass<Wrapper = MSPObjWrapper<Self>> + Methods + FieldAttrs + Sync + 'static
+  | |___________________________________________________________________________________^
+  = note: this error originates in the derive macro `MaxObject` (in Nightly builds, run with -Z macro-backtrace for more info)

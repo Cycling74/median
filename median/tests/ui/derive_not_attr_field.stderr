@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `String: AttrField` is not satisfied
+ --> tests/ui/derive_not_attr_field.rs:7:11
+  |
+7 |     name: String,
+  |           ^^^^^^ the trait `AttrField` is not implemented for `String`
+  |
+help: the following other types implement trait `AttrField`
+ --> src/attr.rs
+  |
+  | impl AttrField for Int64 {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^ `median::num::Int64`
+...
+  | impl AttrField for Float64 {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `median::num::Float64`
+...
+  | impl AttrField for Float32 {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `median::num::Float32`
+note: required by a bound in `Class::<W>::add_field_attr`
+ --> src/class.rs
+  |
+  |     pub fn add_field_attr<T, A, F>(
+  |            -------------- required by a bound in this associated function
+...
+  |         A: AttrField,
+  |            ^^^^^^^^^ required by this bound in `Class::<W>::add_field_attr`

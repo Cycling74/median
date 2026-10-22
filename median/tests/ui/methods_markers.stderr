@@ -1,0 +1,41 @@
+error: a method can have only one median marker
+  --> tests/ui/methods_markers.rs:14:5
+   |
+14 |     #[int]
+   |     ^
+
+error: `#[defer]` is not supported yet
+  --> tests/ui/methods_markers.rs:17:5
+   |
+17 |     #[defer]
+   |     ^
+
+error: `#[bang]` takes no arguments
+  --> tests/ui/methods_markers.rs:20:7
+   |
+20 |     #[bang(now)]
+   |       ^^^^
+
+error: unknown option, expected `defaults = n` or `gimme`
+  --> tests/ui/methods_markers.rs:23:18
+   |
+23 |     #[sel("set", sometimes)]
+   |                  ^^^^^^^^^
+
+error: the attribute option `style` is not supported yet; only `name`, `clip` and `readonly` are (the others come with the attribute options of the API redesign, step 7)
+  --> tests/ui/methods_markers.rs:26:12
+   |
+26 |     #[attr(style = "onoff")]
+   |            ^^^^^
+
+error: `bang` is registered twice in this impl
+  --> tests/ui/methods_markers.rs:10:5
+   |
+10 |     #[bang]
+   |     ^
+
+error: `bang` is registered twice in this impl
+  --> tests/ui/methods_markers.rs:13:5
+   |
+13 |     #[bang]
+   |     ^

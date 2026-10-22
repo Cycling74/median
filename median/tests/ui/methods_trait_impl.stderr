@@ -1,0 +1,5 @@
+error: #[median::methods] goes on an inherent impl (`impl MyObject { .. }`), not a trait impl
+ --> tests/ui/methods_trait_impl.rs:8:6
+  |
+8 | impl Other for Simp {
+  |      ^^^^^
