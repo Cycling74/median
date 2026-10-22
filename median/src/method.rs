@@ -296,7 +296,8 @@ impl SelArg for SymbolRef {
 
 /// A callable that can be registered as a typed selector method with `Class::add_sel`: a
 /// zero-sized `Copy` `Fn(&T, A1, .., An) -> R`, with up to 7 arguments that are each `f64`,
-/// `t_atom_long` or [`SymbolRef`]. Implemented for all such callables, not meant to be
+/// `t_atom_long` or [`SymbolRef`]. The arguments are either all `f64` or none of them are: Max
+/// can't pass a mix (the SDK says to use `A_GIMME`), so registering one is a compile error. Implemented for all such callables, not meant to be
 /// implemented by hand (it is sealed).
 ///
 /// `Args` is the tuple of the argument types and `R` the return type; they only exist to let
@@ -311,6 +312,24 @@ pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static + sealed::SealedSelFn<
     fn trampoline<W>() -> MaxMethod
     where
         W: WrapperWrapped<T> + MaxObj;
+}
+
+/// Whether `types` has both `A_FLOAT` and other types. Max's typed dispatch passes the arguments
+/// of a method either all as doubles or all as pointer-sized words, so a method that takes both
+/// gets its floats (or the others) from the wrong registers on x64. The SDK says to use
+/// `A_GIMME` for such a method.
+pub(crate) const fn mixes_float(types: &[max_sys::e_max_atomtypes::Type]) -> bool {
+    let (mut float, mut other) = (false, false);
+    let mut i = 0;
+    while i < types.len() {
+        if types[i] == max_sys::e_max_atomtypes::A_FLOAT {
+            float = true;
+        } else {
+            other = true;
+        }
+        i += 1;
+    }
+    float && other
 }
 
 macro_rules! sel_fn_arity {
@@ -349,6 +368,12 @@ macro_rules! sel_fn_arity {
             where
                 W: WrapperWrapped<T> + MaxObj,
             {
+                const {
+                    assert!(
+                        !mixes_float(Self::TYPES),
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel(\"name\", gimme)] / add_sel_gimme"
+                    )
+                };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = $tramp::<W, T, F, R, $($A),*>;
                 // SAFETY: `p` is an `extern "C"` fn whose first argument is the object, which
                 // is how Max calls a method registered with the argument types in `TYPES`

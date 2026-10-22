@@ -241,34 +241,43 @@ fn sel_args() {
     }
     fn seven(
         p: &Probe,
-        a: f64,
-        b: t_atom_long,
-        c: SymbolRef,
-        d: f64,
-        e: f64,
+        a: t_atom_long,
+        b: SymbolRef,
+        c: t_atom_long,
+        d: t_atom_long,
+        e: SymbolRef,
         f: t_atom_long,
         g: SymbolRef,
     ) {
         p.log(format!(
-            "seven {a} {b} {} {d} {e} {f} {}",
-            name(&c),
+            "seven {a} {} {c} {d} {} {f} {}",
+            name(&b),
+            name(&e),
             name(&g)
         ))
     }
-    fn mixed(p: &Probe, a: f64, b: t_atom_long, c: SymbolRef) -> Result<(), String> {
-        p.log(format!("mixed {a} {b} {}", name(&c)));
+    fn mixed(p: &Probe, b: t_atom_long, c: SymbolRef) -> Result<(), String> {
+        p.log(format!("mixed {b} {}", name(&c)));
         Ok(())
     }
+    //the float/other mix that `trampoline` (so `add_sel`) refuses to compile: its types are
+    //still what they are
+    fn floats_and_others(_: &Probe, _a: f64, _b: t_atom_long) {}
     fn types<F: SelFn<Probe, A, R>, A, R>(_: F) -> &'static [max_sys::e_max_atomtypes::Type] {
         F::TYPES
     }
     use max_sys::e_max_atomtypes::{A_FLOAT, A_LONG, A_SYM};
     assert_eq!(types(zero), &[]);
     assert_eq!(types(set), &[A_SYM]);
-    assert_eq!(types(mixed), &[A_FLOAT, A_LONG, A_SYM]);
+    assert_eq!(types(mixed), &[A_LONG, A_SYM]);
+    assert_eq!(types(floats_and_others), &[A_FLOAT, A_LONG]);
+    assert!(crate::method::mixes_float(types(floats_and_others)));
+    assert!(!crate::method::mixes_float(types(mixed)));
+    assert!(!crate::method::mixes_float(&[A_FLOAT, A_FLOAT]));
+    assert!(!crate::method::mixes_float(&[]));
     assert_eq!(
         types(seven),
-        &[A_FLOAT, A_LONG, A_SYM, A_FLOAT, A_FLOAT, A_LONG, A_SYM]
+        &[A_LONG, A_SYM, A_LONG, A_LONG, A_SYM, A_LONG, A_SYM]
     );
     fn tramp<F: SelFn<Probe, A, R>, A, R>(_: F) -> MaxMethod {
         F::trampoline::<W>()
@@ -293,22 +302,22 @@ fn sel_args() {
     assert!(!unsafe { SymbolRef::default().inner() }.is_null());
     assert_eq!(w.t.take(), ["zero", "set abc", "set ", "nothing true"]);
 
-    let f: extern "C" fn(&W, f64, t_atom_long, *mut max_sys::t_symbol) =
+    let f: extern "C" fn(&W, t_atom_long, *mut max_sys::t_symbol) =
         unsafe { cast(tramp(mixed)) };
-    f(&w, 0.25, 9, &mut s);
+    f(&w, 9, &mut s);
 
     let f: extern "C" fn(
         &W,
-        f64,
         t_atom_long,
         *mut max_sys::t_symbol,
-        f64,
-        f64,
+        t_atom_long,
+        t_atom_long,
+        *mut max_sys::t_symbol,
         t_atom_long,
         *mut max_sys::t_symbol,
     ) = unsafe { cast(tramp(seven)) };
     let mut t = symbol(c"t");
-    f(&w, 1., 2, &mut s, 4., 5., 6, &mut t);
+    f(&w, 1, &mut s, 3, 4, &mut t, 6, &mut s);
 
     //a closure works too
     let f: extern "C" fn(&W, f64, f64) = unsafe {
@@ -321,8 +330,8 @@ fn sel_args() {
     assert_eq!(
         w.t.take(),
         [
-            "mixed 0.25 9 abc",
-            "seven 1 2 abc 4 5 6 t",
+            "mixed 9 abc",
+            "seven 1 abc 3 4 t 6 abc",
             "closure 3"
         ]
     );
@@ -478,7 +487,7 @@ fn class_registers_the_methods() {
     c.add_sel(c"set", set, 1).unwrap();
     c.add_sel(
         c"two",
-        |p: &Probe, a: t_atom_long, b: f64| p.log(format!("two {a} {b}")),
+        |p: &Probe, a: f64, b: f64| p.log(format!("two {a} {b}")),
         0,
     )
     .unwrap();
@@ -508,7 +517,7 @@ fn class_registers_the_methods() {
         ("list", &[A_GIMME as i32][..]),
         ("anything", &[A_GIMME as i32][..]),
         ("set", &[A_DEFSYM as i32][..]),
-        ("two", &[A_LONG as i32, A_FLOAT as i32][..]),
+        ("two", &[A_FLOAT as i32, A_FLOAT as i32][..]),
         ("gimme", &[A_GIMME as i32][..]),
     ] {
         assert_eq!(types(sel), t, "{sel}");

@@ -209,6 +209,43 @@ fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Resu
     Ok(args.len())
 }
 
+/// The argument type is written `f64` (best effort: an alias isn't recognised; the const
+/// assertion in `median`'s `SelFn` catches what this misses).
+fn is_f64(ty: &Type) -> bool {
+    match ty {
+        Type::Path(p) if p.qself.is_none() => p
+            .path
+            .segments
+            .last()
+            .is_some_and(|s| s.ident == "f64" && s.arguments.is_empty()),
+        Type::Paren(p) => is_f64(&p.elem),
+        Type::Group(g) => is_f64(&g.elem),
+        _ => false,
+    }
+}
+
+/// A typed `#[sel]` method's arguments must be all `f64` or none: Max passes floats and other
+/// arguments of a typed method in different registers.
+fn check_no_float_mix(sig: &Signature) -> syn::Result<()> {
+    let args: Vec<&Type> = sig
+        .inputs
+        .iter()
+        .filter_map(|a| match a {
+            FnArg::Typed(t) => Some(&*t.ty),
+            FnArg::Receiver(_) => None,
+        })
+        .collect();
+    let floats = args.iter().filter(|t| is_f64(t)).count();
+    if floats > 0 && floats < args.len() {
+        return Err(syn::Error::new(
+            sig.span(),
+            "a typed selector cannot mix f64 with other argument types (Max passes them in \
+             different registers); use #[sel(\"name\", gimme)] / add_sel_gimme",
+        ));
+    }
+    Ok(())
+}
+
 /// A marked method, checked.
 struct Marked {
     ident: syn::Ident,
@@ -280,6 +317,12 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                 if let Marker::Attr(_) = &marker {
                     if !returns_value(&f.sig) {
                         push_err(syn::Error::new(f.sig.span(), marker.expected()));
+                        continue;
+                    }
+                }
+                if let Marker::Sel { gimme: false, .. } = &marker {
+                    if let Err(e) = check_no_float_mix(&f.sig) {
+                        push_err(e);
                         continue;
                     }
                 }

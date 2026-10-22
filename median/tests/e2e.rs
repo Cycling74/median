@@ -189,8 +189,9 @@ impl Typed {
         median::object_post!(&self.obj, "set {}", name);
     }
 
-    fn range(&self, lo: f64, hi: t_atom_long) -> Result<(), &'static str> {
-        if (hi as f64) < lo {
+    /// Two floats: a typed selector can't mix `f64` with other argument types.
+    fn range(&self, lo: f64, hi: f64) -> Result<(), &'static str> {
+        if hi < lo {
             Err("empty range")
         } else {
             let _ = self.out.send(&[lo.into(), hi.into()]);
@@ -436,7 +437,7 @@ fn typed_methods_send_and_post() {
     k.send(obj, "range", &[1.into(), 9.into()]).unwrap();
     assert_eq!(
         k.take_outlet_log()[0].atoms,
-        [MockAtom::Float(1.), long(9)]
+        [MockAtom::Float(1.), MockAtom::Float(9.)]
     );
     //a symbol where a number is wanted never reaches the method
     assert!(matches!(
@@ -516,11 +517,8 @@ fn attributes_get_and_set_through_the_kernel() {
     k.free_object(obj);
 }
 
-//median bug (found by this test): `ClockHandle::new_unarmed` in `src/clock.rs` passes a C string
-//(`c"#P".as_ptr()`) where `object_obex_lookup` takes a `t_symbol *`, so any object that makes a
-//clock reads a symbol from a `char *`. The kernel dereferences it and the process crashes. With
-//`gensym(name.as_ptr())` as the key (as the `object_obex_storeflags` call next to it has) this
-//test passes.
+//This test found a median bug, fixed in f587265: `ClockHandle::new_unarmed` passed a C string
+//where `object_obex_lookup` takes a `t_symbol *` as the key, and the kernel crashed reading it.
 #[test]
 fn a_clock_fires_when_the_kernel_advances() {
     let k = median_mock::lock();

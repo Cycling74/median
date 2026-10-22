@@ -112,7 +112,7 @@
 //! | `#[sym]` | `symbol` | `fn(&self, SymbolRef)` |
 //! | `#[list]` | `list` | `fn(&self, &[Atom])` |
 //! | `#[any]` | `anything` | `fn(&self, &SymbolRef, &[Atom])` |
-//! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`; the last `n` may be left out (they are then 0 or the empty symbol) |
+//! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`, either all `f64` or none (Max can't pass a mix: use `gimme`); the last `n` may be left out (they are then 0 or the empty symbol) |
 //! | `#[sel("name", gimme)]` | `name` | `fn(&self, &SymbolRef, &[Atom])` |
 //! | `#[attr]`, `#[attr(name = "..", clip(min, max), readonly)]` | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //!

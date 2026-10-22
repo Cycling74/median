@@ -77,14 +77,25 @@ impl Marks {
         self.obj.post(format!("anything {sel} {}", atoms.len()));
     }
 
-    /// typed arguments, the last two optional
+    /// typed arguments, the last two optional (no `f64` among them: Max can't pass a mix)
     #[sel("range", defaults = 2)]
-    pub fn range(&self, lo: f64, hi: t_atom_long, label: SymbolRef) -> Result<(), &'static str> {
-        if (hi as f64) < lo {
+    pub fn range(
+        &self,
+        lo: t_atom_long,
+        hi: t_atom_long,
+        label: SymbolRef,
+    ) -> Result<(), &'static str> {
+        if hi < lo {
             return Err("empty range");
         }
         self.obj.post(format!("range {lo} {hi} [{label}]"));
         Ok(())
+    }
+
+    /// all `f64`, the last optional
+    #[sel("scale", defaults = 1)]
+    pub fn scale(&self, a: f64, b: f64) {
+        self.obj.post(format!("scale {a} {b}"));
     }
 
     /// no arguments
@@ -309,7 +320,8 @@ fn every_marker_is_registered_under_its_selector() {
     register(&k);
     let obj = k.new_object("derive.marks", &[]);
     for sel in [
-        "bang", "int", "float", "symbol", "list", "anything", "range", "reset", "gimme",
+        "bang", "int", "float", "symbol", "list", "anything", "range", "scale", "reset",
+        "gimme",
     ] {
         assert!(k.method(obj, sel).is_some(), "{sel}");
     }
@@ -362,19 +374,31 @@ fn sel_defaults_fill_in_left_out_arguments() {
     let k = median_mock::lock();
     register(&k);
     let obj = k.new_object("derive.marks", &[]);
-    //the registered types: float, then the two defaulted ones
-    use median::max_sys::e_max_atomtypes::{A_DEFLONG, A_DEFSYM, A_FLOAT};
+    //the registered types: long, then the two defaulted ones
+    use median::max_sys::e_max_atomtypes::{A_DEFFLOAT, A_DEFLONG, A_DEFSYM, A_FLOAT, A_LONG};
     assert_eq!(
         k.method(obj, "range").unwrap().1,
-        [A_FLOAT as i32, A_DEFLONG as i32, A_DEFSYM as i32]
+        [A_LONG as i32, A_DEFLONG as i32, A_DEFSYM as i32]
     );
-    k.send(obj, "range", &[1.5.into(), 3.into(), "a".into()])
+    assert_eq!(
+        k.method(obj, "scale").unwrap().1,
+        [A_FLOAT as i32, A_DEFFLOAT as i32]
+    );
+    k.send(obj, "range", &[1.into(), 3.into(), "a".into()])
         .unwrap();
-    k.send(obj, "range", &[(-2.).into(), 3.into()]).unwrap();
-    k.send(obj, "range", &[(-2.).into()]).unwrap();
+    k.send(obj, "range", &[(-2).into(), 3.into()]).unwrap();
+    k.send(obj, "range", &[(-2).into()]).unwrap();
+    k.send(obj, "scale", &[0.5.into(), 2.into()]).unwrap();
+    k.send(obj, "scale", &[0.5.into()]).unwrap();
     assert_eq!(
         posts(&k, obj),
-        ["range 1.5 3 [a]", "range -2 3 []", "range -2 0 []"]
+        [
+            "range 1 3 [a]",
+            "range -2 3 []",
+            "range -2 0 []",
+            "scale 0.5 2",
+            "scale 0.5 0"
+        ]
     );
     //the first argument is not optional
     assert!(matches!(

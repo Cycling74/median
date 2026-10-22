@@ -495,11 +495,15 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `tests/hello_dsp.rs`, `tests/e2e.rs` (its macro external now uses the derive), unit tests for
     the accessor trampolines refusing a half-built object, and `tests/ui.rs` (trybuild
     compile-fail cases for the macro errors).
-  - Open (from step 2, found again here): the SDK documentation says typed methods must not mix
-    floating point and other argument types (use `A_GIMME`), which the old `build.rs` respected;
-    `Class::add_sel` and so `#[sel]` accept mixed types and `median-mock` does not model the
-    restriction. Check what Max's dispatch does with e.g. `(f64, t_atom_long, SymbolRef)`, and
-    reject mixing in `SelFn` (or fix the dispatch) before relying on it.
+  - Typed selectors may not mix `f64` with other argument types (from step 2, found again
+    here; now enforced). The SDK says to use `A_GIMME` for such a method, because Max passes
+    floats and other arguments of a typed method in different registers on x64, and the old
+    `build.rs` never generated a mix. `SelFn::trampoline` (so `Class::add_sel` and `#[sel]`) has a
+    post-monomorphisation `const { assert!(..) }` that rejects a mix ("use
+    `#[sel("name", gimme)]` / `add_sel_gimme`"); like the zero-size check it fires on `cargo
+    build`, not `cargo check`. `#[median::methods]` also reports it with a spanned error when the
+    argument types are written `f64` (best effort: an alias hides it). The tests that mixed were
+    changed to same-typed selectors.
 - [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
 - [ ] 5. Fallible `new`
 - [ ] 6. `SymbolRef`, `BufferLocked`

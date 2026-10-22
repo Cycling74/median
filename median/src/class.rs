@@ -388,7 +388,32 @@ impl<W> Class<W> {
     }
 
     /// Register the method `sel` with typed arguments, taken from the callable's signature: up
-    /// to 7 arguments that are each `f64`, `t_atom_long` or [`SymbolRef`].
+    /// to 7 arguments that are each `f64`, `t_atom_long` or [`SymbolRef`]; either all of them
+    /// `f64` or none. Max passes floats and other arguments of a typed method in different
+    /// registers, so a mix is rejected at compile time; use [`Class::add_sel_gimme`] for it:
+    ///
+    /// ```compile_fail,E0080
+    /// # use median::{builder::MaxWrappedBuilder, class::Class, max_sys::t_atom_long, wrapper::*};
+    /// # struct Example;
+    /// # impl ObjClass for Example {
+    /// #     type Wrapper = MaxObjWrapper<Self>;
+    /// #     fn class_name() -> &'static std::ffi::CStr { c"example" }
+    /// # }
+    /// # impl Methods for Example {}
+    /// # impl FieldAttrs for Example {}
+    /// # impl MaxObjWrapped for Example {
+    /// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
+    /// # }
+    /// # use median_mock as _;
+    /// # fn main() {
+    /// # let _k = median_mock::lock();
+    /// # let mut c: Class<MaxObjWrapper<Example>> =
+    /// #     Class::new(c"example", MaxObjWrapper::<Example>::new_tramp, None);
+    /// c.add_sel(c"range", |_: &Example, _lo: f64, _hi: t_atom_long| {}, 0).unwrap();
+    /// # }
+    /// ```
+    ///
+    /// (The same with `_hi: f64` compiles; see the [`Class`] documentation, whose examples do.)
     ///
     /// The last `defaults` arguments are optional (`A_DEFFLOAT` and so on): Max passes 0, 0.0 or
     /// the empty symbol when the message leaves them out. It is an error if `defaults` is more
