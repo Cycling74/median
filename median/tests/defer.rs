@@ -152,8 +152,9 @@ fn defer_low_queues_even_on_the_main_thread() {
     k.send_int(obj, 3).unwrap();
     k.send(obj, "now", &[]).unwrap();
     assert_eq!(posts(&k), ["now"]);
-    assert_eq!(k.main_queue_len(), 1);
-    assert_eq!(k.run_main_queue(), 1);
+    //both of the object's qelems are set; the first runs the call, the second nothing
+    assert_eq!(k.main_queue_len(), 2);
+    assert_eq!(k.run_main_queue(), 2);
     assert_eq!(posts(&k), ["int 3"]);
     assert!(k.free_object(obj));
 }
@@ -177,9 +178,9 @@ fn defer_runs_at_once_on_main_and_queues_from_the_timer_thread() {
     //from another thread too
     k.with_role(Role::Other, || k.send_bang(obj).unwrap());
     assert!(posts(&k).is_empty());
-    //one qelem for the object, however many calls
-    assert_eq!(k.main_queue_len(), 1);
-    assert_eq!(k.run_main_queue(), 1);
+    //the object's two qelems, however many calls
+    assert_eq!(k.main_queue_len(), 2);
+    assert_eq!(k.run_main_queue(), 2);
     //`Front` calls are queued at the front of the object's calls: latest first
     assert_eq!(posts(&k), ["bang", "float 1.5", "bang"]);
     assert!(k.free_object(obj));
@@ -245,7 +246,7 @@ fn a_deferred_call_pending_at_free_is_dropped_without_running() {
     register();
     let qelems = k.live_qelem_count();
     let obj = k.new_object("defer.thing", &[]);
-    assert_eq!(k.live_qelem_count(), qelems + 1);
+    assert_eq!(k.live_qelem_count(), qelems + 2);
     k.send_list(obj, &[MockAtom::Long(1), MockAtom::Sym("s".into())]).unwrap();
     k.send(obj, "open", &[MockAtom::Sym("f".into())]).unwrap();
     assert!(k.free_object(obj));
@@ -285,9 +286,10 @@ fn a_deferred_method_can_run_the_deferred_queue_nested() {
     let obj = k.new_object("defer.thing", &[]);
     k.send(obj, "modal", &[]).unwrap();
     k.send_int(obj, 3).unwrap();
-    assert_eq!(k.main_queue_len(), 1);
-    //`modal` queues a bang from the scheduler thread and runs the main queue: the bang (at the
-    //front) and the pending `int 3` run inside it, in order, and the outer run finds nothing left
+    assert_eq!(k.main_queue_len(), 2);
+    //`modal`, in the first qelem, queues a bang from the scheduler thread and runs the main
+    //queue: the second qelem runs there and the bang (at the front) and the pending `int 3` run
+    //inside it, in order; the outer run counts only the first qelem and finds nothing left
     assert_eq!(k.run_main_queue(), 1);
     assert_eq!(posts(&k), ["modal start", "bang", "int 3", "modal end"]);
     assert_eq!(k.main_queue_len(), 0);

@@ -70,7 +70,8 @@ pub fn run(k: &Kernel, class: &str) -> Vec<String> {
     drain(k, obj, &mut t);
 
     //deferred: nothing until the main thread's queue runs, then the `changed` queue (set by
-    //every `int` above, once) and the deferred `read`
+    //every `int` above, once) and the deferred `read` (one of the object's two deferred-call
+    //qelems runs it, the other runs empty: 3 runs)
     k.send(obj, "read", &[Atom::Sym("file.txt".into())]).unwrap();
     drain(k, obj, &mut t);
     t.push(format!("main queue {}", k.run_main_queue()));
@@ -120,7 +121,7 @@ pub const EXPECTED: &[&str] = &[
     "advance 1",
     "post global: clocked",
     "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
-    "main queue 2",
+    "main queue 3",
     "post obj: value is now 7",
     "post obj: read 1 argument(s) on the main thread",
     "live 0",

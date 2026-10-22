@@ -401,8 +401,8 @@ pub struct MaxWrapperInternal<T> {
     //the callback targets of the clocks and queues made with the builder: disabled by
     //`free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     targets: Vec<Arc<ClockShared>>,
-    //the pending deferred calls and their qelem, if the class has deferred methods (the qelem's
-    //target is one of `targets`)
+    //the pending deferred calls and their two qelems, if the class has deferred methods (the
+    //qelems' targets are in `targets`)
     deferred: Option<DeferQueue<T>>,
 }
 
@@ -418,8 +418,8 @@ pub struct MSPWrapperInternal<T> {
     //the callback targets of the clocks and queues made with the builder: disabled by
     //`free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     targets: Vec<Arc<ClockShared>>,
-    //the pending deferred calls and their qelem, if the class has deferred methods (the qelem's
-    //target is one of `targets`)
+    //the pending deferred calls and their two qelems, if the class has deferred methods (the
+    //qelems' targets are in `targets`)
     deferred: Option<DeferQueue<T>>,
 }
 
@@ -810,13 +810,13 @@ where
             Builder::new(std::ptr::NonNull::new_unchecked(o.max_obj()), sym, args)
         };
         if deferred {
-            //the qelem of the deferred-call queue, armed and disabled with the clocks
-            builder.make_defer_queue(Box::new(|obj| {
-                // SAFETY: the target is armed after construction and disabled before the
+            //the qelems of the deferred-call queue, armed and disabled with the clocks
+            builder.make_defer_queue(|obj| {
+                // SAFETY: the targets are armed after construction and disabled before the
                 // object is torn down, so `obj` is this live, constructed wrapper
                 let w: &Self = unsafe { &*obj.cast::<Self>() };
                 w.run_deferred();
-            }));
+            });
         }
         let internal = match I::build(&mut builder) {
             Ok(internal) => internal,
@@ -1008,13 +1008,18 @@ where
     }
 
     /// Run the object's pending deferred calls, in order, each inside the panic guard (called
-    /// by the qelem of its deferred-call queue, on the main thread).
+    /// by either qelem of its deferred-call queue, on the main thread).
     ///
     /// The calls are taken off the queue one at a time and nothing is held while one runs, so a
-    /// call that makes Max run this qelem again (a nested event loop, such as a modal dialog's)
-    /// drains the rest of the queue, in order, and this drain then finds it empty. At most as
-    /// many calls run as were pending at the start, so a deferred method that queues itself again
-    /// runs once per run of the qelem (the push set the qelem again) instead of looping here.
+    /// call that makes Max run the other qelem (a nested event loop, such as a modal dialog's)
+    /// drains the rest of the queue there, in order, and this drain then finds it empty. At most
+    /// as many calls run as were pending at the start, so a deferred method that queues itself
+    /// again runs once per run of a qelem instead of looping here: its push set the other qelem
+    /// (this one, still running, may stay unset: `ext_proto.h` says "A Qelem object is unset
+    /// after its queue function has been called"). A call queued while both qelems were running
+    /// (one nested inside the other) set neither, so a drain that leaves calls behind sets both
+    /// again; the inner drain's set is lost too, but the outer one's, after the inner qelem has
+    /// finished, is not.
     fn run_deferred(&self) {
         let Some(q) = self.internal().defer_queue() else {
             return;
@@ -1030,6 +1035,7 @@ where
                 })
             });
         }
+        q.set_if_pending();
     }
 
     /// How many deferred calls are pending.

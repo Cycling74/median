@@ -53,13 +53,17 @@
 //!   queues from any thread that isn't the main one.)
 //!
 //! How it works, and why it is safe: each object whose class has deferred methods has its own
-//! queue of pending calls and one qelem, owned by the wrapper. A deferred call copies its
-//! arguments (numbers, symbols, atoms) into the queue and sets the qelem; when the qelem runs, on
-//! the main thread, the pending calls run in order. Nothing is handed to Max's `defer`, so a
-//! pending call can't outlive its object: when the object is freed, the qelem is disabled and
+//! queue of pending calls and two qelems, owned by the wrapper. A deferred call copies its
+//! arguments (numbers, symbols, atoms) into the queue and sets both qelems; when either runs, on
+//! the main thread, the pending calls run in order (the other then usually finds nothing to do).
+//! Two, because Max unsets a qelem only after its function has returned (`ext_proto.h`: "A
+//! Qelem object is unset after its queue function has been called"), so setting the qelem that
+//! is draining the queue does nothing: a call queued meanwhile, by a deferred method or from the
+//! scheduler thread, is picked up by the other one. Nothing is handed to Max's `defer`, so a
+//! pending call can't outlive its object: when the object is freed, the qelems are disabled and
 //! freed and the pending calls are dropped without running. Pending `Front` calls run before
 //! pending `Low` ones of the same object, latest first (as several of Max's `defer`s are); the
-//! qelem is set with `qelem_front` for them. If the qelem is already waiting at the back, it is
+//! qelems are set with `qelem_front` for them. If a qelem is already waiting at the back, it is
 //! assumed to stay there: the SDK headers don't say what `qelem_front` does to a qelem that is
 //! already set, so this is **unverified in Max** (`median-mock` models it that way).
 //!
@@ -135,24 +139,29 @@ impl<T> DeferredCall<T> {
 mod pending {
     use super::*;
 
-    /// The pending deferred calls of one object and the qelem that runs them. Owned by the wrapper:
-    /// dropped (pending calls with it, then the qelem freed) when the object is freed, after the
-    /// qelem's callback has been disabled.
+    /// The pending deferred calls of one object and the two qelems that run them. Owned by the
+    /// wrapper: dropped (pending calls with it, then the qelems freed) when the object is freed,
+    /// after the qelems' callbacks have been disabled.
+    ///
+    /// Two qelems, because a qelem set while its own function runs may stay unset (`ext_proto.h`:
+    /// "A Qelem object is unset after its queue function has been called"): a call queued while
+    /// one of them drains is picked up by the other. See the [module documentation](super).
     pub struct DeferQueue<T> {
         calls: parking_lot::Mutex<VecDeque<DeferredCall<T>>>,
-        queue: Queue,
+        queues: [Queue; 2],
     }
 
     impl<T> DeferQueue<T> {
-        /// `queue` is the object's qelem, whose callback runs `take()`'s calls.
-        pub(crate) fn new(queue: Queue) -> Self {
+        /// `queues` are the object's two qelems, whose callbacks both run the pending calls
+        /// (`Wrapper::run_deferred`).
+        pub(crate) fn new(queues: [Queue; 2]) -> Self {
             Self {
                 calls: parking_lot::Mutex::new(VecDeque::new()),
-                queue,
+                queues,
             }
         }
 
-        /// Queue a call and set the qelem.
+        /// Queue a call and set both qelems: whichever is not running picks it up.
         pub(crate) fn push(&self, mode: Defer, call: DeferredCall<T>) {
             {
                 let mut calls = self.calls.lock();
@@ -161,9 +170,21 @@ mod pending {
                     Defer::Low => calls.push_back(call),
                 }
             }
-            match mode {
-                Defer::Front => self.queue.front(),
-                Defer::Low => self.queue.set(),
+            for queue in &self.queues {
+                match mode {
+                    Defer::Front => queue.front(),
+                    Defer::Low => queue.set(),
+                }
+            }
+        }
+
+        /// Set both qelems (at the back) if calls are pending. For the end of a drain: a call
+        /// queued while both qelems were running (one nested inside the other) set neither.
+        pub(crate) fn set_if_pending(&self) {
+            if self.len() > 0 {
+                for queue in &self.queues {
+                    queue.set();
+                }
             }
         }
 
@@ -287,7 +308,8 @@ mod tests {
         //and when they run, the copies are freed afterwards
         let obj = k.new_object("defer.unit", &[]);
         k.send_list(obj, &[MockAtom::Long(1)]).unwrap();
-        assert_eq!(k.run_main_queue(), 1);
+        //both qelems run; the second finds nothing to do
+        assert_eq!(k.run_main_queue(), 2);
         assert_eq!(pending(obj), 0);
         assert_eq!(LIVE_OWNED_ATOMS.load(Ordering::SeqCst), live);
         assert_eq!(k.take_console_log()[0].text, "list of 1");

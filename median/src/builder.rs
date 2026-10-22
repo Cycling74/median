@@ -77,8 +77,8 @@ pub struct Builder<T, K> {
     /// The callback targets of the clocks and queues made with the builder: the wrapper arms them
     /// when construction has finished and disables them before the object is dropped.
     targets: Vec<Arc<ClockShared>>,
-    /// The qelem of the object's deferred-call queue, if its class has deferred methods.
-    defer_queue: Option<Queue>,
+    /// The two qelems of the object's deferred-call queue, if its class has deferred methods.
+    defer_queue: Option<[Queue; 2]>,
     /// `z_dsp_setup` was called and the builder still owes the `z_dsp_free`: until
     /// [`commit`](Self::commit), dropping the builder (construction failed or panicked) calls
     /// it. Afterwards the wrapper's `free` does.
@@ -565,15 +565,15 @@ impl<T, K: BuilderKind> Builder<T, K> {
         std::mem::take(&mut self.targets)
     }
 
-    /// Give the object a deferred-call queue whose qelem calls `run` with the object. Its target
-    /// is armed and disabled with the clocks.
-    pub(crate) fn make_defer_queue(&mut self, run: ClockFn) {
-        let q = self.queue_for(run);
-        self.defer_queue = Some(q);
+    /// Give the object a deferred-call queue whose two qelems call `run` with the object (see
+    /// `DeferQueue`). Their targets are armed and disabled with the clocks.
+    pub(crate) fn make_defer_queue(&mut self, run: fn(*mut max_sys::t_object)) {
+        let qs = [self.queue_for(Box::new(run)), self.queue_for(Box::new(run))];
+        self.defer_queue = Some(qs);
     }
 
-    /// The qelem of the deferred-call queue, for the wrapper.
-    pub(crate) fn take_defer_queue(&mut self) -> Option<Queue> {
+    /// The qelems of the deferred-call queue, for the wrapper.
+    pub(crate) fn take_defer_queue(&mut self) -> Option<[Queue; 2]> {
         self.defer_queue.take()
     }
 
