@@ -468,8 +468,7 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    //`ClockShared::call` reports panics through Max's `object_error`, which the test binary
-    //can't link
+    //run the callback with a no-op error reporter, so these tests don't need an owner object
     fn call(shared: &ClockShared) {
         shared.call_with(|_, _| ())
     }
