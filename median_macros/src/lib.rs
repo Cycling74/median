@@ -10,7 +10,6 @@ mod derive;
 mod error;
 mod methods;
 mod reserved;
-mod tramp;
 
 /// See `median::MaxObject`.
 #[proc_macro_derive(MaxObject, attributes(max, attr))]
@@ -24,9 +23,4 @@ pub fn derive_max_object(input: TokenStream) -> TokenStream {
 pub fn methods(attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as ItemImpl);
     methods::methods(attr.into(), item).into()
-}
-
-#[proc_macro_attribute]
-pub fn wrapped_defer_tramp(attr: TokenStream, item: TokenStream) -> TokenStream {
-    tramp::defer_tramp(attr, item)
 }

@@ -17,6 +17,17 @@ impl Simp {
     #[defer]
     pub fn later(&self) {}
 
+    #[sel("twice")]
+    #[defer]
+    #[defer_low]
+    pub fn twice(&self) {}
+
+    #[attr]
+    #[defer_low]
+    pub fn deferred_attr(&self) -> f64 {
+        0.
+    }
+
     #[bang(now)]
     pub fn args(&self) {}
 

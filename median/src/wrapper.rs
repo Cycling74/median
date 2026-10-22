@@ -8,6 +8,7 @@ use crate::{
     class::{Class, ClassType},
     error::{MaxResult, NewError},
     clock::ClockShared,
+    defer::{Defer, DeferQueue, DeferredCall},
     method::{MaxFree, MaxMethod},
     notify::Notification,
     object::{MSPObj, MaxObj, ObjBox, ObjRef},
@@ -31,8 +32,8 @@ use std::{
 use lazy_static::lazy_static;
 
 lazy_static! {
-    //type name -> ClassMaxObjWrapper
-    static ref CLASSES: Mutex<HashMap<&'static str, ClassMaxObjWrapper>> = Mutex::new(HashMap::new());
+    //type name -> the registered class
+    static ref CLASSES: Mutex<HashMap<&'static str, ClassEntry>> = Mutex::new(HashMap::new());
 }
 
 /// The longest assist text, in bytes, that is given to Max (`ASSIST_MAX_STRING_LEN` in the SDK's
@@ -41,13 +42,6 @@ pub const ASSIST_MAX_STRING_LEN: usize = 500;
 
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
 pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
-
-pub type DeferMethodWrapped<T> = unsafe extern "C" fn(
-    wrapper: &T,
-    sym: *mut max_sys::t_symbol,
-    argc: std::os::raw::c_short,
-    argv: *const max_sys::t_atom,
-);
 
 /// An inlet or an outlet of an object, by position (0 is the leftmost), as the `assist` hook
 /// is asked about it.
@@ -116,15 +110,18 @@ unsafe fn mark_undocumented(class: *mut max_sys::t_class, name: &CStr) {
     }
 }
 
-//reexports
-///trampoline for deffered calls
-pub use median_macros::wrapped_defer_tramp as defer_tramp;
-
 //we only use ClassMaxObjWrapper in CLASSES after we've registered the class, for max's usage this is
 //Send
 #[repr(transparent)]
 struct ClassMaxObjWrapper(*mut max_sys::t_class);
 unsafe impl Send for ClassMaxObjWrapper {}
+
+/// A registered class, in `CLASSES`.
+struct ClassEntry {
+    class: ClassMaxObjWrapper,
+    /// The class has deferred methods: each object gets a deferred-call queue.
+    deferred: bool,
+}
 
 /// The identity of a class: its name, its box type and which wrapper it lives in.
 ///
@@ -370,6 +367,14 @@ pub trait WrapperWrapped<T> {
     /// Give an error returned by a method of the wrapped value to its `report_error` hook
     /// ([`MaxObjWrapped::report_error`] or [`MSPObjWrapped::report_error`]).
     fn report_error(&self, err: &dyn Display);
+
+    /// Queue a deferred call on the object's deferred-call queue (see [`crate::defer`]). For
+    /// the deferring trampolines; the wrappers implement it, the default panics.
+    #[doc(hidden)]
+    fn defer_call(&self, mode: Defer, call: DeferredCall<T>) {
+        let _ = (mode, call);
+        panic!("median: this wrapper has no deferred-call queue");
+    }
 }
 
 /// The actual struct that is given to max
@@ -396,6 +401,9 @@ pub struct MaxWrapperInternal<T> {
     //the callback targets of the clocks and queues made with the builder: disabled by
     //`free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     targets: Vec<Arc<ClockShared>>,
+    //the pending deferred calls and their qelem, if the class has deferred methods (the qelem's
+    //target is one of `targets`)
+    deferred: Option<DeferQueue<T>>,
 }
 
 /// Inner struct for wrapping [`MSPObjWrapped`]
@@ -410,6 +418,9 @@ pub struct MSPWrapperInternal<T> {
     //the callback targets of the clocks and queues made with the builder: disabled by
     //`free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     targets: Vec<Arc<ClockShared>>,
+    //the pending deferred calls and their qelem, if the class has deferred methods (the qelem's
+    //target is one of `targets`)
+    deferred: Option<DeferQueue<T>>,
 }
 
 /// Disable the clocks and queues created for an object. Must run before the object's `T` is
@@ -447,6 +458,8 @@ mod sealed {
         fn wrapped(&self) -> &T;
         /// The callback targets of the clocks and queues created for this object by the builder.
         fn targets(&self) -> &[Arc<ClockShared>];
+        /// The deferred-call queue, if the class has deferred methods.
+        fn defer_queue(&self) -> Option<&DeferQueue<T>>;
         /// The builder `T::new` gets.
         type Kind: BuilderKind;
         /// Run `T::new` and make the inlets: the internals, or why the object was refused.
@@ -484,6 +497,9 @@ where
     fn targets(&self) -> &[Arc<ClockShared>] {
         &self.targets
     }
+    fn defer_queue(&self) -> Option<&DeferQueue<T>> {
+        self.deferred.as_ref()
+    }
     type Kind = Max;
     fn build(builder: &mut MaxBuilder<T>) -> Result<Self, String> {
         let wrapped = T::new(builder).map_err(|e| e.to_string())?;
@@ -493,6 +509,7 @@ where
             iolets,
             buffer_refs: builder.take_buffer_refs(),
             targets: builder.take_targets(),
+            deferred: builder.take_defer_queue().map(DeferQueue::new),
         })
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -541,6 +558,9 @@ where
     fn targets(&self) -> &[Arc<ClockShared>] {
         &self.targets
     }
+    fn defer_queue(&self) -> Option<&DeferQueue<T>> {
+        self.deferred.as_ref()
+    }
     type Kind = Msp;
     fn build(builder: &mut MSPBuilder<T>) -> Result<Self, String> {
         let wrapped = T::new(builder).map_err(|e| e.to_string())?;
@@ -559,6 +579,7 @@ where
             iolets,
             buffer_refs: builder.take_buffer_refs(),
             targets: builder.take_targets(),
+            deferred: builder.take_defer_queue().map(DeferQueue::new),
         })
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -740,12 +761,12 @@ where
     }
 }
 
-/// The registered class for `key`, if there is one.
-fn registered_class(key: &'static str) -> Option<*mut max_sys::t_class> {
+/// The registered class for `key`, if there is one, and whether it has deferred methods.
+fn registered_class(key: &'static str) -> Option<(*mut max_sys::t_class, bool)> {
     //the lock is released before the object is made, so its `new` may register classes
     //a panic during registration can poison the lock, but the map is still consistent
     let g = CLASSES.lock().unwrap_or_else(PoisonError::into_inner);
-    g.get(key).map(|c| c.0)
+    g.get(key).map(|c| (c.class.0, c.deferred))
 }
 
 /// Why an object wasn't made.
@@ -760,7 +781,7 @@ enum CreateError {
 impl<O, I, T> Wrapper<O, I, T>
 where
     I: WrapperInternal<O, T>,
-    Self: MaxObj,
+    Self: MaxObj + 'static,
 {
     /// Allocate an object of the class registered for `T`, run `T::new` with a builder, and
     /// make the inlets.
@@ -770,7 +791,8 @@ where
     /// `z_dsp_setup` ran), then Max frees the object, whose `free` sees that it isn't
     /// constructed. On `Err` the message is posted for the object first.
     fn construct(sym: SymbolRef, args: &[Atom]) -> Result<ObjBox<Self>, CreateError> {
-        let max_class = registered_class(key::<T>()).ok_or(CreateError::Unavailable)?;
+        let (max_class, deferred) =
+            registered_class(key::<T>()).ok_or(CreateError::Unavailable)?;
         // SAFETY: `max_class` is the class registered for this wrapper type
         let o: ObjBox<Self> =
             unsafe { ObjBox::alloc(max_class) }.ok_or(CreateError::Unavailable)?;
@@ -785,6 +807,15 @@ where
         let mut builder: Builder<T, I::Kind> = unsafe {
             Builder::new(std::ptr::NonNull::new_unchecked(o.max_obj()), sym, args)
         };
+        if deferred {
+            //the qelem of the deferred-call queue, armed and disabled with the clocks
+            builder.make_defer_queue(Box::new(|obj| {
+                // SAFETY: the target is armed after construction and disabled before the
+                // object is torn down, so `obj` is this live, constructed wrapper
+                let w: &Self = unsafe { &*obj.cast::<Self>() };
+                w.run_deferred();
+            }));
+        }
         let internal = match I::build(&mut builder) {
             Ok(internal) => internal,
             Err(msg) => {
@@ -866,6 +897,16 @@ where
 {
     fn wrapped(&self) -> &T {
         self.internal().wrapped()
+    }
+
+    fn defer_call(&self, mode: Defer, call: DeferredCall<T>) {
+        match self.internal().defer_queue() {
+            Some(q) => q.push(mode, call),
+            None => panic!(
+                "{}: a deferred method was called, but the class was registered without one",
+                key::<T>()
+            ),
+        }
     }
 
     fn report_error(&self, err: &dyn Display) {
@@ -964,6 +1005,28 @@ where
         }
     }
 
+    /// Run the object's pending deferred calls, in order, each inside the panic guard (called
+    /// by the qelem of its deferred-call queue, on the main thread).
+    fn run_deferred(&self) {
+        let Some(q) = self.internal().defer_queue() else {
+            return;
+        };
+        for call in q.take() {
+            let what = call.what();
+            self.guard_or(what, (), || {
+                call.run(self.internal().wrapped(), &mut |err| {
+                    WrapperWrapped::report_error(self, err)
+                })
+            });
+        }
+    }
+
+    /// How many deferred calls are pending.
+    #[cfg(test)]
+    pub(crate) fn pending_deferred(&self) -> usize {
+        self.internal().defer_queue().map_or(0, |q| q.len())
+    }
+
     /// Let the object's clocks and queues run. Called once the wrapped value is initialised.
     ///
     /// # Safety
@@ -1035,7 +1098,7 @@ where
             } else {
                 std::ptr::null_mut()
             };
-            let max_class = if existing.is_null() {
+            let (max_class, deferred) = if existing.is_null() {
                 let mut c = creator();
                 let notify = c"notify";
                 let assist = c"assist";
@@ -1074,12 +1137,18 @@ where
                 Self::register_ft_in(c.inner());
                 c.register(T::class_type())
                     .expect(format!("failed to register {}", key).as_str());
-                c.inner()
+                (c.inner(), c.has_deferred())
             } else {
-                existing
+                (existing, false)
             };
 
-            h.insert(key, ClassMaxObjWrapper(max_class));
+            h.insert(
+                key,
+                ClassEntry {
+                    class: ClassMaxObjWrapper(max_class),
+                    deferred,
+                },
+            );
         }
     }
 
@@ -1667,14 +1736,20 @@ mod tests {
             refused("inletinfo")
         );
         assert_eq!(t, 0);
-        //what the `defer_tramp` trampolines do
-        assert_eq!(
-            errors_during(&k, &*w, || crate::ffi::guard(&*w, "method", || {
-                let _: &P = WrapperWrapped::wrapped(&*w);
-                RAN.fetch_add(1, Ordering::SeqCst);
-            })),
-            refused("method")
-        );
+        //the deferring trampolines, queuing (`Low`) and running at once (`Front` on the main
+        //thread): neither queues nor runs anything
+        for mode in [Defer::Low, Defer::Front] {
+            let m = crate::method::bang_deferred_method::<W, P, _, _>(
+                |_: &P| {
+                    RAN.fetch_add(1, Ordering::SeqCst);
+                },
+                mode,
+            );
+            // SAFETY: that is the type of the trampoline `bang_deferred_method` returns
+            let f = unsafe { std::mem::transmute::<crate::method::MaxMethod, extern "C" fn(&W)>(m) };
+            assert_eq!(errors_during(&k, &*w, || f(&w)), refused("bang"), "{mode:?}");
+        }
+        assert_eq!(k.main_queue_len(), 0);
         //the attribute accessors (`Class::add_attr`, `#[attr]`) return an error to Max
         fn get(_: &P) -> f64 {
             RAN.fetch_add(1, Ordering::SeqCst);

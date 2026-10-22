@@ -77,6 +77,8 @@ pub struct Builder<T, K> {
     /// The callback targets of the clocks and queues made with the builder: the wrapper arms them
     /// when construction has finished and disables them before the object is dropped.
     targets: Vec<Arc<ClockShared>>,
+    /// The qelem of the object's deferred-call queue, if its class has deferred methods.
+    defer_queue: Option<Queue>,
     /// `z_dsp_setup` was called and the builder still owes the `z_dsp_free`: until
     /// [`commit`](Self::commit), dropping the builder (construction failed or panicked) calls
     /// it. Afterwards the wrapper's `free` does.
@@ -121,6 +123,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
             error: None,
             buffer_refs: Vec::new(),
             targets: Vec::new(),
+            defer_queue: None,
             dsp_pending: false,
             _kind: PhantomData,
         }
@@ -391,7 +394,7 @@ where
     })
 }
 
-impl<T: Sync + 'static, K: BuilderKind> Builder<T, K> {
+impl<T, K: BuilderKind> Builder<T, K> {
     /// A clock whose callback is `func`, called with this object.
     fn clock_for(&mut self, func: ClockFn) -> Clock {
         // SAFETY: `obj` is valid for the life of the object; the wrapper clears the clock's
@@ -560,6 +563,18 @@ impl<T, K: BuilderKind> Builder<T, K> {
     /// The callback targets of the clocks and queues made with the builder, for the wrapper.
     pub(crate) fn take_targets(&mut self) -> Vec<Arc<ClockShared>> {
         std::mem::take(&mut self.targets)
+    }
+
+    /// Give the object a deferred-call queue whose qelem calls `run` with the object. Its target
+    /// is armed and disabled with the clocks.
+    pub(crate) fn make_defer_queue(&mut self, run: ClockFn) {
+        let q = self.queue_for(run);
+        self.defer_queue = Some(q);
+    }
+
+    /// The qelem of the deferred-call queue, for the wrapper.
+    pub(crate) fn take_defer_queue(&mut self) -> Option<Queue> {
+        self.defer_queue.take()
     }
 
     /// The buffer references made with the builder, for the wrapper.

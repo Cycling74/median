@@ -1,11 +1,9 @@
 //! Object handles and traits.
 
 use crate::{
-    atom::Atom,
     error::{MaxError, MaxResult},
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     symbol::SymbolRef,
-    wrapper::DeferMethodWrapped,
 };
 use std::convert::TryInto;
 use std::fmt::Display;
@@ -45,8 +43,7 @@ use std::marker::PhantomData;
 ///   handle after the object has been deleted is a use-after-free.
 /// * The handle exists before your struct does: the builder hands it out while `new` is still
 ///   running. A call on it during `new` that makes Max call back into the object (touching an
-///   attribute, notifying, deferring from the main thread) reaches a method of an object that
-///   is not built yet. The wrapper refuses such a call with a console error, without running
+///   attribute, notifying) reaches a method of an object that is not built yet. The wrapper refuses such a call with a console error, without running
 ///   your code, rather than letting it reach the half-built object, so don't do that in `new`.
 ///
 /// `ObjRef` is not `Clone`:
@@ -187,52 +184,6 @@ impl ObjRef {
             unsafe { crate::attr::touch_with_name(self.as_ptr(), name) }
         } else {
             Err(MaxError::Generic)
-        }
-    }
-
-    /// Defer a trampoline of this object's wrapper to the main thread, if (and only if) you are
-    /// calling from the scheduler thread. See [`crate::thread::defer`].
-    ///
-    /// # Safety
-    /// * `W` must be the wrapper type of this object (`MaxObjWrapper<T>` or `MSPObjWrapper<T>`
-    ///   for the `T` that holds this handle) and `meth` must be a trampoline of it (see the
-    ///   `defer_tramp` attribute).
-    /// * The object must stay alive until the deferred call has run: Max does not keep it alive,
-    ///   and the deferred call receives a pointer to it. For example, the object must not be
-    ///   freed (the box deleted) before then.
-    /// * The object must be fully constructed, so don't call this from inside `new`. From the
-    ///   main thread `defer` runs `meth` immediately, which calls back into the half-built
-    ///   object. (The wrapper refuses that call with a console error instead of running the
-    ///   method, but it is still not what you wanted.)
-    pub unsafe fn defer<W>(&self, meth: DeferMethodWrapped<W>, sym: SymbolRef, atoms: &[Atom]) {
-        // SAFETY: `self` is a live object, `meth` is a trampoline for it and the caller
-        // guarantees that the object outlives the deferred call
-        unsafe {
-            crate::thread::defer(
-                std::mem::transmute::<DeferMethodWrapped<W>, crate::thread::DeferMethod>(meth),
-                self.as_ptr(),
-                sym,
-                atoms,
-            );
-        }
-    }
-
-    /// Defer a trampoline of this object's wrapper to the back of the main thread's queue. Always
-    /// defers. See [`crate::thread::defer_low`].
-    ///
-    /// # Safety
-    /// As [`ObjRef::defer`]: `W` must be this object's wrapper type, `meth` a trampoline of it,
-    /// the object must outlive the deferred call, and it must be fully constructed (not called
-    /// from inside `new`).
-    pub unsafe fn defer_low<W>(&self, meth: DeferMethodWrapped<W>, sym: SymbolRef, atoms: &[Atom]) {
-        // SAFETY: as for `defer`
-        unsafe {
-            crate::thread::defer_low(
-                std::mem::transmute::<DeferMethodWrapped<W>, crate::thread::DeferMethod>(meth),
-                self.as_ptr(),
-                sym,
-                atoms,
-            );
         }
     }
 }

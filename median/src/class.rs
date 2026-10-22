@@ -4,6 +4,7 @@ use crate::atom::Atom;
 use crate::attr::{
     Attr, AttrBuilder, AttrField, AttrOptions, AttrTrampGetMethod, AttrTrampSetMethod, AttrValue,
 };
+use crate::defer::Defer;
 use crate::error::{MaxError, MaxResult};
 use crate::method::*;
 use crate::object::MaxObj;
@@ -164,6 +165,8 @@ pub struct Class<T> {
     class: *mut max_sys::t_class,
     /// The attributes added through this `Class`, to refuse a duplicate name.
     attr_names: Vec<String>,
+    /// A deferred method was added: the wrapper gives each object a deferred-call queue.
+    deferred: bool,
     _phantom: PhantomData<T>,
 }
 
@@ -197,6 +200,7 @@ impl<T> Class<T> {
         Self {
             class,
             attr_names: Vec::new(),
+            deferred: false,
             _phantom: PhantomData,
         }
     }
@@ -230,6 +234,12 @@ impl<T> Class<T> {
     /// Get the inner class object.
     pub fn inner(&mut self) -> *mut max_sys::t_class {
         self.class
+    }
+
+    /// Whether a deferred method (`add_*_deferred`) was added, so that the objects of the class
+    /// need a deferred-call queue.
+    pub(crate) fn has_deferred(&self) -> bool {
+        self.deferred
     }
 
     /// Add a built attribute to the class. `Err(MaxError::Duplicate)` (and the attribute is
@@ -510,6 +520,135 @@ impl<W> Class<W> {
         R: MethodResult,
     {
         let m = sel_gimme_method::<W, T, F, R>(f);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
+    }
+
+    /// [`add_bang`](Self::add_bang), deferred to the main thread as `mode` says (see
+    /// [`crate::defer`]; what `#[bang] #[defer]` and `#[bang] #[defer_low]` generate). Never send
+    /// a deferred message from `perform`.
+    pub fn add_bang_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = bang_deferred_method::<W, T, F, R>(f, mode);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(c"bang", m, &[]) }
+    }
+
+    /// [`add_int`](Self::add_int), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
+    pub fn add_int_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = int_deferred_method::<W, T, F, R>(f, mode);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(c"int", m, &[max_sys::e_max_atomtypes::A_LONG]) }
+    }
+
+    /// [`add_float`](Self::add_float), deferred (see
+    /// [`add_bang_deferred`](Self::add_bang_deferred)).
+    pub fn add_float_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T, f64) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = float_deferred_method::<W, T, F, R>(f, mode);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(c"float", m, &[max_sys::e_max_atomtypes::A_FLOAT]) }
+    }
+
+    /// [`add_sym`](Self::add_sym), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
+    pub fn add_sym_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T, SymbolRef) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = sym_deferred_method::<W, T, F, R>(f, mode);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(c"symbol", m, &[max_sys::e_max_atomtypes::A_SYM]) }
+    }
+
+    /// [`add_list`](Self::add_list), deferred (see
+    /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call.
+    pub fn add_list_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T, &[Atom]) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = list_deferred_method::<W, T, F, R>(f, mode);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(c"list", m, &[max_sys::e_max_atomtypes::A_GIMME]) }
+    }
+
+    /// [`add_any`](Self::add_any), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
+    /// The atoms are copied for the call.
+    pub fn add_any_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = any_deferred_method::<W, T, F, R>(f, mode);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(c"anything", m, &[max_sys::e_max_atomtypes::A_GIMME]) }
+    }
+
+    /// [`add_sel`](Self::add_sel), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
+    pub fn add_sel_deferred<T, F, A, R>(
+        &mut self,
+        sel: &CStr,
+        _f: F,
+        defaults: usize,
+        mode: Defer,
+    ) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: SelFn<T, A, R>,
+    {
+        let mut types = [0; 7];
+        if F::TYPES.len() > types.len() {
+            return Err(MaxError::Generic);
+        }
+        let types = &mut types[..F::TYPES.len()];
+        types.copy_from_slice(F::TYPES);
+        default_types(types, defaults)?;
+        self.deferred = true;
+        // SAFETY: the trampoline takes the object and arguments of `F::TYPES`
+        unsafe { self.add_typed(sel, F::deferred_trampoline::<W>(mode), types) }
+    }
+
+    /// [`add_sel_gimme`](Self::add_sel_gimme), deferred (see
+    /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call.
+    pub fn add_sel_gimme_deferred<T, F, R>(&mut self, sel: &CStr, f: F, mode: Defer) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static,
+        F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        self.deferred = true;
+        let m = sel_gimme_deferred_method::<W, T, F, R>(f, mode);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
     }

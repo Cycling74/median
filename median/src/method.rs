@@ -1,5 +1,11 @@
 //! Method encapsulation and type aliases
-use crate::{atom::Atom, object::MaxObj, symbol::SymbolRef, wrapper::WrapperWrapped};
+use crate::{
+    atom::Atom,
+    defer::{Defer, DeferredCall, OwnedAtoms},
+    object::MaxObj,
+    symbol::SymbolRef,
+    wrapper::WrapperWrapped,
+};
 use std::{ffi::c_void, fmt::Display, os::raw::c_long};
 
 pub type MaxNew = unsafe extern "C" fn(
@@ -266,7 +272,7 @@ pub(crate) extern "C" fn any_tramp<W, T, F, R>(
 ///
 /// This trait is sealed: the associated items say how Max passes the argument, so an impl for
 /// another type could make the trampoline misread it.
-pub trait SelArg: Sized + sealed::SealedArg {
+pub trait SelArg: Copy + Send + 'static + sealed::SealedArg {
     /// How Max passes the argument to the method.
     type C;
     /// The atom type to register the argument as.
@@ -322,6 +328,13 @@ pub trait SelFn<T, Args, R>: Copy + Send + Sync + 'static + sealed::SealedSelFn<
     fn trampoline<W>() -> MaxMethod
     where
         W: WrapperWrapped<T> + MaxObj;
+
+    /// The deferring trampoline for this callable on the wrapper `W` (see [`crate::defer`]).
+    #[doc(hidden)]
+    fn deferred_trampoline<W>(mode: Defer) -> MaxMethod
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        T: 'static;
 }
 
 /// Whether `types` has both `A_FLOAT` and other types. Max's typed dispatch passes the arguments
@@ -343,7 +356,23 @@ pub(crate) const fn mixes_float(types: &[max_sys::e_max_atomtypes::Type]) -> boo
 }
 
 macro_rules! sel_fn_arity {
-    ($tramp:ident; $($A:ident $a:ident),*) => {
+    ($tramp:ident, $dtramp:ident; $($A:ident $a:ident),*) => {
+        extern "C" fn $dtramp<W, T, F, R, $($A,)* const LOW: bool>(w: &W, $($a: <$A as SelArg>::C),*)
+        where
+            W: WrapperWrapped<T> + MaxObj,
+            T: 'static,
+            F: Fn(&T, $($A),*) -> R + Copy + Send + 'static,
+            R: MethodResult,
+            $($A: SelArg),*
+        {
+            // SAFETY: Max passes the arguments as they were registered (`SelArg::ATOM_TYPE`)
+            $(let $a = unsafe { <$A as SelArg>::from_c($a) };)*
+            // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+            defer_or_run::<W, T, R, _, LOW>(w, "method", move |t: &T| {
+                (unsafe { zst::<F>() })(t, $($a),*)
+            });
+        }
+
         extern "C" fn $tramp<W, T, F, R, $($A),*>(w: &W, $($a: <$A as SelArg>::C),*)
         where
             W: WrapperWrapped<T> + MaxObj,
@@ -389,18 +418,37 @@ macro_rules! sel_fn_arity {
                 // is how Max calls a method registered with the argument types in `TYPES`
                 unsafe { erase(p) }
             }
+
+            fn deferred_trampoline<W>(mode: Defer) -> MaxMethod
+            where
+                W: WrapperWrapped<T> + MaxObj,
+                T: 'static,
+            {
+                const {
+                    assert!(
+                        !mixes_float(Self::TYPES),
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel(\"name\", gimme)] / add_sel_gimme"
+                    )
+                };
+                let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = match mode {
+                    Defer::Low => $dtramp::<W, T, F, R, $($A,)* true>,
+                    Defer::Front => $dtramp::<W, T, F, R, $($A,)* false>,
+                };
+                // SAFETY: as for `trampoline`
+                unsafe { erase(p) }
+            }
         }
     };
 }
 
-sel_fn_arity!(sel_tramp0;);
-sel_fn_arity!(sel_tramp1; A1 a1);
-sel_fn_arity!(sel_tramp2; A1 a1, A2 a2);
-sel_fn_arity!(sel_tramp3; A1 a1, A2 a2, A3 a3);
-sel_fn_arity!(sel_tramp4; A1 a1, A2 a2, A3 a3, A4 a4);
-sel_fn_arity!(sel_tramp5; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5);
-sel_fn_arity!(sel_tramp6; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6);
-sel_fn_arity!(sel_tramp7; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6, A7 a7);
+sel_fn_arity!(sel_tramp0, sel_deferred_tramp0;);
+sel_fn_arity!(sel_tramp1, sel_deferred_tramp1; A1 a1);
+sel_fn_arity!(sel_tramp2, sel_deferred_tramp2; A1 a1, A2 a2);
+sel_fn_arity!(sel_tramp3, sel_deferred_tramp3; A1 a1, A2 a2, A3 a3);
+sel_fn_arity!(sel_tramp4, sel_deferred_tramp4; A1 a1, A2 a2, A3 a3, A4 a4);
+sel_fn_arity!(sel_tramp5, sel_deferred_tramp5; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5);
+sel_fn_arity!(sel_tramp6, sel_deferred_tramp6; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6);
+sel_fn_arity!(sel_tramp7, sel_deferred_tramp7; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6, A7 a7);
 
 pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R>(
     w: &W,
@@ -505,3 +553,224 @@ where
 
 /// The signature of a trampoline for an `A_GIMME` method.
 type GimmeTramp<W> = extern "C" fn(&W, *mut max_sys::t_symbol, c_long, *const max_sys::t_atom);
+
+//
+// Deferred methods (see `crate::defer`): the trampolines copy the arguments and either run the
+// method at once (`Defer::Front` on the main thread) or queue it on the object's deferred-call
+// queue. `LOW` is `true` for `Defer::Low`.
+//
+
+/// Run `call` now if `LOW` is false and this is the main thread, otherwise queue it on the
+/// object's deferred-call queue. Inside the panic guard; an `Err` goes to `report_error` when
+/// the call runs.
+fn defer_or_run<W, T, R, C, const LOW: bool>(w: &W, what: &'static str, call: C)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    R: MethodResult,
+    C: FnOnce(&T) -> R + Send + 'static,
+{
+    crate::ffi::guard(w, what, || {
+        if !LOW && crate::thread::SysThread::is_main() {
+            call(w.wrapped()).report_if_err(&mut |err| w.report_error(err));
+        } else {
+            let mode = if LOW { Defer::Low } else { Defer::Front };
+            w.defer_call(
+                mode,
+                DeferredCall::new(what, move |t: &T, report: &mut dyn FnMut(&dyn Display)| {
+                    call(t).report_if_err(report)
+                }),
+            );
+        }
+    })
+}
+
+extern "C" fn bang_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    defer_or_run::<W, T, R, _, LOW>(w, "bang", |t: &T| (unsafe { zst::<F>() })(t));
+}
+
+extern "C" fn int_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W, v: max_sys::t_atom_long)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    defer_or_run::<W, T, R, _, LOW>(w, "int", move |t: &T| (unsafe { zst::<F>() })(t, v));
+}
+
+extern "C" fn float_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W, v: f64)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, f64) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    defer_or_run::<W, T, R, _, LOW>(w, "float", move |t: &T| (unsafe { zst::<F>() })(t, v));
+}
+
+extern "C" fn sym_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W, s: *mut max_sys::t_symbol)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, SymbolRef) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    // SAFETY: Max passes a valid symbol (or null, the empty symbol) for an `A_SYM` argument
+    let s = unsafe { SymbolRef::from_raw(s) };
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    defer_or_run::<W, T, R, _, LOW>(w, "symbol", move |t: &T| (unsafe { zst::<F>() })(t, s));
+}
+
+extern "C" fn list_deferred_tramp<W, T, F, R, const LOW: bool>(
+    w: &W,
+    _sel: *mut max_sys::t_symbol,
+    ac: c_long,
+    av: *const max_sys::t_atom,
+) where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, &[Atom]) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    // SAFETY: Max passes `ac` valid atoms that live for the call for an `A_GIMME` method; they
+    // are copied
+    let atoms = OwnedAtoms::copy(unsafe { atoms(ac, av) });
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    defer_or_run::<W, T, R, _, LOW>(w, "list", move |t: &T| {
+        (unsafe { zst::<F>() })(t, atoms.as_slice())
+    });
+}
+
+/// `anything` and `A_GIMME` selector methods: the selector and the atoms.
+extern "C" fn gimme_deferred_tramp<W, T, F, R, const LOW: bool, const ANY: bool>(
+    w: &W,
+    sel: *mut max_sys::t_symbol,
+    ac: c_long,
+    av: *const max_sys::t_atom,
+) where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    // SAFETY: Max passes a valid selector and `ac` valid atoms that live for the call for an
+    // `A_GIMME` method; they are copied
+    let (sel, atoms) = unsafe { (SymbolRef::from_raw(sel), OwnedAtoms::copy(atoms(ac, av))) };
+    let what = if ANY { "anything" } else { "method" };
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    defer_or_run::<W, T, R, _, LOW>(w, what, move |t: &T| {
+        (unsafe { zst::<F>() })(t, &sel, atoms.as_slice())
+    });
+}
+
+/// Pick the `LOW` instance of a deferring trampoline.
+macro_rules! deferred {
+    ($mode:expr, $ty:ty, $tramp:ident::<$($p:ty),*>) => {{
+        let p: $ty = match $mode {
+            Defer::Low => $tramp::<$($p,)* true>,
+            Defer::Front => $tramp::<$($p,)* false>,
+        };
+        p
+    }};
+    ($mode:expr, $ty:ty, $tramp:ident::<$($p:ty),*>, $any:literal) => {{
+        let p: $ty = match $mode {
+            Defer::Low => $tramp::<$($p,)* true, $any>,
+            Defer::Front => $tramp::<$($p,)* false, $any>,
+        };
+        p
+    }};
+}
+
+pub(crate) fn bang_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, extern "C" fn(&W), bang_deferred_tramp::<W, T, F, R>);
+    // SAFETY: the trampoline takes the object, as registered for `bang`
+    unsafe { erase(p) }
+}
+
+pub(crate) fn int_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, extern "C" fn(&W, max_sys::t_atom_long), int_deferred_tramp::<W, T, F, R>);
+    // SAFETY: the trampoline takes the object and a `t_atom_long`, as registered for `int`
+    unsafe { erase(p) }
+}
+
+pub(crate) fn float_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, f64) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, extern "C" fn(&W, f64), float_deferred_tramp::<W, T, F, R>);
+    // SAFETY: the trampoline takes the object and a double, as registered for `float`
+    unsafe { erase(p) }
+}
+
+pub(crate) fn sym_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, SymbolRef) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, extern "C" fn(&W, *mut max_sys::t_symbol), sym_deferred_tramp::<W, T, F, R>);
+    // SAFETY: the trampoline takes the object and a symbol, as registered for `symbol`
+    unsafe { erase(p) }
+}
+
+pub(crate) fn list_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, &[Atom]) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, GimmeTramp<W>, list_deferred_tramp::<W, T, F, R>);
+    // SAFETY: as `list_method`
+    unsafe { erase(p) }
+}
+
+pub(crate) fn any_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, GimmeTramp<W>, gimme_deferred_tramp::<W, T, F, R>, true);
+    // SAFETY: as `list_method`
+    unsafe { erase(p) }
+}
+
+pub(crate) fn sel_gimme_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    T: 'static,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
+    R: MethodResult,
+{
+    let p = deferred!(mode, GimmeTramp<W>, gimme_deferred_tramp::<W, T, F, R>, false);
+    // SAFETY: as `list_method`
+    unsafe { erase(p) }
+}

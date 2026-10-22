@@ -165,6 +165,7 @@ pub mod buffer;
 pub mod builder;
 pub mod class;
 pub mod clock;
+pub mod defer;
 pub mod error;
 pub mod ffi;
 pub mod file;
@@ -238,6 +239,7 @@ pub mod prelude {
         builder::{MSPBuilder, MaxBuilder},
         class::{Class, ClassType},
         clock::Clock,
+        defer::Defer,
         error::{MaxResult, NewError},
         inlet::{Inlet, InletId},
         max_sys::t_atom_long,

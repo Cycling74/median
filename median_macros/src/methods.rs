@@ -10,7 +10,7 @@ use syn::{
 };
 
 /// Markers that are planned but not there yet.
-const LATER: &[&str] = &["defer", "defer_low", "dblclick", "loadbang", "notify", "savestate"];
+const LATER: &[&str] = &["dblclick", "loadbang", "notify", "savestate"];
 
 /// The most typed arguments a `#[sel]` method can have (what `class_addmethod` takes).
 const MAX_SEL_ARGS: usize = 7;
@@ -28,6 +28,10 @@ enum Marker {
         gimme: bool,
     },
     Attr(Box<AttrOpts>),
+    /// `#[defer]` (`low: false`) or `#[defer_low]`: goes with one of the message markers.
+    Defer {
+        low: bool,
+    },
 }
 
 impl Marker {
@@ -50,6 +54,8 @@ impl Marker {
             "any" => no_args(Marker::Any),
             "sel" => Self::parse_sel(attr),
             "attr" => AttrOpts::parse(attr).map(|o| Marker::Attr(Box::new(o))),
+            "defer" => no_args(Marker::Defer { low: false }),
+            "defer_low" => no_args(Marker::Defer { low: true }),
             k if LATER.contains(&k) => Err(syn::Error::new(
                 attr.span(),
                 format!("`#[{k}]` is not supported yet"),
@@ -153,6 +159,7 @@ impl Marker {
                 "`#[attr]` getter must take `(&self)` and return the value (`f64`, `f32`, \
                  `t_atom_long` or `SymbolRef`)"
             }
+            Marker::Defer { .. } => "`#[defer]` goes with a message marker",
         }
     }
 }
@@ -272,6 +279,8 @@ struct Marked {
     ident: syn::Ident,
     marker: Marker,
     marker_span: Span,
+    /// `#[defer]` (`Some(false)`) or `#[defer_low]` (`Some(true)`).
+    defer: Option<bool>,
 }
 
 pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
@@ -304,11 +313,22 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
     for it in item.items.iter_mut() {
         let ImplItem::Fn(f) = it else { continue };
         let mut found: Option<(Marker, Span)> = None;
+        let mut defer: Option<(bool, Span)> = None;
         let mut keep = Vec::new();
         for attr in std::mem::take(&mut f.attrs) {
             match Marker::parse(&attr) {
                 None => keep.push(attr),
                 Some(Err(e)) => push_err(e),
+                Some(Ok(Marker::Defer { low })) => {
+                    if defer.is_some() {
+                        push_err(syn::Error::new(
+                            attr.span(),
+                            "a method can have only one of `#[defer]` and `#[defer_low]`",
+                        ));
+                    } else {
+                        defer = Some((low, attr.span()));
+                    }
+                }
                 Some(Ok(m)) => {
                     if found.is_some() {
                         push_err(syn::Error::new(
@@ -322,6 +342,29 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             }
         }
         f.attrs = keep;
+        if let Some((low, span)) = defer {
+            let name = if low { "defer_low" } else { "defer" };
+            match &found {
+                None => {
+                    push_err(syn::Error::new(
+                        span,
+                        format!(
+                            "`#[{name}]` goes with a message marker: `#[bang]`, `#[int]`, \
+                             `#[float]`, `#[sym]`, `#[list]`, `#[any]` or `#[sel(..)]`"
+                        ),
+                    ));
+                    continue;
+                }
+                Some((Marker::Attr(_), _)) => {
+                    push_err(syn::Error::new(
+                        span,
+                        format!("`#[{name}]` doesn't go with `#[attr]`: attribute accessors aren't deferred"),
+                    ));
+                    continue;
+                }
+                Some(_) => {}
+            }
+        }
         let Some((marker, marker_span)) = found else {
             continue;
         };
@@ -332,6 +375,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             Marker::List => Some(&[Slice]),
             Marker::Any | Marker::Sel { gimme: true, .. } => Some(&[Ref, Slice]),
             Marker::Sel { .. } => None,
+            Marker::Defer { .. } => unreachable!("taken out above"),
         };
         match check_sig(&f.sig, want, marker.expected()) {
             Ok(arity) => {
@@ -365,6 +409,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     ident: f.sig.ident.clone(),
                     marker,
                     marker_span,
+                    defer: defer.map(|(low, _)| low),
                 });
             }
             Err(e) => push_err(e),
@@ -402,6 +447,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     .as_ref()
                     .map_or_else(|| m.ident.unraw_string(), LitStr::value),
             ),
+            Marker::Defer { .. } => None,
         };
         if let Some(sel) = selector {
             if selectors.contains(&sel) {
@@ -413,29 +459,55 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             }
             selectors.push(sel);
         }
-        let call = match &m.marker {
-            Marker::Bang => quote_spanned!(span=> c.add_bang(#path)?;),
-            Marker::Int => quote_spanned!(span=> c.add_int(#path)?;),
-            Marker::Float => quote_spanned!(span=> c.add_float(#path)?;),
-            Marker::Sym => quote_spanned!(span=> c.add_sym(#path)?;),
-            Marker::List => quote_spanned!(span=> c.add_list(#path)?;),
-            Marker::Any => quote_spanned!(span=> c.add_any(#path)?;),
-            Marker::Sel {
-                name,
-                defaults,
-                gimme,
-            } => {
+        let mode = m.defer.map(|low| {
+            if low {
+                quote_spanned!(span=> ::median::defer::Defer::Low)
+            } else {
+                quote_spanned!(span=> ::median::defer::Defer::Front)
+            }
+        });
+        let call = match (&m.marker, &mode) {
+            (Marker::Bang, None) => quote_spanned!(span=> c.add_bang(#path)?;),
+            (Marker::Int, None) => quote_spanned!(span=> c.add_int(#path)?;),
+            (Marker::Float, None) => quote_spanned!(span=> c.add_float(#path)?;),
+            (Marker::Sym, None) => quote_spanned!(span=> c.add_sym(#path)?;),
+            (Marker::List, None) => quote_spanned!(span=> c.add_list(#path)?;),
+            (Marker::Any, None) => quote_spanned!(span=> c.add_any(#path)?;),
+            (Marker::Bang, Some(mode)) => quote_spanned!(span=> c.add_bang_deferred(#path, #mode)?;),
+            (Marker::Int, Some(mode)) => quote_spanned!(span=> c.add_int_deferred(#path, #mode)?;),
+            (Marker::Float, Some(mode)) => {
+                quote_spanned!(span=> c.add_float_deferred(#path, #mode)?;)
+            }
+            (Marker::Sym, Some(mode)) => quote_spanned!(span=> c.add_sym_deferred(#path, #mode)?;),
+            (Marker::List, Some(mode)) => {
+                quote_spanned!(span=> c.add_list_deferred(#path, #mode)?;)
+            }
+            (Marker::Any, Some(mode)) => quote_spanned!(span=> c.add_any_deferred(#path, #mode)?;),
+            (
+                Marker::Sel {
+                    name,
+                    defaults,
+                    gimme,
+                },
+                mode,
+            ) => {
                 let sel = crate::cstr::expr(&name.value(), name.span());
-                if *gimme {
-                    quote_spanned!(span=> c.add_sel_gimme(#sel, #path)?;)
-                } else {
-                    let d = defaults
-                        .as_ref()
-                        .map_or(0, |d| d.base10_parse::<usize>().unwrap_or(0));
-                    quote_spanned!(span=> c.add_sel(#sel, #path, #d)?;)
+                let d = defaults
+                    .as_ref()
+                    .map_or(0, |d| d.base10_parse::<usize>().unwrap_or(0));
+                match (gimme, mode) {
+                    (true, None) => quote_spanned!(span=> c.add_sel_gimme(#sel, #path)?;),
+                    (false, None) => quote_spanned!(span=> c.add_sel(#sel, #path, #d)?;),
+                    (true, Some(mode)) => {
+                        quote_spanned!(span=> c.add_sel_gimme_deferred(#sel, #path, #mode)?;)
+                    }
+                    (false, Some(mode)) => {
+                        quote_spanned!(span=> c.add_sel_deferred(#sel, #path, #d, #mode)?;)
+                    }
                 }
             }
-            Marker::Attr(opts) => {
+            (Marker::Defer { .. }, _) => unreachable!("not a marker of a method"),
+            (Marker::Attr(opts), _) => {
                 let name = opts
                     .name
                     .as_ref()
