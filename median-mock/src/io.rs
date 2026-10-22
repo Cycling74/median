@@ -3,7 +3,8 @@
 //!
 //! Outlets record what is sent through them (see [`crate::OutletEvent`]); they are not connected
 //! to anything. Like Max, inlets and `outlet_new` outlets are created right to left: the first one
-//! created is the rightmost. `outlet_append` outlets are created left to right.
+//! created is the rightmost. `outlet_append` outlets are created left to right. The signal inlets
+//! of `z_dsp_setup` are the exception: they stay next to the leftmost inlet.
 
 use crate::atoms::{Atom, atoms_from_raw};
 use crate::class::current_inlet;
@@ -37,6 +38,22 @@ fn add_outlet(st: &mut State, x: usize, ty: Option<String>, append: bool) -> *mu
     // SAFETY: `x` is a live object, which starts with a `t_object`
     unsafe { (*(x as *mut t_object)).o_outlet = ptr as *mut c_void };
     ptr as *mut c_void
+}
+
+/// The inlets of `o` from left to right, not counting the leftmost: the signal inlets made by
+/// `z_dsp_setup` first, then the others, the last one created first (see `z_dsp_setup`).
+pub(crate) fn inlets_left_to_right(st: &State, o: &crate::state::ObjData) -> Vec<usize> {
+    let is_signal = |p: &usize| {
+        matches!(
+            st.subs.get(p).map(|s| &s.kind),
+            Some(SubKind::Inlet {
+                kind: InletKind::Signal
+            })
+        )
+    };
+    let mut v: Vec<usize> = o.inlets.iter().copied().filter(is_signal).collect();
+    v.extend(o.inlets.iter().rev().copied().filter(|p| !is_signal(p)));
+    v
 }
 
 pub(crate) fn add_inlet(st: &mut State, x: usize, kind: InletKind) -> *mut c_void {

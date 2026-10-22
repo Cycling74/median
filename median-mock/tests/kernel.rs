@@ -42,6 +42,8 @@ struct Thing {
 static THING_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
 static DSP_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
 static APPEND_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
+static INLETS_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
+static LEAKY_CLASS: AtomicPtr<t_class> = AtomicPtr::new(null_mut());
 static FREED: AtomicI64 = AtomicI64::new(0);
 /// `(thing id, logical time, on the timer thread)` for every clock callback
 static TICKS: Mutex<Vec<(i64, f64, bool)>> = Mutex::new(Vec::new());
@@ -232,6 +234,62 @@ extern "C" fn dsp_new(_s: *mut t_symbol, _argc: c_long, _argv: *mut t_atom) -> *
     }
 }
 
+extern "C" fn dsp_free(x: *mut DspThing) {
+    unsafe { max_sys::z_dsp_free(&raw mut (*x).px) };
+}
+
+/// An MSP object with two signal inlets and two more made after `z_dsp_setup`, right to left:
+/// `floatin(x, 1)` (rightmost), then a proxy with id 2.
+#[repr(C)]
+struct InletsThing {
+    px: t_pxobject,
+    proxy: *mut c_void,
+}
+
+extern "C" fn inlets_new(_s: *mut t_symbol, _argc: c_long, _argv: *mut t_atom) -> *mut c_void {
+    unsafe {
+        let x = max_sys::object_alloc(INLETS_CLASS.load(Ordering::SeqCst)) as *mut InletsThing;
+        max_sys::z_dsp_setup(&raw mut (*x).px, 2);
+        max_sys::floatin(x as _, 1);
+        (*x).proxy = max_sys::proxy_new(x as _, 2, null_mut());
+        x as *mut c_void
+    }
+}
+
+extern "C" fn inlets_free(x: *mut InletsThing) {
+    unsafe {
+        max_sys::z_dsp_free(&raw mut (*x).px);
+        max_sys::object_free((*x).proxy);
+    }
+}
+
+/// Breaks the rules: makes a proxy and sets up dsp, and has no free method.
+extern "C" fn leaky_new(_s: *mut t_symbol, _argc: c_long, _argv: *mut t_atom) -> *mut c_void {
+    unsafe {
+        let x = max_sys::object_alloc(LEAKY_CLASS.load(Ordering::SeqCst)) as *mut InletsThing;
+        max_sys::z_dsp_setup(&raw mut (*x).px, 1);
+        (*x).proxy = max_sys::proxy_new(x as _, 1, null_mut());
+        x as *mut c_void
+    }
+}
+
+extern "C" fn thing_assist(_x: *mut Thing, _b: *mut c_void, io: c_long, index: c_long, s: *mut i8) {
+    let text = if index == 9 {
+        // longer than the buffer would be wrong; this is what an object may write: 500 bytes
+        "x".repeat(500)
+    } else {
+        format!("{} {index}", if io == 1 { "in" } else { "out" })
+    };
+    let text = std::ffi::CString::new(text).unwrap();
+    unsafe { std::ptr::copy_nonoverlapping(text.as_ptr(), s, text.as_bytes_with_nul().len()) };
+}
+
+extern "C" fn thing_inletinfo(_x: *mut Thing, _b: *mut c_void, index: c_long, t: *mut i8) {
+    if index != 0 {
+        unsafe { *t = 1 };
+    }
+}
+
 static PERFORM_ROLE_AUDIO: AtomicI64 = AtomicI64::new(0);
 
 unsafe extern "C" fn dsp_perform(
@@ -338,6 +396,8 @@ fn register() {
         add(c"unset", meth!(thing_unset, extern "C" fn(*mut Thing)), &[]);
         add(c"deferred", meth!(thing_deferred, extern "C" fn(*mut Thing, *mut t_symbol, c_long, *mut t_atom)), &[g]);
         add(c"notify", meth!(thing_notify, extern "C" fn(*mut Thing, *mut t_symbol, *mut t_symbol, *mut c_void, *mut c_void)), &[ct]);
+        add(c"assist", meth!(thing_assist, extern "C" fn(*mut Thing, *mut c_void, c_long, c_long, *mut i8)), &[ct]);
+        add(c"inletinfo", meth!(thing_inletinfo, extern "C" fn(*mut Thing, *mut c_void, c_long, *mut i8)), &[ct]);
 
         // attributes: a float64 member with clip, and a long with accessors
         let gain = max_sys::attr_offset_new(
@@ -365,7 +425,7 @@ fn register() {
         let d = max_sys::class_new(
             c"dsp.thing".as_ptr(),
             meth!(dsp_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
-            None,
+            meth!(dsp_free, extern "C" fn(*mut DspThing)),
             size_of::<DspThing>() as c_long,
             None,
             ty::A_GIMME as c_short,
@@ -381,6 +441,34 @@ fn register() {
         max_sys::class_dspinit(d);
         assert_eq!(max_sys::class_register(sym(c"box"), d), 0);
         DSP_CLASS.store(d, Ordering::SeqCst);
+
+        for (name, new, free, store) in [
+            (
+                c"inlets.thing",
+                meth!(inlets_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+                meth!(inlets_free, extern "C" fn(*mut InletsThing)),
+                &INLETS_CLASS,
+            ),
+            (
+                c"leaky.thing",
+                meth!(leaky_new, extern "C" fn(*mut t_symbol, c_long, *mut t_atom) -> *mut c_void),
+                None,
+                &LEAKY_CLASS,
+            ),
+        ] {
+            let c = max_sys::class_new(
+                name.as_ptr(),
+                new,
+                free,
+                size_of::<InletsThing>() as c_long,
+                None,
+                ty::A_GIMME as c_short,
+                0,
+            );
+            max_sys::class_dspinit(c);
+            assert_eq!(max_sys::class_register(sym(c"box"), c), 0);
+            store.store(c, Ordering::SeqCst);
+        }
     });
 }
 
@@ -619,8 +707,119 @@ fn proxy_and_intin_inlets() {
     assert_eq!(k.send_inlet(o, 3, "int", &[Atom::Long(1)]), Err(SendError::NoInlet(3)));
 }
 
+#[test]
+fn signal_inlets_stay_left_of_the_inlets_made_after_dsp_setup() {
+    use median_mock::InletKind;
+    let k = median_mock::lock();
+    register();
+    let o = k.new_object("inlets.thing", &[]);
+    assert_eq!(k.signal_inlets(o), Some(2));
+    assert_eq!(
+        k.inlets_created(o),
+        [
+            InletKind::Signal,
+            InletKind::Float(1),
+            InletKind::Proxy { id: 2, stuffloc: 0 }
+        ]
+    );
+    // the signal inlet is inlet 1, then the proxy, then the float inlet (made first, rightmost)
+    assert_eq!(
+        k.inlets(o),
+        [
+            InletKind::Signal,
+            InletKind::Proxy { id: 2, stuffloc: 0 },
+            InletKind::Float(1)
+        ]
+    );
+    assert!(k.free_object(o));
+    assert_eq!(k.dsp_frees(), [o as usize]);
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+}
+
+#[test]
+fn an_unfreed_proxy_and_a_missing_dsp_free_are_reported() {
+    let k = median_mock::lock();
+    register();
+    let o = k.new_object("leaky.thing", &[]);
+    assert!(k.free_object(o));
+    let errors: Vec<_> = k.console_log().into_iter().map(|e| e.text).collect();
+    assert_eq!(errors.len(), 2, "{errors:?}");
+    assert!(errors[0].contains("without z_dsp_free"), "{errors:?}");
+    assert!(errors[1].contains("was not freed before its owner"), "{errors:?}");
+    assert!(k.dsp_frees().is_empty());
+    // z_dsp_free without z_dsp_setup is reported too
+    let x = thing(&k, 1);
+    k.take_console_log();
+    unsafe { max_sys::z_dsp_free(x as *mut t_pxobject) };
+    assert!(k.console_log()[0].text.contains("without z_dsp_setup"));
+    assert_eq!(k.dsp_frees(), [x as usize]);
+}
+
+#[test]
+fn assist_and_inletinfo_are_called_as_max_does() {
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1) as *mut c_void;
+    assert_eq!(k.assist(x, false, 1).as_deref(), Some("in 1"));
+    assert_eq!(k.assist(x, true, 0).as_deref(), Some("out 0"));
+    assert_eq!(k.assist(x, false, 9).unwrap().len(), 500);
+    assert_eq!(k.inlet_is_hot(x, 0), Some(true));
+    assert_eq!(k.inlet_is_hot(x, 1), Some(false));
+    // a class without the methods
+    let d = k.new_object("dsp.thing", &[]);
+    assert_eq!(k.assist(d, false, 0), None);
+    assert_eq!(k.inlet_is_hot(d, 0), None);
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+}
+
+#[test]
+fn method_attributes_through_the_methods_hashtab() {
+    let k = median_mock::lock();
+    register();
+    let c = THING_CLASS.load(Ordering::SeqCst);
+    let x = thing(&k, 1) as *mut c_void;
+    unsafe {
+        // what CLASS_METHOD_ATTR_PARSE(c, "in2", "undocumented", gensym("long"), 0, "1") does
+        assert!(max_sys::class_extra_lookup(c, sym(c"other")).is_null());
+        let methods = max_sys::class_extra_lookup(c, sym(c"methods")) as *mut max_sys::t_hashtab;
+        assert!(!methods.is_null());
+        assert_eq!(max_sys::class_extra_lookup(c, sym(c"methods")), methods as *mut c_void);
+        let mut m: *mut t_object = null_mut();
+        assert_eq!(max_sys::hashtab_lookup(methods, sym(c"in2"), &mut m), 0);
+        assert!(!m.is_null());
+        let mut again: *mut t_object = null_mut();
+        max_sys::hashtab_lookup(methods, sym(c"in2"), &mut again);
+        assert_eq!(m, again);
+        assert_eq!(
+            max_sys::object_addattr_parse(m, c"undocumented".as_ptr(), sym(c"long"), 0, c"1".as_ptr()),
+            0
+        );
+        // no such method: null and an error code
+        let mut none: *mut t_object = std::ptr::dangling_mut();
+        assert_ne!(max_sys::hashtab_lookup(methods, sym(c"nonesuch"), &mut none), 0);
+        assert!(none.is_null());
+    }
+    assert_eq!(
+        k.method_attr(x, "in2", "undocumented"),
+        Some(("long".to_string(), "1".to_string()))
+    );
+    assert_eq!(k.method_attr(x, "int", "undocumented"), None);
+    assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+}
+
 // ---------------------------------------------------------------------------------------------
 // clocks
+
+#[test]
+fn live_clocks_are_counted() {
+    let k = median_mock::lock();
+    register();
+    let before = k.live_clock_count();
+    let x = thing(&k, 1);
+    assert_eq!(k.live_clock_count(), before + 1);
+    assert!(k.free_object(x as *mut c_void));
+    assert_eq!(k.live_clock_count(), before);
+}
 
 #[test]
 fn clocks_fire_in_time_order_on_advance() {

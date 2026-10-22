@@ -9,7 +9,11 @@ use crate::thread::{Role, with_role};
 use max_sys::{t_object, t_perfroutine64, t_pxobject};
 use std::ffi::{c_long, c_void};
 
-/// Creates `nsignals - 1` signal inlets next to the object's leftmost, as Max does.
+/// Creates `nsignals - 1` signal inlets next to the object's leftmost, as Max does. They stay
+/// there when more inlets are made afterwards: `z_dsp.h` says to create the non-signal inlets
+/// after `dsp_setup`, which only makes sense if they then go to the right of the signal inlets.
+/// (That is the reading of the header the kernel follows; where Max really puts them has not
+/// been checked.) See [`crate::Kernel::inlets`].
 ///
 /// # Safety
 /// `x` must be a live object whose struct starts with a `t_pxobject`.
@@ -32,16 +36,25 @@ pub unsafe extern "C" fn z_dsp_setup(x: *mut t_pxobject, nsignals: c_long) {
     }
 }
 
+/// Recorded (see [`crate::Kernel::dsp_frees`]). Calling it on an object that `z_dsp_setup` was
+/// not called on, or twice, is reported on the console.
+///
 /// # Safety
 /// `x` must be an object `z_dsp_setup` was called on.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn z_dsp_free(x: *mut t_pxobject) {
     let addr = x as usize;
     let mut st = state();
+    st.dsp_frees.push(addr);
     let Some(obj) = st.objects.get_mut(&addr) else {
+        st.post_error(addr, format!("median-mock: z_dsp_free on {addr:#x}, which is not a live object"));
         return;
     };
-    obj.signal_inlets = None;
+    if obj.signal_inlets.take().is_none() {
+        st.post_error(addr, format!("median-mock: z_dsp_free on {addr:#x} without z_dsp_setup"));
+        return;
+    }
+    let obj = st.objects.get_mut(&addr).expect("checked above");
     let inlets = obj.inlets.clone();
     for i in inlets {
         if let Some(s) = st.subs.get_mut(&i) {

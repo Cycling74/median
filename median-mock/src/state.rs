@@ -19,6 +19,11 @@ pub(crate) struct MethodRec {
     pub fun: usize,
     /// The `A_*` argument types, without the terminating 0.
     pub types: Vec<i32>,
+    /// The method object `hashtab_lookup` hands out for this method (0 until it is asked for).
+    pub obj: usize,
+    /// Attributes added to the method object with `object_addattr_parse`: name -> (type name,
+    /// parse string).
+    pub attrs: HashMap<String, (String, String)>,
 }
 
 pub(crate) struct ClassData {
@@ -37,6 +42,8 @@ pub(crate) struct ClassData {
     /// Pointer to the second element of the class's two element `messlist` array; objects'
     /// `o_messlist` points here and element `[-1]` holds the class pointer, as in Max.
     pub messlist: usize,
+    /// The `methods` hashtab `class_extra_lookup` hands out (0 until it is asked for).
+    pub methods_table: usize,
 }
 
 pub(crate) struct ObjData {
@@ -54,9 +61,11 @@ pub(crate) struct ObjData {
     pub registered: Option<(String, String)>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) enum InletKind {
-    /// From `proxy_new`.
+/// How an inlet was made, see [`crate::Kernel::inlets`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InletKind {
+    /// From `proxy_new`: `id` is what `proxy_getinlet` returns for it, `stuffloc` the address
+    /// it writes the id to (0 for none).
     Proxy { id: i64, stuffloc: usize },
     /// From `intin`: messages go to the method `in<n>`.
     Int(i16),
@@ -109,6 +118,15 @@ pub(crate) enum SubKind {
     },
     Attr(AttrData),
     BufferRef {
+        name: String,
+    },
+    /// The `methods` hashtab of a class, from `class_extra_lookup`.
+    MethodsTable {
+        class: usize,
+    },
+    /// A method object, from `hashtab_lookup` on a `methods` hashtab.
+    Method {
+        class: usize,
         name: String,
     },
 }
@@ -219,6 +237,8 @@ pub(crate) struct State {
     pub seq: u64,
     pub queue: VecDeque<Deferred>,
     pub dsp_adds: Vec<DspAdd>,
+    /// The objects `z_dsp_free` was called on, in order.
+    pub dsp_frees: Vec<usize>,
     pub sample_rate: f64,
 }
 
@@ -241,6 +261,7 @@ impl State {
             seq: 0,
             queue: VecDeque::new(),
             dsp_adds: Vec::new(),
+            dsp_frees: Vec::new(),
             sample_rate: 44100.0,
         }
     }
@@ -277,11 +298,15 @@ impl State {
         self.now = 0.0;
         self.queue.clear();
         self.dsp_adds.clear();
+        self.dsp_frees.clear();
         self.sample_rate = 44100.0;
-        // Everything created by a previous test is dead, except the attributes, which belong to
-        // the classes that survive.
+        // Everything created by a previous test is dead, except the attributes and the method
+        // tables, which belong to the classes that survive.
         for sub in self.subs.values_mut() {
-            if !matches!(sub.kind, SubKind::Attr(_)) {
+            if !matches!(
+                sub.kind,
+                SubKind::Attr(_) | SubKind::MethodsTable { .. } | SubKind::Method { .. }
+            ) {
                 sub.alive = false;
             }
         }

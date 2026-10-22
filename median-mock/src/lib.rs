@@ -39,13 +39,19 @@
 //! * Inlets and outlets: `outlet_new`, `outlet_append`, `outlet_bang/int/float/list/anything`,
 //!   `inlet_new`, `intin`, `floatin`, `proxy_new`, `proxy_getinlet`. `outlet_new` makes each new
 //!   outlet the leftmost, as in Max, and `outlet_append` (which median uses) adds to the right.
-//!   Outlets only record; they are not connectable to other objects.
+//!   Outlets only record; they are not connectable to other objects. A proxy that its owner did
+//!   not free before it is freed is reported on the console. [`Kernel::assist`] and
+//!   [`Kernel::inlet_is_hot`] call the `assist` and `inletinfo` methods as Max does.
 //! * Clocks: `clock_new`, `clock_new_withscheduler` (one scheduler only), `clock_delay`,
 //!   `clock_fdelay`, `clock_unset`, `clock_getftime`, `gettime`, `scheduler_fromobject` (always
 //!   null). Time moves only in [`Kernel::advance`].
 //! * Main queue: `defer`, `defer_low`, `qelem_new/set/unset/free`, run by
 //!   [`Kernel::run_main_queue`]. `defer` queues only when called from the timer role.
-//! * MSP: `z_dsp_setup`, `z_dsp_free`, `dsp_add64` (see [`Kernel::dsp64`], [`DspAdd::run`]).
+//! * MSP: `z_dsp_setup`, `z_dsp_free`, `dsp_add64` (see [`Kernel::dsp64`], [`DspAdd::run`]). An
+//!   object freed after `z_dsp_setup` without `z_dsp_free` is reported on the console.
+//! * Method attributes (`CLASS_METHOD_ATTR_PARSE`): `class_extra_lookup` for `"methods"`,
+//!   `hashtab_lookup` on that table, `object_addattr_parse` on the method object (see
+//!   [`Kernel::method_attr`]).
 //! * Attributes: `attribute_new`, `attr_offset_new`, `attr_addfilter*_clip`, `object_attr_touch`;
 //!   `attr_args_process` does nothing. [`Kernel::attr_get`]/[`Kernel::attr_set`] call the
 //!   accessors or read/write the offset.
@@ -88,5 +94,5 @@ pub use atoms::Atom;
 pub use attr::AttrError;
 pub use class::SendError;
 pub use kernel::{Kernel, lock};
-pub use state::{ConsoleEntry, DspAdd, Level, OutletEvent};
+pub use state::{ConsoleEntry, DspAdd, InletKind, Level, OutletEvent};
 pub use thread::Role;

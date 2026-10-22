@@ -79,6 +79,7 @@ pub unsafe extern "C" fn median_mock_class_new(
             obex_offset: 0,
             // SAFETY: the array has two elements
             messlist: unsafe { ml.add(1) } as usize,
+            methods_table: 0,
         },
     );
     class
@@ -113,6 +114,8 @@ pub unsafe extern "C" fn median_mock_class_addmethod(
         MethodRec {
             fun: method_addr(m),
             types,
+            obj: 0,
+            attrs: Default::default(),
         },
     );
     max_err(err::MAX_ERR_NONE)
@@ -166,6 +169,135 @@ pub unsafe extern "C" fn class_dspinit(c: *mut t_class) {
 pub unsafe extern "C" fn class_obexoffset_set(c: *mut t_class, offset: c_long) {
     if let Some(class) = state().classes.get_mut(&(c as usize)) {
         class.obex_offset = offset as i64;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// method attributes: what `CLASS_METHOD_ATTR_PARSE` expands to
+
+/// Only the `methods` hashtab is known: it gives a pointer that [`hashtab_lookup`] accepts.
+/// Anything else is null.
+///
+/// # Safety
+/// `x` must be a class from `class_new` (anything else gives null), `s` a symbol.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn class_extra_lookup(x: *mut t_class, s: *mut t_symbol) -> *mut c_void {
+    // SAFETY: the caller's contract
+    if unsafe { sym_name(s) } != "methods" {
+        return std::ptr::null_mut();
+    }
+    let mut st = state();
+    let Some(class) = st.classes.get(&(x as usize)) else {
+        return std::ptr::null_mut();
+    };
+    if class.methods_table != 0 {
+        return class.methods_table as *mut c_void;
+    }
+    let table = st.alloc_sub(SubKind::MethodsTable { class: x as usize });
+    st.classes.get_mut(&(x as usize)).expect("checked above").methods_table = table;
+    table as *mut c_void
+}
+
+/// Only for the `methods` hashtab of a class (from [`class_extra_lookup`]): `val` gets the method
+/// object of the method `key`, the same pointer every time, or null and `MAX_ERR_GENERIC` if
+/// the class has no such method. Any other hashtab is `MAX_ERR_INVALID_PTR`.
+///
+/// # Safety
+/// `key` must be a symbol and `val` null or writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hashtab_lookup(
+    x: *mut max_sys::t_hashtab,
+    key: *mut t_symbol,
+    val: *mut *mut t_object,
+) -> t_max_err {
+    // SAFETY: the caller's contract
+    let name = unsafe { sym_name(key) };
+    let mut st = state();
+    let class = match st.subs.get(&(x as usize)) {
+        Some(crate::state::Sub {
+            kind: SubKind::MethodsTable { class },
+            ..
+        }) => *class,
+        _ => {
+            st.post_error(0, format!("median-mock: hashtab_lookup on {x:?}, which is not a methods hashtab"));
+            return max_err(err::MAX_ERR_INVALID_PTR);
+        }
+    };
+    let found = st.classes.get(&class).and_then(|c| c.methods.get(&name)).map(|m| m.obj);
+    let obj = match found {
+        None => 0,
+        Some(0) => {
+            let obj = st.alloc_sub(SubKind::Method {
+                class,
+                name: name.clone(),
+            });
+            let rec = st
+                .classes
+                .get_mut(&class)
+                .and_then(|c| c.methods.get_mut(&name))
+                .expect("found above");
+            rec.obj = obj;
+            obj
+        }
+        Some(obj) => obj,
+    };
+    if !val.is_null() {
+        // SAFETY: the caller's contract
+        unsafe { val.write(obj as *mut t_object) };
+    }
+    if obj == 0 {
+        max_err(err::MAX_ERR_GENERIC)
+    } else {
+        max_err(err::MAX_ERR_NONE)
+    }
+}
+
+/// Only for method objects (from [`hashtab_lookup`]): records the attribute with its type and
+/// parse string, which [`crate::Kernel::method_attr`] reads back. The string is not parsed.
+///
+/// # Safety
+/// `attrname` and `parsestr` must be NUL-terminated strings, `type_` a symbol.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn object_addattr_parse(
+    x: *mut t_object,
+    attrname: *const c_char,
+    type_: *mut t_symbol,
+    _flags: c_long,
+    parsestr: *const c_char,
+) -> t_max_err {
+    if attrname.is_null() {
+        return max_err(err::MAX_ERR_INVALID_PTR);
+    }
+    // SAFETY: the caller's contract
+    let (attr, ty_name) = unsafe {
+        (
+            CStr::from_ptr(attrname).to_string_lossy().into_owned(),
+            sym_name(type_),
+        )
+    };
+    let parse = if parsestr.is_null() {
+        String::new()
+    } else {
+        // SAFETY: the caller's contract
+        unsafe { CStr::from_ptr(parsestr) }.to_string_lossy().into_owned()
+    };
+    let mut st = state();
+    let (class, name) = match st.subs.get(&(x as usize)) {
+        Some(crate::state::Sub {
+            kind: SubKind::Method { class, name },
+            ..
+        }) => (*class, name.clone()),
+        _ => {
+            st.post_error(0, format!("median-mock: object_addattr_parse on {x:?}: only method objects are supported"));
+            return max_err(err::MAX_ERR_INVALID_PTR);
+        }
+    };
+    match st.classes.get_mut(&class).and_then(|c| c.methods.get_mut(&name)) {
+        Some(rec) => {
+            rec.attrs.insert(attr, (ty_name, parse));
+            max_err(err::MAX_ERR_NONE)
+        }
+        None => max_err(err::MAX_ERR_INVALID_PTR),
     }
 }
 
@@ -290,6 +422,29 @@ fn release_object(addr: usize) {
     let Some(obj) = st.objects.remove(&addr) else {
         return;
     };
+    // Max frees the inlets and outlets with their owner, but a proxy is an object of its own
+    // that the owner must free (in its free method): one still alive here is leaked.
+    let leaked: Vec<usize> = obj
+        .inlets
+        .iter()
+        .copied()
+        .filter(|p| {
+            matches!(st.subs.get(p), Some(s) if s.alive
+                && matches!(s.kind, SubKind::Inlet { kind: crate::state::InletKind::Proxy { .. } }))
+        })
+        .collect();
+    if obj.signal_inlets.is_some() {
+        st.post_error(
+            addr,
+            format!("median-mock: {addr:#x} was freed without z_dsp_free after z_dsp_setup"),
+        );
+    }
+    for p in leaked {
+        st.post_error(
+            addr,
+            format!("median-mock: proxy {p:#x} was not freed before its owner {addr:#x}"),
+        );
+    }
     for sub in obj.outlets.iter().chain(obj.inlets.iter()) {
         if let Some(s) = st.subs.get_mut(sub) {
             s.alive = false;

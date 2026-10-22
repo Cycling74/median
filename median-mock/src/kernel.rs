@@ -81,6 +81,15 @@ impl Kernel {
         state().objects.len()
     }
 
+    /// How many clocks made by `clock_new` have not been freed (to check for leaks).
+    pub fn live_clock_count(&self) -> usize {
+        state()
+            .subs
+            .values()
+            .filter(|s| s.alive && matches!(s.kind, SubKind::Clock { .. }))
+            .count()
+    }
+
     /// The class name of a live object.
     pub fn class_name_of(&self, obj: *mut c_void) -> Option<String> {
         let st = state();
@@ -138,7 +147,8 @@ impl Kernel {
     /// * `inlet_new(x, "sel")`: the atoms go to the method `sel`; with a null `sel` as usual;
     /// * a signal inlet made by `z_dsp_setup`: as a proxy whose id is the inlet number.
     ///
-    /// Inlets are created right to left, so the last inlet created is inlet 1.
+    /// Inlets are created right to left, so the last inlet created is inlet 1; the signal inlets
+    /// of `z_dsp_setup` come first (see [`inlets`](Self::inlets)).
     pub fn send_inlet(
         &self,
         obj: *mut c_void,
@@ -155,11 +165,11 @@ impl Kernel {
             let Some(o) = st.objects.get(&addr) else {
                 return Err(SendError::NotLive);
             };
-            let total = o.inlets.len();
-            if inlet > total {
+            let inlets = crate::io::inlets_left_to_right(&st, o);
+            let Some(ptr) = inlets.get(inlet - 1) else {
                 return Err(SendError::NoInlet(inlet));
-            }
-            match st.subs.get(&o.inlets[total - inlet]) {
+            };
+            match st.subs.get(ptr) {
                 Some(s) if s.alive => match &s.kind {
                     SubKind::Inlet { kind, .. } => kind.clone(),
                     _ => return Err(SendError::NoInlet(inlet)),
@@ -189,6 +199,24 @@ impl Kernel {
             }
         };
         res.map(|_| ())
+    }
+
+    /// An attribute of the method `selector` of the object's class, added with
+    /// `object_addattr_parse` (`CLASS_METHOD_ATTR_PARSE`), as `(type name, parse string)`.
+    pub fn method_attr(
+        &self,
+        obj: *mut c_void,
+        selector: &str,
+        attr: &str,
+    ) -> Option<(String, String)> {
+        let st = state();
+        let o = st.objects.get(&(obj as usize))?;
+        st.classes[&o.class]
+            .methods
+            .get(selector)?
+            .attrs
+            .get(attr)
+            .cloned()
     }
 
     /// The method registered for `selector` on the object's class as `(function pointer, argument
@@ -233,6 +261,93 @@ impl Kernel {
             .objects
             .get(&(obj as usize))
             .map_or(0, |o| o.inlets.len())
+    }
+
+    /// How each inlet was made, from left to right, not counting the leftmost (which is the
+    /// object itself). Inlets are created right to left, so the last one created comes first,
+    /// except the signal inlets of `z_dsp_setup`, which stay next to the leftmost however many
+    /// inlets are made after them. Freed inlets are included.
+    pub fn inlets(&self, obj: *mut c_void) -> Vec<InletKind> {
+        let st = state();
+        let Some(o) = st.objects.get(&(obj as usize)) else {
+            return Vec::new();
+        };
+        crate::io::inlets_left_to_right(&st, o)
+            .iter()
+            .filter_map(|p| match &st.subs.get(p)?.kind {
+                SubKind::Inlet { kind } => Some(kind.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// How each inlet was made, in the order they were made.
+    pub fn inlets_created(&self, obj: *mut c_void) -> Vec<InletKind> {
+        let st = state();
+        let Some(o) = st.objects.get(&(obj as usize)) else {
+            return Vec::new();
+        };
+        o.inlets
+            .iter()
+            .filter_map(|p| match &st.subs.get(p)?.kind {
+                SubKind::Inlet { kind } => Some(kind.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Call the object's `assist` method (`A_CANT`, `(x, b, long io, long index, char *s)`) for
+    /// inlet (`outlet == false`) or outlet `index`, with a 512 byte buffer (the smallest Max
+    /// passes) that starts out empty, and return what it wrote up to the terminating NUL (invalid
+    /// UTF-8 replaced). `None` if the object has no `assist` method. A string that fills the
+    /// whole buffer without a terminator is reported on the console and cut at 512 bytes.
+    pub fn assist(&self, obj: *mut c_void, outlet: bool, index: usize) -> Option<String> {
+        let (fun, _) = self.method(obj, "assist")?;
+        let mut buf = vec![0u8; 512];
+        let io: c_long = if outlet { 2 } else { 1 };
+        // SAFETY: `assist` methods are `(x, void *b, long io, long index, char *s)`, and `s` is
+        // 512 writable bytes
+        unsafe {
+            call_raw(
+                fun,
+                &[
+                    Raw::I(obj as usize),
+                    Raw::I(0),
+                    Raw::I(io as usize),
+                    Raw::I(index),
+                    Raw::I(buf.as_mut_ptr() as usize),
+                ],
+            );
+        }
+        let end = match buf.iter().position(|&b| b == 0) {
+            Some(n) => n,
+            None => {
+                state().post_error(obj as usize, "median-mock: assist wrote no terminator in 512 bytes".into());
+                buf.len()
+            }
+        };
+        Some(String::from_utf8_lossy(&buf[..end]).into_owned())
+    }
+
+    /// Call the object's `inletinfo` method (`A_CANT`, `(x, b, long index, char *t)`) for inlet
+    /// `index`, with `*t` starting at 0, and say whether the inlet is hot (`*t` still 0; the SDK
+    /// examples set it to 1 for a cold inlet). `None` if the object has no `inletinfo` method.
+    pub fn inlet_is_hot(&self, obj: *mut c_void, index: usize) -> Option<bool> {
+        let (fun, _) = self.method(obj, "inletinfo")?;
+        let mut t: std::ffi::c_char = 0;
+        // SAFETY: `inletinfo` methods are `(x, void *b, long index, char *t)`
+        unsafe {
+            call_raw(
+                fun,
+                &[
+                    Raw::I(obj as usize),
+                    Raw::I(0),
+                    Raw::I(index),
+                    Raw::I(&raw mut t as usize),
+                ],
+            );
+        }
+        Some(t == 0)
     }
 
     /// The `n` of `z_dsp_setup(x, n)`, if it was called.
@@ -353,6 +468,12 @@ impl Kernel {
             );
         }
         Ok(std::mem::take(&mut state().dsp_adds))
+    }
+
+    /// The objects `z_dsp_free` was called on since the last reset, in order (also calls the
+    /// kernel refused).
+    pub fn dsp_frees(&self) -> Vec<usize> {
+        state().dsp_frees.clone()
     }
 
     /// The perform routines added with `dsp_add64` since the last reset, without removing them.
