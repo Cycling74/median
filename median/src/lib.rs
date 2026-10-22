@@ -174,6 +174,7 @@ pub mod notify;
 pub mod num;
 pub mod object;
 pub mod outlet;
+pub mod queue;
 pub mod slice;
 pub mod symbol;
 pub mod thread;
@@ -243,6 +244,7 @@ pub mod prelude {
         num::{Float32, Float64, Int64},
         object::{MaxObj, ObjRef},
         outlet::{Any, Bang, Float, Int, List, Outlet, Signal, StackOverflow},
+        queue::Queue,
         symbol::SymbolRef,
         wrapper::{
             FieldAttrs, IoLet, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods,

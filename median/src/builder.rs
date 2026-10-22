@@ -1,4 +1,5 @@
-//! The builder your `new` gets: inlets, outlets, clocks and buffer references are made with it.
+//! The builder your `new` gets: inlets, outlets, clocks, queues and buffer references are made
+//! with it.
 //!
 //! [`MaxBuilder<T>`] for a Max object, [`MSPBuilder<T>`] for an MSP object (which also takes
 //! signal inlets and outlets). Unlike the Max SDK, inlets and outlets are described from left to
@@ -7,6 +8,7 @@ use crate::{
     atom::Atom,
     buffer::{BufferRef, BufferReference},
     clock::{Clock, ClockFn, ClockShared},
+    queue::Queue,
     method::MethodResult,
     inlet::{FloatCB, InletFor, InletId, InletKind, IntCB, Proxy},
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
@@ -279,7 +281,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
     }
 }
 
-macro_rules! clock_methods {
+macro_rules! callback_methods {
     ($kind:ty, $bound:path, $wrapper:ident) => {
         impl<T: $bound> Builder<T, $kind> {
             /// Make a [`Clock`] that calls `f` with the object when it fires (on the scheduler
@@ -330,12 +332,44 @@ macro_rules! clock_methods {
                 let cb = unsafe { callback::<$wrapper<T>, T, F, R>(f) };
                 self.clock_for(cb)
             }
+
+            /// Make a [`Queue`] that calls `f` with the object on the main thread after
+            /// [`Queue::set`]. `f` is a method or a closure that captures nothing, as for
+            /// [`clock`](Self::clock); [`queue_with`](Self::queue_with) takes any closure. It may
+            /// return `Result<(), E>`: an `Err` goes to the type's `report_error`.
+            ///
+            /// The queue is only live once `new` has returned (a run before that is skipped), and
+            /// is disabled before the object is dropped (a pending run is dropped).
+            pub fn queue<F, R>(&mut self, f: F) -> Queue
+            where
+                F: Fn(&T) -> R + Copy + Send + Sync + 'static,
+                R: MethodResult,
+            {
+                const {
+                    assert!(
+                        std::mem::size_of::<F>() == 0,
+                        "Builder::queue takes a method or a closure that captures nothing; use queue_with for a closure that captures"
+                    )
+                };
+                self.queue_with(f)
+            }
+
+            /// [`queue`](Self::queue) with any closure.
+            pub fn queue_with<F, R>(&mut self, f: F) -> Queue
+            where
+                F: Fn(&T) -> R + Send + Sync + 'static,
+                R: MethodResult,
+            {
+                // SAFETY: the queue's target is this object, see `queue_for`
+                let cb = unsafe { callback::<$wrapper<T>, T, F, R>(f) };
+                self.queue_for(cb)
+            }
         }
     };
 }
 
-clock_methods!(Max, crate::wrapper::MaxObjWrapped, MaxObjWrapper);
-clock_methods!(Msp, crate::wrapper::MSPObjWrapped, MSPObjWrapper);
+callback_methods!(Max, crate::wrapper::MaxObjWrapped, MaxObjWrapper);
+callback_methods!(Msp, crate::wrapper::MSPObjWrapped, MSPObjWrapper);
 
 /// The callback of a clock or queue of an object of wrapper `W`: calls `f` with the wrapped value
 /// and gives an `Err` to the type's `report_error`.
@@ -366,6 +400,15 @@ impl<T: Sync + 'static, K: BuilderKind> Builder<T, K> {
         let clock = unsafe { Clock::new_unarmed(self.obj.as_ptr(), func) };
         self.targets.push(clock.shared());
         clock
+    }
+
+    /// A queue whose callback is `func`, called with this object.
+    pub(crate) fn queue_for(&mut self, func: ClockFn) -> Queue {
+        // SAFETY: as for `clock_for`: armed after construction, cleared (via `targets`) before
+        // `T` is dropped
+        let queue = unsafe { Queue::new_unarmed(self.obj.as_ptr(), func) };
+        self.targets.push(queue.shared());
+        queue
     }
 }
 
