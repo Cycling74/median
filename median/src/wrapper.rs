@@ -4,11 +4,10 @@
 use crate::{
     atom::Atom,
     buffer::BufferRef,
-    builder::{MSPWrappedBuilder, ManagedBufferRefInternal, MaxWrappedBuilder, WrappedBuilder},
+    builder::{Builder, Iolets, MSPBuilder, ManagedBufferRefInternal, MaxBuilder},
     class::{Class, ClassType},
     error::MaxResult,
     clock::ClockShared,
-    inlet::{FloatCB, IntCB},
     method::{MaxFree, MaxMethod},
     notify::Notification,
     object::{MSPObj, MaxObj, ObjBox, ObjRef},
@@ -16,9 +15,10 @@ use crate::{
 };
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fmt::Display,
-    ffi::{c_char, c_void, CStr, CString},
+    ffi::{c_char, c_void, CStr},
     marker::PhantomData,
     mem::MaybeUninit,
     os::raw::c_long,
@@ -35,13 +35,12 @@ lazy_static! {
     static ref CLASSES: Mutex<HashMap<&'static str, ClassMaxObjWrapper>> = Mutex::new(HashMap::new());
 }
 
-const ASSIST_MAX: i64 = 512;
+/// The longest assist text, in bytes, that is given to Max (`ASSIST_MAX_STRING_LEN` in the SDK's
+/// `ext_assist.h`). Max's assist buffers are at least 512 bytes.
+pub const ASSIST_MAX_STRING_LEN: usize = 500;
 
 pub type MaxObjWrapper<T> = Wrapper<max_sys::t_object, MaxWrapperInternal<T>, T>;
 pub type MSPObjWrapper<T> = Wrapper<max_sys::t_pxobject, MSPWrapperInternal<T>, T>;
-
-pub type FloatCBHash<T> = HashMap<usize, FloatCB<T>>;
-pub type IntCBHash<T> = HashMap<usize, IntCB<T>>;
 
 pub type DeferMethodWrapped<T> = unsafe extern "C" fn(
     wrapper: &T,
@@ -50,10 +49,71 @@ pub type DeferMethodWrapped<T> = unsafe extern "C" fn(
     argv: *const max_sys::t_atom,
 );
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum AssistIOlet {
+/// An inlet or an outlet of an object, by position (0 is the leftmost), as the `assist` hook
+/// is asked about it.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IoLet {
     Inlet(usize),
     Outlet(usize),
+}
+
+impl IoLet {
+    /// From the `io` (1 inlet, 2 outlet) and `index` Max passes to `assist`.
+    fn from_raw(io: c_long, index: c_long) -> Option<Self> {
+        let index = usize::try_from(index).ok()?;
+        match io {
+            1 => Some(Self::Inlet(index)),
+            2 => Some(Self::Outlet(index)),
+            _ => None,
+        }
+    }
+}
+
+/// Copy `text` into Max's assist buffer: at most [`ASSIST_MAX_STRING_LEN`] bytes, cut on a
+/// character boundary, and a terminating NUL. (An interior NUL ends the text early.)
+///
+/// # Safety
+/// `dest` must be null or writable for `ASSIST_MAX_STRING_LEN + 1` bytes.
+unsafe fn write_assist(dest: *mut c_char, text: &str) {
+    if dest.is_null() {
+        return;
+    }
+    let mut n = text.len().min(ASSIST_MAX_STRING_LEN);
+    while !text.is_char_boundary(n) {
+        n -= 1;
+    }
+    // SAFETY: the caller's contract, and `n <= ASSIST_MAX_STRING_LEN`
+    unsafe {
+        std::ptr::copy_nonoverlapping(text.as_ptr(), dest.cast::<u8>(), n);
+        dest.add(n).write(0);
+    }
+}
+
+/// What `CLASS_METHOD_ATTR_PARSE(c, name, "undocumented", gensym("long"), 0, "1")` does: the
+/// method is not shown to users (`ext_obex_util.h`).
+///
+/// # Safety
+/// `class` must be a valid class that has the method `name`.
+unsafe fn mark_undocumented(class: *mut max_sys::t_class, name: &CStr) {
+    // SAFETY: the caller's contract; the names are NUL-terminated strings that outlive the calls
+    unsafe {
+        let methods = max_sys::class_extra_lookup(class, max_sys::gensym(c"methods".as_ptr()))
+            as *mut max_sys::t_hashtab;
+        if methods.is_null() {
+            return;
+        }
+        let mut m: *mut max_sys::t_object = std::ptr::null_mut();
+        let _ = max_sys::hashtab_lookup(methods, max_sys::gensym(name.as_ptr()), &mut m);
+        if !m.is_null() {
+            let _ = max_sys::object_addattr_parse(
+                m,
+                c"undocumented".as_ptr(),
+                max_sys::gensym(c"long".as_ptr()),
+                0,
+                c"1".as_ptr(),
+            );
+        }
+    }
 }
 
 //reexports
@@ -182,8 +242,9 @@ pub trait MaxObjWrapped:
     ///
     /// # Arguments
     ///
-    /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self;
+    /// * `builder` - describes the inlets, makes the outlets, clocks and buffer references, and
+    ///   hands out the object's [`ObjRef`]; see [`MaxBuilder`].
+    fn new(builder: &mut MaxBuilder<Self>) -> Self;
 
     /// Register anything else your class needs (aliases, methods with computed names, ...),
     /// after the field attributes and the methods.
@@ -205,9 +266,24 @@ pub trait MaxObjWrapped:
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
 
-    /// Provide assistance in the case that you don't provide it along with your i/o creation
-    fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
-        default_assist(iolet, render)
+    /// The assist text of an inlet or outlet, computed when Max asks for it. `None` (the
+    /// default) uses the text given to the builder, or the iolet's kind ("int", "list",
+    /// "inlet 2", ...).
+    ///
+    /// Max calls this on the main thread on every hover, every repaint of the box (once per
+    /// inlet) and when it lists connections, and never caches the result: it must be cheap, and
+    /// must not take a lock that the audio or scheduler threads may hold (use atomics). It may
+    /// allocate. At most [`ASSIST_MAX_STRING_LEN`] bytes are shown.
+    fn assist(&self, _iolet: IoLet) -> Option<Cow<'_, str>> {
+        None
+    }
+
+    /// Whether inlet `index` is hot (Max draws hot inlets differently), computed when Max asks.
+    /// `None` (the default) uses the builder's: inlet 0 and the inlets marked
+    /// [`hot`](crate::inlet::Inlet::hot) are hot. The same rules as for
+    /// [`assist`](Self::assist) apply: main thread, often, no locks the other threads hold.
+    fn inlet_hot(&self, _index: usize) -> Option<bool> {
+        None
     }
 }
 
@@ -221,8 +297,9 @@ pub trait MSPObjWrapped:
     ///
     /// # Arguments
     ///
-    /// * `builder` - A builder for constructing inlets/oulets/etc.
-    fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self;
+    /// * `builder` - as for [`MaxObjWrapped::new`], plus signal inlets and outlets; see
+    ///   [`MSPBuilder`].
+    fn new(builder: &mut MSPBuilder<Self>) -> Self;
 
     /// Perform DSP.
     fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], nframes: usize);
@@ -252,20 +329,15 @@ pub trait MSPObjWrapped:
     /// Handle notifications that your object gets
     fn handle_notification(&self, _notification: &Notification) {}
 
-    /// Provide assistance in the case that you don't provide it along with your i/o creation
-    fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F) {
-        default_assist(iolet, render)
+    /// As [`MaxObjWrapped::assist`].
+    fn assist(&self, _iolet: IoLet) -> Option<Cow<'_, str>> {
+        None
     }
-}
 
-/// The assist string for an iolet without one: "inlet N" or "outlet N".
-fn default_assist<F: FnOnce(&CStr)>(iolet: AssistIOlet, render: F) {
-    let v = CString::new(match iolet {
-        AssistIOlet::Inlet(i) => format!("inlet {}", i + 1),
-        AssistIOlet::Outlet(i) => format!("outlet {}", i + 1),
-    })
-    .unwrap();
-    render(v.as_c_str());
+    /// As [`MaxObjWrapped::inlet_hot`].
+    fn inlet_hot(&self, _index: usize) -> Option<bool> {
+        None
+    }
 }
 
 /// What a wrapper type gives the generic trampolines (`Class::add_*`): the wrapped value, and the
@@ -299,34 +371,24 @@ pub struct Wrapper<O, I, T> {
 /// Inner struct for wrapping [`MaxObjWrapped`]
 pub struct MaxWrapperInternal<T> {
     wrapped: T,
-    callbacks_float: FloatCBHash<T>,
-    callbacks_int: IntCBHash<T>,
+    //the inlet callbacks, the assist/hot table, the proxies (freed when this is dropped)
+    iolets: Iolets<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
     //disabled by `free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     clocks: Vec<Arc<ClockShared>>,
-    assist_ins: HashMap<usize, CString>,
-    assist_outs: HashMap<usize, CString>,
-    //we just hold onto these so they don't get deallocated until later
-    _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
 /// Inner struct for wrapping [`MSPObjWrapped`]
 pub struct MSPWrapperInternal<T> {
     wrapped: T,
-    signal_inlets: usize,
-    signal_outlets: usize,
     /// `perform` panicked: the object stays silent (and `perform` is not called again, so the
     /// audio thread doesn't post an error every block) until the next `dsp64`.
     panicked: AtomicBool,
-    callbacks_float: FloatCBHash<T>,
-    callbacks_int: IntCBHash<T>,
+    //as in `MaxWrapperInternal`
+    iolets: Iolets<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
     //disabled by `free_wrapped` before `wrapped` is dropped (and again in `Drop`)
     clocks: Vec<Arc<ClockShared>>,
-    assist_ins: HashMap<usize, CString>,
-    assist_outs: HashMap<usize, CString>,
-    //we just hold onto these so they don't get deallocated until later
-    _proxy_inlets: Vec<crate::inlet::Proxy>,
 }
 
 /// Disable the clocks created for an object. Must run before the object's `T` is dropped (and
@@ -376,9 +438,11 @@ mod sealed {
         fn handle_notification(&self, notification: &Notification);
         fn report_error(&self, obj: &ObjRef, err: &dyn Display);
         /// # Safety
-        /// `s` must point to a writable buffer of at least `ASSIST_MAX` bytes, as Max passes to an
-        /// assist method.
+        /// `s` must be null or point to a writable buffer of at least 512 bytes, as Max passes to
+        /// an assist method.
         unsafe fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
+        /// Whether inlet `index` is hot.
+        fn inlet_hot(&self, index: usize) -> bool;
     }
 }
 use sealed::WrapperInternal;
@@ -399,18 +463,17 @@ where
     }
     unsafe fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
         // SAFETY: the caller guarantees `owner` is valid and under construction
-        let mut builder = unsafe { WrappedBuilder::new_max(owner, sym, args) };
+        let mut builder: MaxBuilder<T> =
+            unsafe { Builder::new(std::ptr::NonNull::new_unchecked(owner), sym, args) };
         let wrapped = T::new(&mut builder);
-        let mut f = builder.finalize();
+        let iolets = builder
+            .finalize()
+            .unwrap_or_else(|e| panic!("{}", e));
         Self {
             wrapped,
-            callbacks_float: std::mem::take(&mut f.callbacks_float),
-            callbacks_int: std::mem::take(&mut f.callbacks_int),
-            buffer_refs: std::mem::take(&mut f.buffer_refs),
-            clocks: std::mem::take(&mut f.clocks),
-            _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
-            assist_ins: std::mem::take(&mut f.assist_ins),
-            assist_outs: std::mem::take(&mut f.assist_outs),
+            iolets,
+            buffer_refs: builder.take_buffer_refs(),
+            clocks: builder.take_clocks(),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -418,14 +481,10 @@ where
         T::class_setup(class);
     }
     fn call_float(&self, index: usize, value: f64) {
-        if let Some(f) = self.callbacks_float.get(&index) {
-            f(self.wrapped(), value);
-        }
+        self.iolets.call_float(&self.wrapped, index, value);
     }
     fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
-        if let Some(f) = self.callbacks_int.get(&index) {
-            f(self.wrapped(), value);
-        }
+        self.iolets.call_int(&self.wrapped, index, value);
     }
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
@@ -435,36 +494,21 @@ where
         self.wrapped().report_error(obj, err);
     }
     unsafe fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
-        let render = |src: &CStr| unsafe {
-            let _ = ::max_sys::strncpy_zero(
-                dest,
-                src.to_bytes_with_nul().as_ptr() as _,
-                ASSIST_MAX as _,
-            );
+        let Some(iolet) = IoLet::from_raw(io, index) else {
+            return;
         };
-
-        //lookup assist string, if we don't have one, call wrapper method
-        let iolet = match io {
-            1 => {
-                let index = index as usize;
-                if let Some(s) = self.assist_ins.get(&index) {
-                    render(s.as_c_str());
-                    return;
-                }
-                AssistIOlet::Inlet(index)
-            }
-            2 => {
-                let index = index as usize;
-                if let Some(s) = self.assist_outs.get(&index) {
-                    render(s.as_c_str());
-                    return;
-                }
-                AssistIOlet::Outlet(index)
-            }
-            _ => return,
+        //the hook first, then the table
+        let text = match self.wrapped.assist(iolet) {
+            Some(text) => text,
+            None => self.iolets.assist(iolet),
         };
-
-        self.wrapped().assist(iolet, render);
+        // SAFETY: the caller's contract
+        unsafe { write_assist(dest, &text) };
+    }
+    fn inlet_hot(&self, index: usize) -> bool {
+        self.wrapped
+            .inlet_hot(index)
+            .unwrap_or_else(|| self.iolets.hot(index))
     }
 }
 
@@ -480,9 +524,12 @@ where
     }
     unsafe fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
         // SAFETY: the caller guarantees `owner` is valid and under construction
-        let mut builder = unsafe { WrappedBuilder::new_msp(owner, sym, args) };
+        let mut builder: MSPBuilder<T> =
+            unsafe { Builder::new(std::ptr::NonNull::new_unchecked(owner.cast()), sym, args) };
         let wrapped = T::new(&mut builder);
-        let mut f = builder.finalize();
+        let iolets = builder
+            .finalize()
+            .unwrap_or_else(|e| panic!("{}", e));
         // Always forbid in-place processing: `perform` is handed shared input slices and
         // mutable output slices at the same time, which must never overlap.
         // SAFETY: the caller guarantees `owner` is valid and under construction
@@ -491,16 +538,10 @@ where
         }
         Self {
             wrapped,
-            signal_inlets: f.signal_inlets,
-            signal_outlets: f.signal_outlets,
             panicked: AtomicBool::new(false),
-            callbacks_float: std::mem::take(&mut f.callbacks_float),
-            callbacks_int: std::mem::take(&mut f.callbacks_int),
-            buffer_refs: std::mem::take(&mut f.buffer_refs),
-            clocks: std::mem::take(&mut f.clocks),
-            _proxy_inlets: std::mem::take(&mut f.proxy_inlets),
-            assist_ins: std::mem::take(&mut f.assist_ins),
-            assist_outs: std::mem::take(&mut f.assist_outs),
+            iolets,
+            buffer_refs: builder.take_buffer_refs(),
+            clocks: builder.take_clocks(),
         }
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -508,14 +549,10 @@ where
         T::class_setup(class);
     }
     fn call_float(&self, index: usize, value: f64) {
-        if let Some(f) = self.callbacks_float.get(&index) {
-            f(self.wrapped(), value);
-        }
+        self.iolets.call_float(&self.wrapped, index, value);
     }
     fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
-        if let Some(f) = self.callbacks_int.get(&index) {
-            f(self.wrapped(), value);
-        }
+        self.iolets.call_int(&self.wrapped, index, value);
     }
     fn handle_notification(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
@@ -525,36 +562,21 @@ where
         self.wrapped().report_error(obj, err);
     }
     unsafe fn assist(&self, io: c_long, index: c_long, dest: *mut c_char) {
-        let render = |src: &CStr| unsafe {
-            let _ = ::max_sys::strncpy_zero(
-                dest,
-                src.to_bytes_with_nul().as_ptr() as _,
-                ASSIST_MAX as _,
-            );
+        let Some(iolet) = IoLet::from_raw(io, index) else {
+            return;
         };
-
-        //lookup assist string, if we don't have one, call wrapper method
-        let iolet = match io {
-            1 => {
-                let index = index as usize;
-                if let Some(s) = self.assist_ins.get(&index) {
-                    render(s.as_c_str());
-                    return;
-                }
-                AssistIOlet::Inlet(index)
-            }
-            2 => {
-                let index = index as usize;
-                if let Some(s) = self.assist_outs.get(&index) {
-                    render(s.as_c_str());
-                    return;
-                }
-                AssistIOlet::Outlet(index)
-            }
-            _ => return,
+        //the hook first, then the table
+        let text = match self.wrapped.assist(iolet) {
+            Some(text) => text,
+            None => self.iolets.assist(iolet),
         };
-
-        self.wrapped().assist(iolet, render);
+        // SAFETY: the caller's contract
+        unsafe { write_assist(dest, &text) };
+    }
+    fn inlet_hot(&self, index: usize) -> bool {
+        self.wrapped
+            .inlet_hot(index)
+            .unwrap_or_else(|| self.iolets.hot(index))
     }
 }
 
@@ -619,7 +641,8 @@ where
     /// # Safety
     /// `obj` must point to this live object.
     unsafe fn check_signal_io(&self, obj: *mut max_sys::t_object) {
-        if self.signal_inlets > MAX_SIGNAL_IO || self.signal_outlets > MAX_SIGNAL_IO {
+        let (signal_inlets, signal_outlets) = (self.iolets.signal_inlets, self.iolets.signal_outlets);
+        if signal_inlets > MAX_SIGNAL_IO || signal_outlets > MAX_SIGNAL_IO {
             // SAFETY: the caller guarantees `obj` is valid
             unsafe {
                 crate::object::error(
@@ -628,7 +651,7 @@ where
                         "median: at most {} signal inlets and outlets are supported, \
                          this object has {} and {}; its perform method will not be called \
                          and its outlets are silent",
-                        MAX_SIGNAL_IO, self.signal_inlets, self.signal_outlets
+                        MAX_SIGNAL_IO, signal_inlets, signal_outlets
                     ),
                 );
             }
@@ -759,6 +782,8 @@ macro_rules! int_float_tramps {
                         name.as_ptr(),
                         max_sys::e_max_atomtypes::A_FLOAT, 0
                     );
+                    //wrapper-internal: hidden from the object's message list
+                    mark_undocumented(class, &name);
 
                     let name = std::ffi::CString::new(concat!("in", $i)).unwrap();
                     max_sys::class_addmethod(class,
@@ -766,6 +791,7 @@ macro_rules! int_float_tramps {
                         name.as_ptr(),
                         max_sys::e_max_atomtypes::A_LONG, 0
                     );
+                    mark_undocumented(class, &name);
                 })*
             }
         }
@@ -891,6 +917,7 @@ where
                 let mut c = creator();
                 let notify = c"notify";
                 let assist = c"assist";
+                let inletinfo = c"inletinfo";
                 unsafe {
                     //register notifications
                     max_sys::class_addmethod(
@@ -908,12 +935,23 @@ where
                         max_sys::e_max_atomtypes::A_CANT,
                         0,
                     );
+                    //hot/cold inlets
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<
+                            extern "C" fn(&Self, *mut c_void, c_long, *mut c_char),
+                            MaxMethod,
+                        >(Self::inletinfo_tramp)),
+                        inletinfo.as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
                 }
+                //register our ft1, ft2.. in1, in2.. tramps (before the class is registered, as
+                //the SDK examples mark methods undocumented)
+                Self::register_ft_in(c.inner());
                 c.register(T::class_type())
                     .expect(format!("failed to register {}", key).as_str());
-
-                //register our ft1, ft2.. in1, in2.. tramps
-                Self::register_ft_in(c.inner());
                 c.inner()
             } else {
                 existing
@@ -924,6 +962,21 @@ where
     }
 
     int_float_tramps!(1, 2, 3, 4, 5, 6, 7, 8, 9);
+
+    /// The `inletinfo` method: `*t` is 0 for a hot inlet and 1 for a cold one (as the SDK
+    /// examples write it).
+    extern "C" fn inletinfo_tramp(&self, _b: *mut c_void, index: c_long, t: *mut c_char) {
+        self.guard_or("inletinfo", (), || {
+            let Ok(index) = usize::try_from(index) else {
+                return;
+            };
+            let hot = self.internal().inlet_hot(index);
+            if !t.is_null() {
+                // SAFETY: Max passes a writable `char` to `inletinfo`
+                unsafe { t.write(if hot { 0 } else { 1 }) };
+            }
+        });
+    }
 }
 
 fn key<T>() -> &'static str {
@@ -1375,14 +1428,19 @@ mod tests {
     impl FieldAttrs for P {}
 
     impl MaxObjWrapped for P {
-        fn new(_builder: &mut dyn MaxWrappedBuilder<P>) -> Self {
+        fn new(_builder: &mut MaxBuilder<P>) -> Self {
             P
         }
         fn handle_notification(&self, _n: &Notification) {
             RAN.fetch_add(1, Ordering::SeqCst);
         }
-        fn assist<F: FnOnce(&CStr)>(&self, _iolet: AssistIOlet, _render: F) {
+        fn assist(&self, _iolet: IoLet) -> Option<Cow<'_, str>> {
             RAN.fetch_add(1, Ordering::SeqCst);
+            None
+        }
+        fn inlet_hot(&self, _index: usize) -> Option<bool> {
+            RAN.fetch_add(1, Ordering::SeqCst);
+            None
         }
     }
 
@@ -1399,7 +1457,7 @@ mod tests {
     impl FieldAttrs for Q {}
 
     impl MSPObjWrapped for Q {
-        fn new(_builder: &mut dyn MSPWrappedBuilder<Q>) -> Self {
+        fn new(_builder: &mut MSPBuilder<Q>) -> Self {
             Q
         }
         fn perform(&self, _: &[&[f64]], _: &mut [&mut [f64]], _: usize) {
@@ -1491,6 +1549,12 @@ mod tests {
             )),
             refused("assist")
         );
+        let mut t: std::ffi::c_char = 0;
+        assert_eq!(
+            errors_during(&k, &*w, || W::inletinfo_tramp(&w, std::ptr::null_mut(), 1, &mut t)),
+            refused("inletinfo")
+        );
+        assert_eq!(t, 0);
         //what the `defer_tramp` trampolines do
         assert_eq!(
             errors_during(&k, &*w, || crate::ffi::guard(&*w, "method", || {

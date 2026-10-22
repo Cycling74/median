@@ -15,33 +15,34 @@ pub struct Simp {
     fvalue: Float64,
     _v: String,
     clock: ClockHandle,
-    list_out: OutList,
+    list_out: Outlet<List>,
 }
 
 //implement the max object wrapper
 impl MaxObjWrapped for Simp {
     //create an instance of your object
     //setup inlets/outlets and clocks
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-        builder.with_default_inlet_assist("first inlet");
-
-        //can call closure
-        builder.add_inlet_with_assist(
-            MaxInlet::Float(Box::new(|_s, v| {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+        //inlets, left to right. Inlet 0 always exists, this gives it an assist text
+        builder.inlet(Inlet::default().assist("first inlet"));
+        //a float inlet that calls a closure
+        builder.inlet(
+            Inlet::float(|_s: &Self, v| {
                 post!("got float {}", v);
-            })),
-            "my float inlet",
+            })
+            .assist("my float inlet"),
         );
-        //also can call method
-        builder.add_inlet(MaxInlet::Int(Box::new(Self::int))); //default assist
-        let _ = builder.add_inlet_with_assist(MaxInlet::Proxy, "my proxy inlet");
+        //an int inlet that calls a method; without an assist text Max shows "int"
+        builder.inlet(Inlet::int(Self::int));
+        //a proxy inlet: messages go to the usual methods, `self.obj.proxy_inlet()` says 3
+        builder.inlet(Inlet::proxy().assist("my proxy inlet"));
         Self {
             obj: builder.obj(),
             value: Default::default(),
             fvalue: Default::default(),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
-            list_out: builder.add_list_outlet_with_assist("my list out"),
+            list_out: builder.outlet(Outlet::list().assist("my list out")),
         }
     }
 }

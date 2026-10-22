@@ -19,14 +19,14 @@
 use median::{
     MaxObject,
     atom::Atom,
-    builder::{MSPWrappedBuilder, MaxWrappedBuilder},
+    builder::{MSPBuilder, MaxBuilder},
     class::Class,
     clock::ClockHandle,
-    inlet::MaxInlet,
+    inlet::Inlet,
     max_sys::t_atom_long,
     num::{Float64, Int64},
     object::ObjRef,
-    outlet::{OutBang, OutInt, OutList},
+    outlet::{Bang, Int, List, Outlet},
     symbol::SymbolRef,
     wrapper::{
         FieldAttrs, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass,
@@ -48,20 +48,20 @@ pub struct Thing {
     obj: ObjRef,
     value: Int64,
     fvalue: Float64,
-    int_out: OutInt,
-    list_out: OutList,
+    int_out: Outlet<Int>,
+    list_out: Outlet<List>,
 }
 
 impl MaxObjWrapped for Thing {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
         let start = builder.creation_args().first().map_or(0, |a| a.get_int());
-        let _ = builder.add_inlet(MaxInlet::Proxy);
+        builder.inlet(Inlet::proxy());
         Self {
             obj: builder.obj(),
             value: Int64::new(start),
             fvalue: Float64::new(0.),
-            int_out: builder.add_int_outlet(),
-            list_out: builder.add_list_outlet(),
+            int_out: builder.outlet(Outlet::int()),
+            list_out: builder.outlet(Outlet::list()),
         }
     }
 }
@@ -117,7 +117,7 @@ impl Drop for Thing {
 /// Hand written, with typed methods, errors and a sel method.
 pub struct Typed {
     obj: ObjRef,
-    out: OutList,
+    out: Outlet<List>,
 }
 
 impl Drop for Typed {
@@ -137,13 +137,13 @@ impl FieldAttrs for Typed {}
 impl Methods for Typed {}
 
 impl MaxObjWrapped for Typed {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
         if builder.creation_args().first().map(|a| a.get_int()) == Some(-1) {
             panic!("no -1 for you");
         }
         Self {
             obj: builder.obj(),
-            out: builder.add_list_outlet(),
+            out: builder.outlet(Outlet::list()),
         }
     }
 
@@ -203,8 +203,8 @@ impl Typed {
 /// Has a clock: `bang` starts it, and it sends a bang and a list when it fires.
 pub struct Ticker {
     clock: ClockHandle,
-    bang_out: OutBang,
-    list_out: OutList,
+    bang_out: Outlet<Bang>,
+    list_out: Outlet<List>,
     ticks: Int64,
 }
 
@@ -219,11 +219,11 @@ impl FieldAttrs for Ticker {}
 impl Methods for Ticker {}
 
 impl MaxObjWrapped for Ticker {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
         Self {
             clock: builder.with_clockfn(Self::clocked),
-            bang_out: builder.add_bang_outlet(),
-            list_out: builder.add_list_outlet(),
+            bang_out: builder.outlet(Outlet::bang()),
+            list_out: builder.outlet(Outlet::list()),
             ticks: Int64::new(0),
         }
     }
@@ -237,7 +237,7 @@ impl Ticker {
     fn clocked(&self) {
         let n = self.ticks.get() + 1;
         self.ticks.set(n);
-        let _ = self.bang_out.send(());
+        let _ = self.bang_out.send();
         let _ = self.list_out.send(&[n.into(), 1.5f64.into()]);
     }
 }
@@ -258,9 +258,10 @@ impl FieldAttrs for Dsp {}
 impl Methods for Dsp {}
 
 impl MSPObjWrapped for Dsp {
-    fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self {
-        builder.add_signal_inlets_with_assist(&["in left", "in right"]);
-        builder.add_signal_outlets_with_assist(&["out"]);
+    fn new(builder: &mut MSPBuilder<Self>) -> Self {
+        builder.inlet(Inlet::signal().assist("in left"));
+        builder.inlet(Inlet::signal().assist("in right"));
+        builder.outlet(Outlet::signal().assist("out"));
         Self { obj: builder.obj() }
     }
 

@@ -8,7 +8,7 @@ use median::prelude::*;
 pub struct Base {}
 
 impl MaxObjWrapped for Base {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
         post!("created median.multi");
         Self {}
     }
@@ -19,10 +19,12 @@ impl MaxObjWrapped for Base {
 pub struct Sig {}
 
 impl MSPObjWrapped for Sig {
-    fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MSPBuilder<Self>) -> Self {
         post!("created median.multi.sig~");
-        builder.add_signal_inlets(2);
-        builder.add_signal_outlets(2);
+        builder.inlet(Inlet::signal());
+        builder.inlet(Inlet::signal());
+        builder.outlet(Outlet::signal());
+        builder.outlet(Outlet::signal());
         Self {}
     }
 

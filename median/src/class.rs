@@ -30,7 +30,7 @@ use std::os::raw::c_long;
 ///
 /// ```
 /// use median::{
-///     atom::Atom, attr::AttrOptions, builder::MaxWrappedBuilder, class::Class,
+///     atom::Atom, attr::AttrOptions, builder::MaxBuilder, class::Class,
 ///     error::MaxResult, max_sys::t_atom_long, num::Int64, object::MaxObj, symbol::SymbolRef,
 ///     wrapper::*,
 /// };
@@ -48,7 +48,7 @@ use std::os::raw::c_long;
 /// }
 ///
 /// impl MaxObjWrapped for Example {
-///     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+///     fn new(_builder: &mut MaxBuilder<Self>) -> Self {
 ///         Example { value: Int64::new(0) }
 ///     }
 /// }
@@ -103,7 +103,7 @@ use std::os::raw::c_long;
 /// is rejected at compile time:
 ///
 /// ```compile_fail,E0080
-/// # use median::{builder::MaxWrappedBuilder, class::Class, wrapper::*};
+/// # use median::{builder::MaxBuilder, class::Class, wrapper::*};
 /// # struct Example;
 /// # impl ObjClass for Example {
 /// #     type Wrapper = MaxObjWrapper<Self>;
@@ -112,7 +112,7 @@ use std::os::raw::c_long;
 /// # impl Methods for Example {}
 /// # impl FieldAttrs for Example {}
 /// # impl MaxObjWrapped for Example {
-/// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
+/// #     fn new(_builder: &mut MaxBuilder<Self>) -> Self { Example }
 /// # }
 /// # use median_mock as _;
 /// # fn main() {
@@ -130,7 +130,7 @@ use std::os::raw::c_long;
 /// lack of them.)
 ///
 /// ```
-/// # use median::{builder::MaxWrappedBuilder, class::Class, wrapper::*};
+/// # use median::{builder::MaxBuilder, class::Class, wrapper::*};
 /// # struct Example;
 /// # impl ObjClass for Example {
 /// #     type Wrapper = MaxObjWrapper<Self>;
@@ -139,7 +139,7 @@ use std::os::raw::c_long;
 /// # impl Methods for Example {}
 /// # impl FieldAttrs for Example {}
 /// # impl MaxObjWrapped for Example {
-/// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
+/// #     fn new(_builder: &mut MaxBuilder<Self>) -> Self { Example }
 /// # }
 /// # use median_mock as _;
 /// # fn main() {
@@ -393,7 +393,7 @@ impl<W> Class<W> {
     /// registers, so a mix is rejected at compile time; use [`Class::add_sel_gimme`] for it:
     ///
     /// ```compile_fail,E0080
-    /// # use median::{builder::MaxWrappedBuilder, class::Class, max_sys::t_atom_long, wrapper::*};
+    /// # use median::{builder::MaxBuilder, class::Class, max_sys::t_atom_long, wrapper::*};
     /// # struct Example;
     /// # impl ObjClass for Example {
     /// #     type Wrapper = MaxObjWrapper<Self>;
@@ -402,7 +402,7 @@ impl<W> Class<W> {
     /// # impl Methods for Example {}
     /// # impl FieldAttrs for Example {}
     /// # impl MaxObjWrapped for Example {
-    /// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Example }
+    /// #     fn new(_builder: &mut MaxBuilder<Self>) -> Self { Example }
     /// # }
     /// # use median_mock as _;
     /// # fn main() {

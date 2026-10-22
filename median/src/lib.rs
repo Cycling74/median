@@ -15,15 +15,18 @@
 //!     #[attr(clip(0, 100))]
 //!     value: Int64,
 //!     ratio: Float64,
+//!     out: Outlet<List>,
 //! }
 //!
 //! impl MaxObjWrapped for Example {
-//!     fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-//!         let _ = builder.add_inlet(MaxInlet::Proxy);
+//!     fn new(builder: &mut MaxBuilder<Self>) -> Self {
+//!         builder.inlet(Inlet::default().assist("bang, int, list, set"));
+//!         builder.inlet(Inlet::proxy().assist("bang, int"));
 //!         Self {
 //!             obj: builder.obj(),
 //!             value: Int64::new(0),
 //!             ratio: Float64::new(1.),
+//!             out: builder.outlet(Outlet::list().assist("the list, reversed")),
 //!         }
 //!     }
 //! }
@@ -44,7 +47,8 @@
 //!
 //!     #[list]
 //!     pub fn list(&self, atoms: &[Atom]) {
-//!         post!("got list with length {}", atoms.len());
+//!         let rev: Vec<Atom> = atoms.iter().rev().filter_map(Atom::get_value).map(Atom::from).collect();
+//!         let _ = self.out.send(&rev);
 //!     }
 //!
 //!     #[any]
@@ -96,6 +100,16 @@
 //! [`AttrField`](attr::AttrField), as the [`num`] atomics do. Options: `name = ".."` (default: the
 //! field name), `clip(min, max)`, `readonly`. Other attribute options (label, style, category,
 //! order, default, save, enum) are not supported yet, and are rejected.
+//!
+//! # Inlets and outlets
+//!
+//! `new` describes the inlets and makes the outlets with the builder it is given
+//! ([`MaxBuilder`](builder::MaxBuilder), or [`MSPBuilder`](builder::MSPBuilder) which also takes
+//! signal inlets and outlets), left to right: `builder.inlet(Inlet::proxy().assist(".."))`,
+//! `builder.outlet(Outlet::list())`. An outlet is a typed handle, [`Outlet<List>`](outlet::Outlet)
+//! and so on, kept in the struct. Each has an assist text (or its kind is shown); inlets can be
+//! marked hot. The `assist` and `inlet_hot` hooks of [`MaxObjWrapped`](wrapper::MaxObjWrapped)
+//! compute either at run time instead. See [`inlet`] and [`outlet`].
 //!
 //! # Methods
 //!
@@ -184,7 +198,7 @@ pub use median_macros::methods;
 /// # #[max(no_methods)]
 /// # pub struct Simp;
 /// # impl MaxObjWrapped for Simp {
-/// #     fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self { Simp }
+/// #     fn new(_builder: &mut MaxBuilder<Self>) -> Self { Simp }
 /// # }
 /// median::ext_main! { Simp }
 /// ```
@@ -212,18 +226,18 @@ pub mod prelude {
         MaxObject, ext_main, methods, object_error, object_post, object_warn, post,
         atom::Atom,
         attr::AttrOptions,
-        builder::{MSPWrappedBuilder, MaxWrappedBuilder, ObjBuilder},
+        builder::{MSPBuilder, MaxBuilder},
         class::{Class, ClassType},
         clock::ClockHandle,
         error::MaxResult,
-        inlet::{MSPInlet, MaxInlet},
+        inlet::{Inlet, InletId},
         max_sys::t_atom_long,
         num::{Float32, Float64, Int64},
         object::{MaxObj, ObjRef},
-        outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList},
+        outlet::{Any, Bang, Float, Int, List, Outlet, Signal, StackOverflow},
         symbol::SymbolRef,
         wrapper::{
-            FieldAttrs, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods,
+            FieldAttrs, IoLet, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper, Methods,
             ObjClass, WrapperWrapped,
         },
     };

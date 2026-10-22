@@ -2,7 +2,7 @@
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
-    builder::MaxWrappedBuilder,
+    builder::MaxBuilder,
     object::MaxObj,
     wrapper::{FieldAttrs, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
 };
@@ -157,7 +157,7 @@ impl Methods for ClockInner {}
 impl FieldAttrs for ClockInner {}
 
 impl MaxObjWrapped for ClockInner {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
         Self {
             shared: Arc::new(ClockShared::new()),
         }
@@ -167,7 +167,7 @@ impl MaxObjWrapped for ClockInner {
 /// A handle for a clock and the method it will trigger.
 ///
 /// Dropping the handle unsets and frees the clock. Clocks made with the builder
-/// ([`ObjBuilder::with_clock`](crate::builder::ObjBuilder::with_clock)) are additionally
+/// ([`Builder::with_clock`](crate::builder::Builder::with_clock)) are additionally
 /// disabled when the owning object is freed, so a handle that outlives its object does nothing
 /// when it fires. A clock callback must not free its own object or drop its own handle, see
 /// [`ClockShared`].

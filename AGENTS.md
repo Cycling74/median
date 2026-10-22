@@ -54,11 +54,13 @@ the `field-offset` dependency are gone; an object keeps an `ObjRef` (from `build
 posts/touches attributes/defers through it, and the macros take `&ObjRef`. `MaxObj`/`MSPObj` are
 only implemented for the wrapper types. Do not add impls of the old shape. Documented limit:
 `ObjRef` is `!Clone`, `!Send`, but safe code can still deliberately leak it (`Box::leak`,
-`thread_local!`) and use it after the object is deleted; the same holds for outlet handles (M10).
-Still open, and reachable from safe code:
+`thread_local!`) and use it after the object is deleted. Redesign step 4 replaced the boxed
+outlet aliases with `Outlet<K>`, which has the same shape and the same documented limit (M10 is
+fixed modulo deliberate leaking). The iolet table is filled once at construction; `z_dsp_setup`
+runs before the other inlets are made (unverified in Max for objects with 2+ signal inlets and
+other inlets, see the plan's step 4 status). Still open, and reachable from safe code:
 
-- `SymbolRef::assign` (H5), `BufferLocked`'s `&mut [f32]` over a shared lock (H7) and escaping
-  outlet handles (M10).
+- `SymbolRef::assign` (H5) and `BufferLocked`'s `&mut [f32]` over a shared lock (H7).
 - buffer~ data is interleaved, not planar (M1).
 - A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
   `ClockShared` in `median/src/clock.rs`.

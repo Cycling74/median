@@ -15,8 +15,8 @@ This is a work in progress.
 
 ## Example
 
-A very basic external that has `bang`, `int`, `list`, and `any` methods, a `set` message and an
-attribute.
+A very basic external that has `bang`, `int`, `list`, and `any` methods, a `set` message, an
+attribute, a proxy inlet and a list outlet.
 
 See the [examples folder](examples/README.md) for more detailed examples, and the crate
 documentation for the full list of markers and options.
@@ -32,14 +32,19 @@ pub struct Example {
     // an attribute "value" backed by the field, clipped to 0..=100
     #[attr(clip(0, 100))]
     value: Int64,
+    // a typed outlet: `send` takes what a list outlet sends
+    out: Outlet<List>,
 }
 
 impl MaxObjWrapped for Example {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-        let _ = builder.add_inlet(MaxInlet::Proxy);
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+        // inlets and outlets, left to right, each with an optional assist text
+        builder.inlet(Inlet::default().assist("bang, int, list, set"));
+        builder.inlet(Inlet::proxy().assist("bang, int"));
         Self {
             obj: builder.obj(),
             value: Int64::new(0),
+            out: builder.outlet(Outlet::list().assist("the list, reversed")),
         }
     }
 }
@@ -61,7 +66,8 @@ impl Example {
 
     #[list]
     pub fn list(&self, atoms: &[Atom]) {
-        post!("got list with length {}", atoms.len());
+        let rev: Vec<Atom> = atoms.iter().rev().filter_map(Atom::get_value).map(Atom::from).collect();
+        let _ = self.out.send(&rev);
     }
 
     #[any]

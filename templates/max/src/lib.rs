@@ -14,7 +14,7 @@ pub struct MaxExtern {
 impl MaxObjWrapped for MaxExtern {
     //create an instance of your object
     //setup inlets/outlets and clocks
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
         Self {
             obj: builder.obj(),
             foo: Float64::new(0.0),

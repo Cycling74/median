@@ -25,18 +25,18 @@ pub struct Marks {
     #[attr]
     ratio: Float32,
     fvalue: Float64,
-    out: OutList,
+    out: Outlet<List>,
 }
 
 impl MaxObjWrapped for Marks {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
         Self {
             obj: builder.obj(),
             value: Int64::new(0),
             level: Float64::new(0.5),
             ratio: Float32::new(0.25),
             fvalue: Float64::new(0.),
-            out: builder.add_list_outlet(),
+            out: builder.outlet(Outlet::list()),
         }
     }
 }
@@ -150,13 +150,13 @@ impl Marks {
 #[derive(MaxObject)]
 #[max(name = "derive.reporter")]
 pub struct Reporter {
-    errors: OutAnything,
+    errors: Outlet<Any>,
 }
 
 impl MaxObjWrapped for Reporter {
-    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Self {
         Self {
-            errors: builder.add_anything_outlet(),
+            errors: builder.outlet(Outlet::any()),
         }
     }
 
@@ -164,7 +164,7 @@ impl MaxObjWrapped for Reporter {
         let msg = SymbolRef::try_from(err.to_string().as_str()).unwrap();
         let _ = self
             .errors
-            .send_anything(SymbolRef::from(c"error"), &[msg.into()]);
+            .send(&SymbolRef::from(c"error"), &[msg.into()]);
     }
 }
 
@@ -185,9 +185,9 @@ pub struct Gain {
 }
 
 impl MSPObjWrapped for Gain {
-    fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self {
-        builder.add_signal_inlets(1);
-        builder.add_signal_outlets(1);
+    fn new(builder: &mut MSPBuilder<Self>) -> Self {
+        builder.inlet(Inlet::signal());
+        builder.outlet(Outlet::signal());
         Self {
             gain: Float64::new(1.),
         }
@@ -215,7 +215,7 @@ impl Gain {
 pub struct Plain;
 
 impl MaxObjWrapped for Plain {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
         Plain
     }
 }
@@ -226,7 +226,7 @@ impl MaxObjWrapped for Plain {
 pub struct NoBox;
 
 impl MaxObjWrapped for NoBox {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
         NoBox
     }
 }
@@ -237,7 +237,7 @@ impl MaxObjWrapped for NoBox {
 pub struct Broken;
 
 impl MaxObjWrapped for Broken {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
         Broken
     }
 

@@ -4,7 +4,7 @@ use median::prelude::*;
 pub struct Simp;
 
 impl MaxObjWrapped for Simp {
-    fn new(_builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
         Simp
     }
 }

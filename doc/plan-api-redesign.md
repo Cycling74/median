@@ -504,7 +504,72 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     build`, not `cargo check`. `#[median::methods]` also reports it with a spanned error when the
     argument types are written `f64` (best effort: an alias hides it). The tests that mixed were
     changed to same-typed selectors.
-- [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
+- [x] 4. Iolet descriptors (section F). Every user is ported (`simp`, `simp_explicit`,
+  `hello_dsp`, `multi`, the template, crate docs, READMEs, tests). Public API:
+  - `builder::Builder<T, K>` with `K` = `builder::Max` or `builder::Msp` (sealed `BuilderKind`),
+    aliased `MaxBuilder<T>`/`MSPBuilder<T>`; `fn new(b: &mut MaxBuilder<Self>) -> Self` (the
+    `ObjBuilder`/`MaxWrappedBuilder`/`MSPWrappedBuilder` traits are gone, the methods are
+    inherent). Kept as they were: `obj()`, `with_clockfn`, `with_clock`, `with_buffer`,
+    `creation_args`, `creation_symbol`, `try_register`, `attach`, `subscribe`, unsafe
+    `max_obj`/`msp_obj`.
+  - `b.inlet(desc) -> inlet::InletId` (`.index()`), `desc` an `inlet::Inlet<T>`
+    (`Inlet::default()` through `Default`, `proxy()`, `int(f)`, `float(f)`, `.assist(&str)`,
+    `.hot()`) or, MSP only, the `inlet::SignalInlet<T>` from `Inlet::signal()`: the sealed
+    `InletFor<T, K>` bound makes a signal inlet on a Max builder a compile error (with a
+    `diagnostic::on_unimplemented` note; UI test).
+  - `b.outlet(desc) -> outlet::Outlet<K>`, `desc` an `OutletDesc<K>` from `Outlet::bang()`,
+    `int()`, `float()`, `list()`, `any()`, `signal()` (`.assist(&str)`); kinds `Bang`, `Int`,
+    `Float`, `List`, `Any`, `Signal` (uninhabited marker enums; sealed `OutletKind`,
+    `OutletFor<K>` makes a signal outlet on a Max builder a compile error). Signal outlets
+    return an `Outlet<Signal>` with no methods. `Outlet<K>` is `!Clone`, `!Send`, `Sync`
+    (`PhantomData<*const ()>`, as `ObjRef`), with the same "do not leak" note. `send(&self, ..)
+    -> Result<(), outlet::StackOverflow>`: `Outlet<Bang>::send()`, `Int` `send(t_atom_long)`,
+    `Float` `send(f64)`, `List` `send(&[Atom])`, `Any` `send(&SymbolRef, &[Atom])` plus
+    `send_bang/send_int/send_float/send_list`. Outlets are made immediately (`outlet_append`,
+    left to right). The SDK's rule (outlets from the main and scheduler threads, not from
+    `perform`) is documented on the module, not enforced. `OutList`/`OutBang`/..., `SendValue`,
+    `SendAnything`, `SendError` and the `Outlet::append_*` fns are removed.
+  - Hooks on `MaxObjWrapped` and `MSPObjWrapped`: `fn assist(&self, IoLet) -> Option<Cow<'_,
+    str>>` and `fn inlet_hot(&self, usize) -> Option<bool>`, both default `None`; `IoLet` (in
+    `wrapper`, replacing `AssistIOlet`) is `Inlet(usize)`/`Outlet(usize)`.
+    `wrapper::ASSIST_MAX_STRING_LEN = 500`.
+  - Positions: inlet 0 is described only by a first `Inlet::default()` or (MSP) the first
+    signal inlet; otherwise the first description is inlet 1. Signal inlets occupy `0..n`.
+    `in<N>`/`ft<N>` count each kind from 1 independently of position (so `simp`'s int inlet is
+    `in1` now, not `in2`); proxy ids are their positions (what `ObjRef::proxy_inlet` returns).
+    `finalize` runs `z_dsp_setup(n)` first (MSP, always, `n` may be 0), then makes the other
+    inlets right to left. Mistakes (`Inlet::default()` not first, a signal inlet after another
+    kind, more than 9 `int` or 9 `float` inlets, an outlet Max didn't make) are recorded by the
+    builder and fail construction when `new` returns (in this step as a panic in `new_tramp`,
+    which posts it; see step 5).
+  - Table: assist and hot by position, filled once (`builder::Iolets`, no `RwLock`; a comment
+    marks where a `dynlet` API would make it updatable). `assist` asks the hook, then the table,
+    then the default: the kind (`"int"`, `"float"`, `"signal"`, `"bang"`, `"list"`,
+    `"anything"`), `"inlet N"` for inlet 0 and plain proxies (N from 1), `"inlet N"`/
+    `"outlet N"` past the table. The text is cut to 500 bytes on a char boundary and copied with
+    a NUL (an interior NUL ends it). `inletinfo` (`A_CANT`) is always registered (difference
+    from F: not only when some inlet is `.hot()`): hook, else table (inlet 0 and `.hot()` hot);
+    writes `*t = 0` for hot, 1 for cold (as `thresh.c`/`minimum.c` do). Both run inside the
+    guard and refuse a half-built object.
+  - Message-list noise (a): `ft1..9`/`in1..9` are marked `undocumented` with
+    `class_extra_lookup(c, "methods")` + `hashtab_lookup` + `object_addattr_parse` (max-sys
+    has the bindings), right after they are added, which now happens before `class_register`
+    (as in `dummy.c`) instead of after. `notify`/`assist`/`inletinfo`/`dsp64` are `A_CANT`, so
+    not in the menu anyway. Whether this hides `ft`/`in` from Max's message menu is unchecked
+    (part (b) not done).
+  - `median-mock` (f4dd29e): `Kernel::inlets` / `inlets_created` (public `InletKind`),
+    `assist`, `inlet_is_hot`, `method_attr`, `dsp_frees`, `live_clock_count`, and the three
+    method-attribute functions. **Assumption**: the mock keeps `z_dsp_setup`'s signal inlets
+    next to the leftmost when inlets are made after it (the reading of `z_dsp.h` this step
+    relies on). In Max, `intin`/`proxy_new` insert each new inlet just right of the leftmost
+    (`filein.c`), so if `z_dsp_setup`'s proxies are ordinary inlets, inlets made after it would
+    land *left* of the signal inlets for `n >= 2`. To check in Max (see AGENTS/the report).
+  - Tests: `tests/iolets.rs` (positions and creation order for Max and MSP, dispatch by id,
+    proxy index, assist from the table/hook/defaults, truncation on multibyte boundaries,
+    `inletinfo` default/`.hot()`/hook, `undocumented` on `ft`/`in`, typed outlet calls, MSP
+    without signal inlets, description mistakes fail with nothing leaked), UI cases
+    `outlet_not_clone` and `signal_iolets_on_max`, and the refusal of `inletinfo` on a
+    half-built object.
 - [ ] 5. Fallible `new`
 - [ ] 6. `SymbolRef`, `BufferLocked`
 - [ ] 7. Clock/queue/fifo, attribute options

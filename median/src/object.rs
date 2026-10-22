@@ -119,7 +119,7 @@ impl ObjRef {
     /// Get the index of the proxy inlet that received the message currently being handled.
     ///
     /// Only meaningful inside a message method that Max invoked on this object, and for an
-    /// object that has proxy inlets (see [`crate::inlet::MaxInlet::Proxy`]). Anywhere else the
+    /// object that has proxy inlets (see [`crate::inlet::Inlet::proxy`]). Anywhere else the
     /// value is whatever Max last recorded (typically 0).
     pub fn proxy_inlet(&self) -> usize {
         // SAFETY: `self` is a live object, see `from_raw`

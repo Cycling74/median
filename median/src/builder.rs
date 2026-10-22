@@ -1,608 +1,456 @@
-//! Utilities for building objects.
+//! The builder your `new` gets: inlets, outlets, clocks and buffer references are made with it.
+//!
+//! [`MaxBuilder<T>`] for a Max object, [`MSPBuilder<T>`] for an MSP object (which also takes
+//! signal inlets and outlets). Unlike the Max SDK, inlets and outlets are described from left to
+//! right; see [`crate::inlet`] and [`crate::outlet`].
 use crate::{
     atom::Atom,
     buffer::{BufferRef, BufferReference},
     clock::{ClockHandle, ClockShared},
-    inlet::{MSPInlet, MaxInlet, Proxy},
-    object::ObjRef,
+    inlet::{FloatCB, InletFor, InletId, InletKind, IntCB, Proxy},
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
-    outlet::{OutAnything, OutBang, OutFloat, OutInt, OutList, Outlet},
+    object::ObjRef,
+    outlet::{Outlet, OutletDesc, OutletFor, OutletKind},
     symbol::SymbolRef,
-    wrapper::{
-        FloatCBHash, IntCBHash, MSPObjWrapped, MSPObjWrapper, MaxObjWrapped, MaxObjWrapper,
-        WrapperWrapped,
-    },
+    wrapper::{IoLet, MSPObjWrapper, MaxObjWrapper, WrapperWrapped},
 };
-use std::{collections::HashMap, ffi::CString, marker::PhantomData, ptr::NonNull, sync::Arc};
-
-pub struct WrappedBuilder<'a, T, W> {
-    max_obj: *mut max_sys::t_object,
-    msp_obj: Option<*mut max_sys::t_pxobject>,
-    sym: SymbolRef,
-    args: &'a [Atom],
-    inlets: Vec<MSPInlet<T>>, //just use MSP since it contains all of Max
-    buffer_refs: Vec<ManagedBufferRefInternal>,
-    clocks: Vec<Arc<ClockShared>>,
-    assist_ins: HashMap<usize, CString>,
-    assist_outs: HashMap<usize, CString>,
-    outlet_count: usize,
-    signal_outlets: usize,
-    _phantom: PhantomData<(T, W)>,
-}
+use std::{marker::PhantomData, ptr::NonNull, sync::Arc};
 
 pub type ManagedBufferRef = Arc<dyn BufferReference>;
 pub(crate) type ManagedBufferRefInternal = Arc<BufferRef>;
 
-/// Builder for your object
+/// The most `int` (and, separately, `float`) inlets an object can have: Max has the messages
+/// `in1`..`in9` and `ft1`..`ft9`.
+pub const MAX_TYPED_INLETS: usize = 9;
+
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// The kind of object a [`Builder`] builds: [`Max`] or [`Msp`].
+pub trait BuilderKind: sealed::Sealed + 'static {
+    #[doc(hidden)]
+    const MSP: bool;
+}
+
+/// A Max object (a `t_object`).
+pub enum Max {}
+/// An MSP object (a `t_pxobject`).
+pub enum Msp {}
+
+impl sealed::Sealed for Max {}
+impl sealed::Sealed for Msp {}
+impl BuilderKind for Max {
+    const MSP: bool = false;
+}
+impl BuilderKind for Msp {
+    const MSP: bool = true;
+}
+
+/// The builder for a Max object's `new`.
+pub type MaxBuilder<T> = Builder<T, Max>;
+/// The builder for an MSP object's `new`.
+pub type MSPBuilder<T> = Builder<T, Msp>;
+
+/// The builder your `new` is given (as [`MaxBuilder<Self>`] or [`MSPBuilder<Self>`]).
 ///
-/// # Remarks
-/// Unlike the Max SDK, inlets and outlets are specified from left to right.
-pub trait ObjBuilder<T> {
-    /// Add assistance for the default inlet
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn with_default_inlet_assist(&mut self, assist: &str);
+/// It describes the object's inlets ([`inlet`](Self::inlet)) and makes its outlets
+/// ([`outlet`](Self::outlet)), clocks and buffer references, and hands out the object's
+/// [`ObjRef`] ([`obj`](Self::obj)). Outlets, clocks and buffer references exist as soon as they are
+/// made; the inlets are made when `new` has returned, in the order Max needs.
+pub struct Builder<T, K> {
+    obj: NonNull<max_sys::t_object>,
+    sym: SymbolRef,
+    args: *const Atom,
+    nargs: usize,
+    inlets: Vec<InletEntry<T>>,
+    outlets: Vec<IoletInfo>,
+    signal_outlets: usize,
+    int_inlets: usize,
+    float_inlets: usize,
+    /// The first mistake in the description; construction fails with it.
+    error: Option<String>,
+    buffer_refs: Vec<ManagedBufferRefInternal>,
+    clocks: Vec<Arc<ClockShared>>,
+    _kind: PhantomData<K>,
+}
 
-    /// Get a clock object that executes `func` when triggered.
+struct InletEntry<T> {
+    position: usize,
+    /// 1..=9 for `int` and `float` inlets
+    id: usize,
+    kind: InletKind<T>,
+    assist: Option<Box<str>>,
+    hot: bool,
+}
+
+impl<T, K: BuilderKind> Builder<T, K> {
+    /// # Safety
+    /// `owner` must point to a valid object (a `t_pxobject` if `K` is [`Msp`]) that is being
+    /// constructed and outlives the builder; `args` must stay valid as long as the builder.
+    pub(crate) unsafe fn new(owner: NonNull<max_sys::t_object>, sym: SymbolRef, args: &[Atom]) -> Self {
+        Self {
+            obj: owner,
+            sym,
+            args: args.as_ptr(),
+            nargs: args.len(),
+            inlets: Vec::new(),
+            outlets: Vec::new(),
+            signal_outlets: 0,
+            int_inlets: 0,
+            float_inlets: 0,
+            error: None,
+            buffer_refs: Vec::new(),
+            clocks: Vec::new(),
+            _kind: PhantomData,
+        }
+    }
+
+    fn fail(&mut self, msg: impl Into<String>) {
+        if self.error.is_none() {
+            self.error = Some(msg.into());
+        }
+    }
+
+    /// Describe the next inlet, left to right, and return its position. See [`crate::inlet`].
     ///
-    /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)` in
-    /// `new`), the callback is skipped.
-    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle;
-    /// Get a clock object that executes `func` when triggered.
-    ///
-    /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)` in
-    /// `new`), the callback is skipped.
-    fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle;
-    /// Get a managed buffer reference.
-    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef;
+    /// A mistake (an [`Inlet::default`](crate::inlet::Inlet::default) that isn't first, a
+    /// signal inlet after another kind, more than 9 `int` or `float` inlets) makes the object
+    /// fail to be created, with an error in the Max console, when `new` returns.
+    pub fn inlet<I: InletFor<T, K>>(&mut self, inlet: I) -> InletId {
+        let inlet = inlet.into_inlet();
+        //only an `Inlet::default()` or a signal inlet can describe position 0
+        let zero_described = matches!(
+            self.inlets.first().map(|e| &e.kind),
+            Some(InletKind::Default | InletKind::Signal)
+        );
+        let n = self.inlets.len();
+        let mut id = 0;
+        let position = match &inlet.kind {
+            InletKind::Default => {
+                if n != 0 {
+                    self.fail("Inlet::default() describes inlet 0 and must be the first inlet");
+                }
+                0
+            }
+            InletKind::Signal => {
+                if self.inlets.iter().any(|e| !matches!(e.kind, InletKind::Signal)) {
+                    self.fail("signal inlets must come before the other inlets");
+                }
+                n
+            }
+            kind => {
+                let count = match kind {
+                    InletKind::Int(_) => Some(&mut self.int_inlets),
+                    InletKind::Float(_) => Some(&mut self.float_inlets),
+                    _ => None,
+                };
+                if let Some(count) = count {
+                    *count += 1;
+                    id = *count;
+                    if id > MAX_TYPED_INLETS {
+                        self.fail(format!(
+                            "at most {MAX_TYPED_INLETS} int and {MAX_TYPED_INLETS} float inlets are supported"
+                        ));
+                    }
+                }
+                if zero_described { n } else { n + 1 }
+            }
+        };
+        self.inlets.push(InletEntry {
+            position,
+            id,
+            kind: inlet.kind,
+            assist: inlet.assist,
+            hot: inlet.hot,
+        });
+        InletId(position)
+    }
 
-    /// Add an outlet that outputs bangs.
-    fn add_bang_outlet(&mut self) -> OutBang;
-
-    /// Add an outlet that outputs bangs, provide assist.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_bang_outlet_with_assist(&mut self, assist: &str) -> OutBang;
-
-    /// Add an outlet that outputs floats.
-    fn add_float_outlet(&mut self) -> OutFloat;
-
-    /// Add an outlet that outputs floats, provide assist.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_float_outlet_with_assist(&mut self, assist: &str) -> OutFloat;
-
-    /// Add an outlet that outputs ints.
-    fn add_int_outlet(&mut self) -> OutInt;
-
-    /// Add an outlet that outputs ints, provide assist.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_int_outlet_with_assist(&mut self, assist: &str) -> OutInt;
-
-    /// Add an outlet that outputs lists.
-    fn add_list_outlet(&mut self) -> OutList;
-
-    /// Add an outlet that outputs lists, provide assist.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_list_outlet_with_assist(&mut self, assist: &str) -> OutList;
-
-    /// Add an outlet that outputs anything Max supports.
-    fn add_anything_outlet(&mut self) -> OutAnything;
-
-    /// Add an outlet that outputs anything Max supports, provide assist.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_anything_outlet_with_assist(&mut self, assist: &str) -> OutAnything;
+    /// Make the next outlet, left to right, and return it: keep it in your struct to send
+    /// through it. Signal outlets ([`Outlet::signal`]) are for MSP objects only.
+    pub fn outlet<O: OutletFor<K>>(&mut self, desc: OutletDesc<O>) -> Outlet<O> {
+        // SAFETY: `obj` is valid and under construction (see `new`)
+        let outlet = unsafe { Outlet::<O>::append(self.obj.as_ptr()) };
+        if outlet.is_null() {
+            self.fail(format!("Max did not make {} outlet {}", O::NAME, self.outlets.len()));
+        }
+        if O::NAME == <crate::outlet::Signal as OutletKind>::NAME {
+            self.signal_outlets += 1;
+        }
+        self.outlets.push(IoletInfo {
+            assist: desc.assist,
+            default: O::NAME.into(),
+            hot: false,
+        });
+        outlet
+    }
 
     /// Get the arguments that were passed to this object on creation.
-    fn creation_args(&self) -> &[Atom];
+    pub fn creation_args(&self) -> &[Atom] {
+        if self.nargs == 0 {
+            return &[];
+        }
+        // SAFETY: `args` is valid for `nargs` atoms while the builder lives (see `new`)
+        unsafe { std::slice::from_raw_parts(self.args, self.nargs) }
+    }
 
-    /// Get the symbol that were passed used when creating this object.
-    fn creation_symbol(&self) -> SymbolRef;
-
-    /// Try to your object in the given namespace with the given name;
-    fn try_register(
-        &self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<Registration, RegistrationError>;
-
-    /// Attach to an object with the given name and namespace;
-    fn attach(
-        &mut self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-    ) -> Result<Attachment, AttachmentError>;
-
-    ///subscribe to attach to an object with the given name in the given namespace.
-    fn subscribe(
-        &mut self,
-        namespace: SymbolRef,
-        name: SymbolRef,
-        class_name: Option<SymbolRef>,
-    ) -> Subscription;
+    /// Get the symbol that was used to create this object.
+    pub fn creation_symbol(&self) -> SymbolRef {
+        self.sym.clone()
+    }
 
     /// Get a handle to the object under construction. Store it in your struct to post, touch
     /// attributes and so on later. It can be called any number of times, each call returns a
     /// handle to the same object.
-    fn obj(&mut self) -> ObjRef;
+    pub fn obj(&mut self) -> ObjRef {
+        // SAFETY: `obj` is a valid object (for MSP, its `t_pxobject` header starts with the
+        // `t_object`) that Max allocated before `T::new` ran, so it lives until Max frees it,
+        // which is after the user's struct (the only place the handle is meant to be kept) is
+        // dropped; see `new` and the limits documented on `ObjRef`
+        unsafe { ObjRef::from_raw(self.obj) }
+    }
 
     /// Get the Max object for the wrapper of this object.
-    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object;
-}
-
-pub trait MaxWrappedBuilder<T>: ObjBuilder<T> {
-    /// Add an inlet, left to right, returns index.
-    fn add_inlet(&mut self, inlet_type: MaxInlet<T>) -> usize;
-
-    /// Add an inlet with assist, left to right, returns index.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_inlet_with_assist(&mut self, inlet_type: MaxInlet<T>, assist: &str) -> usize;
-}
-
-pub trait MSPWrappedBuilder<T>: ObjBuilder<T> {
-    /// Add signal outlets
-    fn add_signal_outlets(&mut self, count: usize);
-
-    /// Add signal outlets with assistance
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_signal_outlets_with_assist(&mut self, assist: &[&str]);
-
-    /// Add signal inlets.
-    /// # Panics
-    /// * Will panic if called more than once.
-    fn add_signal_inlets(&mut self, count: usize);
-
-    /// Add signal inlets with assistance.
-    /// # Panics
-    /// * Will panic if called more than once.
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_signal_inlets_with_assist(&mut self, assist: &[&str]);
-
-    /// Add an inlet, left to right, returns index.
-    fn add_inlet(&mut self, inlet_type: MSPInlet<T>) -> usize;
-
-    /// Add an inlet with assist, left to right, returns index.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_inlet_with_assist(&mut self, inlet_type: MSPInlet<T>, assist: &str) -> usize;
-
-    /// Get the MSP object for the wrapper of this object.
-    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject;
-}
-
-impl<'a, T, W> WrappedBuilder<'a, T, W> {
+    ///
     /// # Safety
-    /// `owner` must point to a valid Max object that is being constructed and outlives the builder.
-    pub(crate) unsafe fn new_max(
-        owner: *mut max_sys::t_object,
-        sym: SymbolRef,
-        args: &'a [Atom],
-    ) -> Self {
-        Self {
-            max_obj: owner,
-            msp_obj: None,
-            sym,
-            args,
-            inlets: Vec::new(),
-            buffer_refs: Vec::new(),
-            clocks: Vec::new(),
-            signal_outlets: 0,
-            outlet_count: 0,
-            _phantom: PhantomData,
-            assist_ins: HashMap::new(),
-            assist_outs: HashMap::new(),
-        }
+    /// The object is under construction: it must not be freed, and Max must not be made to call
+    /// its methods, through the pointer.
+    pub unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
+        self.obj.as_ptr()
     }
 
-    /// # Safety
-    /// `owner` must point to a valid MSP object that is being constructed and outlives the builder.
-    pub(crate) unsafe fn new_msp(
-        owner: *mut max_sys::t_pxobject,
-        sym: SymbolRef,
-        args: &'a [Atom],
-    ) -> Self {
-        Self {
-            max_obj: owner as _,
-            msp_obj: Some(owner),
-            sym,
-            args,
-            inlets: Vec::new(),
-            buffer_refs: Vec::new(),
-            clocks: Vec::new(),
-            signal_outlets: 0,
-            outlet_count: 0,
-            _phantom: PhantomData,
-            assist_ins: HashMap::new(),
-            assist_outs: HashMap::new(),
-        }
-    }
-
-    //get the number of (inlets, outlets)
-    fn signal_iolets(&self) -> (usize, usize) {
-        (
-            self.inlets
-                .iter()
-                .filter(|i| match i {
-                    MSPInlet::Signal => true,
-                    _ => false,
-                })
-                .count(),
-            self.signal_outlets,
-        )
-    }
-
-    // pass None for Max objects
-    fn finalize_inlets(
-        &mut self,
-        signal_inlets: Option<usize>,
-    ) -> (FloatCBHash<T>, IntCBHash<T>, Vec<Proxy>) {
-        let mut callbacks_float = HashMap::new();
-        let mut callbacks_int = HashMap::new();
-        let mut proxies = Vec::new();
-
-        //handle an MSP object with 0 signal inlets
-        let mut called_dsp_setup = match signal_inlets {
-            Some(0) => unsafe {
-                max_sys::z_dsp_setup(self.msp_obj.expect("need to have msp object for dsp"), 0);
-                true
-            },
-            _ => false,
-        };
-
-        let inlets = std::mem::take(&mut self.inlets);
-
-        //reverse because max allocs inlets right to left
-        for (mut index, inlet) in inlets.into_iter().enumerate().rev() {
-            index = index + 1; //TODO allow for no default inlet
-            match inlet {
-                MSPInlet::Float(cb) => unsafe {
-                    assert!(index > 0 && index < 10, "index out of range");
-                    let _ = max_sys::floatin(self.max_obj as _, index as _);
-                    let _ = callbacks_float.insert(index, cb);
-                },
-                MSPInlet::Int(cb) => unsafe {
-                    assert!(index > 0 && index < 10, "index out of range");
-                    let _ = max_sys::intin(self.max_obj as _, index as _);
-                    let _ = callbacks_int.insert(index, cb);
-                },
-                MSPInlet::Proxy => {
-                    // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-                    proxies.push(unsafe { Proxy::new(self.max_obj, index) });
-                }
-                MSPInlet::Signal => {
-                    if !called_dsp_setup {
-                        called_dsp_setup = true;
-                        unsafe {
-                            max_sys::z_dsp_setup(
-                                self.msp_obj.expect("need to have msp object for dsp"),
-                                signal_inlets.expect("should have signal inlets") as _,
-                            );
-                        }
-                    }
-                }
-            };
-        }
-
-        (callbacks_float, callbacks_int, proxies)
-    }
-
-    fn add_out_assist(&mut self, i: usize, s: &str) {
-        self.assist_outs.insert(
-            i,
-            CString::new(s).expect("to create CString from assist &str"),
-        );
-    }
-
-    fn add_in_assist(&mut self, i: usize, s: &str) {
-        self.assist_ins.insert(
-            i,
-            CString::new(s).expect("to create CString from assist &str"),
-        );
-    }
-}
-
-impl<'a, T, W> ObjBuilder<T> for WrappedBuilder<'a, T, W>
-where
-    T: Sync + 'static,
-    W: WrapperWrapped<T>,
-{
-    fn with_default_inlet_assist(&mut self, assist: &str) {
-        self.add_in_assist(0, assist);
-    }
-
-    fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
-        // SAFETY: `max_obj` is valid for the life of the object; the wrapper clears the clock's
-        // target (via `clocks`) before it drops `T`, so the callback never sees a freed owner.
-        let clock = unsafe {
-            ClockHandle::new_unarmed(
-                self.max_obj(),
-                Box::new(move |wrapper| {
-                    let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
-                    func(wrapper.wrapped());
-                }),
-            )
-        };
-        self.clocks.push(clock.shared());
-        clock
-    }
-    fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle {
-        // SAFETY: as in `with_clockfn`
-        let clock = unsafe {
-            ClockHandle::new_unarmed(
-                self.max_obj(),
-                Box::new(move |wrapper| {
-                    let wrapper: &W = std::mem::transmute::<_, &W>(wrapper);
-                    func(wrapper.wrapped());
-                }),
-            )
-        };
-        self.clocks.push(clock.shared());
-        clock
-    }
-    fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef {
-        let b = Arc::new(unsafe { BufferRef::new(self.max_obj, name) });
-        self.buffer_refs.push(b.clone());
-        b
-    }
-
-    /// Add an outlet that outputs bangs.
-    fn add_bang_outlet(&mut self) -> OutBang {
-        self.outlet_count += 1;
-        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-        unsafe { Outlet::append_bang(self.max_obj) }
-    }
-
-    fn add_bang_outlet_with_assist(&mut self, assist: &str) -> OutBang {
-        self.add_out_assist(self.outlet_count, assist);
-        self.add_bang_outlet()
-    }
-
-    /// Add an outlet that outputs floats.
-    fn add_float_outlet(&mut self) -> OutFloat {
-        self.outlet_count += 1;
-        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-        unsafe { Outlet::append_float(self.max_obj) }
-    }
-
-    fn add_float_outlet_with_assist(&mut self, assist: &str) -> OutFloat {
-        self.add_out_assist(self.outlet_count, assist);
-        self.add_float_outlet()
-    }
-
-    /// Add an outlet that outputs ints.
-    fn add_int_outlet(&mut self) -> OutInt {
-        self.outlet_count += 1;
-        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-        unsafe { Outlet::append_int(self.max_obj) }
-    }
-
-    fn add_int_outlet_with_assist(&mut self, assist: &str) -> OutInt {
-        self.add_out_assist(self.outlet_count, assist);
-        self.add_int_outlet()
-    }
-
-    /// Add an outlet that outputs lists.
-    fn add_list_outlet(&mut self) -> OutList {
-        self.outlet_count += 1;
-        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-        unsafe { Outlet::append_list(self.max_obj) }
-    }
-
-    fn add_list_outlet_with_assist(&mut self, assist: &str) -> OutList {
-        self.add_out_assist(self.outlet_count, assist);
-        self.add_list_outlet()
-    }
-
-    /// Add an outlet that outputs anything Max supports.
-    fn add_anything_outlet(&mut self) -> OutAnything {
-        self.outlet_count += 1;
-        // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-        unsafe { Outlet::append_anything(self.max_obj) }
-    }
-
-    fn add_anything_outlet_with_assist(&mut self, assist: &str) -> OutAnything {
-        self.add_out_assist(self.outlet_count, assist);
-        self.add_anything_outlet()
-    }
-
-    fn creation_args(&self) -> &[Atom] {
-        self.args
-    }
-    fn creation_symbol(&self) -> SymbolRef {
-        self.sym.clone()
-    }
-    fn try_register(
+    /// Try to register your object in the given namespace with the given name.
+    pub fn try_register(
         &self,
         namespace: SymbolRef,
         name: SymbolRef,
     ) -> Result<Registration, RegistrationError> {
-        unsafe { Registration::try_register(self.max_obj, namespace, name) }
+        // SAFETY: `obj` is valid (see `new`)
+        unsafe { Registration::try_register(self.obj.as_ptr(), namespace, name) }
     }
-    fn attach(
+
+    /// Attach to an object with the given name and namespace.
+    pub fn attach(
         &mut self,
         namespace: SymbolRef,
         name: SymbolRef,
     ) -> Result<Attachment, AttachmentError> {
-        unsafe { Attachment::try_attach(self.max_obj, namespace, name) }
+        // SAFETY: `obj` is valid (see `new`)
+        unsafe { Attachment::try_attach(self.obj.as_ptr(), namespace, name) }
     }
-    fn subscribe(
+
+    /// Subscribe to attach to an object with the given name in the given namespace.
+    pub fn subscribe(
         &mut self,
         namespace: SymbolRef,
         name: SymbolRef,
         class_name: Option<SymbolRef>,
     ) -> Subscription {
-        unsafe { Subscription::new(self.max_obj, namespace, name, class_name) }
+        // SAFETY: `obj` is valid (see `new`)
+        unsafe { Subscription::new(self.obj.as_ptr(), namespace, name, class_name) }
     }
-    fn obj(&mut self) -> ObjRef {
-        // SAFETY: `max_obj` is a valid object (for MSP, its `t_pxobject` header starts with the
-        // `t_object`) that Max allocated before `T::new` ran, so it lives until Max frees it,
-        // which is after the user's struct (the only place the handle is meant to be kept) is
-        // dropped; see `new_max`/`new_msp` and the limits documented on `ObjRef`
-        unsafe { ObjRef::from_raw(NonNull::new_unchecked(self.max_obj)) }
-    }
-    /// Get the Max object for the wrapper of this object.
-    unsafe fn max_obj(&mut self) -> *mut max_sys::t_object {
-        return self.max_obj;
+
+    /// Get a managed buffer reference.
+    pub fn with_buffer(&mut self, name: Option<SymbolRef>) -> ManagedBufferRef {
+        // SAFETY: `obj` is valid (see `new`), and the wrapper keeps the reference no longer than
+        // the object
+        let b = Arc::new(unsafe { BufferRef::new(self.obj.as_ptr(), name) });
+        self.buffer_refs.push(b.clone());
+        b
     }
 }
 
-impl<'a, T> MaxWrappedBuilder<T> for WrappedBuilder<'a, T, MaxObjWrapper<T>>
-where
-    T: MaxObjWrapped,
-{
-    /// Add an inlet, left to right, returns index.
-    fn add_inlet(&mut self, inlet_type: MaxInlet<T>) -> usize {
-        //convert to MSP so we can share the builder
-        self.inlets.push(match inlet_type {
-            MaxInlet::Int(f) => MSPInlet::Int(f),
-            MaxInlet::Float(f) => MSPInlet::Float(f),
-            MaxInlet::Proxy => MSPInlet::Proxy,
-        });
-        self.inlets.len() //there is a default inlet that we don't specify
-    }
+macro_rules! clock_methods {
+    ($kind:ty, $bound:path, $wrapper:ident) => {
+        impl<T: $bound> Builder<T, $kind> {
+            /// Get a clock object that executes `func` when triggered.
+            ///
+            /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)`
+            /// in `new`), the callback is skipped.
+            pub fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
+                self.clock_for::<$wrapper<T>>(Box::new(func))
+            }
 
-    /// Add an inlet with an assist string, left to right, returns index.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_inlet_with_assist(&mut self, inlet_type: MaxInlet<T>, assist: &str) -> usize {
-        let idx = self.add_inlet(inlet_type);
-        self.add_in_assist(idx, assist);
-        idx
+            /// Get a clock object that executes `func` when triggered.
+            ///
+            /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)`
+            /// in `new`), the callback is skipped.
+            pub fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle {
+                self.clock_for::<$wrapper<T>>(func)
+            }
+        }
+    };
+}
+
+clock_methods!(Max, crate::wrapper::MaxObjWrapped, MaxObjWrapper);
+clock_methods!(Msp, crate::wrapper::MSPObjWrapped, MSPObjWrapper);
+
+impl<T: Sync + 'static, K: BuilderKind> Builder<T, K> {
+    /// A clock whose callback calls `func` with the wrapped value of the object, a `W`.
+    fn clock_for<W: WrapperWrapped<T>>(
+        &mut self,
+        func: Box<dyn Fn(&T) + Send + Sync>,
+    ) -> ClockHandle {
+        // SAFETY: `obj` is valid for the life of the object; the wrapper clears the clock's
+        // target (via `clocks`) before it drops `T`, so the callback never sees a freed owner.
+        // The callback is only armed once construction finished, when `obj` is a complete `W`.
+        let clock = unsafe {
+            ClockHandle::new_unarmed(
+                self.obj.as_ptr(),
+                Box::new(move |wrapper| {
+                    let wrapper: &W = &*wrapper.cast::<W>();
+                    func(wrapper.wrapped());
+                }),
+            )
+        };
+        self.clocks.push(clock.shared());
+        clock
     }
 }
 
-impl<'a, T> MSPWrappedBuilder<T> for WrappedBuilder<'a, T, MSPObjWrapper<T>>
-where
-    T: MSPObjWrapped,
-{
-    /// Add signal outlets
-    fn add_signal_outlets(&mut self, count: usize) {
-        for _ in 0..count {
-            // SAFETY: `max_obj` is valid and under construction (see `new_max`/`new_msp`)
-            unsafe { Outlet::append_signal(self.max_obj) };
-        }
-        self.signal_outlets += count;
-        self.outlet_count += count;
-    }
-
-    fn add_signal_outlets_with_assist(&mut self, assist: &[&str]) {
-        let start = self.outlet_count;
-        self.add_signal_outlets(assist.len());
-        for (i, s) in assist.iter().enumerate() {
-            self.add_out_assist(i + start, *s);
-        }
-    }
-
-    /// Add signal inlets.
-    /// # Panics
-    /// * Will panic if called more than once.
-    fn add_signal_inlets(&mut self, count: usize) {
-        //make sure we don't have any signals already
-        assert!(
-            !self.inlets.iter().any(|i| match i {
-                MSPInlet::Signal => true,
-                _ => false,
-            }),
-            "can only specify signal inlets once"
-        );
-        for _ in 0..count {
-            self.inlets.push(MSPInlet::Signal);
-        }
-    }
-
-    fn add_signal_inlets_with_assist(&mut self, assist: &[&str]) {
-        let start = self.inlets.len();
-        self.add_signal_inlets(assist.len());
-        for (i, s) in assist.iter().enumerate() {
-            self.add_in_assist(i + start, *s);
-        }
-    }
-
-    /// Add an inlet, left to right, returns index.
-    fn add_inlet(&mut self, inlet_type: MSPInlet<T>) -> usize {
-        self.inlets.push(inlet_type);
-        self.inlets.len() //there is a default inlet that we don't specify
-    }
-
-    /// Add an inlet with an assist string, left to right, returns index.
-    /// # Panics
-    /// * Will panic if `assist` cannot be converted into a CString
-    fn add_inlet_with_assist(&mut self, inlet_type: MSPInlet<T>, assist: &str) -> usize {
-        let idx = self.add_inlet(inlet_type);
-        self.add_in_assist(idx, assist);
-        idx
-    }
-
+impl<T> Builder<T, Msp> {
     /// Get the MSP object for the wrapper of this object.
-    unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
-        self.msp_obj.expect("expected to have msp_obj")
+    ///
+    /// # Safety
+    /// As [`max_obj`](Self::max_obj).
+    pub unsafe fn msp_obj(&mut self) -> *mut max_sys::t_pxobject {
+        self.obj.as_ptr().cast()
     }
 }
 
-pub struct MaxWrappedBuilderFinalize<T> {
-    pub callbacks_float: FloatCBHash<T>,
-    pub callbacks_int: IntCBHash<T>,
-    pub proxy_inlets: Vec<Proxy>,
-    pub buffer_refs: Vec<ManagedBufferRefInternal>,
-    pub(crate) clocks: Vec<Arc<ClockShared>>,
-    pub assist_ins: HashMap<usize, CString>,
-    pub assist_outs: HashMap<usize, CString>,
+/// The assist text and hot flag of one inlet or outlet.
+pub(crate) struct IoletInfo {
+    assist: Option<Box<str>>,
+    /// What Max is shown without an assist text: the kind, or "inlet N"
+    default: Box<str>,
+    hot: bool,
 }
 
-pub struct MSPWrappedBuilderFinalize<T> {
-    pub signal_inlets: usize,
-    pub signal_outlets: usize,
-    pub callbacks_float: FloatCBHash<T>,
-    pub callbacks_int: IntCBHash<T>,
-    pub proxy_inlets: Vec<Proxy>,
-    pub buffer_refs: Vec<ManagedBufferRefInternal>,
-    pub(crate) clocks: Vec<Arc<ClockShared>>,
-    pub assist_ins: HashMap<usize, CString>,
-    pub assist_outs: HashMap<usize, CString>,
+/// What the builder made: the iolet table and the inlet callbacks, owned by the wrapper.
+///
+/// The table is filled once, at construction. (A later `dynlet` API, for iolets added after
+/// construction, would make it updatable here.)
+pub(crate) struct Iolets<T> {
+    ints: [Option<IntCB<T>>; MAX_TYPED_INLETS],
+    floats: [Option<FloatCB<T>>; MAX_TYPED_INLETS],
+    /// by position
+    inlets: Vec<IoletInfo>,
+    /// by position
+    outlets: Vec<IoletInfo>,
+    pub(crate) signal_inlets: usize,
+    pub(crate) signal_outlets: usize,
+    //freed (object_free) when the wrapper's internals are dropped, before Max frees the object
+    _proxies: Vec<Proxy>,
 }
 
-impl<'a, T> WrappedBuilder<'a, T, MaxObjWrapper<T>>
-where
-    T: MaxObjWrapped,
-{
-    pub fn finalize(mut self) -> MaxWrappedBuilderFinalize<T> {
-        let (callbacks_float, callbacks_int, proxy_inlets) = self.finalize_inlets(None);
-        MaxWrappedBuilderFinalize {
-            callbacks_float,
-            callbacks_int,
-            proxy_inlets,
-            buffer_refs: self.buffer_refs,
-            clocks: self.clocks,
-            assist_ins: self.assist_ins,
-            assist_outs: self.assist_outs,
+impl<T> Iolets<T> {
+    /// Call the callback of the `int` inlet `in<id>`.
+    pub(crate) fn call_int(&self, t: &T, id: usize, v: max_sys::t_atom_long) {
+        if let Some(Some(f)) = id.checked_sub(1).and_then(|i| self.ints.get(i)) {
+            f(t, v);
         }
     }
+
+    /// Call the callback of the `float` inlet `ft<id>`.
+    pub(crate) fn call_float(&self, t: &T, id: usize, v: f64) {
+        if let Some(Some(f)) = id.checked_sub(1).and_then(|i| self.floats.get(i)) {
+            f(t, v);
+        }
+    }
+
+    /// The assist text from the table: the text given, or the default.
+    pub(crate) fn assist(&self, iolet: IoLet) -> std::borrow::Cow<'_, str> {
+        let (table, index, what) = match iolet {
+            IoLet::Inlet(i) => (&self.inlets, i, "inlet"),
+            IoLet::Outlet(i) => (&self.outlets, i, "outlet"),
+        };
+        match table.get(index) {
+            Some(info) => info.assist.as_deref().unwrap_or(&info.default).into(),
+            None => format!("{} {}", what, index + 1).into(),
+        }
+    }
+
+    /// Whether the table says the inlet at `index` is hot.
+    pub(crate) fn hot(&self, index: usize) -> bool {
+        self.inlets.get(index).map_or(index == 0, |i| i.hot)
+    }
 }
 
-impl<'a, T> WrappedBuilder<'a, T, MSPObjWrapper<T>>
-where
-    T: MSPObjWrapped,
-{
-    //finalize and return siginal (inlets, outlets) counts
-    pub fn finalize(mut self) -> MSPWrappedBuilderFinalize<T> {
-        let (signal_inlets, signal_outlets) = self.signal_iolets();
-        let (callbacks_float, callbacks_int, proxy_inlets) =
-            self.finalize_inlets(Some(signal_inlets));
-        MSPWrappedBuilderFinalize {
+impl<T, K: BuilderKind> Builder<T, K> {
+    /// Make the inlets (for MSP, `z_dsp_setup` first, then the other inlets right to left, as
+    /// `z_dsp.h` says) and hand over the table and the callbacks.
+    pub(crate) fn finalize(&mut self) -> Result<Iolets<T>, String> {
+        if let Some(e) = self.error.take() {
+            return Err(e);
+        }
+        let entries = std::mem::take(&mut self.inlets);
+        let signal_inlets = entries
+            .iter()
+            .filter(|e| matches!(e.kind, InletKind::Signal))
+            .count();
+        let obj = self.obj.as_ptr();
+        if K::MSP {
+            // SAFETY: `obj` is a valid `t_pxobject` under construction (see `new`)
+            unsafe { max_sys::z_dsp_setup(obj.cast(), signal_inlets as _) };
+        }
+
+        //the table, by position; inlet 0 exists even if it wasn't described
+        let count = entries.last().map_or(1, |e| e.position + 1);
+        let mut inlets: Vec<IoletInfo> = (0..count)
+            .map(|i| IoletInfo {
+                assist: None,
+                default: format!("inlet {}", i + 1).into(),
+                hot: i == 0,
+            })
+            .collect();
+        let mut ints: [Option<IntCB<T>>; MAX_TYPED_INLETS] = Default::default();
+        let mut floats: [Option<FloatCB<T>>; MAX_TYPED_INLETS] = Default::default();
+        let mut proxies = Vec::new();
+        //Max makes inlets right to left
+        for e in entries.into_iter().rev() {
+            let info = &mut inlets[e.position];
+            info.assist = e.assist;
+            info.hot = info.hot || e.hot;
+            match e.kind {
+                InletKind::Default => {}
+                InletKind::Signal => info.default = "signal".into(),
+                InletKind::Proxy => {
+                    // SAFETY: `obj` is valid and under construction (see `new`)
+                    proxies.push(unsafe { Proxy::new(obj, e.position) });
+                }
+                InletKind::Int(f) => {
+                    info.default = "int".into();
+                    // SAFETY: as above
+                    unsafe { max_sys::intin(obj.cast(), e.id as _) };
+                    ints[e.id - 1] = Some(f);
+                }
+                InletKind::Float(f) => {
+                    info.default = "float".into();
+                    // SAFETY: as above
+                    unsafe { max_sys::floatin(obj.cast(), e.id as _) };
+                    floats[e.id - 1] = Some(f);
+                }
+            }
+        }
+        Ok(Iolets {
+            ints,
+            floats,
+            inlets,
+            outlets: std::mem::take(&mut self.outlets),
             signal_inlets,
-            signal_outlets,
-            callbacks_float,
-            callbacks_int,
-            proxy_inlets,
-            buffer_refs: self.buffer_refs,
-            clocks: self.clocks,
-            assist_ins: self.assist_ins,
-            assist_outs: self.assist_outs,
-        }
+            signal_outlets: self.signal_outlets,
+            _proxies: proxies,
+        })
+    }
+
+    /// The clocks made with the builder, for the wrapper.
+    pub(crate) fn take_clocks(&mut self) -> Vec<Arc<ClockShared>> {
+        std::mem::take(&mut self.clocks)
+    }
+
+    /// The buffer references made with the builder, for the wrapper.
+    pub(crate) fn take_buffer_refs(&mut self) -> Vec<ManagedBufferRefInternal> {
+        std::mem::take(&mut self.buffer_refs)
     }
 }

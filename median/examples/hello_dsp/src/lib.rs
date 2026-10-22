@@ -15,10 +15,12 @@ pub struct HelloDSP {
 
 impl MSPObjWrapped for HelloDSP {
     //create some signal i/o
-    fn new(builder: &mut dyn MSPWrappedBuilder<Self>) -> Self {
-        builder.add_signal_inlets_with_assist(&["in left", "in right"]);
-        //without assist it would be builder.add_signal_inlets(2);
-        builder.add_signal_outlets_with_assist(&["out left", "out right"]);
+    fn new(builder: &mut MSPBuilder<Self>) -> Self {
+        //signal inlets come first; without `.assist(..)` Max shows "signal"
+        builder.inlet(Inlet::signal().assist("in left"));
+        builder.inlet(Inlet::signal().assist("in right"));
+        builder.outlet(Outlet::signal().assist("out left"));
+        builder.outlet(Outlet::signal().assist("out right"));
         Self {
             obj: builder.obj(),
             value: Int64::new(0),

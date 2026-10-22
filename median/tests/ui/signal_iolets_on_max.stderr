@@ -1,0 +1,43 @@
+error[E0277]: `SignalInlet<_>` is not an inlet description for this builder
+  --> tests/ui/signal_iolets_on_max.rs:10:23
+   |
+10 |         builder.inlet(Inlet::signal());
+   |                 ----- ^^^^^^^^^^^^^^^ the trait `InletFor<Simp, median::builder::Max>` is not implemented for `SignalInlet<_>`
+   |                 |
+   |                 required by a bound introduced by this call
+   |
+   = note: signal inlets (`Inlet::signal()`) are for MSP objects only (`MSPBuilder`)
+help: the trait `InletFor<Simp, median::builder::Max>` is not implemented for `SignalInlet<_>`
+      but trait `InletFor<Simp, Msp>` is implemented for `SignalInlet<Simp>`
+  --> src/inlet.rs
+   |
+   | impl<T> InletFor<T, Msp> for SignalInlet<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for that trait implementation, expected `Msp`, found `median::builder::Max`
+note: required by a bound in `median::builder::Builder::<T, K>::inlet`
+  --> src/builder.rs
+   |
+   |     pub fn inlet<I: InletFor<T, K>>(&mut self, inlet: I) -> InletId {
+   |                     ^^^^^^^^^^^^^^ required by this bound in `Builder::<T, K>::inlet`
+
+error[E0277]: a `Signal` outlet can't be made by this builder
+  --> tests/ui/signal_iolets_on_max.rs:11:24
+   |
+11 |         builder.outlet(Outlet::signal());
+   |                 ------ ^^^^^^^^^^^^^^^^ the trait `OutletFor<median::builder::Max>` is not implemented for `Signal`
+   |                 |
+   |                 required by a bound introduced by this call
+   |
+   = note: signal outlets (`Outlet::signal()`) are for MSP objects only (`MSPBuilder`)
+help: the trait `OutletFor<median::builder::Max>` is not implemented for `Signal`
+      but trait `OutletFor<Msp>` is implemented for it
+  --> src/outlet.rs
+   |
+   | impl OutletFor<Msp> for Signal {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for that trait implementation, expected `Msp`, found `median::builder::Max`
+note: required by a bound in `median::builder::Builder::<T, K>::outlet`
+  --> src/builder.rs
+   |
+   |     pub fn outlet<O: OutletFor<K>>(&mut self, desc: OutletDesc<O>) -> Outlet<O> {
+   |                      ^^^^^^^^^^^^ required by this bound in `Builder::<T, K>::outlet`
