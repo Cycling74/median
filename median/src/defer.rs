@@ -68,10 +68,13 @@
 //! already set, so this is **unverified in Max** (`median-mock` models it that way).
 //!
 //! A deferred method may run a nested event loop (a `#[defer_low] read` that opens a modal file
-//! dialog, as the SDK recommends): if Max runs the object's qelem in it, the calls queued after
-//! the method run there, in order, nested inside it, and the outer run then has nothing left to
-//! do. Nothing that the nested run needs is held while a deferred method runs, so this does not
-//! deadlock.
+//! dialog, as the SDK recommends). The qelem running the method stays set until it returns, so
+//! Max doesn't run it again in that loop, but the object's other qelem, set by the same pushes,
+//! can run there: the calls queued after the method then run in it, in order, nested inside the
+//! method, and the outer run has nothing left to do. A call queued while both qelems are
+//! running (from a method that the nested run runs) sets neither; the outer run sets them again
+//! when it finishes and finds calls left, so it runs after the dialog has closed. Nothing that
+//! the nested run needs is held while a deferred method runs, so this does not deadlock.
 //!
 //! Rules:
 //!
@@ -80,7 +83,7 @@
 //!   the message. Use a [`fifo`](crate::fifo) and a [`Queue`] to get data
 //!   from the audio thread to the main thread.
 //! * A deferred method must not free its own object (by deleting its box through scripting,
-//!   say): it runs inside the object's queue callback, and freeing the object from inside that
+//!   say): it runs inside a queue callback of the object, and freeing the object from inside that
 //!   callback blocks the main thread forever, rather than free the object under the running
 //!   method (the same rule as for clocks and queues).
 //! * An `Err` from a deferred method goes to `report_error`, and a panic is posted for the

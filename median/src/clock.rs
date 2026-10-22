@@ -67,8 +67,10 @@ use std::{
 ///
 /// SAFETY (for the `Send + Sync` impls): the pointer is never dereferenced by this crate; it is
 /// only handed back to the stored callback, which is `Send + Sync`. The callback only runs while
-/// the owning Max object is alive, because the owner clears the target (under the target's lock)
-/// before it drops its state, see [`ClockShared`].
+/// the owning Max object is alive: a callback holds `running` for the whole call, and the owner
+/// clears the target before it drops its state, which takes `running` (waiting for an
+/// in-flight callback, or blocking forever on the callback's own thread), so no callback is
+/// running or starts afterwards. See [`ClockShared`].
 #[repr(transparent)]
 struct SyncPtr<T>(*mut T);
 
@@ -100,11 +102,13 @@ mod shared {
     ///   half-dropped owner, even if the `Clock` was moved somewhere that outlives the object.
     ///
     /// Re-entry: a callback may run again, nested, on the thread that is already running it.
-    /// That happens when user code in a callback makes Max service its queues (a deferred
-    /// `read` that opens a modal file dialog runs a nested event loop, in which the same qelem,
-    /// or a clock with Overdrive off, can fire). The nested call takes `running` again (it is
-    /// reentrant) and runs to completion inside the outer one; nothing else is held across the
-    /// user's code, so it doesn't deadlock. Max's own `defer` behaves the same way.
+    /// That happens when user code in a callback makes Max service its scheduler or queues (a
+    /// deferred `read` that opens a modal file dialog runs a nested event loop, in which a clock
+    /// can fire with Overdrive off). A qelem stays set while its function runs (`ext_proto.h`:
+    /// "A Qelem object is unset after its queue function has been called"), so Max should not
+    /// run the same qelem nested, but that is not relied on. The nested call takes `running`
+    /// again (it is reentrant) and runs to completion inside the outer one; nothing else is held
+    /// across the user's code, so it doesn't deadlock. Max's own `defer` behaves the same way.
     ///
     /// Invariant relied on: **a callback never (directly, or by messages it sends that Max
     /// handles synchronously) frees its own owning object or drops its own `Clock`/`Queue`.**
@@ -113,8 +117,8 @@ mod shared {
     /// cannot return either, because the owner's memory is freed when it does while the
     /// callback still holds a reference into it. So `clear` blocks that thread forever: the
     /// deadlock of the original design, now limited to this case, and never a use-after-free.
-    /// A deferred method (`#[defer]`, `#[defer_low]`) runs inside the callback of its object's
-    /// queue, so the same holds for it.
+    /// A deferred method (`#[defer]`, `#[defer_low]`) runs inside the callback of one of its
+    /// object's two deferred-call qelems, so the same holds for it.
     ///
     /// Known gap (not fixed): a clock callback that Max has dispatched but that has not taken the
     /// lock yet still reads the clock's target object, which `Clock::drop` can free in that
