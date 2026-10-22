@@ -4,6 +4,8 @@ Ergonomic bindings for the [Max/MSP](https://cycling74.com/) [SDK](https://githu
 
 See the [changelog](CHANGELOG.md) for release notes.
 
+Porting an external from 0.2? See the [migration guide](../doc/migration-0.3.md).
+
 ## Disclaimer
 
 This is a work in progress.

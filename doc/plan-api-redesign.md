@@ -354,7 +354,7 @@ instead of `Int64` (H4, good instinct); `SymbolRef::to_string().expect(..)` ever
 ## Migration
 
 - Port `simp`, `hello_dsp`, `multi`, `templates/max`, then `igk/examples/simplemax`.
-- Write `doc/migration-0.3.md` from the diff of the examples: old form, new form, one line each.
+- Write `doc/migration-0.3.md` from the diff of the examples: old form, new form, one line each. Done: [migration-0.3.md](migration-0.3.md).
 - Keep `external!` for one release as a deprecated shim that expands to the new forms, if the
   cost is low; otherwise drop it and point at the migration doc.
 
