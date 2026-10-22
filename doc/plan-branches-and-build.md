@@ -64,8 +64,10 @@ With the redesign (step 2, §J):
 - Fast-forward of `develop`, clean. Fix before merge: root README link (`max-sys-base/` to
   `max-sys/`); delete `rustfmt.toml`'s `merge_imports` (removed unstable option; use
   `imports_granularity` on nightly or nothing); make the generic `build` task dispatch on
-  `IS_LINUX_X86`; decide whether the Max 8 to Max 9 default install path is wanted now (every
-  template user picks it up on merge, see 4a).
+  `IS_LINUX_X86`. The Max 9 install path is decided: on `xnor/api-redesign` (2026-10-22)
+  `median/utils/Makefile.toml` installs into `Documents/Max ${MAX_VERSION}/Packages`, with
+  `MAX_VERSION` defaulting to 9 and overridable (`MAX_VERSION=8 cargo make install`); template
+  users pick it up when that reaches `develop` (see 4a).
 - The submodule switch to `max-sdk-base` is the right move; regenerate all bindings against it
   (3d) in the same change so mac/windows are not left on the 2021 headers.
 - State the Linux target's purpose in the README (there is no public Linux Max; if this is for an

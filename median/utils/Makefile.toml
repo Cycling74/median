@@ -5,6 +5,7 @@ additional_profiles = [ "release" ]
 ## Environment setup, some will get overridden in other tasks
 
 [env]
+#the Max user Packages folder; MAX_VERSION="Max 8" selects Max 8
 MAX_VERSION = { value = "Max 9", condition = { env_not_set = ["MAX_VERSION"] } }
 MAX_PACKAGE_NAME = { value = "median", condition = { env_not_set = ["MAX_PACKAGE_NAME"] } }
 MAX_EXT_NAME = { value = "${CARGO_MAKE_CRATE_FS_NAME}", condition = { env_not_set = ["MAX_EXT_NAME"] } }
