@@ -6,7 +6,8 @@
 use crate::{
     atom::Atom,
     buffer::{BufferRef, BufferReference},
-    clock::{ClockHandle, ClockShared},
+    clock::{Clock, ClockFn, ClockShared},
+    method::MethodResult,
     inlet::{FloatCB, InletFor, InletId, InletKind, IntCB, Proxy},
     notify::{Attachment, AttachmentError, Registration, RegistrationError, Subscription},
     object::ObjRef,
@@ -71,7 +72,9 @@ pub struct Builder<T, K> {
     /// The first mistake in the description; construction fails with it.
     error: Option<String>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
-    clocks: Vec<Arc<ClockShared>>,
+    /// The callback targets of the clocks and queues made with the builder: the wrapper arms them
+    /// when construction has finished and disables them before the object is dropped.
+    targets: Vec<Arc<ClockShared>>,
     /// `z_dsp_setup` was called and the builder still owes the `z_dsp_free`: until
     /// [`commit`](Self::commit), dropping the builder (construction failed or panicked) calls
     /// it. Afterwards the wrapper's `free` does.
@@ -115,7 +118,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
             float_inlets: 0,
             error: None,
             buffer_refs: Vec::new(),
-            clocks: Vec::new(),
+            targets: Vec::new(),
             dsp_pending: false,
             _kind: PhantomData,
         }
@@ -279,20 +282,53 @@ impl<T, K: BuilderKind> Builder<T, K> {
 macro_rules! clock_methods {
     ($kind:ty, $bound:path, $wrapper:ident) => {
         impl<T: $bound> Builder<T, $kind> {
-            /// Get a clock object that executes `func` when triggered.
+            /// Make a [`Clock`] that calls `f` with the object when it fires (on the scheduler
+            /// thread). `f` is a method (`Self::tick`) or a closure that captures nothing, as for
+            /// the `Class::add_*` methods; [`clock_with`](Self::clock_with) takes any closure. It
+            /// may return `Result<(), E>`: an `Err` goes to the type's `report_error`.
             ///
-            /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)`
-            /// in `new`), the callback is skipped.
-            pub fn with_clockfn(&mut self, func: fn(&T)) -> ClockHandle {
-                self.clock_for::<$wrapper<T>>(Box::new(func))
+            /// The clock is only live once `new` has returned: if it fires earlier (a `delay(0)` in
+            /// `new`), the callback is skipped. It is disabled before the object is dropped.
+            ///
+            /// A closure that captures something is a compile error here (use `clock_with`):
+            ///
+            /// ```compile_fail,E0080
+            /// # use median::prelude::*;
+            /// # #[derive(MaxObject)]
+            /// # #[max(no_methods)]
+            /// # pub struct Example;
+            /// # impl MaxObjWrapped for Example {
+            /// #     fn new(_b: &mut MaxBuilder<Self>) -> Result<Self, NewError> { Ok(Example) }
+            /// # }
+            /// fn make(b: &mut MaxBuilder<Example>) -> Clock {
+            ///     let n = std::hint::black_box(3);
+            ///     b.clock(move |_: &Example| { std::hint::black_box(n); })
+            /// }
+            /// # fn main() { let _ = make as fn(&mut MaxBuilder<Example>) -> Clock; }
+            /// ```
+            pub fn clock<F, R>(&mut self, f: F) -> Clock
+            where
+                F: Fn(&T) -> R + Copy + Send + Sync + 'static,
+                R: MethodResult,
+            {
+                const {
+                    assert!(
+                        std::mem::size_of::<F>() == 0,
+                        "Builder::clock takes a method or a closure that captures nothing; use clock_with for a closure that captures"
+                    )
+                };
+                self.clock_with(f)
             }
 
-            /// Get a clock object that executes `func` when triggered.
-            ///
-            /// The clock is only live once `new` has returned: if it fires earlier (e.g. `delay(0)`
-            /// in `new`), the callback is skipped.
-            pub fn with_clock(&mut self, func: Box<dyn Fn(&T) + Send + Sync>) -> ClockHandle {
-                self.clock_for::<$wrapper<T>>(func)
+            /// [`clock`](Self::clock) with any closure (one that captures state of its own, say).
+            pub fn clock_with<F, R>(&mut self, f: F) -> Clock
+            where
+                F: Fn(&T) -> R + Send + Sync + 'static,
+                R: MethodResult,
+            {
+                // SAFETY: the clock's target is this object, see `clock_for`
+                let cb = unsafe { callback::<$wrapper<T>, T, F, R>(f) };
+                self.clock_for(cb)
             }
         }
     };
@@ -301,25 +337,34 @@ macro_rules! clock_methods {
 clock_methods!(Max, crate::wrapper::MaxObjWrapped, MaxObjWrapper);
 clock_methods!(Msp, crate::wrapper::MSPObjWrapped, MSPObjWrapper);
 
+/// The callback of a clock or queue of an object of wrapper `W`: calls `f` with the wrapped value
+/// and gives an `Err` to the type's `report_error`.
+///
+/// # Safety
+/// The callback must only be called with a pointer to a live, constructed `W` (the builder's
+/// targets are armed after construction and disabled before the object is dropped).
+pub(crate) unsafe fn callback<W, T, F, R>(f: F) -> ClockFn
+where
+    W: WrapperWrapped<T> + 'static,
+    T: 'static,
+    F: Fn(&T) -> R + Send + Sync + 'static,
+    R: MethodResult,
+{
+    Box::new(move |obj| {
+        // SAFETY: the caller's contract
+        let w: &W = unsafe { &*obj.cast::<W>() };
+        f(w.wrapped()).report_if_err(&mut |e| w.report_error(e));
+    })
+}
+
 impl<T: Sync + 'static, K: BuilderKind> Builder<T, K> {
-    /// A clock whose callback calls `func` with the wrapped value of the object, a `W`.
-    fn clock_for<W: WrapperWrapped<T>>(
-        &mut self,
-        func: Box<dyn Fn(&T) + Send + Sync>,
-    ) -> ClockHandle {
+    /// A clock whose callback is `func`, called with this object.
+    fn clock_for(&mut self, func: ClockFn) -> Clock {
         // SAFETY: `obj` is valid for the life of the object; the wrapper clears the clock's
-        // target (via `clocks`) before it drops `T`, so the callback never sees a freed owner.
-        // The callback is only armed once construction finished, when `obj` is a complete `W`.
-        let clock = unsafe {
-            ClockHandle::new_unarmed(
-                self.obj.as_ptr(),
-                Box::new(move |wrapper| {
-                    let wrapper: &W = &*wrapper.cast::<W>();
-                    func(wrapper.wrapped());
-                }),
-            )
-        };
-        self.clocks.push(clock.shared());
+        // target (via `targets`) before it drops `T`, so the callback never sees a freed owner.
+        // The callback is only armed once construction finished, when `obj` is complete.
+        let clock = unsafe { Clock::new_unarmed(self.obj.as_ptr(), func) };
+        self.targets.push(clock.shared());
         clock
     }
 }
@@ -469,9 +514,9 @@ impl<T, K: BuilderKind> Builder<T, K> {
         self.dsp_pending = false;
     }
 
-    /// The clocks made with the builder, for the wrapper.
-    pub(crate) fn take_clocks(&mut self) -> Vec<Arc<ClockShared>> {
-        std::mem::take(&mut self.clocks)
+    /// The callback targets of the clocks and queues made with the builder, for the wrapper.
+    pub(crate) fn take_targets(&mut self) -> Vec<Arc<ClockShared>> {
+        std::mem::take(&mut self.targets)
     }
 
     /// The buffer references made with the builder, for the wrapper.

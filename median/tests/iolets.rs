@@ -174,7 +174,7 @@ impl MSPObjWrapped for NoSig {
 #[derive(MaxObject)]
 #[max(name = "io.bad~", kind = msp, no_methods)]
 pub struct Bad {
-    _clock: ClockHandle,
+    _clock: Clock,
 }
 
 impl MSPObjWrapped for Bad {
@@ -200,7 +200,7 @@ impl MSPObjWrapped for Bad {
             }
         }
         Ok(Self {
-            _clock: b.with_clockfn(|_| {}),
+            _clock: b.clock(|_| {}),
         })
     }
 

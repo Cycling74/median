@@ -8,7 +8,7 @@ pub struct HelloDSP {
     #[attr(name = "blah")]
     value: Int64,
     _v: String,
-    clock: ClockHandle,
+    clock: Clock,
     buffer1: ManagedBufferRef,
     buffer2: ManagedBufferRef,
 }
@@ -25,7 +25,7 @@ impl MSPObjWrapped for HelloDSP {
             obj: builder.obj(),
             value: Int64::new(0),
             _v: String::from("blah"),
-            clock: builder.with_clockfn(Self::clocked),
+            clock: builder.clock(Self::clocked),
             buffer1: builder.with_buffer(None),
             buffer2: builder.with_buffer(None),
         })

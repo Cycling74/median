@@ -21,7 +21,7 @@ use median::{
     atom::Atom,
     builder::{MSPBuilder, MaxBuilder},
     class::Class,
-    clock::ClockHandle,
+    clock::Clock,
     error::NewError,
     inlet::Inlet,
     max_sys::t_atom_long,
@@ -203,7 +203,7 @@ impl Typed {
 
 /// Has a clock: `bang` starts it, and it sends a bang and a list when it fires.
 pub struct Ticker {
-    clock: ClockHandle,
+    clock: Clock,
     bang_out: Outlet<Bang>,
     list_out: Outlet<List>,
     ticks: Int64,
@@ -222,7 +222,7 @@ impl Methods for Ticker {}
 impl MaxObjWrapped for Ticker {
     fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         Ok(Self {
-            clock: builder.with_clockfn(Self::clocked),
+            clock: builder.clock(Self::clocked),
             bang_out: builder.outlet(Outlet::bang()),
             list_out: builder.outlet(Outlet::list()),
             ticks: Int64::new(0),

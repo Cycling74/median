@@ -11,7 +11,7 @@ pub struct SimpExplicit {
     value: Int64,
     fvalue: Float64,
     _v: String,
-    clock: ClockHandle,
+    clock: Clock,
     list_out: Outlet<List>,
 }
 
@@ -92,7 +92,7 @@ impl MaxObjWrapped for SimpExplicit {
             value: Int64::new(value),
             fvalue: Default::default(),
             _v: String::from("blah"),
-            clock: builder.with_clockfn(Self::clocked),
+            clock: builder.clock(Self::clocked),
             list_out: builder.outlet(Outlet::list().assist("my list out")),
         })
     }

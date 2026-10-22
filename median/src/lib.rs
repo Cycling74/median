@@ -236,7 +236,7 @@ pub mod prelude {
         attr::AttrOptions,
         builder::{MSPBuilder, MaxBuilder},
         class::{Class, ClassType},
-        clock::ClockHandle,
+        clock::Clock,
         error::{MaxResult, NewError},
         inlet::{Inlet, InletId},
         max_sys::t_atom_long,

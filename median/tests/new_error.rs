@@ -30,7 +30,7 @@ fn count(args: &[Atom]) -> Result<t_atom_long, NewError> {
 pub struct Picky {
     _obj: ObjRef,
     _out: Outlet<List>,
-    _clock: ClockHandle,
+    _clock: Clock,
     _buf: median::builder::ManagedBufferRef,
     _n: t_atom_long,
 }
@@ -41,7 +41,7 @@ impl MaxObjWrapped for Picky {
         b.inlet(Inlet::int(|_: &Self, _| {}));
         let obj = b.obj();
         let out = b.outlet(Outlet::list());
-        let clock = b.with_clockfn(|_| {});
+        let clock = b.clock(|_| {});
         let buf = b.with_buffer(None);
         let n = count(b.creation_args())?;
         Ok(Self {
@@ -64,7 +64,7 @@ impl Drop for Picky {
 #[derive(MaxObject)]
 #[max(name = "picky~", kind = msp, no_methods)]
 pub struct PickyDsp {
-    _clock: ClockHandle,
+    _clock: Clock,
 }
 
 impl MSPObjWrapped for PickyDsp {
@@ -73,7 +73,7 @@ impl MSPObjWrapped for PickyDsp {
         b.inlet(Inlet::signal());
         b.inlet(Inlet::proxy());
         b.outlet(Outlet::signal());
-        let clock = b.with_clockfn(|_| {});
+        let clock = b.clock(|_| {});
         count(b.creation_args())?;
         Ok(Self { _clock: clock })
     }
@@ -90,7 +90,7 @@ impl MSPObjWrapped for Panicky {
     fn new(b: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         b.inlet(Inlet::signal());
         b.inlet(Inlet::proxy());
-        let _clock = b.with_clockfn(|_| {});
+        let _clock = b.clock(|_| {});
         let _buf = b.with_buffer(None);
         panic!("no");
     }

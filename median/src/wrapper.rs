@@ -191,7 +191,7 @@ pub trait ObjClass: Sized {
 /// console and the class is not registered.
 ///
 /// It runs while median holds its class table lock: registering a class (any wrapper's
-/// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
+/// `register()`) or creating a [`Clock`](crate::clock::Clock) in it deadlocks.
 pub trait Methods: Sized {
     /// Register the methods. `W` is the wrapper type, it is inferred.
     fn register<W>(_class: &mut Class<W>) -> MaxResult<()>
@@ -224,7 +224,7 @@ pub trait Methods: Sized {
 /// Called first when the class is registered, before [`Methods::register`] and `class_setup`.
 ///
 /// It runs while median holds its class table lock: registering a class (any wrapper's
-/// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
+/// `register()`) or creating a [`Clock`](crate::clock::Clock) in it deadlocks.
 pub trait FieldAttrs: Sized {
     /// Register the attributes. `W` is the wrapper type, it is inferred.
     fn register_attrs<W>(_class: &mut Class<W>) -> MaxResult<()>
@@ -261,7 +261,7 @@ pub trait MaxObjWrapped:
     /// after the field attributes and the methods.
     ///
     /// It runs while median holds its class table lock: registering a class (any wrapper's
-    /// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
+    /// `register()`) or creating a [`Clock`](crate::clock::Clock) in it deadlocks.
     fn class_setup(_class: &mut Class<MaxObjWrapper<Self>>) {
         //default, do nothing
     }
@@ -324,7 +324,7 @@ pub trait MSPObjWrapped:
     /// after the field attributes and the methods.
     ///
     /// It runs while median holds its class table lock: registering a class (any wrapper's
-    /// `register()`) or creating a [`ClockHandle`](crate::clock::ClockHandle) in it deadlocks.
+    /// `register()`) or creating a [`Clock`](crate::clock::Clock) in it deadlocks.
     fn class_setup(_class: &mut Class<MSPObjWrapper<Self>>) {
         //default, do nothing
     }
@@ -393,8 +393,9 @@ pub struct MaxWrapperInternal<T> {
     //the inlet callbacks, the assist/hot table, the proxies (freed when this is dropped)
     iolets: Iolets<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
-    //disabled by `free_wrapped` before `wrapped` is dropped (and again in `Drop`)
-    clocks: Vec<Arc<ClockShared>>,
+    //the callback targets of the clocks and queues made with the builder: disabled by
+    //`free_wrapped` before `wrapped` is dropped (and again in `Drop`)
+    targets: Vec<Arc<ClockShared>>,
 }
 
 /// Inner struct for wrapping [`MSPObjWrapped`]
@@ -406,15 +407,16 @@ pub struct MSPWrapperInternal<T> {
     //as in `MaxWrapperInternal`
     iolets: Iolets<T>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
-    //disabled by `free_wrapped` before `wrapped` is dropped (and again in `Drop`)
-    clocks: Vec<Arc<ClockShared>>,
+    //the callback targets of the clocks and queues made with the builder: disabled by
+    //`free_wrapped` before `wrapped` is dropped (and again in `Drop`)
+    targets: Vec<Arc<ClockShared>>,
 }
 
-/// Disable the clocks created for an object. Must run before the object's `T` is dropped (and
-/// before anything else about the object is torn down or moved): it waits for any in-flight
-/// clock callback and makes later ones no-ops. Idempotent.
-fn release_clocks(clocks: &[Arc<ClockShared>]) {
-    for c in clocks {
+/// Disable the clocks and queues created for an object. Must run before the object's `T` is
+/// dropped (and before anything else about the object is torn down or moved): it waits for any
+/// in-flight callback and makes later ones no-ops. Idempotent.
+fn release_targets(targets: &[Arc<ClockShared>]) {
+    for c in targets {
         c.clear();
     }
 }
@@ -423,7 +425,7 @@ impl<T> Drop for MaxWrapperInternal<T> {
     fn drop(&mut self) {
         //`free_wrapped` has already done this, before it started to tear the object down; this
         //is a harmless second clear that keeps the invariant local to the type
-        release_clocks(&self.clocks);
+        release_targets(&self.targets);
     }
 }
 
@@ -431,7 +433,7 @@ impl<T> Drop for MSPWrapperInternal<T> {
     fn drop(&mut self) {
         //`free_wrapped` has already done this, before it started to tear the object down; this
         //is a harmless second clear that keeps the invariant local to the type
-        release_clocks(&self.clocks);
+        release_targets(&self.targets);
     }
 }
 
@@ -443,8 +445,8 @@ mod sealed {
 
     pub trait WrapperInternal<O, T>: Sized {
         fn wrapped(&self) -> &T;
-        /// The clocks created for this object by the builder.
-        fn clocks(&self) -> &[Arc<ClockShared>];
+        /// The callback targets of the clocks and queues created for this object by the builder.
+        fn targets(&self) -> &[Arc<ClockShared>];
         /// The builder `T::new` gets.
         type Kind: BuilderKind;
         /// Run `T::new` and make the inlets: the internals, or why the object was refused.
@@ -479,8 +481,8 @@ where
     fn wrapped(&self) -> &T {
         &self.wrapped
     }
-    fn clocks(&self) -> &[Arc<ClockShared>] {
-        &self.clocks
+    fn targets(&self) -> &[Arc<ClockShared>] {
+        &self.targets
     }
     type Kind = Max;
     fn build(builder: &mut MaxBuilder<T>) -> Result<Self, String> {
@@ -490,7 +492,7 @@ where
             wrapped,
             iolets,
             buffer_refs: builder.take_buffer_refs(),
-            clocks: builder.take_clocks(),
+            targets: builder.take_targets(),
         })
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
@@ -536,8 +538,8 @@ where
     fn wrapped(&self) -> &T {
         &self.wrapped
     }
-    fn clocks(&self) -> &[Arc<ClockShared>] {
-        &self.clocks
+    fn targets(&self) -> &[Arc<ClockShared>] {
+        &self.targets
     }
     type Kind = Msp;
     fn build(builder: &mut MSPBuilder<T>) -> Result<Self, String> {
@@ -556,7 +558,7 @@ where
             panicked: AtomicBool::new(false),
             iolets,
             buffer_refs: builder.take_buffer_refs(),
-            clocks: builder.take_clocks(),
+            targets: builder.take_targets(),
         })
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
@@ -799,8 +801,8 @@ where
         //from here the object's `free` releases what the builder made
         builder.commit();
         drop(builder);
-        // SAFETY: `wrapped` is initialised; only now may clock callbacks run
-        unsafe { Self::arm_clocks(o.as_ptr()) };
+        // SAFETY: `wrapped` is initialised; only now may clock and queue callbacks run
+        unsafe { Self::arm_targets(o.as_ptr()) };
         //process attribute arguments
         //TODO optionally don't process?
         // SAFETY: `o` is a live, constructed object; Max doesn't write to the atoms
@@ -962,14 +964,14 @@ where
         }
     }
 
-    /// Let the object's clocks fire. Called once the wrapped value is initialised.
+    /// Let the object's clocks and queues run. Called once the wrapped value is initialised.
     ///
     /// # Safety
     /// `this` must point to a wrapper whose `wrapped` field is initialised.
-    unsafe fn arm_clocks(this: *mut Self) {
+    unsafe fn arm_targets(this: *mut Self) {
         // SAFETY: guaranteed by the caller; `MaybeUninit<I>` has the layout of `I`
         let internal = unsafe { &*std::ptr::addr_of!((*this).wrapped).cast::<I>() };
-        for c in internal.clocks() {
+        for c in internal.targets() {
             c.arm();
         }
     }
@@ -987,12 +989,12 @@ where
                 if !(*this).constructed.load(Ordering::Acquire) {
                     return;
                 }
-                //(a) shut out the clocks first: this waits for a callback that is running (it
-                //holds `&T` into the object) and makes every later one a no-op. Only a shared
-                //borrow of the internals exists meanwhile.
+                //(a) shut out the clocks and queues first: this waits for a callback that is
+                //running (it holds `&T` into the object) and makes every later one a no-op. Only a
+                //shared borrow of the internals exists meanwhile.
                 {
                     let internal = &*std::ptr::addr_of!((*this).wrapped).cast::<I>();
-                    release_clocks(internal.clocks());
+                    release_targets(internal.targets());
                 }
                 //(b) nothing else can reach the internals now, drop them in place (no moving,
                 //no swapping with uninit: the memory stays initialised until dropped)
@@ -1118,7 +1120,7 @@ where
     ///
     /// Registration holds median's class table lock while it runs `T::register_attrs`,
     /// `T::register` (the `Methods`) and `T::class_setup`. Inside any of them, registering a
-    /// class (this `register()` or another wrapper's) or creating a `ClockHandle` (which
+    /// class (this `register()` or another wrapper's) or creating a `Clock` (which
     /// registers median's clock class) deadlocks.
     ///
     /// # Panics
@@ -1218,7 +1220,7 @@ where
     ///
     /// Registration holds median's class table lock while it runs `T::register_attrs`,
     /// `T::register` (the `Methods`) and `T::class_setup`. Inside any of them, registering a
-    /// class (this `register()` or another wrapper's) or creating a `ClockHandle` (which
+    /// class (this `register()` or another wrapper's) or creating a `Clock` (which
     /// registers median's clock class) deadlocks.
     ///
     /// # Panics
@@ -1300,7 +1302,7 @@ where
     }
 
     extern "C" fn free_msp(this: *mut Self) {
-        //releasing the clocks drops user closures, so keep it inside the panic guard
+        //releasing the clocks and queues drops user closures, so keep it inside the panic guard
         crate::ffi::guard_global("free", (), || Self::free_msp_inner(this));
         Self::free_wrapped(this);
     }
@@ -1308,14 +1310,16 @@ where
     fn free_msp_inner(this: *mut Self) {
         // SAFETY: Max passes the object it is freeing
         let constructed = unsafe { (*this).constructed.load(Ordering::Acquire) };
-        //shut out the clocks first: a running callback holds `&W` over the whole object,
-        //including the pxobject header `z_dsp_free` writes. Then free dsp (this takes the object
-        //out of the dsp chain, so `perform` can't run afterwards), unless construction didn't get
-        //as far as setting it up. `free_wrapped` clears the clocks again, which is a no-op.
+        //shut out the clocks and queues first: a running callback holds `&W` over the whole
+        //object, including the pxobject header `z_dsp_free` writes. Then free dsp (this takes
+        //the object out of the dsp chain, so `perform` can't run afterwards), unless construction
+        //didn't get as far as setting it up. `free_wrapped` clears them again, which is a no-op.
+        //(The qelems themselves are freed when `T` is dropped, after `z_dsp_free`: `perform`
+        //may set a queue until then.)
         if constructed {
             unsafe {
                 let internal = &*std::ptr::addr_of!((*this).wrapped).cast::<MSPWrapperInternal<T>>();
-                release_clocks(internal.clocks());
+                release_targets(internal.targets());
                 max_sys::z_dsp_free(this as *mut max_sys::t_pxobject);
             }
         }
@@ -1472,7 +1476,7 @@ mod tests {
 
     /// An MSP class with two signal inlets, a proxy and a clock.
     struct R {
-        _clock: crate::clock::ClockHandle,
+        _clock: crate::clock::Clock,
     }
 
     impl ObjClass for R {
@@ -1490,7 +1494,7 @@ mod tests {
             b.inlet(crate::inlet::Inlet::signal());
             b.inlet(crate::inlet::Inlet::proxy());
             Ok(R {
-                _clock: b.with_clockfn(|_| {}),
+                _clock: b.clock(|_: &R| {}),
             })
         }
         fn perform(&self, _: &[&[f64]], _: &mut [&mut [f64]], _: usize) {}

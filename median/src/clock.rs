@@ -1,4 +1,48 @@
-//! Clocks - interface to Max’s scheduler.
+//! Clocks: run a method of your object later, on Max's scheduler thread.
+//!
+//! Make one in `new` with [`MaxBuilder::clock`](crate::builder::Builder::clock) (a method, or a
+//! closure that captures nothing) or [`clock_with`](crate::builder::Builder::clock_with) (any
+//! closure), keep the [`Clock`] in your struct, and schedule it with [`Clock::delay`]:
+//!
+//! ```no_run
+//! use median::prelude::*;
+//!
+//! #[derive(MaxObject)]
+//! pub struct Ticker {
+//!     clock: Clock,
+//!     out: Outlet<Bang>,
+//! }
+//!
+//! impl MaxObjWrapped for Ticker {
+//!     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+//!         Ok(Self {
+//!             clock: b.clock(Self::tick),
+//!             out: b.outlet(Outlet::bang()),
+//!         })
+//!     }
+//! }
+//!
+//! #[median::methods]
+//! impl Ticker {
+//!     #[bang]
+//!     pub fn bang(&self) {
+//!         self.clock.delay(100);
+//!     }
+//!
+//!     pub fn tick(&self) {
+//!         let _ = self.out.send();
+//!         self.clock.delay(100); // again in 100 ms
+//!     }
+//! }
+//! ```
+//!
+//! The callback runs on the scheduler thread (which may be the audio thread with Overdrive and
+//! "Audio Interrupt" on), concurrently with message methods on the main thread. It may return
+//! `Result<(), E>`; an `Err` goes to the type's `report_error`. A clock made with the builder
+//! does nothing until `new` has returned, and is disabled before the object is dropped, so a
+//! callback never sees a half-built or freed object. A callback must not free its own object (by
+//! deleting its box through scripting, say) or drop its own `Clock`: that deadlocks, see
+//! `ClockShared`.
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
@@ -9,7 +53,7 @@ use crate::{
 
 use parking_lot::Mutex;
 use std::{
-    ffi::{CStr, c_void},
+    ffi::{CStr, c_long, c_void},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -36,8 +80,10 @@ mod shared {
 
     /// The callback target of a clock: the owning object and what to call with it.
     ///
-    /// This is shared (`Arc`) between the clock's Max object, the [`ClockHandle`], and the owning
-    /// wrapper (which gets it from the builder). Lifetime protocol:
+    /// This is shared (`Arc`) between the clock's Max object, the [`Clock`], and the owning
+    /// wrapper (which gets it from the builder). [`Queue`](crate::queue::Queue)s, and the queue
+    /// of deferred calls of an object, use the same type for their qelem, with the same protocol.
+    /// Lifetime protocol:
     ///
     /// * The callback does nothing until the target is *armed*. Clocks created by the builder run
     ///   inside `T::new`, before the wrapped value is initialised (a `delay` in `new` can fire on the
@@ -47,12 +93,19 @@ mod shared {
     /// * The owning wrapper calls [`ClockShared::clear`] *before* it drops the user's `T`. That
     ///   waits for an in-flight callback to finish and makes every later callback a no-op, so
     ///   the callback can never run against a freed or half-dropped owner, even if the
-    ///   `ClockHandle` was moved somewhere that outlives the object.
+    ///   `Clock` was moved somewhere that outlives the object.
     ///
-    /// Invariant relied on: **a clock callback never (directly, or by messages it sends that Max
-    /// handles synchronously) frees its own owning object or drops its own `ClockHandle`.** Both
+    /// Invariant relied on: **a callback never (directly, or by messages it sends that Max
+    /// handles synchronously) frees its own owning object or drops its own `Clock`/`Queue`.** Both
     /// call `clear`, which would try to take the lock the callback already holds on the same thread
-    /// and deadlock. Defer such work (e.g. `defer_low`) instead.
+    /// and deadlock. A deferred method (`#[defer]`, `#[defer_low]`) runs inside the callback of
+    /// its object's queue, so the same holds for it.
+    ///
+    /// Known gap (not fixed): a clock callback that Max has dispatched but that has not taken the
+    /// lock yet still reads the clock's target object, which `Clock::drop` can free in that
+    /// window, and the callback holds this lock while it calls into Max, which can deadlock
+    /// against a Max lock held by a thread that waits in `clear`. See the Status section of
+    /// `doc/plan-soundness-fixes.md`.
     pub struct ClockShared {
         pub(super) armed: AtomicBool,
         pub(super) target: Mutex<Option<(SyncPtr<max_sys::t_object>, ClockFn)>>,
@@ -61,7 +114,7 @@ mod shared {
 pub(crate) use shared::ClockShared;
 
 impl ClockShared {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             armed: AtomicBool::new(false),
             target: Mutex::new(None),
@@ -74,18 +127,18 @@ impl ClockShared {
         self.armed.store(true, Ordering::Release);
     }
 
-    fn set(&self, target: *mut max_sys::t_object, func: ClockFn) {
+    pub(crate) fn set(&self, target: *mut max_sys::t_object, func: ClockFn) {
         let old = self.target.lock().replace((SyncPtr(target), func));
         drop(old);
     }
 
     /// Run the callback, if the target is armed and still set. Holds the lock for the duration,
-    /// including reporting a panic against the target.
-    fn call(&self) {
+    /// including reporting a panic against the target (as a panic in `what`).
+    pub(crate) fn call(&self, what: &str) {
         self.call_with(|target, msg| {
             // SAFETY: called with the lock held, so the owner hasn't been freed (its free path
             // clears this target, which waits for the lock)
-            unsafe { crate::object::error(target, crate::ffi::panic_text("clock", msg)) }
+            unsafe { crate::object::error(target, crate::ffi::panic_text(what, msg)) }
         })
     }
 
@@ -111,7 +164,8 @@ impl ClockShared {
     }
 }
 
-type ClockFn = Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>;
+/// What a [`ClockShared`] calls: the owner's callback, given the owner.
+pub(crate) type ClockFn = Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>;
 
 struct ClockInner {
     shared: Arc<ClockShared>,
@@ -122,7 +176,7 @@ impl ClockInner {
         //`call` catches and reports a panic itself, under the lock: after the lock is released
         //neither the owner nor this clock's object may be alive any more
         //the guard is for `wrapped`, which refuses an object that isn't constructed
-        crate::ffi::guard(wrapper, "clock", || wrapper.wrapped().shared.call())
+        crate::ffi::guard(wrapper, "clock", || wrapper.wrapped().shared.call("clock"))
     }
 }
 
@@ -164,50 +218,57 @@ impl MaxObjWrapped for ClockInner {
     }
 }
 
-/// A handle for a clock and the method it will trigger.
+/// A clock: calls a method of its object on the scheduler thread after a delay. See the
+/// [module documentation](self).
 ///
-/// Dropping the handle unsets and frees the clock. Clocks made with the builder
-/// ([`Builder::with_clock`](crate::builder::Builder::with_clock)) are additionally
-/// disabled when the owning object is freed, so a handle that outlives its object does nothing
-/// when it fires. A clock callback must not free its own object or drop its own handle, see
-/// [`ClockShared`].
+/// Make one with the builder ([`clock`](crate::builder::Builder::clock),
+/// [`clock_with`](crate::builder::Builder::clock_with)) and keep it in your struct. Dropping it
+/// unsets and frees the clock. A clock made with the builder is also disabled when its object is
+/// freed, so a `Clock` that outlives its object does nothing when it fires. A callback must not
+/// free its own object or drop its own `Clock` (it deadlocks).
 ///
 /// Creating one registers median's clock class the first time, under median's class table lock:
 /// don't create a clock during class registration (`FieldAttrs::register_attrs`,
 /// `Methods::register`, `class_setup`), which already holds that lock and would deadlock.
-pub struct ClockHandle {
+pub struct Clock {
     _target: crate::object::ObjBox<MaxObjWrapper<ClockInner>>,
     clock: *mut c_void,
 }
 
-unsafe impl Send for ClockHandle {}
-unsafe impl Sync for ClockHandle {}
+// SAFETY: the clock pointer is only passed to `clock_*` functions, which Max lets any thread call
+// (the SDK's `pictmeter~` calls `clock_delay` from its perform routine); `_target` is an
+// `ObjBox` of median's own clock object, whose state is an `Arc<ClockShared>` (`Send + Sync`)
+unsafe impl Send for Clock {}
+// SAFETY: as above; every method takes `&self` and only calls `clock_*` functions
+unsafe impl Sync for Clock {}
 
-impl ClockHandle {
+impl Clock {
     /// The callback target, so the owning wrapper can disable it before it is freed.
     pub(crate) fn shared(&self) -> Arc<ClockShared> {
         self._target.wrapped().shared.clone()
     }
 
-    /// Execute the callback as soon as possible.
+    /// Run the callback as soon as possible (`delay(0)`).
     pub fn trigger(&self) {
         self.delay(0);
     }
 
-    /// Execute the callback after the given milliseconds
-    pub fn delay(&self, milliseconds: i32) {
+    /// Run the callback `milliseconds` from now (`clock_delay`), replacing an earlier schedule.
+    pub fn delay(&self, milliseconds: c_long) {
         unsafe {
             max_sys::clock_delay(self.clock, milliseconds as _);
         }
     }
 
-    /// Execute the callback after the given milliseconds
+    /// Run the callback `milliseconds` from now, with a fractional delay (`clock_fdelay`),
+    /// replacing an earlier schedule.
     pub fn fdelay(&self, milliseconds: f64) {
         unsafe {
             max_sys::clock_fdelay(self.clock, milliseconds);
         }
     }
 
+    /// Cancel the scheduled run, if any (`clock_unset`).
     pub fn cancel(&self) {
         unsafe {
             max_sys::clock_unset(self.clock);
@@ -228,12 +289,13 @@ impl ClockHandle {
         unsafe { max_sys::gettime() as _ }
     }
 
-    /// Create a clock that calls `func(target)` when it fires.
+    /// Create a clock that calls `func(target)` when it fires, outside the builder. (The builder's
+    /// [`clock`](crate::builder::Builder::clock) is the safe way.)
     ///
     /// # Safety
-    /// `target` must be a valid Max object that outlives the returned handle, or the caller must
-    /// ensure that the callback is disabled before `target` is freed (the builder does this
-    /// for clocks it creates, by clearing [`ClockHandle::shared`] before the owner is dropped).
+    /// `target` must be a valid Max object that outlives the returned `Clock`, and `func` must be
+    /// sound to call with it on the scheduler thread from now on. (The builder instead disables
+    /// the callbacks of its clocks before the owner is dropped.)
     pub unsafe fn new(
         target: *mut max_sys::t_object,
         func: Box<dyn Fn(*mut max_sys::t_object) + Send + Sync>,
@@ -310,7 +372,7 @@ impl ClockHandle {
     }
 }
 
-impl Drop for ClockHandle {
+impl Drop for Clock {
     fn drop(&mut self) {
         // SAFETY: `clock` was created by `clock_new*` and is freed exactly once, here.
         unsafe {
