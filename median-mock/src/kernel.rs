@@ -90,6 +90,16 @@ impl Kernel {
             .count()
     }
 
+    /// How many buffer references made by `buffer_ref_new` have not been freed (to check for
+    /// leaks).
+    pub fn live_buffer_ref_count(&self) -> usize {
+        state()
+            .subs
+            .values()
+            .filter(|s| s.alive && matches!(s.kind, SubKind::BufferRef { .. }))
+            .count()
+    }
+
     /// The class name of a live object.
     pub fn class_name_of(&self, obj: *mut c_void) -> Option<String> {
         let st = state();

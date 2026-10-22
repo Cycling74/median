@@ -822,6 +822,19 @@ fn live_clocks_are_counted() {
 }
 
 #[test]
+fn live_buffer_refs_are_counted() {
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1);
+    let before = k.live_buffer_ref_count();
+    let r = unsafe { max_sys::buffer_ref_new(x as *mut t_object, sym(c"buf")) };
+    assert_eq!(k.live_buffer_ref_count(), before + 1);
+    unsafe { max_sys::object_free(r as *mut c_void) };
+    assert_eq!(k.live_buffer_ref_count(), before);
+    assert!(k.free_object(x as *mut c_void));
+}
+
+#[test]
 fn clocks_fire_in_time_order_on_advance() {
     let k = median_mock::lock();
     register();
