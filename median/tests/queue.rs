@@ -136,7 +136,8 @@ fn front_goes_ahead_and_cancel_unsets() {
     let b = k.new_object("queue.thing", &[]);
     k.send_int(a, 1).unwrap();
     k.send_int(b, 2).unwrap();
-    //b's queue is already set: front leaves it where it is
+    //b's queue is already set: front leaves it where it is. This tests median-mock's model of
+    //`qelem_front` on a set qelem, not Max (the SDK doesn't say; unverified)
     k.send(b, "first", &[]).unwrap();
     assert_eq!(k.run_main_queue(), 2);
     let order: Vec<_> = k.take_outlet_log().iter().map(|e| e.atoms.clone()).collect();

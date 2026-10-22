@@ -840,3 +840,10 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     - `AttrDefault::Int` is written as a whole number for every attribute type except
       `float32`/`float64` (it went through `number_text(v as f64, ..)`, so an `atom`, `symbol` or
       pointer attribute got `"5.0"`). Test: an `atom` attribute in `tests/attr_options.rs`.
+    - `qelem_front` on a qelem that is already set: that it stays where it is (not set again,
+      not moved to the front) is an assumption; `ext_proto.h` only says it is "identical to
+      `qelem_set()`" apart from the position. Marked unverified in `Queue::front`, the `defer`
+      module docs and the mock's `qelem_front`, and the assertions of
+      `tests/queue.rs::front_goes_ahead_and_cancel_unsets` and the mock's
+      `qelem_front_queues_at_the_front_and_frees_are_checked` are labelled as testing the mock's
+      model. To check in Max: `front()` on a queue already set at the back.

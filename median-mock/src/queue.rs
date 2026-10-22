@@ -117,7 +117,9 @@ pub unsafe extern "C" fn qelem_set(x: *mut t_qelem) {
 }
 
 /// Like `qelem_set`, but the qelem goes to the front of the main queue. An already queued qelem
-/// stays where it is (as `qelem_set`, it is not set again).
+/// stays where it is (as `qelem_set`, it is not set again). That is this mock's model, **not
+/// verified in Max**: `ext_proto.h` says `qelem_front` is "identical to `qelem_set()`" apart from
+/// the position and doesn't say whether an already set qelem is moved to the front.
 ///
 /// # Safety
 /// As `qelem_set`.

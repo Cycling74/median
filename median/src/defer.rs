@@ -59,8 +59,9 @@
 //! pending call can't outlive its object: when the object is freed, the qelem is disabled and
 //! freed and the pending calls are dropped without running. Pending `Front` calls run before
 //! pending `Low` ones of the same object, latest first (as several of Max's `defer`s are); the
-//! qelem is set with `qelem_front` for them, but if it is already waiting at the back it stays
-//! there.
+//! qelem is set with `qelem_front` for them. If the qelem is already waiting at the back, it is
+//! assumed to stay there: the SDK headers don't say what `qelem_front` does to a qelem that is
+//! already set, so this is **unverified in Max** (`median-mock` models it that way).
 //!
 //! A deferred method may run a nested event loop (a `#[defer_low] read` that opens a modal file
 //! dialog, as the SDK recommends): if Max runs the object's qelem in it, the calls queued after

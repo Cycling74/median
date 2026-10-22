@@ -85,7 +85,9 @@ at a time (`EditError::Busy`), so its own edits never nest. Still open, and reac
   calls (arguments copied) and one qelem, owned by the wrapper, disabled and freed with the
   object, so a pending call can't outlive it. Queuing allocates and locks: a deferred message must
   not be sent from `perform`. Whether `qelem_set` (`Queue::set`) is real-time safe is not in the
-  SDK headers; calling it from `perform` (the `median::fifo` pattern) is unverified.
+  SDK headers; calling it from `perform` (the `median::fifo` pattern) is unverified. So is what
+  `qelem_front` (`Queue::front`, `#[defer]` from another thread) does to a qelem that is already
+  set: median and the mock assume it stays where it is.
 
 `doc/plan-soundness-fixes.md` is the ordered list of fixes that keep the public API;
 `doc/plan-api-redesign.md` is the breaking redesign (derive + `#[methods]` instead of

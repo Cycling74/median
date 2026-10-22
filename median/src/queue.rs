@@ -132,8 +132,10 @@ impl Queue {
     }
 
     /// Like [`set`](Self::set), at the front of Max's queue (`qelem_front`). The SDK asks to use
-    /// it "only for special time-critical applications". A queue that is already set stays where
-    /// it is.
+    /// it "only for special time-critical applications". What it does to a queue that is already
+    /// set is **unverified in Max**: `ext_proto.h` only says it is "identical to `qelem_set()`"
+    /// apart from the position, so it is assumed (and modelled by `median-mock`) that the queue
+    /// is not set again and stays where it is, rather than being moved to the front.
     pub fn front(&self) {
         // SAFETY: as in `set`
         unsafe { max_sys::qelem_front(self.qelem.as_ptr().cast()) }

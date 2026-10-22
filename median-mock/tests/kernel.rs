@@ -1097,7 +1097,8 @@ fn qelem_front_queues_at_the_front_and_frees_are_checked() {
         let q = max_sys::qelem_new(o, meth!(thing_qelem, extern "C" fn(*mut Thing)));
         assert_eq!(k.live_qelem_count(), before + 1);
         max_sys::qelem_front(q);
-        // already set: neither call queues it again
+        // already set: neither call queues it again (the mock's model of `qelem_front` on a set
+        // qelem; not verified in Max)
         max_sys::qelem_front(q);
         max_sys::qelem_set(q);
         assert_eq!(k.main_queue_len(), 2);
