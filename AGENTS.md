@@ -60,11 +60,15 @@ fixed modulo deliberate leaking). The iolet table is filled once at construction
 runs before the other inlets are made (unverified in Max for objects with 2+ signal inlets and
 other inlets, see the plan's step 4 status). Step 5 made `new` return `Result<Self, NewError>`;
 a refused or panicking `new` releases what the builder made, and an MSP object's `z_dsp_setup`
-is always paired with `z_dsp_free` (the builder owes it until construction finishes). Still
-open, and reachable from safe code:
+is always paired with `z_dsp_free` (the builder owes it until construction finishes). Step 6
+fixed H5, H7 and M1: `SymbolRef` is a `Copy` handle over `NonNull<t_symbol>` with no interior
+mutability (`median::sym!("..")` for literals); `BufferLocked` (the shared
+`buffer_locksamples` claim) hands out `&[AtomicSample]`, indexed interleaved (frame major), and
+`BufferEdit` (`buffer_edit_begin/end`, refused on the audio and scheduler threads) is the only
+`&mut [f32]`. Two buffer assumptions are unverified in Max: `buffer_locksamples` returns null
+while an edit is in progress (the mock models it so; `BufferEdit`'s exclusivity rests on it), and
+`buffer_getinfo`'s `b_samples` is the pointer to edit. Still open, and reachable from safe code:
 
-- `SymbolRef::assign` (H5) and `BufferLocked`'s `&mut [f32]` over a shared lock (H7).
-- buffer~ data is interleaved, not planar (M1).
 - A clock callback must not free its own owner or drop its own `ClockHandle` (it deadlocks); see
   `ClockShared` in `median/src/clock.rs`.
 

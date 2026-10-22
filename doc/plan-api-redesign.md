@@ -612,5 +612,61 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     conversions, `simp`/`simp_explicit` arguments. `median-mock` gained
     `live_buffer_ref_count`, and reports an object freed after `z_dsp_setup` without
     `z_dsp_free` and an unfreed proxy, so every test checks those.
-- [ ] 6. `SymbolRef`, `BufferLocked`
+- [x] 6. `SymbolRef`, `BufferLocked` (section G; abeaf31, 43d09b8, aa595ef).
+  - `SymbolRef`: `#[derive(Copy, Clone, PartialEq, Eq, Hash)]` over `NonNull<t_symbol>`,
+    `repr(transparent)`; `assign`, `new`, `inner`, `to_cstring` and the `Result`-returning
+    inherent `to_string` are removed. `unsafe fn from_raw` maps null to `Default` (`s_nothing`),
+    documented, since the typed trampolines rely on it. `as_ptr`, `name() -> &CStr`, `to_str()
+    -> Result<&str, Utf8Error>`, `is_empty`, `Display` (lossy), `Debug`, `From<&CStr>`,
+    `From<CString>`, `From<SymbolRef> for *mut t_symbol`, `TryFrom<&str>`/`TryFrom<String>`
+    (`NulError` on an interior NUL; `NewError: From<NulError>` so `?` works in `new`).
+    Difference from the brief: `name()` is tied to `&self`, not `&'static`, because the SDK
+    headers never say symbols are never freed (it is only implied by practice: cached
+    `gensym` results in statics, the common symbols table); `SymbolRef` being `Copy + 'static`
+    already relies on it, so this only avoids promising it in a signature. `Send`/`Sync` have a
+    SAFETY comment. Equality and hashing are by address (equivalent to by string, through
+    interning; the old `Hash` hashed the string). `median::sym!("foo")` (also in the prelude)
+    is a `macro_rules!` that builds the `CStr` in a `const` (`concat!` + `from_bytes_with_nul`)
+    and expands to `SymbolRef::from(<that CStr>)`; an interior NUL is a compile error (E0080),
+    tested by a doctest and `ui/sym_nul`. It calls `gensym` on every use.
+  - `BufferRef`: the mutex holds only the name (`set`, the new `name()`, notification
+    forwarding); the `t_buffer_ref` pointer is outside it and immutable. Difference: `try_lock`,
+    `exists`, `channels`, `frames`, `sample_rate` no longer take the mutex, so the perform path
+    neither locks nor allocates (`buffer_ref_getobject` from perform concurrently with
+    `buffer_ref_set` on the main thread is what `index~.c` does). A null `buffer_ref_new` result
+    is treated as "no buffer" instead of being used. `notify_if` stays safe (a `Notification`
+    can only be made with `unsafe`), `notify_if_unchecked` and `new` have `# Safety` sections.
+  - `BufferLocked<'_>` (borrowing the reference; `!Send`): `as_slice`, `frame(i)`,
+    `sample(frame, ch)`, `channel_iter(ch)` (strided, `ExactSizeIterator +
+    DoubleEndedIterator + Clone`) over `AtomicSample` (`repr(transparent)` `AtomicU32`, Relaxed
+    `get`/`set`, `new`, `Debug`; size and alignment asserted equal to `f32`), `frames`,
+    `channels` (read once after the claim, as `index~.c`), `sample_rate`,
+    `millisample_rate`, `set_dirty(&mut self)`, `unsafe fn samples_ptr`. `frame`/`sample`/
+    `channel_iter` panic out of range (documented); `as_slice().get(..)` is the checked form.
+    `as_slice` is an addition to the brief's list. Released on drop (also while unwinding).
+  - `BufferEdit<'_>` (`!Send`, since `buffer_edit_end` unlocks the buffer's mutex): from
+    `BufferReference::edit()`, refused with `EditError::WrongThread` on the audio and scheduler
+    threads (`systhread_isaudiothread`/`istimerthread`, the SDK's own checks; the scheduler can
+    run inside the audio thread). Sample pointer and size from `buffer_getinfo`. `as_slice`,
+    `as_mut_slice`, `frame(_mut)`, `channel_iter(_mut)`, `set_dirty`; a mutable view marks it
+    dirty, and drop calls `buffer_edit_end(b, 1)` then `buffer_setdirty`. **No `resize`**:
+    `ext_buffer.h` declares no resize call (the `buffer~` messages that do it are not in the SDK
+    headers). **Unverified in Max**: that `buffer_locksamples` returns null while an edit is in
+    progress (the header says `buffer_edit_begin` clears the valid flag and waits for the in-use
+    count; `BufferEdit`'s `&mut` relies on it), and that `b_samples` is right during an edit.
+  - Messages: `BufferReference::view()` (`buffer_view`, as `index~`/`simpwave~` do on
+    double-click), `Class::add_dblclick` (`A_CANT`), and `Class::add_buffer_messages(|s:
+    &Self| &*s.buf)`, which registers `set <name>` and `dblclick` for one reference (call it in
+    `class_setup`). `#[dblclick]` in `#[median::methods]` is still rejected (not done here).
+    `buffer_modified` and binding notifications are forwarded as before.
+  - `hello_dsp` uses `add_buffer_messages` (its `#[sel("set")]` is gone) and plays its first
+    buffer's channel 0 on the right outlet.
+  - `median-mock` (43d09b8): `buffer_edit_begin/end` (pairing checked, nested begin/stray end
+    refused, begin on the audio thread or with claims held reported), `buffer_getinfo`,
+    `buffer_view`, null from `buffer_locksamples` while editing; `DspAdd::run` reports a
+    perform that returns holding a claim, `destroy_buffer` reports outstanding claims/edits.
+    `Kernel::{buffer_editing, buffer_edits, clear_buffer_dirty, buffer_views, dblclick}`.
+  - Tests: `symbol::tests` (interning equality, names, NUL errors, null/default, threads),
+    `ui/sym_nul`, `tests/buffer.rs`, `tests/hello_dsp.rs` with a buffer, mock tests in
+    `median-mock/tests/kernel.rs`.
 - [ ] 7. Clock/queue/fifo, attribute options
