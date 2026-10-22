@@ -55,14 +55,6 @@ impl MSPObjWrapped for HelloDSP {
         })
     }
 
-    //registered after the `#[median::methods]` impl
-    fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
-        //`set <name>` points buffer1 at another buffer~, double-clicking the box opens its window
-        //(buffer2's `set2` is a `#[sel]` method below)
-        c.add_buffer_messages(|s: &Self| &*s.buffer1)
-            .expect("set and dblclick");
-    }
-
     fn dsp_setup(&self, sample_rate: f64) {
         median::object_post!(&self.obj, "sample rate: {}", sample_rate);
     }
@@ -110,11 +102,22 @@ impl HelloDSP {
         }
     }
 
-    //`set2 <name>` points buffer2 at another buffer~ (`set` for buffer1 comes from
-    //`add_buffer_messages` in `class_setup`)
+    //`set <name>` points buffer1 at another buffer~
+    #[sel("set")]
+    pub fn set(&self, name: SymbolRef) {
+        self.buffer1.set(name);
+    }
+
+    //`set2 <name>` points buffer2 at another buffer~
     #[sel("set2")]
     pub fn set2(&self, name: SymbolRef) {
         self.buffer2.set(name);
+    }
+
+    //double-clicking the box opens buffer1's window
+    #[dblclick]
+    pub fn dblclick(&self) {
+        self.buffer1.view();
     }
 
     pub fn clocked(&self) {

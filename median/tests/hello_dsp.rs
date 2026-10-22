@@ -1,5 +1,5 @@
 //! The `hello_dsp` example: an MSP object with a field attribute, methods, and a buffer it plays
-//! (with the `set`/`dblclick` messages from `Class::add_buffer_messages`).
+//! (with `set`/`set2` methods and a `#[dblclick]` that opens it).
 
 #[path = "../examples/hello_dsp/src/lib.rs"]
 mod hello_dsp;

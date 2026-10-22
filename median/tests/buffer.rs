@@ -1,6 +1,6 @@
 //! `buffer~` access through the `median-mock` kernel: the shared claim (`BufferLocked`, atomic
 //! samples, interleaved), the exclusive edit (`BufferEdit`), lock and edit pairing (also when a
-//! panic unwinds), `set`/`dblclick` from `Class::add_buffer_messages`, and the forwarding of
+//! panic unwinds), `set`/`dblclick` methods over a buffer reference, and the forwarding of
 //! binding notifications to the buffer reference.
 
 use median::buffer::{BufferLocked, BufferRef, BufferReference, EditError, TryLockError};
@@ -32,10 +32,6 @@ impl MSPObjWrapped for BufTest {
         })
     }
 
-    fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
-        c.add_buffer_messages(|s: &Self| &*s.buf).unwrap();
-    }
-
     fn perform(&self, _ins: &[&[f64]], outs: &mut [&mut [f64]], _nframes: usize) {
         let Ok(mut l) = self.buf.try_lock() else {
             outs[0].fill(-1.);
@@ -54,6 +50,16 @@ impl MSPObjWrapped for BufTest {
 
 #[median::methods]
 impl BufTest {
+    #[sel("set")]
+    pub fn set(&self, name: SymbolRef) {
+        self.buf.set(name);
+    }
+
+    #[dblclick]
+    pub fn dblclick(&self) {
+        self.buf.view();
+    }
+
     #[int]
     pub fn int(&self, v: t_atom_long) {
         self.mode.set(v);

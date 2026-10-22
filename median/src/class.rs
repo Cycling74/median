@@ -396,31 +396,6 @@ impl<W> Class<W> {
         unsafe { self.add_typed(c"loadbang", m, &[max_sys::e_max_atomtypes::A_CANT]) }
     }
 
-    /// Register the messages an object that plays a `buffer~` usually has, for the buffer
-    /// reference `buffer` returns (a zero-sized callable such as `|s: &Self| &*s.buffer`):
-    ///
-    /// * `set <name>`: follow the `buffer~` named `name` ([`BufferReference::set`]);
-    /// * `dblclick`: open the buffer's window ([`BufferReference::view`]), as `index~` does.
-    ///
-    /// Notifications need nothing extra: the wrapper forwards them to every reference made with
-    /// the builder. Don't also register `set` or `dblclick` yourself (`#[sel("set")]`).
-    ///
-    /// [`BufferReference::set`]: crate::buffer::BufferReference::set
-    /// [`BufferReference::view`]: crate::buffer::BufferReference::view
-    pub fn add_buffer_messages<T, B, F>(&mut self, buffer: F) -> MaxResult<()>
-    where
-        W: WrapperWrapped<T> + MaxObj,
-        B: crate::buffer::BufferReference + ?Sized,
-        F: Fn(&T) -> &B + Copy + Send + Sync + 'static,
-    {
-        //these capture only `buffer`, which is zero-sized and `Copy`, so they are too (as in
-        //`add_field_attr`)
-        self.add_sel(c"set", move |t: &T, name: SymbolRef| buffer(t).set(name), 0)?;
-        self.add_dblclick(move |t: &T| {
-            buffer(t).view();
-        })
-    }
-
     /// Register the `int` method.
     pub fn add_int<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where

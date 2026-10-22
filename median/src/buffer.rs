@@ -29,8 +29,9 @@
 //! A `buffer_ref` must see the notifications its owner gets (binding, unbinding, ...). The
 //! wrapper forwards them to the references made with the builder; a `BufferRef` made by hand needs
 //! [`BufferRef::notify_if`] called from the owner's notification handler.
-//! [`Class::add_buffer_messages`](crate::class::Class::add_buffer_messages) registers the usual
-//! `set <name>` message and the double-click that opens the buffer's window.
+//! The messages Max users expect from an object that plays a `buffer~` are ordinary methods: a
+//! `#[sel("set")]` method calling [`BufferReference::set`], and a `#[dblclick]` method calling
+//! [`BufferReference::view`] to open the buffer's window (see the `hello_dsp` example).
 use crate::{notify::Notification, symbol::SymbolRef};
 use core::ffi::c_void;
 use std::marker::PhantomData;

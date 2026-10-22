@@ -685,6 +685,9 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `buffer_modified` and binding notifications are forwarded as before.
   - `hello_dsp` uses `add_buffer_messages` (its `#[sel("set")]` is gone) and plays its first
     buffer's channel 0 on the right outlet.
+  - Removed 2026-10-22: `Class::add_buffer_messages`. Once `#[dblclick]` existed (step 7) it
+    only saved a `#[sel("set")]` and a `#[dblclick]` method, and it hid which buffer the two
+    messages control. `hello_dsp` writes `set`, `set2` and `dblclick` out as methods.
   - `median-mock` (43d09b8): `buffer_edit_begin/end` (pairing checked, nested begin/stray end
     refused, begin on the audio thread or with claims held reported), `buffer_getinfo`,
     `buffer_view`, null from `buffer_locksamples` while editing; `DspAdd::run` reports a
