@@ -30,6 +30,14 @@ cd median/examples/simp && cargo make build    # needs cargo-make; package/insta
 macro error, regenerate the expected output with `TRYBUILD=overwrite cargo test --test ui` and
 review the `.stderr` diff.
 
+Formatting: run `script/install-hooks.sh` once per clone. The pre-commit hook
+(`script/pre-commit.sh`) runs `rustfmt` on staged `.rs` files, re-staging fully staged ones and
+aborting if a partly staged file needs formatting. `rustfmt.toml` pins edition 2024 (2018 under
+`max-sys/`), so single-file `rustfmt` agrees with `cargo fmt`. The generated bindings
+(`max-sys/src/ffi-*.rs`) and the trybuild cases (`median/tests/ui/*.rs`, whose `.stderr` files
+record line numbers) are left alone. To format everything, run `cargo fmt` in each crate and
+`rustfmt templates/max/src/lib.rs`.
+
 Externals are `cdylib`s linked with `-undefined dynamic_lookup` (see the `.cargo/config*` files
 next to each example and the template); Max symbols resolve at load time. Nothing in this repo
 can run an external outside Max, so behaviour in Max has to be checked by hand or stated as
