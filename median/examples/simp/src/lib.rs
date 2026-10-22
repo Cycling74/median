@@ -9,12 +9,15 @@ pub struct Simp {
     obj: ObjRef,
     //an attribute "value" backed by this field, clipped to 0..=100. The field's type must be
     //one of the `median::num` atomics (anything that implements `median::attr::AttrField`):
-    //Max reads and writes attributes from other threads while methods run.
-    #[attr(clip(0, 100))]
+    //Max reads and writes attributes from other threads while methods run. In the inspector it
+    //is "Value" on the "Simp" tab, and its value is saved with the patcher.
+    #[attr(clip(0, 100), label = "Value", category = "Simp", save)]
     value: Int64,
     fvalue: Float64,
     _v: String,
     clock: Clock,
+    //reports the value on the main thread, once however often it changes in between
+    changed: Queue,
     list_out: Outlet<List>,
 }
 
@@ -50,6 +53,7 @@ impl MaxObjWrapped for Simp {
             fvalue: Default::default(),
             _v: String::from("blah"),
             clock: builder.clock(Self::clocked),
+            changed: builder.queue(Self::report),
             list_out: builder.outlet(Outlet::list().assist("my list out")),
         })
     }
@@ -73,6 +77,7 @@ impl Simp {
         self.value.set(v);
         let _ = self.obj.attr_touch_with_name(c"value");
         post!("direct int from rust {} inlet {}", self.value, i);
+        self.changed.set();
     }
 
     //an "int" method: takes 1 argument other than &self, of type t_atom_long
@@ -82,6 +87,7 @@ impl Simp {
         self.value.set(v);
         let _ = self.obj.attr_touch_with_name(c"value");
         post!("proxied from rust {} inlet {}", self.value, i);
+        self.changed.set();
     }
 
     //a "list" method
@@ -108,6 +114,15 @@ impl Simp {
         Ok(())
     }
 
+    //"read" with any arguments, run later on the main thread whichever thread sent it (as a
+    //C external would `defer_low` it, for example to open a file dialog). The arguments are
+    //copied for the deferred call.
+    #[sel("read", gimme)]
+    #[defer_low]
+    pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
+        median::object_post!(&self.obj, "read {} argument(s) on the main thread", atoms.len());
+    }
+
     //an attribute "foo": the getter is marked, `set_foo` is found by its name (without one the
     //attribute is read-only)
     #[attr]
@@ -117,6 +132,11 @@ impl Simp {
 
     pub fn set_foo(&self, v: f64) {
         self.fvalue.set(v);
+    }
+
+    //called on the main thread via the `changed` queue (see the `int` method)
+    pub fn report(&self) {
+        median::object_post!(&self.obj, "value is now {}", self.value);
     }
 
     //called via the `clock` member (see the `bang` method and `new` above)

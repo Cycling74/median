@@ -4,8 +4,9 @@ use median::{builder::ManagedBufferRef, prelude::*};
 #[max(name = "hello_dsp~", kind = msp)]
 pub struct HelloDSP {
     obj: ObjRef,
-    //an attribute "blah" backed by this field
-    #[attr(name = "blah")]
+    //an attribute "blah" backed by this field, shown as "Blah" on the inspector's "Hello" tab
+    //and saved with the patcher
+    #[attr(name = "blah", label = "Blah", category = "Hello", save)]
     value: Int64,
     _v: String,
     clock: Clock,

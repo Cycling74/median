@@ -12,6 +12,7 @@ pub struct SimpExplicit {
     fvalue: Float64,
     _v: String,
     clock: Clock,
+    changed: Queue,
     list_out: Outlet<List>,
 }
 
@@ -32,7 +33,8 @@ impl SimpExplicit {
     }
 }
 
-//attributes backed by fields (what `#[attr(clip(0, 100))]` on `value` gives)
+//attributes backed by fields (what `#[attr(clip(0, 100), label = "Value", category = "Simp",
+//save)]` on `value` gives)
 impl FieldAttrs for SimpExplicit {
     fn register_attrs<W>(c: &mut Class<W>) -> MaxResult<()>
     where
@@ -41,7 +43,11 @@ impl FieldAttrs for SimpExplicit {
         c.add_field_attr(
             c"value",
             |s: &Self| &s.value,
-            AttrOptions::new().clip(0., 100.),
+            AttrOptions::new()
+                .clip(0., 100.)
+                .label(c"Value")
+                .category(c"Simp")
+                .save(),
         )
     }
 }
@@ -59,6 +65,8 @@ impl Methods for SimpExplicit {
         c.add_any(Self::baz)?;
         //the selector, the method, and how many of its last arguments may be left out
         c.add_sel(c"set", Self::set, 1)?;
+        //what `#[sel("read", gimme)] #[defer_low]` gives: run later on the main thread
+        c.add_sel_gimme_deferred(c"read", Self::read, Defer::Low)?;
         c.add_attr(c"foo", Self::foo, Self::set_foo, AttrOptions::new())?;
         Ok(())
     }
@@ -93,6 +101,7 @@ impl MaxObjWrapped for SimpExplicit {
             fvalue: Default::default(),
             _v: String::from("blah"),
             clock: builder.clock(Self::clocked),
+            changed: builder.queue(Self::report),
             list_out: builder.outlet(Outlet::list().assist("my list out")),
         })
     }
@@ -112,6 +121,15 @@ impl SimpExplicit {
         self.value.set(v);
         let _ = self.obj.attr_touch_with_name(c"value");
         post!("from rust {} inlet {}", self.value, i);
+        self.changed.set();
+    }
+
+    pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
+        median::object_post!(&self.obj, "read {} argument(s) on the main thread", atoms.len());
+    }
+
+    pub fn report(&self) {
+        median::object_post!(&self.obj, "value is now {}", self.value);
     }
 
     pub fn list(&self, atoms: &[Atom]) {

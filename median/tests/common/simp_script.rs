@@ -28,8 +28,11 @@ pub fn run(k: &Kernel, class: &str) -> Vec<String> {
     t.push(format!("outlets {}", k.outlet_count(obj)));
     t.push(format!("inlets {}", k.extra_inlet_count(obj)));
     t.push(format!("attributes {:?}", k.attr_names(obj)));
-    for sel in ["bang", "int", "list", "anything", "set", "symbol", "float"] {
+    for sel in ["bang", "int", "list", "anything", "set", "read", "symbol", "float"] {
         t.push(format!("method {sel} {}", k.method(obj, sel).is_some()));
+    }
+    for name in ["label", "category", "save"] {
+        t.push(format!("value {name} {:?}", k.attr_attr(obj, "value", name)));
     }
 
     k.send_bang(obj).unwrap();
@@ -66,6 +69,13 @@ pub fn run(k: &Kernel, class: &str) -> Vec<String> {
     t.push(format!("advance {}", k.advance(10.)));
     drain(k, obj, &mut t);
 
+    //deferred: nothing until the main thread's queue runs, then the `changed` queue (set by
+    //every `int` above, once) and the deferred `read`
+    k.send(obj, "read", &[Atom::Sym("file.txt".into())]).unwrap();
+    drain(k, obj, &mut t);
+    t.push(format!("main queue {}", k.run_main_queue()));
+    drain(k, obj, &mut t);
+
     assert!(k.free_object(obj));
     t.push(format!("live {}", k.live_object_count()));
     t
@@ -80,8 +90,12 @@ pub const EXPECTED: &[&str] = &[
     "method list true",
     "method anything true",
     "method set true",
+    "method read true",
     "method symbol false",
     "method float false",
+    "value label Some((\"symbol\", [Sym(\"Value\")]))",
+    "value category Some((\"symbol\", [Sym(\"Simp\")]))",
+    "value save Some((\"long\", [Long(1)]))",
     "post obj: from rust 0 inlet 0",
     "advance 1",
     "post global: clocked",
@@ -106,6 +120,9 @@ pub const EXPECTED: &[&str] = &[
     "advance 1",
     "post global: clocked",
     "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
+    "main queue 2",
+    "post obj: value is now 7",
+    "post obj: read 1 argument(s) on the main thread",
     "live 0",
 ];
 

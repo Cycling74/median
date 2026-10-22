@@ -5,8 +5,9 @@ use median::prelude::*;
 #[max(name = "{{crate_name}}")]
 pub struct MaxExtern {
     obj: ObjRef,
-    //an attribute "foo" backed by this field (see `median::attr::AttrField` for the types)
-    #[attr]
+    //an attribute "foo" backed by this field (see `median::attr::AttrField` for the types),
+    //shown as "Foo" in the inspector and saved with the patcher
+    #[attr(label = "Foo", save)]
     foo: Float64,
 }
 
