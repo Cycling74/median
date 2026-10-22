@@ -8,8 +8,8 @@ pub struct Simp {
 }
 
 impl MaxObjWrapped for Simp {
-    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
-        Simp { name: String::new() }
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Simp { name: String::new() })
     }
 }
 

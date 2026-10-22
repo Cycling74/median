@@ -11,12 +11,12 @@
 //! }
 //!
 //! impl MaxObjWrapped for Counter {
-//!     fn new(b: &mut MaxBuilder<Self>) -> Self {
-//!         Self {
+//!     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+//!         Ok(Self {
 //!             //left to right
 //!             out: b.outlet(Outlet::int().assist("the count")),
 //!             done: b.outlet(Outlet::bang().assist("bang when done")),
-//!         }
+//!         })
 //!     }
 //! }
 //!

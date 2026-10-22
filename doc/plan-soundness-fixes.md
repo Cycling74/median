@@ -250,7 +250,9 @@ Known remaining issues found in review, not fixed here:
   if Max's box-deletion path holds a Max lock the callback needs while `free` waits on
   `ClockShared`, both threads block. Test in Max: Overdrive on, a clock that outputs and re-delays
   itself every 1 ms, delete and recreate the box in a loop with `thispatcher`, watch for a hang.
-- An MSP object whose `T::new` panics after `z_dsp_setup` never gets `z_dsp_free` (likely a leak).
+- ~~An MSP object whose `T::new` panics after `z_dsp_setup` never gets `z_dsp_free` (likely a
+  leak).~~ Fixed in redesign step 5: the builder pairs `z_dsp_setup` with `z_dsp_free` until the
+  object is constructed (see plan-api-redesign Status).
 - `object_post!`/`object_error!` still accept any pointer from safe code; fixing it needs a
   signature change, so it goes with step 2.
 - Buffer `getname` (item 5): the headers don't say whether it writes through the argument or

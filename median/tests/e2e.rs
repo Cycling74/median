@@ -22,6 +22,7 @@ use median::{
     builder::{MSPBuilder, MaxBuilder},
     class::Class,
     clock::ClockHandle,
+    error::NewError,
     inlet::Inlet,
     max_sys::t_atom_long,
     num::{Float64, Int64},
@@ -53,16 +54,16 @@ pub struct Thing {
 }
 
 impl MaxObjWrapped for Thing {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         let start = builder.creation_args().first().map_or(0, |a| a.get_int());
         builder.inlet(Inlet::proxy());
-        Self {
+        Ok(Self {
             obj: builder.obj(),
             value: Int64::new(start),
             fvalue: Float64::new(0.),
             int_out: builder.outlet(Outlet::int()),
             list_out: builder.outlet(Outlet::list()),
-        }
+        })
     }
 }
 
@@ -137,14 +138,14 @@ impl FieldAttrs for Typed {}
 impl Methods for Typed {}
 
 impl MaxObjWrapped for Typed {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         if builder.creation_args().first().map(|a| a.get_int()) == Some(-1) {
             panic!("no -1 for you");
         }
-        Self {
+        Ok(Self {
             obj: builder.obj(),
             out: builder.outlet(Outlet::list()),
-        }
+        })
     }
 
     fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
@@ -219,13 +220,13 @@ impl FieldAttrs for Ticker {}
 impl Methods for Ticker {}
 
 impl MaxObjWrapped for Ticker {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
-        Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Self {
             clock: builder.with_clockfn(Self::clocked),
             bang_out: builder.outlet(Outlet::bang()),
             list_out: builder.outlet(Outlet::list()),
             ticks: Int64::new(0),
-        }
+        })
     }
 
     fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
@@ -258,11 +259,11 @@ impl FieldAttrs for Dsp {}
 impl Methods for Dsp {}
 
 impl MSPObjWrapped for Dsp {
-    fn new(builder: &mut MSPBuilder<Self>) -> Self {
+    fn new(builder: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         builder.inlet(Inlet::signal().assist("in left"));
         builder.inlet(Inlet::signal().assist("in right"));
         builder.outlet(Outlet::signal().assist("out"));
-        Self { obj: builder.obj() }
+        Ok(Self { obj: builder.obj() })
     }
 
     fn dsp_setup(&self, sample_rate: f64) {

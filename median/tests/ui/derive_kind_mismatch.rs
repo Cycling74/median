@@ -6,8 +6,8 @@ use median::prelude::*;
 pub struct Simp;
 
 impl MaxObjWrapped for Simp {
-    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
-        Simp
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Simp)
     }
 }
 

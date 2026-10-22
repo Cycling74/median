@@ -108,3 +108,29 @@ pub const EXPECTED: &[&str] = &[
     "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
     "live 0",
 ];
+
+/// The creation argument (the initial value): a number is taken, a symbol refuses the object.
+pub fn run_args(k: &Kernel, class: &str) -> Vec<String> {
+    let mut t = Vec::new();
+    let obj = k.new_object(class, &[Atom::Long(42)]);
+    t.push(format!("value {:?}", k.attr_get(obj, "value").unwrap()));
+    assert!(k.free_object(obj));
+    let obj = k.new_object(class, &[Atom::Float(7.9)]);
+    t.push(format!("value {:?}", k.attr_get(obj, "value").unwrap()));
+    assert!(k.free_object(obj));
+    let obj = k.new_object(class, &[Atom::Sym("x".into())]);
+    t.push(format!("null {}", obj.is_null()));
+    for e in k.take_console_log() {
+        t.push(format!("{:?} for an object {}: {}", e.level, e.object != 0, e.text));
+    }
+    t.push(format!("live {}", k.live_object_count()));
+    t
+}
+
+pub const EXPECTED_ARGS: &[&str] = &[
+    "value [Long(42)]",
+    "value [Long(7)]",
+    "null true",
+    "Error for an object true: the initial value must be a number, not x",
+    "live 0",
+];

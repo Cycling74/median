@@ -24,7 +24,7 @@ pub struct IoMax {
 }
 
 impl MaxObjWrapped for IoMax {
-    fn new(b: &mut MaxBuilder<Self>) -> Self {
+    fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         let ids = [
             b.inlet(Inlet::default().assist("left")),
             b.inlet(Inlet::float(|s: &Self, v| s.obj.post(format!("ft {v}"))).assist("f")),
@@ -35,14 +35,14 @@ impl MaxObjWrapped for IoMax {
         ];
         let positions: Vec<usize> = ids.iter().map(|i| i.index()).collect();
         assert_eq!(positions, [0, 1, 2, 3, 4, 5]);
-        Self {
+        Ok(Self {
             obj: b.obj(),
             bang: b.outlet(Outlet::bang()),
             int: b.outlet(Outlet::int().assist("an int")),
             float: b.outlet(Outlet::float()),
             list: b.outlet(Outlet::list().assist("my list")),
             any: b.outlet(Outlet::any()),
-        }
+        })
     }
 }
 
@@ -80,11 +80,11 @@ fn euros() -> String {
 }
 
 impl MaxObjWrapped for Hooked {
-    fn new(b: &mut MaxBuilder<Self>) -> Self {
+    fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         b.inlet(Inlet::proxy().assist("from the table"));
         b.inlet(Inlet::proxy().assist(&euros()));
         b.inlet(Inlet::proxy().hot());
-        Self { open: Int64::new(0) }
+        Ok(Self { open: Int64::new(0) })
     }
 
     fn assist(&self, iolet: IoLet) -> Option<Cow<'_, str>> {
@@ -120,7 +120,7 @@ pub struct IoDsp {
 }
 
 impl MSPObjWrapped for IoDsp {
-    fn new(b: &mut MSPBuilder<Self>) -> Self {
+    fn new(b: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         let ids = [
             b.inlet(Inlet::signal().assist("sig l")),
             b.inlet(Inlet::signal()),
@@ -131,7 +131,7 @@ impl MSPObjWrapped for IoDsp {
         assert_eq!(ids.map(|i| i.index()), [0, 1, 2, 3, 4]);
         b.outlet(Outlet::signal().assist("out"));
         b.outlet(Outlet::list());
-        Self { obj: b.obj() }
+        Ok(Self { obj: b.obj() })
     }
 
     fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], _nframes: usize) {
@@ -155,11 +155,11 @@ impl IoDsp {
 pub struct NoSig;
 
 impl MSPObjWrapped for NoSig {
-    fn new(b: &mut MSPBuilder<Self>) -> Self {
+    fn new(b: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         b.inlet(Inlet::default().assist("control"));
         b.inlet(Inlet::proxy());
         b.outlet(Outlet::signal());
-        NoSig
+        Ok(NoSig)
     }
 
     fn perform(&self, _ins: &[&[f64]], _outs: &mut [&mut [f64]], _nframes: usize) {}
@@ -173,7 +173,7 @@ pub struct Bad {
 }
 
 impl MSPObjWrapped for Bad {
-    fn new(b: &mut MSPBuilder<Self>) -> Self {
+    fn new(b: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         let which = b.creation_args().first().map_or(0, |a| a.get_int());
         b.outlet(Outlet::list());
         match which {
@@ -194,9 +194,9 @@ impl MSPObjWrapped for Bad {
                 }
             }
         }
-        Self {
+        Ok(Self {
             _clock: b.with_clockfn(|_| {}),
-        }
+        })
     }
 
     fn perform(&self, _ins: &[&[f64]], _outs: &mut [&mut [f64]], _nframes: usize) {}

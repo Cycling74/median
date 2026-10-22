@@ -72,7 +72,21 @@ pub struct Builder<T, K> {
     error: Option<String>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
     clocks: Vec<Arc<ClockShared>>,
+    /// `z_dsp_setup` was called and the builder still owes the `z_dsp_free`: until
+    /// [`commit`](Self::commit), dropping the builder (construction failed or panicked) calls
+    /// it. Afterwards the wrapper's `free` does.
+    dsp_pending: bool,
     _kind: PhantomData<K>,
+}
+
+impl<T, K> Drop for Builder<T, K> {
+    fn drop(&mut self) {
+        if self.dsp_pending {
+            // SAFETY: `z_dsp_setup` was called on `obj`, a valid `t_pxobject` (see `new`), and the
+            // object did not get as far as being constructed, so its `free` won't call this
+            unsafe { max_sys::z_dsp_free(self.obj.as_ptr().cast()) };
+        }
+    }
 }
 
 struct InletEntry<T> {
@@ -102,6 +116,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
             error: None,
             buffer_refs: Vec::new(),
             clocks: Vec::new(),
+            dsp_pending: false,
             _kind: PhantomData,
         }
     }
@@ -379,10 +394,11 @@ impl<T> Iolets<T> {
 
 impl<T, K: BuilderKind> Builder<T, K> {
     /// Make the inlets (for MSP, `z_dsp_setup` first, then the other inlets right to left, as
-    /// `z_dsp.h` says) and hand over the table and the callbacks.
+    /// `z_dsp.h` says) and hand over the table and the callbacks. Nothing is made if the
+    /// description has a mistake.
     pub(crate) fn finalize(&mut self) -> Result<Iolets<T>, String> {
         if let Some(e) = self.error.take() {
-            return Err(e);
+            return Err(format!("median: {e}"));
         }
         let entries = std::mem::take(&mut self.inlets);
         let signal_inlets = entries
@@ -393,6 +409,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
         if K::MSP {
             // SAFETY: `obj` is a valid `t_pxobject` under construction (see `new`)
             unsafe { max_sys::z_dsp_setup(obj.cast(), signal_inlets as _) };
+            self.dsp_pending = true;
         }
 
         //the table, by position; inlet 0 exists even if it wasn't described
@@ -442,6 +459,11 @@ impl<T, K: BuilderKind> Builder<T, K> {
             signal_outlets: self.signal_outlets,
             _proxies: proxies,
         })
+    }
+
+    /// Construction finished: the object's `free` now pairs `z_dsp_setup` with `z_dsp_free`.
+    pub(crate) fn commit(&mut self) {
+        self.dsp_pending = false;
     }
 
     /// The clocks made with the builder, for the wrapper.

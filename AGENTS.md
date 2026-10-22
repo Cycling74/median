@@ -58,7 +58,10 @@ only implemented for the wrapper types. Do not add impls of the old shape. Docum
 outlet aliases with `Outlet<K>`, which has the same shape and the same documented limit (M10 is
 fixed modulo deliberate leaking). The iolet table is filled once at construction; `z_dsp_setup`
 runs before the other inlets are made (unverified in Max for objects with 2+ signal inlets and
-other inlets, see the plan's step 4 status). Still open, and reachable from safe code:
+other inlets, see the plan's step 4 status). Step 5 made `new` return `Result<Self, NewError>`;
+a refused or panicking `new` releases what the builder made, and an MSP object's `z_dsp_setup`
+is always paired with `z_dsp_free` (the builder owes it until construction finishes). Still
+open, and reachable from safe code:
 
 - `SymbolRef::assign` (H5) and `BufferLocked`'s `&mut [f32]` over a shared lock (H7).
 - buffer~ data is interleaved, not planar (M1).

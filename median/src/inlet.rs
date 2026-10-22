@@ -9,7 +9,7 @@
 //! }
 //!
 //! impl MaxObjWrapped for Adder {
-//!     fn new(b: &mut MaxBuilder<Self>) -> Self {
+//!     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
 //!         //the leftmost inlet is always there; this only gives it an assist text
 //!         b.inlet(Inlet::default().assist("left operand, outputs the sum"));
 //!         //an `int` inlet (`in1` in C), with a closure that may capture
@@ -17,7 +17,7 @@
 //!         //a proxy inlet: messages go to the usual methods, `ObjRef::proxy_inlet` says it was
 //!         //inlet 2. Hot: Max draws it like the leftmost.
 //!         let _id = b.inlet(Inlet::proxy().hot());
-//!         Self { right: Int64::new(0) }
+//!         Ok(Self { right: Int64::new(0) })
 //!     }
 //! }
 //! ```

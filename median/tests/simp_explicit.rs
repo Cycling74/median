@@ -14,3 +14,12 @@ fn simp_explicit_behaves_like_simp() {
     let t = common::simp_script::run(&k, "simp_explicit");
     assert_eq!(t, common::simp_script::EXPECTED, "{t:#?}");
 }
+
+#[test]
+fn simp_explicit_takes_or_refuses_its_argument() {
+    let k = median_mock::lock();
+    // SAFETY: that is how Max calls it, on its main thread
+    unsafe { simp_explicit::ext_main(std::ptr::null_mut()) };
+    let t = common::simp_script::run_args(&k, "simp_explicit");
+    assert_eq!(t, common::simp_script::EXPECTED_ARGS, "{t:#?}");
+}

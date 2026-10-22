@@ -3,7 +3,7 @@
 //an external, not a fallback: it is what to read to see what the macros do, and the way to
 //register things conditionally or under computed names. The object behaves exactly like `simp`.
 
-use median::prelude::*;
+use median::{atom::AtomValue, prelude::*};
 use std::ffi::CStr;
 
 pub struct SimpExplicit {
@@ -65,7 +65,15 @@ impl Methods for SimpExplicit {
 }
 
 impl MaxObjWrapped for SimpExplicit {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    //`Err` refuses to make the object: the message is posted to the Max console and the box
+    //shows that it couldn't be created
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        //an optional argument: the initial value. `?` passes a bad one on as the error
+        let value = match builder.creation_args().first() {
+            Some(a) => initial_value(a)?,
+            None => 0,
+        };
+
         //inlets, left to right. Inlet 0 always exists, this gives it an assist text
         builder.inlet(Inlet::default().assist("first inlet"));
         //a float inlet that calls a closure
@@ -79,14 +87,14 @@ impl MaxObjWrapped for SimpExplicit {
         builder.inlet(Inlet::int(Self::int));
         //a proxy inlet: messages go to the usual methods, `self.obj.proxy_inlet()` says 3
         builder.inlet(Inlet::proxy().assist("my proxy inlet"));
-        Self {
+        Ok(Self {
             obj: builder.obj(),
-            value: Default::default(),
+            value: Int64::new(value),
             fvalue: Default::default(),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
             list_out: builder.outlet(Outlet::list().assist("my list out")),
-        }
+        })
     }
 
     //`class_setup` is still there, called after the methods are registered, for anything else
@@ -137,6 +145,16 @@ impl SimpExplicit {
             12f64.into(),
             SymbolRef::from(c"foo").into(),
         ]);
+    }
+}
+
+//the initial value: an int, or a float (truncated)
+fn initial_value(a: &Atom) -> Result<t_atom_long, String> {
+    match a.get_value() {
+        Some(AtomValue::Int(v)) => Ok(v),
+        Some(AtomValue::Float(v)) => Ok(v as t_atom_long),
+        Some(AtomValue::Symbol(s)) => Err(format!("the initial value must be a number, not {s}")),
+        _ => Err("the initial value must be a number".into()),
     }
 }
 

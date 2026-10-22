@@ -6,10 +6,10 @@ use median::prelude::*;
 pub struct Simp;
 
 impl MaxObjWrapped for Simp {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         builder.inlet(Inlet::signal());
         builder.outlet(Outlet::signal());
-        Simp
+        Ok(Simp)
     }
 }
 

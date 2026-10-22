@@ -12,13 +12,13 @@ pub struct MaxExtern {
 
 //implement the max object wrapper
 impl MaxObjWrapped for MaxExtern {
-    //create an instance of your object
-    //setup inlets/outlets and clocks
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
-        Self {
+    //create an instance of your object: set up inlets, outlets and clocks with the builder.
+    //Returning `Err` refuses to make the object (the error is posted to the Max console)
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Self {
             obj: builder.obj(),
             foo: Float64::new(0.0),
-        }
+        })
     }
 }
 

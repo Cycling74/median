@@ -37,15 +37,16 @@ pub struct Example {
 }
 
 impl MaxObjWrapped for Example {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    // `Err` (or `?`) refuses to make the object: the error is posted to the Max console
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         // inlets and outlets, left to right, each with an optional assist text
         builder.inlet(Inlet::default().assist("bang, int, list, set"));
         builder.inlet(Inlet::proxy().assist("bang, int"));
-        Self {
+        Ok(Self {
             obj: builder.obj(),
             value: Int64::new(0),
             out: builder.outlet(Outlet::list().assist("the list, reversed")),
-        }
+        })
     }
 }
 

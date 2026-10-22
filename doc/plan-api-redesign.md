@@ -570,6 +570,33 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     without signal inlets, description mistakes fail with nothing leaked), UI cases
     `outlet_not_clone` and `signal_iolets_on_max`, and the refusal of `inletinfo` on a
     half-built object.
-- [ ] 5. Fallible `new`
+- [x] 5. Fallible `new` (section E). `fn new(b: &mut MaxBuilder<Self>) -> Result<Self,
+  error::NewError>` (MSP likewise); every user is ported, `simp`/`simp_explicit` take an
+  optional initial value and refuse a symbol with `?` (tested through the shared script).
+  - `NewError` (in the prelude): `new(impl Display)`, `message()`, `Display`, `Debug`;
+    `From<String>`, `From<&str>`, `From<MaxError>`, `From<StackOverflow>`, boxed errors and
+    common std errors (`ParseIntError`, `ParseFloatError`, `TryFromIntError`, `Utf8Error`,
+    `FromUtf8Error`, `NulError`, `fmt::Error`, `io::Error`). Deviation: no blanket
+    `From<E: Error>`, which is incoherent next to `From<String>` (E0119: std may implement
+    `Error` for `String`); the docs say to use `.map_err(NewError::new)?` for other errors.
+    `NewError` deliberately does not implement `Error` (like `anyhow::Error`).
+  - The wrappers share one `construct`: allocate, `constructed = false`, a `Builder` (declared
+    after the `ObjBox`, so dropped first), `I::build` (`T::new`, then `finalize`), then write the
+    internals, `constructed = true` and `builder.commit()`. On `Err` (from `T::new` or a mistake
+    in the description, which is now an `Err` posted as `"median: ..."` instead of a panic) the
+    message is posted with `object_error` for the object, the builder is dropped (clocks, buffer
+    refs, proxies), the `ObjBox` frees the object (outlets and `intin`/`floatin` inlets go with
+    it, `free` sees it isn't constructed) and `new_tramp` returns null. The builder owes the
+    `z_dsp_free` from the moment `finalize` calls `z_dsp_setup` until `commit`, so a panic in
+    between (only median code runs there; tested with a `cfg(test)` injection point) pairs it;
+    afterwards `free_msp` does. That fixes the leak in plan-soundness-fixes' Status. An `Err`
+    from an MSP `new` happens before `z_dsp_setup`, so nothing needs pairing. `new_or_panic`
+    (the Rust-side `Wrapper::new`) panics with the message.
+  - Tests: `tests/new_error.rs` (Max and MSP `Err` give null and one error for the object, with
+    no live objects, clocks or buffer references left and no `z_dsp_free` needed; a panic in an
+    MSP `new` likewise), the wrapper unit test for a panic after `z_dsp_setup`, `NewError`
+    conversions, `simp`/`simp_explicit` arguments. `median-mock` gained
+    `live_buffer_ref_count`, and reports an object freed after `z_dsp_setup` without
+    `z_dsp_free` and an unfreed proxy, so every test checks those.
 - [ ] 6. `SymbolRef`, `BufferLocked`
 - [ ] 7. Clock/queue/fifo, attribute options

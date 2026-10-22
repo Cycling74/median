@@ -29,15 +29,15 @@ pub struct Marks {
 }
 
 impl MaxObjWrapped for Marks {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
-        Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Self {
             obj: builder.obj(),
             value: Int64::new(0),
             level: Float64::new(0.5),
             ratio: Float32::new(0.25),
             fvalue: Float64::new(0.),
             out: builder.outlet(Outlet::list()),
-        }
+        })
     }
 }
 
@@ -154,10 +154,10 @@ pub struct Reporter {
 }
 
 impl MaxObjWrapped for Reporter {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
-        Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Self {
             errors: builder.outlet(Outlet::any()),
-        }
+        })
     }
 
     fn report_error(&self, _obj: &ObjRef, err: &dyn Display) {
@@ -185,12 +185,12 @@ pub struct Gain {
 }
 
 impl MSPObjWrapped for Gain {
-    fn new(builder: &mut MSPBuilder<Self>) -> Self {
+    fn new(builder: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         builder.inlet(Inlet::signal());
         builder.outlet(Outlet::signal());
-        Self {
+        Ok(Self {
             gain: Float64::new(1.),
-        }
+        })
     }
 
     fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], _nframes: usize) {
@@ -215,8 +215,8 @@ impl Gain {
 pub struct Plain;
 
 impl MaxObjWrapped for Plain {
-    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
-        Plain
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Plain)
     }
 }
 
@@ -226,8 +226,8 @@ impl MaxObjWrapped for Plain {
 pub struct NoBox;
 
 impl MaxObjWrapped for NoBox {
-    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
-        NoBox
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(NoBox)
     }
 }
 
@@ -237,8 +237,8 @@ impl MaxObjWrapped for NoBox {
 pub struct Broken;
 
 impl MaxObjWrapped for Broken {
-    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
-        Broken
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Broken)
     }
 
     fn class_setup(_c: &mut Class<MaxObjWrapper<Self>>) {

@@ -15,20 +15,20 @@ pub struct HelloDSP {
 
 impl MSPObjWrapped for HelloDSP {
     //create some signal i/o
-    fn new(builder: &mut MSPBuilder<Self>) -> Self {
+    fn new(builder: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
         //signal inlets come first; without `.assist(..)` Max shows "signal"
         builder.inlet(Inlet::signal().assist("in left"));
         builder.inlet(Inlet::signal().assist("in right"));
         builder.outlet(Outlet::signal().assist("out left"));
         builder.outlet(Outlet::signal().assist("out right"));
-        Self {
+        Ok(Self {
             obj: builder.obj(),
             value: Int64::new(0),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
             buffer1: builder.with_buffer(None),
             buffer2: builder.with_buffer(None),
-        }
+        })
     }
 
     fn dsp_setup(&self, sample_rate: f64) {

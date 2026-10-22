@@ -1,4 +1,4 @@
-use median::prelude::*;
+use median::{atom::AtomValue, prelude::*};
 
 //the struct is an ordinary struct: `#[derive(MaxObject)]` makes it a Max class named "simp"
 //(the type name in lower case, or `#[max(name = "..")]`), with a `Simp::register()` that
@@ -22,7 +22,15 @@ pub struct Simp {
 impl MaxObjWrapped for Simp {
     //create an instance of your object
     //setup inlets/outlets and clocks
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    //`Err` refuses to make the object: the message is posted to the Max console and the box
+    //shows that it couldn't be created
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        //an optional argument: the initial value. `?` passes a bad one on as the error
+        let value = match builder.creation_args().first() {
+            Some(a) => initial_value(a)?,
+            None => 0,
+        };
+
         //inlets, left to right. Inlet 0 always exists, this gives it an assist text
         builder.inlet(Inlet::default().assist("first inlet"));
         //a float inlet that calls a closure
@@ -36,14 +44,14 @@ impl MaxObjWrapped for Simp {
         builder.inlet(Inlet::int(Self::int));
         //a proxy inlet: messages go to the usual methods, `self.obj.proxy_inlet()` says 3
         builder.inlet(Inlet::proxy().assist("my proxy inlet"));
-        Self {
+        Ok(Self {
             obj: builder.obj(),
-            value: Default::default(),
+            value: Int64::new(value),
             fvalue: Default::default(),
             _v: String::from("blah"),
             clock: builder.with_clockfn(Self::clocked),
             list_out: builder.outlet(Outlet::list().assist("my list out")),
-        }
+        })
     }
 }
 
@@ -119,6 +127,16 @@ impl Simp {
             self.fvalue.get().into(),
             SymbolRef::from(c"foo").into(),
         ]);
+    }
+}
+
+//the initial value: an int, or a float (truncated)
+fn initial_value(a: &Atom) -> Result<t_atom_long, String> {
+    match a.get_value() {
+        Some(AtomValue::Int(v)) => Ok(v),
+        Some(AtomValue::Float(v)) => Ok(v as t_atom_long),
+        Some(AtomValue::Symbol(s)) => Err(format!("the initial value must be a number, not {s}")),
+        _ => Err("the initial value must be a number".into()),
     }
 }
 

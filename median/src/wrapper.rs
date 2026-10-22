@@ -4,9 +4,9 @@
 use crate::{
     atom::Atom,
     buffer::BufferRef,
-    builder::{Builder, Iolets, MSPBuilder, ManagedBufferRefInternal, MaxBuilder},
+    builder::{Builder, BuilderKind, Iolets, MSPBuilder, ManagedBufferRefInternal, Max, MaxBuilder, Msp},
     class::{Class, ClassType},
-    error::MaxResult,
+    error::{MaxResult, NewError},
     clock::ClockShared,
     method::{MaxFree, MaxMethod},
     notify::Notification,
@@ -244,7 +244,12 @@ pub trait MaxObjWrapped:
     ///
     /// * `builder` - describes the inlets, makes the outlets, clocks and buffer references, and
     ///   hands out the object's [`ObjRef`]; see [`MaxBuilder`].
-    fn new(builder: &mut MaxBuilder<Self>) -> Self;
+    ///
+    /// Return `Err` to refuse to make the object (bad arguments, a missing resource): the
+    /// message is posted to the Max console for the object and Max shows the box as broken.
+    /// Everything made with the builder is released. `?` works on many error types, see
+    /// [`NewError`].
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError>;
 
     /// Register anything else your class needs (aliases, methods with computed names, ...),
     /// after the field attributes and the methods.
@@ -299,7 +304,9 @@ pub trait MSPObjWrapped:
     ///
     /// * `builder` - as for [`MaxObjWrapped::new`], plus signal inlets and outlets; see
     ///   [`MSPBuilder`].
-    fn new(builder: &mut MSPBuilder<Self>) -> Self;
+    ///
+    /// Return `Err` to refuse to make the object, as for [`MaxObjWrapped::new`].
+    fn new(builder: &mut MSPBuilder<Self>) -> Result<Self, NewError>;
 
     /// Perform DSP.
     fn perform(&self, ins: &[&[f64]], outs: &mut [&mut [f64]], nframes: usize);
@@ -426,10 +433,12 @@ mod sealed {
         fn wrapped(&self) -> &T;
         /// The clocks created for this object by the builder.
         fn clocks(&self) -> &[Arc<ClockShared>];
-        /// # Safety
-        /// `owner` must point to a valid, newly allocated object of type `O` that is being
-        /// constructed and that will outlive the returned value.
-        unsafe fn new(owner: *mut O, sym: SymbolRef, args: &[Atom]) -> Self;
+        /// The builder `T::new` gets.
+        type Kind: BuilderKind;
+        /// Run `T::new` and make the inlets: the internals, or why the object was refused.
+        /// Whatever the builder made is released when the builder is dropped, or (once the
+        /// caller commits it) when the object is freed.
+        fn build(builder: &mut Builder<T, Self::Kind>) -> Result<Self, String>;
         fn class_setup(class: &mut Class<Wrapper<O, Self, T>>);
 
         fn call_float(&self, index: usize, value: f64);
@@ -461,20 +470,16 @@ where
     fn clocks(&self) -> &[Arc<ClockShared>] {
         &self.clocks
     }
-    unsafe fn new(owner: *mut max_sys::t_object, sym: SymbolRef, args: &[Atom]) -> Self {
-        // SAFETY: the caller guarantees `owner` is valid and under construction
-        let mut builder: MaxBuilder<T> =
-            unsafe { Builder::new(std::ptr::NonNull::new_unchecked(owner), sym, args) };
-        let wrapped = T::new(&mut builder);
-        let iolets = builder
-            .finalize()
-            .unwrap_or_else(|e| panic!("{}", e));
-        Self {
+    type Kind = Max;
+    fn build(builder: &mut MaxBuilder<T>) -> Result<Self, String> {
+        let wrapped = T::new(builder).map_err(|e| e.to_string())?;
+        let iolets = builder.finalize()?;
+        Ok(Self {
             wrapped,
             iolets,
             buffer_refs: builder.take_buffer_refs(),
             clocks: builder.take_clocks(),
-        }
+        })
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
         register_members::<_, T>(class);
@@ -522,27 +527,25 @@ where
     fn clocks(&self) -> &[Arc<ClockShared>] {
         &self.clocks
     }
-    unsafe fn new(owner: *mut max_sys::t_pxobject, sym: SymbolRef, args: &[Atom]) -> Self {
-        // SAFETY: the caller guarantees `owner` is valid and under construction
-        let mut builder: MSPBuilder<T> =
-            unsafe { Builder::new(std::ptr::NonNull::new_unchecked(owner.cast()), sym, args) };
-        let wrapped = T::new(&mut builder);
-        let iolets = builder
-            .finalize()
-            .unwrap_or_else(|e| panic!("{}", e));
+    type Kind = Msp;
+    fn build(builder: &mut MSPBuilder<T>) -> Result<Self, String> {
+        let wrapped = T::new(builder).map_err(|e| e.to_string())?;
+        let iolets = builder.finalize()?;
+        #[cfg(test)]
+        tests::maybe_panic_after_finalize();
         // Always forbid in-place processing: `perform` is handed shared input slices and
         // mutable output slices at the same time, which must never overlap.
-        // SAFETY: the caller guarantees `owner` is valid and under construction
+        // SAFETY: the builder's object is a valid `t_pxobject` under construction
         unsafe {
-            (*owner).z_misc |= 1; //Z_NO_INPLACE;
+            (*builder.msp_obj()).z_misc |= 1; //Z_NO_INPLACE;
         }
-        Self {
+        Ok(Self {
             wrapped,
             panicked: AtomicBool::new(false),
             iolets,
             buffer_refs: builder.take_buffer_refs(),
             clocks: builder.take_clocks(),
-        }
+        })
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_pxobject, Self, T>>) {
         register_members::<_, T>(class);
@@ -723,19 +726,124 @@ where
     }
 }
 
-/// Look up the registered class for `key` and call `func` with it. `None` if the class isn't
-/// registered (or `func` returns `None`, e.g. because allocation failed).
-fn new_common<F, O>(key: &'static str, func: F) -> Option<O>
+/// The registered class for `key`, if there is one.
+fn registered_class(key: &'static str) -> Option<*mut max_sys::t_class> {
+    //the lock is released before the object is made, so its `new` may register classes
+    //a panic during registration can poison the lock, but the map is still consistent
+    let g = CLASSES.lock().unwrap_or_else(PoisonError::into_inner);
+    g.get(key).map(|c| c.0)
+}
+
+/// Why an object wasn't made.
+enum CreateError {
+    /// The class isn't registered, or Max didn't allocate the object.
+    Unavailable,
+    /// `T::new` returned `Err` (or the builder's description had a mistake); the message has
+    /// been posted for the object.
+    Refused(String),
+}
+
+impl<O, I, T> Wrapper<O, I, T>
 where
-    F: Fn(*mut max_sys::t_class) -> Option<O>,
+    I: WrapperInternal<O, T>,
+    Self: MaxObj,
 {
-    //unlock the mutex so we can register in the object init
-    let max_class = {
-        //a panic during registration can poison the lock, but the map is still consistent
-        let g = CLASSES.lock().unwrap_or_else(PoisonError::into_inner);
-        g.get(key)?.0
-    };
-    func(max_class)
+    /// Allocate an object of the class registered for `T`, run `T::new` with a builder, and
+    /// make the inlets.
+    ///
+    /// If `T::new` returns `Err` (or panics) the half-built object is freed: what the builder
+    /// made is dropped (clocks, buffer references, proxies; for MSP, `z_dsp_free` if
+    /// `z_dsp_setup` ran), then Max frees the object, whose `free` sees that it isn't
+    /// constructed. On `Err` the message is posted for the object first.
+    fn construct(sym: SymbolRef, args: &[Atom]) -> Result<ObjBox<Self>, CreateError> {
+        let max_class = registered_class(key::<T>()).ok_or(CreateError::Unavailable)?;
+        // SAFETY: `max_class` is the class registered for this wrapper type
+        let o: ObjBox<Self> =
+            unsafe { ObjBox::alloc(max_class) }.ok_or(CreateError::Unavailable)?;
+        // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its fields
+        // are uninitialised, so write without dropping the old values. If `T::new` panics or
+        // fails, `o` is dropped (after the builder) while `constructed` is false.
+        unsafe {
+            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false))
+        };
+        // SAFETY: the object is valid and under construction, and outlives the builder, which
+        // is declared after `o` so it is dropped first; `args` outlives it too
+        let mut builder: Builder<T, I::Kind> = unsafe {
+            Builder::new(std::ptr::NonNull::new_unchecked(o.max_obj()), sym, args)
+        };
+        let internal = match I::build(&mut builder) {
+            Ok(internal) => internal,
+            Err(msg) => {
+                // SAFETY: the object is still alive
+                unsafe { crate::object::error(o.max_obj(), msg.as_str()) };
+                return Err(CreateError::Refused(msg));
+            }
+        };
+        // SAFETY: as above
+        unsafe {
+            std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
+            (*o.as_ptr()).constructed.store(true, Ordering::Release);
+        }
+        //from here the object's `free` releases what the builder made
+        builder.commit();
+        drop(builder);
+        // SAFETY: `wrapped` is initialised; only now may clock callbacks run
+        unsafe { Self::arm_clocks(o.as_ptr()) };
+        //process attribute arguments
+        //TODO optionally don't process?
+        // SAFETY: `o` is a live, constructed object; Max doesn't write to the atoms
+        unsafe {
+            max_sys::attr_args_process(
+                o.max_obj() as _,
+                args.len() as _,
+                args.as_ptr() as *const max_sys::t_atom as *mut max_sys::t_atom,
+            );
+        }
+        Ok(o)
+    }
+
+    /// The `new` method Max calls.
+    ///
+    /// # Safety
+    /// `sym` must be a symbol and `argv` null or valid for `argc` atoms, as Max passes them.
+    unsafe fn new_tramp_common(
+        sym: *mut max_sys::t_symbol,
+        argc: c_long,
+        argv: *const max_sys::t_atom,
+    ) -> *mut c_void {
+        //a panic (in `T::new` or elsewhere) is posted to the console and Max gets null, which
+        //makes it report that the object couldn't be created. Unwinding drops the builder
+        //(releasing what it made) and the `ObjBox`, which frees the half-built object;
+        //`free_wrapped` knows not to drop the internals.
+        crate::ffi::guard_global(key::<T>(), std::ptr::null_mut(), || {
+            // SAFETY: the caller's contract
+            let sym: SymbolRef = unsafe { SymbolRef::from_raw(sym) };
+            let args: &[Atom] = if argc > 0 && !argv.is_null() {
+                // SAFETY: the caller's contract; `Atom` is a transparent `t_atom`
+                unsafe { std::slice::from_raw_parts(argv.cast::<Atom>(), argc as usize) }
+            } else {
+                &[]
+            };
+            match Self::construct(sym, args) {
+                Ok(o) => ObjBox::into_raw(o).cast::<c_void>(),
+                //posted for the object already
+                Err(CreateError::Refused(_)) => std::ptr::null_mut(),
+                Err(CreateError::Unavailable) => {
+                    crate::max::error(format!("median: failed to create {}", key::<T>()));
+                    std::ptr::null_mut()
+                }
+            }
+        })
+    }
+
+    /// `construct`, panicking on failure.
+    fn new_or_panic(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
+        match Self::construct(sym, args) {
+            Ok(o) => o,
+            Err(CreateError::Unavailable) => panic!("failed to create {}", key::<T>()),
+            Err(CreateError::Refused(msg)) => panic!("failed to create {}: {}", key::<T>(), msg),
+        }
+    }
 }
 
 impl<O, I, T> WrapperWrapped<T> for Wrapper<O, I, T>
@@ -1027,38 +1135,24 @@ where
         );
     }
 
-    /// A method for Max to create an instance of your class.
+    /// A method for Max to create an instance of your class. Null if `T::new` returned `Err`
+    /// (the error is posted for the object) or panicked (the panic is posted).
+    ///
+    /// # Safety
+    /// `sym` must be a symbol and `argv` null or valid for `argc` atoms, as Max passes them.
     pub unsafe extern "C" fn new_tramp(
         sym: *mut max_sys::t_symbol,
         argc: c_long,
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
-        //a panic (in `T::new` or elsewhere) is posted to the console and Max gets null, which
-        //makes it report that the object couldn't be created. Unwinding drops the `ObjBox`,
-        //which frees the half-built object; `free_wrapped` knows not to drop the internals.
-        crate::ffi::guard_global(key::<T>(), std::ptr::null_mut(), || unsafe {
-            let sym: SymbolRef = SymbolRef::from_raw(sym);
-            let args = if argc > 0 && !argv.is_null() {
-                std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
-            } else {
-                &[]
-            };
-            match Self::try_new(sym, &args) {
-                Some(o) => {
-                    std::mem::transmute::<_, _>(ObjBox::into_raw(o))
-                }
-                None => {
-                    crate::max::error(format!("median: failed to create {}", key::<T>()));
-                    std::ptr::null_mut()
-                }
-            }
-        })
+        // SAFETY: the caller's contract
+        unsafe { Self::new_tramp_common(sym, argc, argv) }
     }
 
     /// Create an instance of the wrapper, on the heap, with no arguments.
     ///
     /// # Panics
-    /// If the class isn't registered or Max fails to allocate the object.
+    /// As [`new`](Self::new).
     pub fn new_noargs() -> ObjBox<Self> {
         Self::new(SymbolRef::default(), &[])
     }
@@ -1066,36 +1160,10 @@ where
     /// Create an instance of the wrapper, on the heap.
     ///
     /// # Panics
-    /// If the class isn't registered or Max fails to allocate the object.
+    /// If the class isn't registered, Max fails to allocate the object, or `T::new` returns
+    /// `Err` (which is also posted for the object).
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
-        match Self::try_new(sym, args) {
-            Some(o) => o,
-            None => panic!("failed to create {}", key::<T>()),
-        }
-    }
-
-    /// Like `new`, but `None` if the class isn't registered or Max fails to allocate.
-    fn try_new(sym: SymbolRef, args: &[Atom]) -> Option<ObjBox<Self>> {
-        new_common(key::<T>(), |max_class| unsafe {
-            let o: ObjBox<Self> = ObjBox::alloc(max_class)?;
-            // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
-            // fields are uninitialised, so write without dropping the old values. If
-            // `new` panics, `o` is dropped while `constructed` is false.
-            std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false));
-            let internal = MaxWrapperInternal::<T>::new(o.max_obj(), sym.clone(), args);
-            std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
-            (*o.as_ptr()).constructed.store(true, Ordering::Release);
-            //only now that `wrapped` is initialised may clock callbacks run
-            Self::arm_clocks(o.as_ptr());
-            //process attribute arguments
-            //TODO optionally don't process?
-            max_sys::attr_args_process(
-                o.max_obj() as _,
-                args.len() as _,
-                std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
-            );
-            Some(o)
-        })
+        Self::new_or_panic(sym, args)
     }
 
     extern "C" fn handle_notification_tramp(
@@ -1190,69 +1258,27 @@ where
         );
     }
 
-    /// A method for Max to create an instance of your class.
+    /// A method for Max to create an instance of your class. Null if `T::new` returned `Err`
+    /// (the error is posted for the object) or panicked (the panic is posted).
+    ///
+    /// # Safety
+    /// `sym` must be a symbol and `argv` null or valid for `argc` atoms, as Max passes them.
     pub unsafe extern "C" fn new_tramp(
         sym: *mut max_sys::t_symbol,
         argc: c_long,
         argv: *const max_sys::t_atom,
     ) -> *mut c_void {
-        //a panic (in `T::new` or elsewhere) is posted to the console and Max gets null, which
-        //makes it report that the object couldn't be created. Unwinding drops the `ObjBox`,
-        //which frees the half-built object; `free_wrapped` knows not to drop the internals.
-        crate::ffi::guard_global(key::<T>(), std::ptr::null_mut(), || unsafe {
-            let sym: SymbolRef = SymbolRef::from_raw(sym);
-            let args = if argc > 0 && !argv.is_null() {
-                std::slice::from_raw_parts(std::mem::transmute::<_, _>(argv), argc as usize)
-            } else {
-                &[]
-            };
-            match Self::try_new(sym, &args) {
-                Some(o) => {
-                    std::mem::transmute::<_, _>(ObjBox::into_raw(o))
-                }
-                None => {
-                    crate::max::error(format!("median: failed to create {}", key::<T>()));
-                    std::ptr::null_mut()
-                }
-            }
-        })
+        // SAFETY: the caller's contract
+        unsafe { Self::new_tramp_common(sym, argc, argv) }
     }
 
     /// Create an instance of the wrapper, on the heap.
     ///
     /// # Panics
-    /// If the class isn't registered or Max fails to allocate the object.
+    /// If the class isn't registered, Max fails to allocate the object, or `T::new` returns
+    /// `Err` (which is also posted for the object).
     pub fn new(sym: SymbolRef, args: &[Atom]) -> ObjBox<Self> {
-        match Self::try_new(sym, args) {
-            Some(o) => o,
-            None => panic!("failed to create {}", key::<T>()),
-        }
-    }
-
-    /// Like `new`, but `None` if the class isn't registered or Max fails to allocate.
-    fn try_new(sym: SymbolRef, args: &[Atom]) -> Option<ObjBox<Self>> {
-        unsafe {
-            new_common(key::<T>(), |max_class| {
-                let o: ObjBox<Self> = ObjBox::alloc(max_class)?;
-                // SAFETY: `o` is a live, newly allocated wrapper that Max has not seen yet; its
-                // fields are uninitialised, so write without dropping the old values. If
-                // `new` panics, `o` is dropped while `constructed` is false.
-                std::ptr::addr_of_mut!((*o.as_ptr()).constructed).write(AtomicBool::new(false));
-                let internal = MSPWrapperInternal::<T>::new(o.msp_obj(), sym.clone(), args);
-                std::ptr::addr_of_mut!((*o.as_ptr()).wrapped).write(MaybeUninit::new(internal));
-                (*o.as_ptr()).constructed.store(true, Ordering::Release);
-                //only now that `wrapped` is initialised may clock callbacks run
-                Self::arm_clocks(o.as_ptr());
-                //process attribute arguments
-                //TODO optionally don't process?
-                max_sys::attr_args_process(
-                    o.max_obj() as _,
-                    args.len() as _,
-                    std::mem::transmute::<_, _>(args.as_ptr()), //casts to mutable but max doesn't mutate
-                );
-                Some(o)
-            })
-        }
+        Self::new_or_panic(sym, args)
     }
 
     extern "C" fn free_msp(this: *mut Self) {
@@ -1416,6 +1442,70 @@ mod tests {
     /// Counts the calls of the user's code that got through.
     static RAN: AtomicUsize = AtomicUsize::new(0);
 
+    /// Set by a test to make the next MSP construction panic right after the builder has made
+    /// the inlets (so after `z_dsp_setup`), which no user code can do.
+    static PANIC_AFTER_FINALIZE: AtomicBool = AtomicBool::new(false);
+
+    pub(super) fn maybe_panic_after_finalize() {
+        if PANIC_AFTER_FINALIZE.swap(false, Ordering::SeqCst) {
+            panic!("injected after z_dsp_setup");
+        }
+    }
+
+    /// An MSP class with two signal inlets, a proxy and a clock.
+    struct R {
+        _clock: crate::clock::ClockHandle,
+    }
+
+    impl ObjClass for R {
+        type Wrapper = MSPObjWrapper<Self>;
+        fn class_name() -> &'static CStr {
+            c"median.test.r~"
+        }
+    }
+    impl Methods for R {}
+    impl FieldAttrs for R {}
+
+    impl MSPObjWrapped for R {
+        fn new(b: &mut MSPBuilder<R>) -> Result<Self, NewError> {
+            b.inlet(crate::inlet::Inlet::signal());
+            b.inlet(crate::inlet::Inlet::signal());
+            b.inlet(crate::inlet::Inlet::proxy());
+            Ok(R {
+                _clock: b.with_clockfn(|_| {}),
+            })
+        }
+        fn perform(&self, _: &[&[f64]], _: &mut [&mut [f64]], _: usize) {}
+    }
+
+    #[test]
+    fn a_panic_after_dsp_setup_frees_dsp_and_everything_else() {
+        let k = median_mock::lock();
+        MSPObjWrapper::<R>::register();
+        let clocks = k.live_clock_count();
+        PANIC_AFTER_FINALIZE.store(true, Ordering::SeqCst);
+        let obj = k.new_object("median.test.r~", &[]);
+        assert!(obj.is_null());
+        let log = k.take_console_log();
+        assert_eq!(log.len(), 1, "{log:?}");
+        assert!(log[0].text.contains("injected after z_dsp_setup"), "{log:?}");
+        //`z_dsp_setup` was paired with `z_dsp_free`, the proxy and the clock were freed (the
+        //kernel reports an unpaired setup or a leaked proxy on the console)
+        assert_eq!(k.dsp_frees().len(), 1);
+        assert_eq!(k.live_object_count(), 0);
+        assert_eq!(k.live_clock_count(), clocks);
+
+        //and without the panic: the object's `free` does it, once
+        let obj = k.new_object("median.test.r~", &[]);
+        assert!(!obj.is_null());
+        assert_eq!(k.inlets(obj).len(), 2);
+        assert!(k.free_object(obj));
+        assert_eq!(k.dsp_frees().len(), 2);
+        assert_eq!(k.dsp_frees()[1], obj as usize);
+        assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+        assert_eq!(k.live_clock_count(), clocks);
+    }
+
     struct P;
 
     impl ObjClass for P {
@@ -1428,8 +1518,8 @@ mod tests {
     impl FieldAttrs for P {}
 
     impl MaxObjWrapped for P {
-        fn new(_builder: &mut MaxBuilder<P>) -> Self {
-            P
+        fn new(_builder: &mut MaxBuilder<P>) -> Result<Self, NewError> {
+            Ok(P)
         }
         fn handle_notification(&self, _n: &Notification) {
             RAN.fetch_add(1, Ordering::SeqCst);
@@ -1457,8 +1547,8 @@ mod tests {
     impl FieldAttrs for Q {}
 
     impl MSPObjWrapped for Q {
-        fn new(_builder: &mut MSPBuilder<Q>) -> Self {
-            Q
+        fn new(_builder: &mut MSPBuilder<Q>) -> Result<Self, NewError> {
+            Ok(Q)
         }
         fn perform(&self, _: &[&[f64]], _: &mut [&mut [f64]], _: usize) {
             RAN.fetch_add(1, Ordering::SeqCst);

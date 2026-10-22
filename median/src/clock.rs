@@ -157,10 +157,10 @@ impl Methods for ClockInner {}
 impl FieldAttrs for ClockInner {}
 
 impl MaxObjWrapped for ClockInner {
-    fn new(_builder: &mut MaxBuilder<Self>) -> Self {
-        Self {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, crate::error::NewError> {
+        Ok(Self {
             shared: Arc::new(ClockShared::new()),
-        }
+        })
     }
 }
 

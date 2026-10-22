@@ -19,15 +19,15 @@
 //! }
 //!
 //! impl MaxObjWrapped for Example {
-//!     fn new(builder: &mut MaxBuilder<Self>) -> Self {
+//!     fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
 //!         builder.inlet(Inlet::default().assist("bang, int, list, set"));
 //!         builder.inlet(Inlet::proxy().assist("bang, int"));
-//!         Self {
+//!         Ok(Self {
 //!             obj: builder.obj(),
 //!             value: Int64::new(0),
 //!             ratio: Float64::new(1.),
 //!             out: builder.outlet(Outlet::list().assist("the list, reversed")),
-//!         }
+//!         })
 //!     }
 //! }
 //!
@@ -100,6 +100,14 @@
 //! [`AttrField`](attr::AttrField), as the [`num`] atomics do. Options: `name = ".."` (default: the
 //! field name), `clip(min, max)`, `readonly`. Other attribute options (label, style, category,
 //! order, default, save, enum) are not supported yet, and are rejected.
+//!
+//! # Construction
+//!
+//! `new` returns `Result<Self, NewError>`. An `Err` refuses to make the object, as a C external's
+//! `new` returning null does: the message is posted to the Max console for the object, Max shows
+//! the box as broken, and everything made with the builder (outlets, inlets, clocks, buffer
+//! references) is released. `?` works on strings and many error types, see
+//! [`NewError`](error::NewError). A panic in `new` is caught and posted the same way.
 //!
 //! # Inlets and outlets
 //!
@@ -198,7 +206,7 @@ pub use median_macros::methods;
 /// # #[max(no_methods)]
 /// # pub struct Simp;
 /// # impl MaxObjWrapped for Simp {
-/// #     fn new(_builder: &mut MaxBuilder<Self>) -> Self { Simp }
+/// #     fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> { Ok(Simp) }
 /// # }
 /// median::ext_main! { Simp }
 /// ```
@@ -229,7 +237,7 @@ pub mod prelude {
         builder::{MSPBuilder, MaxBuilder},
         class::{Class, ClassType},
         clock::ClockHandle,
-        error::MaxResult,
+        error::{MaxResult, NewError},
         inlet::{Inlet, InletId},
         max_sys::t_atom_long,
         num::{Float32, Float64, Int64},

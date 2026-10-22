@@ -8,10 +8,10 @@ pub struct Simp {
 }
 
 impl MaxObjWrapped for Simp {
-    fn new(builder: &mut MaxBuilder<Self>) -> Self {
+    fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         let out = builder.outlet(Outlet::list());
         let _copy = out.clone();
-        Self { out }
+        Ok(Self { out })
     }
 }
 
