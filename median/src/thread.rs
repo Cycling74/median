@@ -44,7 +44,7 @@ pub unsafe fn defer(
         let _ = max_sys::defer(
             obj as _,
             Some(std::mem::transmute::<_, _>(method)),
-            sym.inner(),
+            sym.as_ptr(),
             args.len().min(std::os::raw::c_short::MAX as usize) as _,
             std::mem::transmute::<_, _>(args.as_ptr()), //should have been const in max_sys
         );
@@ -78,7 +78,7 @@ pub unsafe fn defer_low(
         let _ = max_sys::defer_low(
             obj as _,
             Some(std::mem::transmute::<_, _>(method)),
-            sym.inner(),
+            sym.as_ptr(),
             args.len().min(std::os::raw::c_short::MAX as usize) as _,
             std::mem::transmute::<_, _>(args.as_ptr()), //should have been const in max_sys
         );

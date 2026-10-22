@@ -179,7 +179,7 @@ impl From<&SymbolRef> for Atom {
     fn from(v: &SymbolRef) -> Self {
         unsafe {
             let mut s = Self::zeroed();
-            s.set_symbol(v.clone());
+            s.set_symbol(*v);
             s
         }
     }

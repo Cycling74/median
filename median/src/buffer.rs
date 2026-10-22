@@ -82,7 +82,7 @@ impl BufferRef {
     pub unsafe fn new(owner: *mut max_sys::t_object, name: Option<SymbolRef>) -> Self {
         let name = name.unwrap_or_default();
         // SAFETY: the caller guarantees `owner` is valid, and `name` holds a valid symbol
-        let value = unsafe { max_sys::buffer_ref_new(owner, name.inner()) } as _;
+        let value = unsafe { max_sys::buffer_ref_new(owner, name.as_ptr()) } as _;
         Self {
             inner: parking_lot::Mutex::new(BufInner {
                 value,
@@ -130,7 +130,7 @@ impl BufferRef {
         unsafe {
             max_sys::object_method(
                 notification.data(),
-                GET_NAME.inner(),
+                GET_NAME.as_ptr(),
                 &raw mut name as *mut c_void,
             );
         }
@@ -143,8 +143,8 @@ impl BufferRef {
                 unsafe {
                     max_sys::buffer_ref_notify(
                         inner.value,
-                        notification.sender_name().inner(),
-                        notification.message().inner(),
+                        notification.sender_name().as_ptr(),
+                        notification.message().as_ptr(),
                         notification.sender(),
                         notification.data(),
                     );
@@ -171,8 +171,8 @@ impl BufferReference for BufferRef {
     /// Set this buffer reference's buffer name, associating it with a different buffer.
     fn set(&self, name: SymbolRef) {
         self.with_lock(|inner| unsafe {
-            inner.buffer_name.assign(&name);
-            max_sys::buffer_ref_set(inner.value, inner.buffer_name.inner());
+            inner.buffer_name = name;
+            max_sys::buffer_ref_set(inner.value, name.as_ptr());
         });
     }
 

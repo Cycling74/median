@@ -231,7 +231,7 @@ macro_rules! ext_main {
 /// The common imports for writing an external: `use median::prelude::*;`.
 pub mod prelude {
     pub use crate::{
-        MaxObject, ext_main, methods, object_error, object_post, object_warn, post,
+        MaxObject, ext_main, methods, object_error, object_post, object_warn, post, sym,
         atom::Atom,
         attr::AttrOptions,
         builder::{MSPBuilder, MaxBuilder},

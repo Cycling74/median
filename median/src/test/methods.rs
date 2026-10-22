@@ -134,7 +134,7 @@ fn describe(a: &[Atom]) -> String {
 }
 
 fn name(s: &SymbolRef) -> String {
-    s.to_cstring().to_str().unwrap().to_string()
+    s.to_str().unwrap().to_string()
 }
 
 type Gimme = extern "C" fn(&W, *mut max_sys::t_symbol, c_long, *const max_sys::t_atom);
@@ -299,7 +299,7 @@ fn sel_args() {
     };
     f(&w, std::ptr::null_mut());
     //and that is a real symbol, not null
-    assert!(!unsafe { SymbolRef::default().inner() }.is_null());
+    assert!(!SymbolRef::default().as_ptr().is_null());
     assert_eq!(w.t.take(), ["zero", "set abc", "set ", "nothing true"]);
 
     let f: extern "C" fn(&W, t_atom_long, *mut max_sys::t_symbol) =

@@ -297,7 +297,7 @@ impl Outlet<Any> {
     pub fn send(&self, sel: &SymbolRef, atoms: &[Atom]) -> SendResult {
         // SAFETY: as in `Outlet<List>::send`
         self.send_with(|o| unsafe {
-            max_sys::outlet_anything(o as _, sel.inner(), list_len(atoms), atoms_ptr(atoms))
+            max_sys::outlet_anything(o as _, sel.as_ptr(), list_len(atoms), atoms_ptr(atoms))
         })
     }
 

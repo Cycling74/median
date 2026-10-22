@@ -104,12 +104,12 @@ impl FilePath {
             };
 
             //copy the name into the space we have, leaving room for the terminating NUL
-            let name = name.to_cstring().into_bytes();
+            let name = name.name().to_bytes();
             if name.len() >= MAX_PATH_CHARS {
                 return Err(LocateError::NameTooLong);
             }
             for (f, n) in file_name.iter_mut().zip(name) {
-                *f = n as c_char;
+                *f = *n as c_char;
             }
 
             unsafe {

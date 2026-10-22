@@ -162,7 +162,7 @@ impl ObjRef {
         MaxError::from(
             // SAFETY: `self` is a live object, see `from_raw`
             unsafe {
-                max_sys::object_notify(self.as_ptr() as _, msg.inner(), std::ptr::null_mut()) as _
+                max_sys::object_notify(self.as_ptr() as _, msg.as_ptr(), std::ptr::null_mut()) as _
             },
             (),
         )

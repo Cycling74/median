@@ -453,7 +453,7 @@ pub unsafe fn touch_with_name<I: Into<SymbolRef>>(
     name: I,
 ) -> MaxResult<()> {
     MaxError::from(
-        unsafe { max_sys::object_attr_touch(owner, name.into().inner()) as _ },
+        unsafe { max_sys::object_attr_touch(owner, name.into().as_ptr()) as _ },
         (),
     )
 }

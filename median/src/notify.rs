@@ -106,10 +106,10 @@ impl Registration {
         name: SymbolRef,
     ) -> Result<Registration, RegistrationError> {
         // SAFETY: the symbols are valid, and the caller guarantees `obj` is a valid object
-        if unsafe { max_sys::object_findregistered(namespace.inner(), name.inner()) }.is_null() {
+        if unsafe { max_sys::object_findregistered(namespace.as_ptr(), name.as_ptr()) }.is_null() {
             // SAFETY: as above
             let inner =
-                unsafe { max_sys::object_register(namespace.inner(), name.inner(), obj as _) };
+                unsafe { max_sys::object_register(namespace.as_ptr(), name.as_ptr(), obj as _) };
             if inner.is_null() {
                 Err(RegistrationError::Failed)
             } else {
@@ -133,7 +133,7 @@ impl Subscription {
         let class_name = class_name.unwrap_or_default();
         // SAFETY: the symbols are valid, and the caller guarantees `client` is a valid object
         let _ = unsafe {
-            max_sys::object_subscribe(namespace.inner(), name.inner(), class_name.inner(), client)
+            max_sys::object_subscribe(namespace.as_ptr(), name.as_ptr(), class_name.as_ptr(), client)
         };
         Self {
             namespace,
@@ -152,7 +152,7 @@ impl Attachment {
         name: SymbolRef,
     ) -> Result<Self, AttachmentError> {
         // SAFETY: the symbols are valid, and the caller guarantees `client` is a valid object
-        let p = unsafe { max_sys::object_attach(namespace.inner(), name.inner(), client as _) };
+        let p = unsafe { max_sys::object_attach(namespace.as_ptr(), name.as_ptr(), client as _) };
         if p.is_null() {
             Err(AttachmentError::NotFound)
         } else {
@@ -177,9 +177,9 @@ impl Drop for Subscription {
     fn drop(&mut self) {
         unsafe {
             let _ = max_sys::object_unsubscribe(
-                self.namespace.inner(),
-                self.name.inner(),
-                self.class_name.inner(),
+                self.namespace.as_ptr(),
+                self.name.as_ptr(),
+                self.class_name.as_ptr(),
                 self.client,
             );
         }
@@ -190,7 +190,7 @@ impl Drop for Attachment {
     fn drop(&mut self) {
         unsafe {
             let _ =
-                max_sys::object_detach(self.namespace.inner(), self.name.inner(), self.client as _);
+                max_sys::object_detach(self.namespace.as_ptr(), self.name.as_ptr(), self.client as _);
         }
     }
 }

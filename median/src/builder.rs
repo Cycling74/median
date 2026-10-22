@@ -212,7 +212,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
 
     /// Get the symbol that was used to create this object.
     pub fn creation_symbol(&self) -> SymbolRef {
-        self.sym.clone()
+        self.sym
     }
 
     /// Get a handle to the object under construction. Store it in your struct to post, touch
