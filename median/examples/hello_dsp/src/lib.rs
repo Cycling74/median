@@ -31,6 +31,13 @@ impl MSPObjWrapped for HelloDSP {
         })
     }
 
+    //registered after the `#[median::methods]` impl
+    fn class_setup(c: &mut Class<MSPObjWrapper<Self>>) {
+        //`set <name>` points buffer1 at another buffer~, double-clicking the box opens its window
+        c.add_buffer_messages(|s: &Self| &*s.buffer1)
+            .expect("set and dblclick");
+    }
+
     fn dsp_setup(&self, sample_rate: f64) {
         median::object_post!(&self.obj, "sample rate: {}", sample_rate);
     }
@@ -42,8 +49,18 @@ impl MSPObjWrapped for HelloDSP {
         for o in outs[0].iter_mut() {
             *o = c;
         }
-        for o in outs[1].iter_mut() {
-            *o = 1f64;
+        //the right outlet: the first channel of buffer1 from its start (repeated if the buffer
+        //is shorter than the vector), or 1 without a buffer. `try_lock` neither allocates nor
+        //locks; the claim is released when `buf` goes out of scope.
+        match self.buffer1.try_lock() {
+            Ok(buf) if buf.frames() > 0 && buf.channels() > 0 => {
+                //interleaved data: a channel is a strided view
+                for (o, s) in outs[1].iter_mut().zip(buf.channel_iter(0).cycle()) {
+                    *o = s.get() as f64;
+                }
+            }
+            Ok(_) => outs[1].fill(0f64),
+            Err(_) => outs[1].fill(1f64),
         }
     }
 }
@@ -54,12 +71,6 @@ impl HelloDSP {
     pub fn bang(&self) {
         median::object_post!(&self.obj, "from rust {}", self.value);
         self.clock.delay(10);
-    }
-
-    //a "set" selector method with a single symbol argument
-    #[sel("set")]
-    pub fn set(&self, name: SymbolRef) {
-        self.buffer1.set(name);
     }
 
     #[int]

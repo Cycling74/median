@@ -1,4 +1,5 @@
-//! The `hello_dsp` example: an MSP object with a field attribute and a `#[sel]` method.
+//! The `hello_dsp` example: an MSP object with a field attribute, methods, and a buffer it plays
+//! (with the `set`/`dblclick` messages from `Class::add_buffer_messages`).
 
 #[path = "../examples/hello_dsp/src/lib.rs"]
 mod hello_dsp;
@@ -33,5 +34,19 @@ fn hello_dsp_performs_and_has_its_attribute_and_methods() {
     let mut outs = vec![vec![9.; 2], vec![9.; 2]];
     adds[0].run(&mut ins, &mut outs);
     assert_eq!(outs, [[0., 0.], [1., 1.]]);
+    //with a buffer: the right outlet plays its first channel (the data is interleaved), repeated
+    //over the vector; the left counts the buffers that exist
+    k.create_buffer("tbl", 2, 3, 44100.);
+    k.set_buffer_samples("tbl", &[1., -1., 2., -2., 3., -3.]);
+    k.send(obj, "set", &[Atom::Sym("tbl".into())]).unwrap();
+    let mut ins = vec![vec![0.; 4], vec![0.; 4]];
+    let mut outs = vec![vec![9.; 4], vec![9.; 4]];
+    adds[0].run(&mut ins, &mut outs);
+    assert_eq!(outs, [[1., 1., 1., 1.], [1., 2., 3., 1.]]);
+    assert_eq!(k.buffer_state("tbl"), Some((0, false)));
+    //double-click opens it
+    assert!(k.dblclick(obj));
+    assert_eq!(k.buffer_views(), ["tbl"]);
+    assert!(k.take_console_log().is_empty());
     assert!(k.free_object(obj));
 }
