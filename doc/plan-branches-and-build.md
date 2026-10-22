@@ -98,8 +98,7 @@ With the redesign (step 2, §J):
   `median` version in `Cargo.toml`, or vendor the file into the template and bump on release.
 - Consider replacing cargo-make with an `xtask` crate (`cargo xtask package|install|universal`):
   one Rust file, no external tool, readable error messages, trivially testable. Keep the task
-  names. If cargo-make stays, add `MAX_VERSION` as `env_not_set`-conditional, add
-  `Info.plist` to the `.mxo`, and make the `build` task dispatch on all platforms.
+  names. If cargo-make stays, add `Info.plist` to the `.mxo` (`MAX_VERSION` is done, see 3c), and make the `build` task dispatch on all platforms.
 - Code signing stays ad hoc (`codesign -s -`) unless identities are configured; document
   notarization as out of scope.
 - Add `package-info.json` generation (name, version, platforms) like min's `package-info.json.in`.
