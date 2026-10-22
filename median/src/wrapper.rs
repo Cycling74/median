@@ -291,7 +291,7 @@ pub trait MaxObjWrapped:
 
     /// Whether inlet `index` is hot (Max draws hot inlets differently), computed when Max asks.
     /// `None` (the default) uses the builder's: inlet 0 and the inlets marked
-    /// [`hot`](crate::inlet::Inlet::hot) are hot. The same rules as for
+    /// [`hot`](crate::inlet::Inlet::hot) are hot, unless marked [`cold`](crate::inlet::Inlet::cold). The same rules as for
     /// [`assist`](Self::assist) apply: main thread, often, no locks the other threads hold.
     fn inlet_hot(&self, _index: usize) -> Option<bool> {
         None

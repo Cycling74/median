@@ -102,7 +102,7 @@ struct InletEntry<T> {
     id: usize,
     kind: InletKind<T>,
     assist: Option<Box<str>>,
-    hot: bool,
+    hot: Option<bool>,
 }
 
 impl<T, K: BuilderKind> Builder<T, K> {
@@ -514,7 +514,7 @@ impl<T, K: BuilderKind> Builder<T, K> {
         for e in entries.into_iter().rev() {
             let info = &mut inlets[e.position];
             info.assist = e.assist;
-            info.hot = info.hot || e.hot;
+            info.hot = e.hot.unwrap_or(info.hot);
             match e.kind {
                 InletKind::Default => {}
                 InletKind::Signal => info.default = "signal".into(),

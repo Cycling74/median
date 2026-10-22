@@ -584,6 +584,9 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     without signal inlets, description mistakes fail with nothing leaked), UI cases
     `outlet_not_clone` and `signal_iolets_on_max`, and the refusal of `inletinfo` on a
     half-built object.
+  Added 2026-10-22: `Inlet::cold()` (and `SignalInlet::cold()`), so inlet 0 can be declared cold
+  (a control inlet, like `gate`'s left one); the last of `.hot()`/`.cold()` wins, and the
+  `inlet_hot` hook still overrides both.
 - [x] 5. Fallible `new` (section E). `fn new(b: &mut MaxBuilder<Self>) -> Result<Self,
   error::NewError>` (MSP likewise); every user is ported, `simp`/`simp_explicit` take an
   optional initial value and refuse a symbol with `?` (tested through the shared script).

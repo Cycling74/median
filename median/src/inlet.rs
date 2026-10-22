@@ -62,14 +62,15 @@ pub(crate) enum InletKind<T> {
 pub struct Inlet<T> {
     pub(crate) kind: InletKind<T>,
     pub(crate) assist: Option<Box<str>>,
-    pub(crate) hot: bool,
+    /// `None`: the default, inlet 0 hot and the others cold
+    pub(crate) hot: Option<bool>,
 }
 
 /// The description of a signal inlet, from [`Inlet::signal`]. MSP objects only: a Max object's
 /// builder does not take it.
 pub struct SignalInlet<T> {
     assist: Option<Box<str>>,
-    hot: bool,
+    hot: Option<bool>,
     _t: PhantomData<fn(&T)>,
 }
 
@@ -86,7 +87,7 @@ impl<T> Inlet<T> {
         Self {
             kind,
             assist: None,
-            hot: false,
+            hot: None,
         }
     }
 
@@ -116,7 +117,7 @@ impl<T> Inlet<T> {
     pub fn signal() -> SignalInlet<T> {
         SignalInlet {
             assist: None,
-            hot: false,
+            hot: None,
             _t: PhantomData,
         }
     }
@@ -130,7 +131,16 @@ impl<T> Inlet<T> {
     /// Mark the inlet hot: Max draws it as an inlet that makes the object output (inlet 0 is
     /// hot without this).
     pub fn hot(mut self) -> Self {
-        self.hot = true;
+        self.hot = Some(true);
+        self
+    }
+
+    /// Mark the inlet cold: Max draws it as an inlet that doesn't make the object output (every
+    /// inlet but inlet 0 is cold without this). For inlet 0, e.g. a control inlet like `gate`'s
+    /// left one: `Inlet::default().cold()`. Only what Max reports and draws changes, not which
+    /// messages the inlet accepts. To change it at run time, see the `inlet_hot` hook.
+    pub fn cold(mut self) -> Self {
+        self.hot = Some(false);
         self
     }
 }
@@ -144,7 +154,13 @@ impl<T> SignalInlet<T> {
 
     /// As [`Inlet::hot`].
     pub fn hot(mut self) -> Self {
-        self.hot = true;
+        self.hot = Some(true);
+        self
+    }
+
+    /// As [`Inlet::cold`].
+    pub fn cold(mut self) -> Self {
+        self.hot = Some(false);
         self
     }
 }
