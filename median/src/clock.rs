@@ -58,7 +58,7 @@ use parking_lot::{Mutex, ReentrantMutex};
 use std::{
     ffi::{CStr, c_long, c_void},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     },
 };
@@ -188,11 +188,12 @@ impl ClockShared {
     /// Wait for an in-flight callback to finish and make all later callbacks no-ops.
     ///
     /// Called on a thread that is running a callback of this target (the owner freed, or the
-    /// `Clock`/`Queue` dropped, from inside its own callback), this blocks that thread forever,
-    /// see the type's invariant.
+    /// `Clock`/`Queue` dropped, from inside its own callback), this posts an error for the owner
+    /// and blocks that thread forever, see the type's invariant.
     pub(crate) fn clear(&self) {
         if self.running.is_owned_by_current_thread() {
-            clear_inside_own_callback();
+            let owner = self.target.lock().as_ref().map(|(t, _)| t.0);
+            clear_inside_own_callback(owner);
         }
         let old = {
             let _running = self.running.lock();
@@ -203,17 +204,34 @@ impl ClockShared {
     }
 }
 
+/// How many threads `clear_inside_own_callback` has parked.
+static PARKED_IN_OWN_CALLBACK: AtomicUsize = AtomicUsize::new(0);
+
+/// How many threads have been parked forever because an object was freed, or its `Clock`/`Queue`
+/// dropped, from inside its own callback. For median's tests; not part of the API.
+#[doc(hidden)]
+pub fn parked_in_own_callback() -> usize {
+    PARKED_IN_OWN_CALLBACK.load(Ordering::SeqCst)
+}
+
 /// `clear` from inside the target's own callback: returning would let the caller free the owner
 /// while the callback, further up this thread's stack, still uses it. Block instead (the
-/// documented deadlock), after saying why on stderr (Max's system console).
+/// documented deadlock), after saying why on stderr (Max's system console) and, for the owner
+/// (`owner`, the target), in the Max console, so the user sees why the object froze.
 #[cold]
-fn clear_inside_own_callback() -> ! {
+fn clear_inside_own_callback(owner: Option<*mut max_sys::t_object>) -> ! {
     use std::io::Write;
-    let _ = writeln!(
-        std::io::stderr(),
-        "median: an object was freed, or its Clock/Queue dropped, from inside its own clock, \
-         queue or deferred callback; blocking this thread forever instead of using freed memory"
-    );
+    const MSG: &str = "median: an object was freed, or its Clock/Queue dropped, from inside its \
+                       own clock, queue or deferred callback; blocking this thread forever \
+                       instead of using freed memory";
+    let _ = writeln!(std::io::stderr(), "{MSG}");
+    if let Some(owner) = owner.filter(|o| !o.is_null()) {
+        // SAFETY: the owner is alive: this thread is running one of its callbacks (it holds
+        // `running`), and its memory is not freed before `clear` returns, on this thread, or
+        // gets `running`, on another; neither happens
+        unsafe { crate::object::error(owner, MSG) };
+    }
+    PARKED_IN_OWN_CALLBACK.fetch_add(1, Ordering::SeqCst);
     loop {
         std::thread::park();
     }
@@ -587,5 +605,7 @@ mod tests {
         //the target is still set and `running` still held by the blocked thread
         assert!(shared.running.is_locked());
         assert!(shared.target.lock().is_some());
+        //blocked where it should be, not somewhere else
+        assert!(parked_in_own_callback() >= 1);
     }
 }
