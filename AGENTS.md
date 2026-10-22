@@ -145,7 +145,9 @@ it in the same change.
 `develop` is the integration branch; `main` is for PRs/releases. Long-lived branches
 (`feature/jitter`, `feature/dict`, `feature/dict-test`, `feature/maxcore-test`, `xnor/linux`,
 `xnor/inletinfo`) are assessed in `doc/plan-branches-and-build.md`. Do not merge them as-is;
-each has a stated path.
+each has a stated path. `xnor/api-redesign` holds the 0.3 redesign (local, not yet pushed); its
+state and what is left are under "Where things stand" in `doc/plan-api-redesign.md`. GitHub has
+only `develop` (no `main`), so check the PR target before opening one.
 
 ## Do not
 

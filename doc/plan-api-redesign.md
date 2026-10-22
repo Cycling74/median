@@ -383,6 +383,34 @@ without Max.
 Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short series) per item of
 "Order of implementation"; each records here what it did and where it differs from the text above.
 
+### Where things stand (handoff, 2026-10-22)
+
+- All items 0-7 are implemented on `xnor/api-redesign`, each reviewed adversarially (Fable;
+  from now on reviews go to Codex, `codex:codex-rescue`) with the findings fixed. The branch is
+  local: not pushed, no PR. GitHub has no `main` branch, only `develop`; settle the PR target
+  before opening one. `cargo test` in `median` (170) and `median-mock` (39) pass.
+- Since the item list, on this branch: `Inlet::cold()`/`hot_if(bool)`; the mock's `float` has
+  no fallback; a rustfmt pre-commit hook (`script/install-hooks.sh`, see AGENTS.md) and a
+  formatting-only commit in `.git-blame-ignore-revs`; `cargo make install` targets Max 9
+  (`MAX_VERSION`); `hello_dsp` takes its buffer names as arguments and has `set`/`set2`/
+  `dblclick` methods; `Class::add_buffer_messages` removed.
+- Checked in Max so far (by the user): `hello_dsp~` following a `buffer~` named in its
+  arguments and playing it; an object with `int` but no `float` posts
+  `doesn't understand "float"` (no fallback to `int`, `list` or `anything`). Everything else in
+  the "To check in Max" notes below is still unchecked; the main ones: whether `undocumented`
+  hides `ft1`..`in9` from `simp`'s message menu (if not, do part (b) of section F), MSP inlet
+  layout with a proxy after `hello_dsp~`'s signal inlets, `BufferEdit` excluding perform claims,
+  deferred calls from a `metro` and across a modal dialog, `qelem_set` inside its own function,
+  `qelem_set` from the audio thread, attribute options in the inspector, `loadbang`'s signature,
+  `int` falling back to `float`, and the two clock gaps from step 1.
+- Not done from this plan: port `simplemax` from the SDK's `basics/simplemax/simplemax.c`
+  (the `igk/examples` branch is deleted); the derive finding the `ObjRef` field (section A);
+  `#[notify]`/`#[savestate]` markers; `defer_delivery()`; maxref fields
+  (`description`/`author`/`tags`). Out of scope by design: `dynlet`, several `#[methods]` blocks.
+- Next, outside this plan: `TODO.md` (backport f587265 to 0.2.x), then
+  [plan-branches-and-build.md](plan-branches-and-build.md) steps 3-5 (the user wants Jitter's
+  known bugs fixed and its feature flag dropped after this plan).
+
 - [x] 0. Toolchain (2eb44da). `ext_main` now emits `#[unsafe(no_mangle)]`, accepted by 2018 user
   crates too. The examples and template stay on edition 2018 until they are ported.
 - [x] 1. `ObjRef`, blanket `MaxObj`/`MSPObj` removed. Differences from section D: `ObjRef` also
@@ -574,11 +602,10 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     (part (b) not done).
   - `median-mock` (f4dd29e): `Kernel::inlets` / `inlets_created` (public `InletKind`),
     `assist`, `inlet_is_hot`, `method_attr`, `dsp_frees`, `live_clock_count`, and the three
-    method-attribute functions. **Assumption**: the mock keeps `z_dsp_setup`'s signal inlets
-    next to the leftmost when inlets are made after it (the reading of `z_dsp.h` this step
-    relies on). In Max, `intin`/`proxy_new` insert each new inlet just right of the leftmost
-    (`filein.c`), so if `z_dsp_setup`'s proxies are ordinary inlets, inlets made after it would
-    land *left* of the signal inlets for `n >= 2`. To check in Max (see AGENTS/the report).
+    method-attribute functions. (Superseded by cd8c23b, see "step 4/5 review fixes": the
+    builder now makes the non-signal inlets first and calls `z_dsp_setup` last, which gives
+    signals-leftmost under either reading of `z_dsp.h`, and the mock no longer pins the signal
+    inlets. The original step 4 order and assumption are kept here only as history.)
   - Tests: `tests/iolets.rs` (positions and creation order for Max and MSP, dispatch by id,
     proxy index, assist from the table/hook/defaults, truncation on multibyte boundaries,
     `inletinfo` default/`.hot()`/hook, `undocumented` on `ft`/`in`, typed outlet calls, MSP
