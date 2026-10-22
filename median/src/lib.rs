@@ -168,6 +168,7 @@ pub mod clock;
 pub mod defer;
 pub mod error;
 pub mod ffi;
+pub mod fifo;
 pub mod file;
 pub mod inlet;
 pub mod method;
