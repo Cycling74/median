@@ -15,53 +15,79 @@ This is a work in progress.
 
 ## Example
 
-A very basic external that has `bang`, `int`, `list`, and `any` methods.
+A very basic external that has `bang`, `int`, `list`, and `any` methods, a `set` message and an
+attribute.
 
-See the [examples folder](examples/README.md) for more detailed examples.
+See the [examples folder](examples/README.md) for more detailed examples, and the crate
+documentation for the full list of markers and options.
 
 ```rust,no_run
-use median::{
-    atom::Atom, builder::MaxWrappedBuilder, max_sys::t_atom_long, object::ObjRef, post,
-    symbol::SymbolRef, wrapper::*,
-};
+use median::prelude::*;
 
-median::external! {
-    pub struct Example {
-        obj: ObjRef,
-    }
+// the struct is the object; the derive makes it a Max class named "example"
+#[derive(MaxObject)]
+#[max(name = "example")]
+pub struct Example {
+    obj: ObjRef,
+    // an attribute "value" backed by the field, clipped to 0..=100
+    #[attr(clip(0, 100))]
+    value: Int64,
+}
 
-    impl MaxObjWrapped<Example> for Example {
-        fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
-            let _ = builder.add_inlet(median::inlet::MaxInlet::Proxy);
-            Self { obj: builder.obj() }
-        }
-    }
-
-    impl Example {
-        #[bang]
-        pub fn bang(&self) {
-            let i = self.obj.proxy_inlet();
-            median::object_post!(&self.obj, "bang from inlet {}", i);
-        }
-
-        #[int]
-        pub fn int(&self, v: t_atom_long) {
-            let i = self.obj.proxy_inlet();
-            post!("int {} from inlet {}", v, i);
-        }
-
-        #[list]
-        pub fn list(&self, atoms: &[Atom]) {
-            post!("got list with length {}", atoms.len());
-        }
-
-        #[any]
-        pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
-            post!("got any with sel {} and length {}", sel, atoms.len());
+impl MaxObjWrapped for Example {
+    fn new(builder: &mut dyn MaxWrappedBuilder<Self>) -> Self {
+        let _ = builder.add_inlet(MaxInlet::Proxy);
+        Self {
+            obj: builder.obj(),
+            value: Int64::new(0),
         }
     }
 }
+
+// the marked methods are registered with Max; the impl is otherwise left as written
+#[median::methods]
+impl Example {
+    #[bang]
+    pub fn bang(&self) {
+        let i = self.obj.proxy_inlet();
+        median::object_post!(&self.obj, "bang from inlet {}", i);
+    }
+
+    #[int]
+    pub fn int(&self, v: t_atom_long) {
+        self.value.set(v);
+        post!("int {} from inlet {}", v, self.obj.proxy_inlet());
+    }
+
+    #[list]
+    pub fn list(&self, atoms: &[Atom]) {
+        post!("got list with length {}", atoms.len());
+    }
+
+    #[any]
+    pub fn baz(&self, sel: &SymbolRef, atoms: &[Atom]) {
+        post!("got any with sel {} and length {}", sel, atoms.len());
+    }
+
+    // a method may return `Result<(), E>`: the error is posted to the console for the object
+    #[sel("set", defaults = 1)]
+    pub fn set(&self, name: SymbolRef) -> Result<(), String> {
+        if name == SymbolRef::default() {
+            return Err("set what?".into());
+        }
+        post!("set {}", name);
+        Ok(())
+    }
+}
+
+// the entry point Max calls to register the class
+median::ext_main! { Example }
 ```
+
+Everything the macros generate is ordinary, public API: the `simp_explicit` example is the
+`simp` example written without them (`ObjClass`, `FieldAttrs` and `Methods` impls calling
+`Class::add_bang(Self::bang)` and friends). That style is supported too, and is the way to
+register methods conditionally or under computed names.
 
 ## Building Externals
 
@@ -125,6 +151,7 @@ josuha
 ```
 if you have more than 7 args or if you are mixing floating point and other argument types, use A_GIMME
 ```
+(`#[sel]` and `Class::add_sel` currently accept mixed argument types; see the API redesign plan.)
 
 ## TODO
 

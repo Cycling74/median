@@ -27,7 +27,7 @@ enum Marker {
         defaults: Option<LitInt>,
         gimme: bool,
     },
-    Attr(AttrOpts),
+    Attr(Box<AttrOpts>),
 }
 
 impl Marker {
@@ -49,7 +49,7 @@ impl Marker {
             "list" => no_args(Marker::List),
             "any" => no_args(Marker::Any),
             "sel" => Self::parse_sel(attr),
-            "attr" => AttrOpts::parse(attr).map(Marker::Attr),
+            "attr" => AttrOpts::parse(attr).map(|o| Marker::Attr(Box::new(o))),
             k if LATER.contains(&k) => Err(syn::Error::new(
                 attr.span(),
                 format!("`#[{k}]` is not supported yet"),

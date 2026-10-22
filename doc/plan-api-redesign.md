@@ -419,7 +419,87 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   - Review fixes: `SelArg` and `SelFn` are sealed (`SelArg::C`/`ATOM_TYPE` define the trampoline
     ABI, so a downstream impl could make safe code misread an argument), and `add_sel` checks the
     arity before slicing.
-- [ ] 3. derive + `#[methods]`, `simp` ported
+- [x] 3. derive + `#[methods]`. Scope grew: every user is ported in this step (`simp`,
+  `hello_dsp`, `multi`, the template, the crate docs and READMEs, `tests/e2e.rs`; the examples
+  and template are edition 2024), and the old API is removed with no deprecated shim (this
+  supersedes the `external!` shim in "Migration"): `external!`, `external_no_main!`, the
+  proc-macro `ext_main!`, the `wrapped_tramp`/`wrapped_list_tramp`/`wrapped_sel_list_tramp`/
+  `wrapped_attr_get_tramp`/`wrapped_attr_set_tramp` macros and their `wrapper::{tramp, list_tramp,
+  sel_list_tramp, attr_get_tramp, attr_set_tramp}` re-exports, the `Method` enum with its
+  generated aliases (`B`, `SelList`, `I`, `F`, `S`, `IS`, ...), `Class::add_method`,
+  `add_sel_method` and `median/build.rs`. Kept: `wrapped_defer_tramp` (as `wrapper::defer_tramp`)
+  and the unsafe `ObjRef::defer`/`defer_low`; deferring moves to a per-object queue in step 7,
+  because a safe `#[defer]` marker over Max's `defer` would let the deferred call outlive the
+  object. Differences from A and B:
+  - Traits: `ObjClass` (not `ObjWrapped`): `type Wrapper; fn class_name() -> &'static CStr;
+    fn class_type() -> ClassType`. The hooks (`report_error(&self, &ObjRef, &dyn Display)`,
+    `handle_notification`, `assist`) are default methods of `MaxObjWrapped` and of
+    `MSPObjWrapped` (each has its own copy), next to `new`/`class_setup` (and `perform`/
+    `dsp_setup`). `MaxObjWrapped: ObjClass<Wrapper = MaxObjWrapper<Self>> + Methods + FieldAttrs
+    + Sync + 'static`, the MSP twin likewise, so a `kind` mismatch is a type error. Generic
+    trampolines reach `report_error` through `WrapperWrapped::report_error(&self, &dyn Display)`,
+    which the wrappers implement; `Class::add_*` need only `W: WrapperWrapped<T> + MaxObj`.
+  - `Methods::register<W>(&mut Class<W>) -> MaxResult<()>` and `FieldAttrs::register_attrs<W>(..)
+    -> MaxResult<()>` (both default to `Ok(())`) return a result so hand-written impls use `?`; an
+    `Err` makes the wrapper's registration panic with the error, which the guard in `register()`/
+    `ext_main` posts, and the class is not registered. Order: field attributes, methods,
+    `class_setup`. `MaxObjWrapper::<T>::register()` is safe and has no `lookup_class` argument
+    (median's internal clock class uses a crate-private variant). `Class::new`, `find_in_max` and
+    `exists_in_max` take `&CStr`.
+  - Derive: `#[max(name, kind = max|msp, class_type = box|nobox, no_methods)]`; it generates
+    `ObjClass`, an inherent `pub fn register()` (calls the wrapper's inside
+    `ffi::guard_ext_main`), and `FieldAttrs` (empty when no field has `#[attr]`), plus an empty
+    `Methods` with `no_methods`. Generic structs are rejected. It does not look for an `ObjRef`
+    field (`builder.obj()` stays until step 4/5); `description`/`author`/`tags` are rejected as
+    not supported yet. Field `#[attr(name = "..", clip(min, max), readonly)]` needs a field type
+    implementing the new `attr::AttrField` (`Int64`, `Float64`, `Float32`); its value type is a
+    sealed `attr::AttrValue` (`f64`, `f32`, `t_atom_long`, `SymbolRef`) that gives the Max
+    attribute type. `clip` is `attr_addfilter_clip` (get and set, as `CLASS_ATTR_FILTER_CLIP`).
+    `label`, `style`, `category`, `order`, `default`, `save`, `enum`, `hidden`, `range` are
+    rejected with an error saying they are not supported yet (step 7).
+  - Accessor attributes without macros: `Class::add_attr(name, get, set, AttrOptions)`,
+    `add_attr_readonly(name, get, AttrOptions)` and `add_field_attr(name, |s: &Self| &s.field,
+    AttrOptions)`, over generic ZST accessor trampolines (`attr::get_tramp`/`set_tramp`, unsafe
+    `extern "C"`, inside the guards, returning `t_max_err`). A setter may return `Result`: `Err`
+    goes to `report_error` and Max gets `MAX_ERR_GENERIC`. A read-only attribute has
+    `ATTR_SET_OPAQUE_USER` and a no-op setter (as `AttrBuilder::new_get`). Options type is
+    `attr::AttrOptions` (`new().clip(min, max).readonly()`, `clip_with(AttrClip)`); step 7 adds
+    to it.
+  - `#[median::methods]`: markers `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]`,
+    `#[sel("name")]`, `#[sel("name", defaults = n)]`, `#[sel("name", gimme)]`, `#[attr(..)]` on a
+    getter (paired with `set_<name>` from the same impl; read-only without one or with
+    `readonly`, in which case the setter is not registered). Not the min special messages and no
+    `#[defer]`: `defer`, `defer_low`, `dblclick`, `loadbang`, `notify`, `savestate` are rejected
+    as not supported yet; other attributes pass through untouched. Errors: one marker per method,
+    a selector (or attribute name) registered twice in the impl, receiver not `&self`, wrong
+    arity or reference shape (`&[..]` / `&T` / value), `defaults` above the arity, more than 7
+    `#[sel]` arguments, generic/async/unsafe methods, trait or generic impls. Scalar argument
+    types and return types are checked by the compiler through the `Class::add_*` bounds, with
+    the call spanned at the method; `MethodResult` has a `#[diagnostic::on_unimplemented]`
+    message. On errors the impl is still emitted (with an empty `Methods`), so the only errors
+    are the macro's.
+  - Names (class, selectors, attributes) are emitted as `median::__private::cstr(b"..\0")`, not
+    `c".."`, so the macros work in user crates of any edition.
+  - `median::ext_main! { A, B }` is a `macro_rules!` that calls `<A>::register()` and so on, each
+    in its own `guard_ext_main`. `median::prelude` re-exports the derive, `methods`, `ext_main`,
+    the traits, `ObjRef`, `Atom`, `SymbolRef`, the `num` types, `Class`/`ClassType`,
+    `AttrOptions`, the builders, inlets/outlets, `ClockHandle`, `MaxResult`, `MaxObj`,
+    `WrapperWrapped`, `post` and `object_post!`/`error!`/`warn!`, `t_atom_long`.
+  - `examples/simp_explicit` is `simp` with every generated impl written by hand.
+  - Tests (`median-mock`): `tests/derive.rs` (every marker dispatches with its arguments, `#[sel]`
+    defaults and their registered types, `Err` to the default and an overridden `report_error`,
+    field attributes get/set/clip/readonly/`Float32`, getter/setter and read-only getter
+    attributes, a failing setter, an MSP derive with `perform`, five classes in one `ext_main!`
+    including one whose registration panics), `tests/simp.rs` and `tests/simp_explicit.rs` (the
+    same script, the same transcript), `tests/multi.rs` (two classes in one `ext_main!`),
+    `tests/hello_dsp.rs`, `tests/e2e.rs` (its macro external now uses the derive), unit tests for
+    the accessor trampolines refusing a half-built object, and `tests/ui.rs` (trybuild
+    compile-fail cases for the macro errors).
+  - Open (from step 2, found again here): the SDK documentation says typed methods must not mix
+    floating point and other argument types (use `A_GIMME`), which the old `build.rs` respected;
+    `Class::add_sel` and so `#[sel]` accept mixed types and `median-mock` does not model the
+    restriction. Check what Max's dispatch does with e.g. `(f64, t_atom_long, SymbolRef)`, and
+    reject mixing in `SelFn` (or fix the dispatch) before relying on it.
 - [ ] 4. Iolet descriptors, `hello_dsp`/`multi` ported
 - [ ] 5. Fallible `new`
 - [ ] 6. `SymbolRef`, `BufferLocked`

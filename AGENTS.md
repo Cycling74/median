@@ -9,9 +9,9 @@ to any other checkout.
 | path | what it is |
 |---|---|
 | `max-sys/` | Low-level FFI crate. Pre-generated bindgen output per target in `max-sys/src/ffi-*.rs`, selected by `cfg` in `max-sys/src/lib.rs`. The Max SDK headers are the git submodule at `max-sys/thirdparty/max-sdk` (`source/c74support/{max,msp,jit}-includes`). Regeneration instructions are in `max-sys/README.md`; the generated files are committed, so regenerate only when `build.rs`, the `wrapper*.h` files or the SDK change, and regenerate every target together. |
-| `median/` | The safe(r) wrapper crate: `src/wrapper.rs` (object wrappers and trampolines), `builder.rs` (inlets/outlets/clocks at construction), `class.rs`/`method.rs` (class registration; `build.rs` generates the typed selector permutations into `OUT_DIR`), `attr.rs`, `atom.rs`, `symbol.rs`, `outlet.rs`, `inlet.rs`, `clock.rs`, `buffer.rs`, `notify.rs`, `thread.rs`, `file.rs`, `num.rs`, `slice.rs`, `alloc.rs`. |
-| `median_macros/` | Proc macros re-exported by `median`: `external!`, `external_no_main!`, `ext_main!`, and the `*_tramp` attribute macros. |
-| `median/examples/` | `simp` (Max object), `hello_dsp` (MSP), `multi` (two classes in one external). Each is a `cdylib` built with `cargo make` using `median/utils/Makefile.toml`. |
+| `median/` | The safe(r) wrapper crate: `src/wrapper.rs` (object wrappers and trampolines), `builder.rs` (inlets/outlets/clocks at construction), `class.rs`/`method.rs` (class registration: `Class::add_*` take a zero-sized callable and build the trampoline generically; no build script), `attr.rs` (also the generic attribute accessors, `AttrField`, `AttrOptions`), `lib.rs` (crate docs, `ext_main!`, `prelude`), `atom.rs`, `symbol.rs`, `outlet.rs`, `inlet.rs`, `clock.rs`, `buffer.rs`, `notify.rs`, `thread.rs`, `file.rs`, `num.rs`, `slice.rs`, `alloc.rs`. |
+| `median_macros/` | Proc macros re-exported by `median`: `#[derive(MaxObject)]` (`derive.rs`: `ObjClass`, `register()`, `FieldAttrs`), `#[median::methods]` (`methods.rs`: re-emits the impl without markers, implements `Methods` with `Class::add_*` calls), shared `#[attr(..)]` options (`attr_opts.rs`), and `wrapped_defer_tramp` (re-exported as `median::wrapper::defer_tramp`). The generated code calls only public `median` API; `ext_main!` is a `macro_rules!` in `median`. |
+| `median/examples/` | `simp` (Max object, derive + `#[median::methods]`), `simp_explicit` (the same without the macros: the reference for the hand-written style), `hello_dsp` (MSP), `multi` (two classes in one external). Each is a `cdylib` built with `cargo make` using `median/utils/Makefile.toml`; `median/tests/` also compiles each into a test (`#[path]` modules) and runs it against `median-mock`. |
 | `templates/` | `cargo generate` template for a new external. Note `templates/max/Makefile.toml` downloads `median/utils/Makefile.toml` from the `develop` branch at build time, so changes to that file affect template users immediately. |
 | `doc/` | Design notes: the October 2026 review of the crate and the plans that follow from it. Start with `doc/README.md`. |
 
@@ -20,10 +20,15 @@ There is no Cargo workspace. Run cargo commands inside `median/`, `max-sys/` or 
 ## Building and testing
 
 ```sh
-cd median && cargo build && cargo test        # unit + doc tests, no Max needed
+cd median && cargo build && cargo test        # unit, end-to-end (median-mock), doc and UI tests, no Max needed
 cd median && cargo clippy                      # see "Known state" below
 cd median/examples/simp && cargo make build    # needs cargo-make; package/install also exist
 ```
+
+`median/tests/ui.rs` runs the `tests/ui/*.rs` compile-fail cases of the macros with `trybuild`
+(it caps trybuild's cargo at half the cores and builds without a rustc wrapper); after changing a
+macro error, regenerate the expected output with `TRYBUILD=overwrite cargo test --test ui` and
+review the `.stderr` diff.
 
 Externals are `cdylib`s linked with `-undefined dynamic_lookup` (see the `.cargo/config*` files
 next to each example and the template); Max symbols resolve at load time. Nothing in this repo
@@ -67,11 +72,19 @@ it in the same change.
 
 ## Conventions
 
-- `median` and `median_macros` are edition 2024 (`rust-version` 1.85); the examples and the
-  template are still 2018 until they are ported. Use `c"..."` literals for fixed C strings, not
-  `CString::new(..).unwrap()`, and `core::ffi::c_*` types in new code.
+- `median`, `median_macros`, the examples and the template are edition 2024 (`rust-version`
+  1.85). Use `c"..."` literals for fixed C strings, not `CString::new(..).unwrap()`, and
+  `core::ffi::c_*` types in new code. Code the macros generate must not depend on the user's
+  edition (no `c"..."` in it: names go through `median::__private::cstr`).
+- An external is `#[derive(MaxObject)]` on the struct, `impl MaxObjWrapped` (or `MSPObjWrapped`),
+  `#[median::methods]` on an inherent impl, and `median::ext_main! { Type, .. }`. The macros only
+  emit calls to public API (`ObjClass`, `FieldAttrs`, `Methods`, `Class::add_*`,
+  `Class::add_field_attr`/`add_attr`); anything they can do must stay writable by hand, as
+  `simp_explicit` shows. Registration order is field attributes, `Methods::register`, then
+  `class_setup`.
 - Every `extern "C"` function Max can call is a trampoline. A panic escaping one aborts Max, so
-  each trampoline (hand-written in `wrapper.rs`, generated by `median_macros`) runs the user's code
+  each trampoline (hand-written in `wrapper.rs`, generic over a zero-sized callable in
+  `method.rs`/`attr.rs`, or generated by `defer_tramp`) runs the user's code
   inside a `median::ffi::guard*` helper, which catches the panic, posts it to the Max console and
   returns a neutral value (null from `new`, `MAX_ERR_GENERIC` from attribute accessors, silence
   from `perform`). That relies on `panic = "unwind"` (the template and examples set it). New
