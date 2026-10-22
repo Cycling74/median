@@ -375,6 +375,21 @@ impl<W> Class<W> {
         unsafe { self.add_typed(c"dblclick", m, &[max_sys::e_max_atomtypes::A_CANT]) }
     }
 
+    /// Register the `loadbang` method (`A_CANT`), which Max calls on the main thread when the
+    /// patcher the object is in has finished loading, as the `loadbang` object fires. Max passes
+    /// only the object. (The SDK headers don't declare the signature; `(x)` is what C externals
+    /// and min register. Unverified here.)
+    pub fn add_loadbang<T, F, R>(&mut self, f: F) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        F: Fn(&T) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        let m = loadbang_method::<W, T, F, R>(f);
+        // SAFETY: `m` is a trampoline taking the object, as Max calls `loadbang`
+        unsafe { self.add_typed(c"loadbang", m, &[max_sys::e_max_atomtypes::A_CANT]) }
+    }
+
     /// Register the messages an object that plays a `buffer~` usually has, for the buffer
     /// reference `buffer` returns (a zero-sized callable such as `|s: &Self| &*s.buffer`):
     ///

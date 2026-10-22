@@ -199,6 +199,16 @@ where
     run(w, "dblclick", |t| (unsafe { zst::<F>() })(t));
 }
 
+pub(crate) extern "C" fn loadbang_tramp<W, T, F, R>(w: &W)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: Fn(&T) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+    run(w, "loadbang", |t| (unsafe { zst::<F>() })(t));
+}
+
 pub(crate) extern "C" fn int_tramp<W, T, F, R>(w: &W, v: max_sys::t_atom_long)
 where
     W: WrapperWrapped<T> + MaxObj,
@@ -488,6 +498,16 @@ where
 {
     // SAFETY: the trampoline takes the object, as Max calls the `A_CANT` method `dblclick`
     unsafe { erase(dblclick_tramp::<W, T, F, R> as extern "C" fn(&W)) }
+}
+
+pub(crate) fn loadbang_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: Fn(&T) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object, as Max calls the `A_CANT` method `loadbang`
+    unsafe { erase(loadbang_tramp::<W, T, F, R> as extern "C" fn(&W)) }
 }
 
 pub(crate) fn int_method<W, T, F, R>(_f: F) -> MaxMethod

@@ -10,13 +10,15 @@ use syn::{
 };
 
 /// Markers that are planned but not there yet.
-const LATER: &[&str] = &["dblclick", "loadbang", "notify", "savestate"];
+const LATER: &[&str] = &["notify", "savestate"];
 
 /// The most typed arguments a `#[sel]` method can have (what `class_addmethod` takes).
 const MAX_SEL_ARGS: usize = 7;
 
 enum Marker {
     Bang,
+    Dblclick,
+    Loadbang,
     Int,
     Float,
     Sym,
@@ -47,6 +49,8 @@ impl Marker {
         };
         Some(match ident.as_str() {
             "bang" => no_args(Marker::Bang),
+            "dblclick" => no_args(Marker::Dblclick),
+            "loadbang" => no_args(Marker::Loadbang),
             "int" => no_args(Marker::Int),
             "float" => no_args(Marker::Float),
             "sym" => no_args(Marker::Sym),
@@ -143,6 +147,8 @@ impl Marker {
     fn expected(&self) -> &'static str {
         match self {
             Marker::Bang => "`#[bang]` method must take `(&self)`",
+            Marker::Dblclick => "`#[dblclick]` method must take `(&self)`",
+            Marker::Loadbang => "`#[loadbang]` method must take `(&self)`",
             Marker::Int => "`#[int]` method must take `(&self, t_atom_long)`",
             Marker::Float => "`#[float]` method must take `(&self, f64)`",
             Marker::Sym => "`#[sym]` method must take `(&self, SymbolRef)`",
@@ -362,6 +368,16 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     ));
                     continue;
                 }
+                Some((Marker::Dblclick | Marker::Loadbang, _)) => {
+                    push_err(syn::Error::new(
+                        span,
+                        format!(
+                            "`#[{name}]` doesn't go with `#[dblclick]` or `#[loadbang]`: Max calls \
+                             them on the main thread already"
+                        ),
+                    ));
+                    continue;
+                }
                 Some(_) => {}
             }
         }
@@ -370,7 +386,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
         };
         use Arg::*;
         let want: Option<&[Arg]> = match &marker {
-            Marker::Bang | Marker::Attr(_) => Some(&[]),
+            Marker::Bang | Marker::Dblclick | Marker::Loadbang | Marker::Attr(_) => Some(&[]),
             Marker::Int | Marker::Float | Marker::Sym => Some(&[Value]),
             Marker::List => Some(&[Slice]),
             Marker::Any | Marker::Sel { gimme: true, .. } => Some(&[Ref, Slice]),
@@ -436,6 +452,8 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
         };
         let selector = match &m.marker {
             Marker::Bang => Some("bang".to_string()),
+            Marker::Dblclick => Some("dblclick".to_string()),
+            Marker::Loadbang => Some("loadbang".to_string()),
             Marker::Int => Some("int".to_string()),
             Marker::Float => Some("float".to_string()),
             Marker::Sym => Some("symbol".to_string()),
@@ -468,6 +486,8 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
         });
         let call = match (&m.marker, &mode) {
             (Marker::Bang, None) => quote_spanned!(span=> c.add_bang(#path)?;),
+            (Marker::Dblclick, _) => quote_spanned!(span=> c.add_dblclick(#path)?;),
+            (Marker::Loadbang, _) => quote_spanned!(span=> c.add_loadbang(#path)?;),
             (Marker::Int, None) => quote_spanned!(span=> c.add_int(#path)?;),
             (Marker::Float, None) => quote_spanned!(span=> c.add_float(#path)?;),
             (Marker::Sym, None) => quote_spanned!(span=> c.add_sym(#path)?;),

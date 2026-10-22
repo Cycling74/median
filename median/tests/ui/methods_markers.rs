@@ -28,6 +28,16 @@ impl Simp {
         0.
     }
 
+    #[dblclick]
+    #[defer]
+    pub fn open(&self) {}
+
+    #[loadbang]
+    pub fn loaded(&self, _v: t_atom_long) {}
+
+    #[savestate]
+    pub fn save(&self) {}
+
     #[bang(now)]
     pub fn args(&self) {}
 
