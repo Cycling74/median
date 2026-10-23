@@ -1,6 +1,8 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+// Bindgen preserves the SDK's nested callback types verbatim.
+#![allow(clippy::type_complexity)]
 
 //! # max-sys
 //!
@@ -26,7 +28,7 @@ include!("./ffi-windows-x86_64.rs");
         any(target_arch = "x86_64", target_arch = "aarch64")
     )
 )))]
-compile_error!("x84_64 on windows or mac are they only supported platforms so far");
+compile_error!("supported targets are macOS aarch64/x86_64 and Windows x86_64");
 
 //pointer to a t_pxobject can be savely turned into a t_object
 impl std::convert::From<&mut crate::t_pxobject> for &mut crate::object {

@@ -2,14 +2,19 @@
 name = "max-sys"
 version = "0.1.0"
 authors = ["Alex Norman <xnor@cycling74.com>"]
-edition = "2018"
+edition = "2024"
+rust-version = "1.85"
 build = "build.rs"
 description = "sys bindings for the Cycling 74 Max SDK"
 license-file = "LICENSE.md"
+
+[lib]
+# The generated documentation contains the SDK's C examples, not Rust doctests.
+doctest = false
 
 [features]
 build-bindings = ["bindgen"]
 default = []
 
 [build-dependencies]
-bindgen = { version = "0.55.1",  optional = true }
+bindgen = { version = "=0.73.2",  optional = true }

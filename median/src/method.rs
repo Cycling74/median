@@ -15,12 +15,9 @@ pub type MaxNew = unsafe extern "C" fn(
 ) -> *mut c_void;
 pub type MaxFree<T> = unsafe extern "C" fn(obj: *mut T);
 
-#[cfg(not(target_os = "windows"))]
+// The pinned SDK declares `method` as this erased pointer on every supported 64-bit target.
+// Actual calls use the registered trampoline's signature (including its floating arguments).
 pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void) -> *mut c_void;
-
-//windows doesnt' use "safe call"
-#[cfg(target_os = "windows")]
-pub type MaxMethod = unsafe extern "C" fn(arg1: *mut c_void, ...) -> *mut c_void;
 
 /// helper method to convert between max and median calls selector list method calls
 ///

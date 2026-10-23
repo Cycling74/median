@@ -1,28 +1,44 @@
 # max-sys
 
-Automatically generated [Rust](https://www.rust-lang.org/) bindings for the [Max SDK](https://github.com/Cycling74/max-sdk).
+Rust FFI bindings for the Max/MSP/Jitter SDK. Generated files are committed; ordinary builds
+do not need libclang or bindgen. Supported targets: macOS ARM64/x64 and Windows x64.
 
-## Regenerating the bindings
- 
-You'll need:
+## SDK and generated bindings
 
-* [clang](https://clang.llvm.org/)
-  * on Windows I used `scoop` to install clang and then set the enviroment variable: `LIBCLANG_PATH` to `C:\Users\xnor\scoop\apps\llvm\current\bin`
-  * on Mac I think I just had it installed by default, or maybe it came with Xcode
+All three targets use `max-sys/thirdparty/max-sdk-base`, pinned to
+`c03a2922a2a8ff149165a1e2ea134e9321d6e202`, with bindgen **0.73.2**, Rust target **1.85**,
+`generate_cstr` and `wrap_unsafe_ops`. Max, MSP and Jitter declarations are generated together.
+The old `max-sys/thirdparty/max-sdk` submodule is retained for the examples and design notes;
+it is not used to generate or link these bindings.
 
-Since the SDK is rather large and doesn't change, we include the generated
-bindings in the repository.  If you make some changes to `build.rs`, the
-headers: `wrapper.h` or `wrapper-max.h` or the SDK, you can rebuild the
-bindings (for the OS/platform you're on) with:
+Windows ARM64 is not enabled: the pinned SDK only supplies `x64` import libraries. Linux is
+not enabled until a host and its ABI are specified. Windows builds link MaxAPI, MaxAudio and
+jitlib from the pinned SDK; unused imports are discarded by the linker.
+
+## Regenerating
+
+Run on macOS with Xcode/Command Line Tools, libclang and MinGW-w64 x86_64 headers installed:
 
 ```sh
-cargo build --features=build-bindings
+git submodule update --init --recursive
+python3 script/regenerate-bindings.py --windows-include /path/to/x86_64-w64-mingw32/include
 ```
 
-Then you can commit the result back to the repo if it is appropriate.
+Run this command from the repository root. The include directory must contain `windows.h`.
+`xcrun --show-sdk-path` locates the macOS SDK. Set `LIBCLANG_PATH` if libclang cannot be found.
+The checked-in files were generated with the macOS 14.5 SDK and MinGW-w64 13.0.0 headers.
+The Windows Clang target is `x86_64-pc-windows-gnu` with MS extensions enabled (the SDK uses
+backslashes in include paths); SDK C types have the Windows x64 ABI on both GNU and MSVC
+targets. Running Windows tests remains a native CI/manual check.
 
-## TODO
+The script stages all three files and replaces the tracked set only after all generators
+succeed. Review and commit all three in the same change. Regenerate when changing `build.rs`,
+`wrapper*.h` or the SDK, and record the new SDK commit/version here. `cargo build --features
+build-bindings` generates just the current target in Cargo's `OUT_DIR`; it does not update a
+tracked binding. `MAX_SYS_BINDINGS_TARGET` and `MAX_SYS_BINDINGS_DIR` are the script's overrides.
 
-* expose the JitterAPI
-* post on https://cycling74.com/forums/c-api-via-llvm
+## Container API dependency
 
+The container plan depends on `object_retain`, which the SDK marks private but includes in its
+export list. Keep retain operations behind one internal helper; see `doc/plan-containers.md`
+for the ownership contract before implementing wrappers.
