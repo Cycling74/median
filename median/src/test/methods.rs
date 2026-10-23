@@ -239,6 +239,7 @@ fn sel_args() {
     fn zero(p: &Probe) {
         p.log("zero")
     }
+    #[allow(clippy::too_many_arguments)] // Exercises Max's maximum typed arity.
     fn seven(
         p: &Probe,
         a: t_atom_long,

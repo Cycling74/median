@@ -1,0 +1,15 @@
+[workspace]
+resolver = "3"
+members = ["max-sys", "median", "median_macros", "median-mock"]
+# Externals have their own linker flags and packaging profiles. Keep them standalone.
+exclude = [
+    "median/examples/simplemax", "median/examples/simp", "median/examples/simp_explicit",
+    "median/examples/jit_scalebias", "median/examples/jit_gl_simple",
+    "median/examples/hello_dsp", "median/examples/multi", "max-sys/examples/simp", "templates/max",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+license = "MIT"

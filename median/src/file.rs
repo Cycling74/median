@@ -28,8 +28,10 @@ pub struct FilePath {
 }
 
 /// Line break conversions.
+#[derive(Default)]
 pub enum TextLineBreak {
     ///Use the linebreak format native to the current platform.
+    #[default]
     Native,
     ///Use Macintosh line breaks.
     Mac,
@@ -37,12 +39,6 @@ pub enum TextLineBreak {
     Windows,
     ///Use Unix line breaks.
     Unix,
-}
-
-impl Default for TextLineBreak {
-    fn default() -> Self {
-        Self::Native
-    }
 }
 
 /// Error reading from a file.
@@ -66,7 +62,7 @@ impl FilePath {
     /// # Arguments
     /// * `name` - The name of the file to look for, if empty, opens dialog.
     /// * `types` - An optional list of file types to filter the search or open dialog, pass `None` to
-    /// disable filtering.
+    ///   disable filtering.
     pub fn find_with_dialog(
         name: &SymbolRef,
         types: Option<&Vec<max_sys::t_fourcc>>,
@@ -82,7 +78,7 @@ impl FilePath {
     /// # Arguments
     /// * `name` - The name of the file to look for.
     /// * `types` - An optional list of file types to filter the search, pass `None` to disable
-    /// filtering.
+    ///   filtering.
     ///
     /// # Remarks
     /// Will return `LocateError::NameEmpty` if the name is empty and `LocateError::NameTooLong` if
@@ -137,7 +133,7 @@ impl FilePath {
     ///
     /// # Arguments
     /// * `types` - An optional list of file types to filter the display, pass `None` to disable
-    /// filtering.
+    ///   filtering.
     pub fn open_dialog(types: Option<&Vec<max_sys::t_fourcc>>) -> Option<Self> {
         let (types_ptr, len) = match types {
             Some(t) => (t.as_ptr(), t.len()),
@@ -151,7 +147,7 @@ impl FilePath {
                 file_name.as_mut_ptr(),
                 &mut vol,
                 &mut typ,
-                std::mem::transmute::<_, _>(types_ptr), //max sdk should have made this const
+                types_ptr.cast_mut(), //max sdk should have made this const
                 len as _,
             ) == 0
             {

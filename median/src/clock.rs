@@ -360,7 +360,7 @@ impl Clock {
         unsafe {
             max_sys::clock_getftime(&mut v);
         }
-        return v;
+        v
     }
 
     /// Find out the current logical time of the scheduler in milliseconds.
@@ -406,7 +406,7 @@ impl Clock {
         // SAFETY: the caller guarantees `target` is a valid object
         let sched = unsafe { max_sys::scheduler_fromobject(target) };
         // SAFETY: `max_obj()` is a pointer to the live wrapper object, which `_target` keeps alive
-        let obj = unsafe { std::mem::transmute::<_, *mut c_void>(clock_target.max_obj()) };
+        let obj = clock_target.max_obj().cast::<c_void>();
         // SAFETY: `call_tramp` is an `extern "C"` function whose signature is what Max calls a
         // clock method with (the object pointer)
         let method = Some(unsafe {

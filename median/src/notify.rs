@@ -99,7 +99,11 @@ impl Notification {
 }
 
 impl Registration {
-    /// Try go register the given object with the namespace and name.
+    /// Try to register the given object with the namespace and name.
+    ///
+    /// # Safety
+    /// `obj` must be a live Max object and remain alive until the returned registration is
+    /// dropped. Use on a thread where the host permits object registration.
     pub unsafe fn try_register(
         obj: *mut max_sys::t_object,
         namespace: SymbolRef,
@@ -123,6 +127,10 @@ impl Registration {
 
 impl Subscription {
     /// Subscribe the given client to be attached to the namespace, name and optional class_name.
+    ///
+    /// # Safety
+    /// `client` must be a live Max object with a valid notify method and outlive the returned
+    /// subscription, including its unsubscription during drop.
     pub unsafe fn new(
         client: *mut max_sys::t_object,
         namespace: SymbolRef,
@@ -151,6 +159,10 @@ impl Subscription {
 
 impl Attachment {
     /// Try to attach the given client to the namespace and name.
+    ///
+    /// # Safety
+    /// `client` must be a live Max object with a valid notify method and outlive the returned
+    /// attachment, including detachment during drop.
     pub unsafe fn try_attach(
         client: *mut max_sys::t_object,
         namespace: SymbolRef,

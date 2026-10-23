@@ -1,9 +1,9 @@
 [package]
 name = "max-sys"
 version = "0.1.0"
-authors = ["Alex Norman <xnor@cycling74.com>"]
-edition = "2024"
-rust-version = "1.85"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 build = "build.rs"
 description = "sys bindings for the Cycling 74 Max SDK"
 license-file = "LICENSE.md"

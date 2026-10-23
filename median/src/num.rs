@@ -173,18 +173,18 @@ mod tests {
         is_send_sync::<Int64>();
 
         let x = Arc::new(A::new());
-        (*x).f.set(20f64);
+        x.f.set(20f64);
         BLAH.f.set(1f64);
         let xc = x.clone();
         std::thread::spawn(move || {
             assert_eq!(1f64, BLAH.f.get());
-            assert_eq!(20f64, (*xc).f.get());
+            assert_eq!(20f64, xc.f.get());
             BLAH.f.set(2f64);
-            (*xc).f.set(10f64);
+            xc.f.set(10f64);
         })
         .join()
         .unwrap();
         assert_eq!(2f64, BLAH.f.get());
-        assert_eq!(10f64, (*x).f.get());
+        assert_eq!(10f64, x.f.get());
     }
 }

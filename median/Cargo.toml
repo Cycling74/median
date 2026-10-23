@@ -1,17 +1,15 @@
 [package]
 name = "median"
 version = "0.3.0-dev"
-authors = ["Alex Norman <xnor@cycling74.com>"]
-edition = "2024"
-rust-version = "1.85"
-license = "MIT"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 max-sys = { path = "../max-sys/" }
 median_macros = { path = "../median_macros/" }
-lazy_static = "1.4.0"
-paste = "1.0.1"
-parking_lot = "0.11.0"
+parking_lot = "0.12"
 rtrb = "0.4"
 
 [dev-dependencies]

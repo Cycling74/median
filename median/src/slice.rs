@@ -153,11 +153,19 @@ impl<T> Slice<T> {
         self.inner.len()
     }
 
-    pub fn as_ref(&self) -> &[T] {
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<T> AsRef<[T]> for Slice<T> {
+    fn as_ref(&self) -> &[T] {
         self.inner
     }
+}
 
-    pub fn as_mut(&mut self) -> &mut [T] {
+impl<T> AsMut<[T]> for Slice<T> {
+    fn as_mut(&mut self) -> &mut [T] {
         self.inner
     }
 }

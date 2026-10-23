@@ -190,7 +190,7 @@ fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Resu
             "a median method can't be `async`",
         ));
     }
-    if let Some(u) = &sig.unsafety {
+    if let syn::Safety::Unsafe(u) = &sig.safety {
         return Err(syn::Error::new(
             u.span(),
             "a median method can't be `unsafe`",
@@ -213,7 +213,9 @@ fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Resu
     }
     let mut inputs = sig.inputs.iter();
     match inputs.next() {
-        Some(FnArg::Receiver(r)) if r.reference.is_some() && r.mutability.is_none() => {}
+        Some(FnArg::Receiver(r))
+            if matches!(r.kind, syn::ReceiverKind::Reference(_, _, None))
+                && r.mutability.is_none() => {}
         _ => return Err(err()),
     }
     let args: Vec<&Type> = inputs
@@ -295,7 +297,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             "#[median::methods] takes no arguments",
         ));
     }
-    if let Some((_, path, _)) = &item.trait_ {
+    if let Some((path, _)) = &item.trait_ {
         push_err(syn::Error::new(
             path.span(),
             "#[median::methods] goes on an inherent impl (`impl MyObject { .. }`), not a trait impl",

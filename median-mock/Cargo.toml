@@ -1,15 +1,16 @@
 [package]
 name = "median-mock"
 version = "0.1.0"
-authors = ["Alex Norman <xnor@cycling74.com>"]
-edition = "2024"
-rust-version = "1.85"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 build = "build.rs"
-license = "MIT"
+license.workspace = true
 description = "A Rust test kernel that implements the subset of the Max C API used by median, so externals can be tested with cargo test"
 publish = false
 
 [dependencies]
+parking_lot = "0.12.5"
 max-sys = { path = "../max-sys" }
 
 [build-dependencies]

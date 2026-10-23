@@ -14,3 +14,6 @@ max-sys = { path = "../../" }
 [profile.release]
 lto = true
 panic = "abort"
+
+# Keep external-specific linker flags and packaging profiles local.
+[workspace]

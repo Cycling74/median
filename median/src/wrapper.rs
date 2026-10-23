@@ -26,17 +26,14 @@ use std::{
     mem::MaybeUninit,
     os::raw::c_long,
     sync::{
-        Arc, Mutex, PoisonError,
+        Arc, LazyLock, Mutex, PoisonError,
         atomic::{AtomicBool, Ordering},
     },
 };
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    //type name -> the registered class
-    static ref CLASSES: Mutex<HashMap<&'static str, ClassEntry>> = Mutex::new(HashMap::new());
-}
+//type name -> the registered class
+static CLASSES: LazyLock<Mutex<HashMap<&'static str, ClassEntry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// The longest assist text, in bytes, that is given to Max (`ASSIST_MAX_STRING_LEN` in the SDK's
 /// `ext_assist.h`). Max's assist buffers are at least 512 bytes.
@@ -651,7 +648,7 @@ fn handle_buffer_ref_notifications(
     if BufferRef::is_applicable(notification) {
         for r in buffer_refs {
             unsafe {
-                r.notify_if_unchecked(&notification);
+                r.notify_if_unchecked(notification);
             }
         }
     }
@@ -716,6 +713,7 @@ where
     ///
     /// Not `extern "C"`: it is called from Rust inside the outer `perform64`'s panic guard, and a
     /// panic can't unwind out of an `extern "C"` fn (it aborts before the guard sees it).
+    #[allow(clippy::too_many_arguments)] // Mirrors the host DSP callback ABI.
     fn perform64(
         &self,
         _dsp64: *mut max_sys::t_object,
@@ -930,40 +928,31 @@ where
 
 //build up our float and int input trampolines, and the register fn
 macro_rules! int_float_tramps {
-    ( $( $i:literal ),+ ) => {
+    ( $( $i:literal => ($int:ident, $float:ident) ),+ ) => {
         $(
-            paste::paste! {
-                pub extern "C" fn [<call_in $i>](&self, value: max_sys::t_atom_long) {
-                    self.guard_or(concat!("in", $i), (), || self.internal().call_int($i, value));
-                }
-
-                pub extern "C" fn [<call_ft $i>](&self, value: f64) {
-                    self.guard_or(concat!("ft", $i), (), || self.internal().call_float($i, value));
-                }
+            pub extern "C" fn $int(&self, value: max_sys::t_atom_long) {
+                self.guard_or(concat!("in", $i), (), || self.internal().call_int($i, value));
+            }
+            pub extern "C" fn $float(&self, value: f64) {
+                self.guard_or(concat!("ft", $i), (), || self.internal().call_float($i, value));
             }
         )*
-
         fn register_ft_in(class: *mut max_sys::t_class) {
+            // SAFETY: registration supplies a live class; each erased method has the signature
+            // declared by its A_FLOAT/A_LONG marker and contains its own panic guard.
             unsafe {
-            $(
-                paste::paste! {
-                    let name = std::ffi::CString::new(concat!("ft", $i)).unwrap();
+                $(
+                    let name = crate::__private::cstr(concat!("ft", $i, "\0").as_bytes());
                     max_sys::class_addmethod(class,
-                        Some(std::mem::transmute::<extern "C" fn(&Self, f64), crate::method::MaxMethod>(Self::[<call_ft $i>])),
-                        name.as_ptr(),
-                        max_sys::e_max_atomtypes::A_FLOAT, 0
-                    );
-                    //wrapper-internal: hidden from the object's message list
-                    mark_undocumented(class, &name);
-
-                    let name = std::ffi::CString::new(concat!("in", $i)).unwrap();
+                        Some(std::mem::transmute::<extern "C" fn(&Self, f64), crate::method::MaxMethod>(Self::$float)),
+                        name.as_ptr(), max_sys::e_max_atomtypes::A_FLOAT, 0);
+                    mark_undocumented(class, name);
+                    let name = crate::__private::cstr(concat!("in", $i, "\0").as_bytes());
                     max_sys::class_addmethod(class,
-                        Some(std::mem::transmute::<extern "C" fn(&Self, max_sys::t_atom_long), crate::method::MaxMethod>(Self::[<call_in $i>])),
-                        name.as_ptr(),
-                        max_sys::e_max_atomtypes::A_LONG, 0
-                    );
-                    mark_undocumented(class, &name);
-                })*
+                        Some(std::mem::transmute::<extern "C" fn(&Self, max_sys::t_atom_long), crate::method::MaxMethod>(Self::$int)),
+                        name.as_ptr(), max_sys::e_max_atomtypes::A_LONG, 0);
+                    mark_undocumented(class, name);
+                )*
             }
         }
     };
@@ -1175,7 +1164,17 @@ where
         }
     }
 
-    int_float_tramps!(1, 2, 3, 4, 5, 6, 7, 8, 9);
+    int_float_tramps!(
+        1 => (call_in1, call_ft1),
+        2 => (call_in2, call_ft2),
+        3 => (call_in3, call_ft3),
+        4 => (call_in4, call_ft4),
+        5 => (call_in5, call_ft5),
+        6 => (call_in6, call_ft6),
+        7 => (call_in7, call_ft7),
+        8 => (call_in8, call_ft8),
+        9 => (call_in9, call_ft9)
+    );
 
     /// The `inletinfo` method: `*t` is 0 for a hot inlet and 1 for a cold one (as the SDK
     /// examples write it).

@@ -17,3 +17,6 @@ lto = true
 # them to the Max console. That only works if panics unwind: with "abort" any panic would
 # crash Max.
 panic = "unwind"
+
+# Keep external-specific linker flags and packaging profiles local.
+[workspace]
