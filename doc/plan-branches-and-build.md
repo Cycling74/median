@@ -3,6 +3,40 @@
 Branch states as of 2026-10-21 (merge-base and conflict status from `git merge-tree --write-tree`).
 Details and file:line pointers are in [review-2026-10.md](review-2026-10.md) §4.
 
+## Continuation status (2026-10-23)
+
+Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by request.
+
+- SDK/bindings: all three supported targets regenerated together with bindgen 0.73.2
+  against max-sdk-base `c03a2922a2a8ff149165a1e2ea134e9321d6e202`.
+  `script/regenerate-bindings.py` stages the complete set before replacing tracked files.
+  Windows ARM64 remains deferred: this SDK supplies only x64 Windows import libraries.
+  Linux remains excluded until its intended host is specified.
+- Jitter: unflagged matrix metadata, guarded matrix views, validated shared/mutable iterators,
+  and calc2/calc3 parallel adapters are implemented. Jitter `long` is i32; mutable views require
+  an explicit unsafe exclusivity contract because a Jitter lock alone does not prove it.
+  Unit tests cover strides, disjoint mutation, metadata rejection, callback errors/panics;
+  compile-fail tests protect mutable iterator borrowing and the GL callback context.
+  `MatrixOp`/`Ob3d`, `kind = matrix_op|gl`, shared attribute accessors, MOP configuration,
+  Max forwarding and owner-bound deferred calls are implemented. The SDK's notification and
+  inlet handlers are preserved. Both Jitter examples pass mock tests and package on macOS ARM64.
+  Still open: extra custom iolets, context/resource-safe GL chunk/buffer/geometry helpers, and
+  validation in Max. See API redesign §J for implementation decisions.
+- Examples: the SDK simplemax port and constructor/console mock coverage are implemented.
+  Host checks are tracked in [validation-max.md](validation-max.md).
+- Build: root workspace, standalone external projects, CI matrix (macos-15,
+  macos-15-intel, windows-2025), and vendored template packaging tasks are implemented.
+  Native Windows packaging and the workflow still need execution on those runners.
+- Dependencies: edition 2024 throughout, LazyLock and explicit trampoline identifiers replace
+  lazy_static/paste; parking_lot 0.12.5, syn 3.0.9. Workspace tests and strict Clippy passed
+  locally. max-sys disables doctests because its generated SDK docs contain C examples;
+  median's Rust doctests stay enabled. Intel macOS and Windows GNU workspace/all-targets
+  cross-checks pass; those are compilation checks, not native execution. The declared Rust 1.85
+  minimum still needs a run with that exact toolchain.
+- Containers: core ownership/locking, registry, atomarray builders and dictionary/save message
+  support are implemented with mock tests; see the detailed status in `plan-containers.md`.
+  JSON/file operations remain open. No old feature branches were merged or deleted. The sections below remain the acceptance plan, not a claim of completion.
+
 ## Step 3: land the open branches
 
 In this order; each one builds on `develop` after the previous. 3a is now a design task, see

@@ -185,7 +185,7 @@ Notes on the port: the `_tramp` functions and the whole of `class_setup` disappe
 - **`in<N>`/`ft<N>` renumbering.** Inlets are numbered per kind, from 1, not by position. In `simp` the int inlet is `in1` now (it was `in2`: position 2); the float inlet is `ft1`. Anything that sends `in2 5` to the object (patchers, tests) must change. Proxy inlets are the exception: the id `self.obj.proxy_inlet()` returns is the inlet's position (3 for `simp`'s proxy). More than 9 `Inlet::int` or 9 `Inlet::float` inlets is a construction error.
 - **Inlet 0.** It exists unless you describe it. `Inlet::default()` describes it and must be the first `builder.inlet` call; otherwise the first description is inlet 1. For MSP, signal inlets come first and occupy `0..n`; a signal inlet after another kind is an error. A mistake in the description fails construction (an `Err` posted as `median: ...`) rather than panicking.
 - **Mixed `f64` typed selectors are rejected.** A `#[sel]` (or `add_sel`) whose arguments mix `f64` with `t_atom_long`/`SymbolRef` does not compile (Max passes them in different registers on x64). Use `#[sel("name", gimme)]` / `add_sel_gimme` and read the atoms. The macro reports it at the method when the types are spelled `f64`; behind a type alias, or from `add_sel`, a `const` assertion fires instead. That assertion is evaluated by `cargo build`, not `cargo check`, so `check` can pass on code that fails to build. The same applies to `builder.clock(f)` with a capturing closure (`f` must be zero-sized): use `clock_with`. Run `cargo build` before believing a green check.
-- **Reserved selectors.** `notify`, `assist`, `inletinfo`, `dsp64`, `ft1`..`ft9`, `in1`..`in9` are registered by median and refused by `Class::add_*` and `#[sel]` (`MaxError::Duplicate`, or a spanned error). For MSP classes `signal`, `userconnect`, `nsiginlets`, `enable` too; the macro cannot know the kind, so that one fails at registration, not at compile time. `#[median::methods]` also rejects `notify` and `savestate` markers for now.
+- **Reserved selectors.** `notify`, `assist`, `inletinfo`, `dsp64`, `ft1`..`ft9`, `in1`..`in9` are registered by median and refused by `Class::add_*` and `#[sel]` (`MaxError::Duplicate`, or a spanned error). For MSP classes `signal`, `userconnect`, `nsiginlets`, `enable` too; the macro cannot know the kind, so that one fails at registration, not at compile time. `#[median::methods]` still rejects `#[notify]`; `#[savestate]` is supported.
 - **Duplicate attributes are errors.** A name registered twice fails the class registration, whether from a field `#[attr]`, a getter `#[attr]`, `add_attr*` or `add_attribute`. Registration order is field attributes, then `#[median::methods]`, then `class_setup`.
 - **One marker per method**, one registration per selector in an impl, and receivers must be `&self`. Methods may not be generic, async or `unsafe`. Derive and `#[median::methods]` reject generic types.
 - **Do not leak `ObjRef` or `Outlet` out of the object.** They are `!Send` and `!Clone` handles valid for the object's lifetime; `Box::leak`, a `thread_local!` or a `static` holding one is a use-after-free that safe code is not stopped from writing. Keep them in the struct. The same note is on `Clock` and `Queue`: they are armed after `new` returns and disarmed before your struct drops.
@@ -197,4 +197,20 @@ Notes on the port: the `_tramp` functions and the whole of `class_setup` disappe
 - **Field attributes need atomics.** `#[attr]` on a field needs a type implementing `AttrField` (`Int64`, `Float64`, `Float32`); a plain `i64` or `f64` field will not compile.
 - **`default` is informational.** `default = ..` on an attribute is shown in the inspector but median does not apply it; set the initial value in `new`. `save` needs no other support.
 - **Hand-written `Methods`/`FieldAttrs` impls** return `MaxResult<()>`, so use `?`. An `Err` panics the registration (posted to the console) and the class is not registered. `simp_explicit` is `simp` with every generated impl written out; port by hand from it if you need conditional or computed registration.
-- **Unverified in Max.** Nothing in 0.3 has run inside Max itself, only under `median-mock`. The plan's Status lists what to check by hand (the `in`/`ft` hiding in the message menu, `loadbang` arguments, `save` restore, deferred `read` ordering, `BufferEdit` locking).
+- **Max validation.** The user has checked buffer-follow/playback in `hello_dsp~` and float-to-int message rejection. Other changes, including dictionaries and Jitter, have only mock/build coverage. The plan's Status lists what to check by hand (the `in`/`ft` hiding in the message menu, `loadbang` arguments, `save` restore, deferred `read` ordering, `BufferEdit` locking).
+
+## Dictionaries and Jitter
+
+`Dict` owns one reference: cloning shares it, `deep_clone()` copies it. Inserting an owned
+`Dict` transfers that reference; inserting `&Dict` copies; `insert_shared` shares explicitly
+and rejects cycles made through median. Reads copy or retain while transaction-locked. Register
+before `Outlet<Any>::send_dict`; keep the returned handle alive. `#[dictionary]` receives an
+owned `Dict`; `#[savestate]` receives `&Dict`. These callbacks cannot be deferred implicitly.
+JSON/file helpers remain unfinished; see [the container plan](plan-containers.md).
+
+Jitter externals use `#[max(kind = matrix_op)]` with `jit::MatrixOp`, or `#[max(kind = gl)]`
+with `jit::Ob3d`. The derive registers both Jitter and Max classes. Keep `JitBuilder::obj()`
+in your struct if you need a `JitObjRef`. Methods take `&self`; attributes need atomics.
+MOP/ob3d creates the iolets and provides assistance. Matrix data references require explicit
+unsafe access contracts, even with a matrix lock held. GL callbacks get `&DrawContext`; do not
+use GL operations from `Drop`. See `jit_scalebias` and `jit_gl_simple` for complete examples.

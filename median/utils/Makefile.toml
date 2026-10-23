@@ -1,5 +1,6 @@
 # vim: set ts=4 sw=4 expandtab:
 [config]
+default_to_workspace = false
 additional_profiles = [ "release" ]
 
 ## Environment setup, some will get overridden in other tasks
@@ -73,8 +74,12 @@ run_task = "build-target"
 
 [tasks.build-mac-universal]
 clear = true
+run_task = { name = ["merge-mac-universal", "bundle-metadata", "assemble-package"] }
+
+[tasks.merge-mac-universal]
+clear = true
 dependencies = ["build-mac-x86", "build-mac-aarch64", "name-env"]
-env = { "TARGET_TRIPLE" = "${TARGET_TRIPLE_MAC_UNIVERSAL}", "PROFILE_EXTERNAL_PATH" = "target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.${PLATFORM_EXTERNAL_EXT}" }
+env = { "TARGET_TRIPLE" = "${TARGET_TRIPLE_MAC_UNIVERSAL}", "PROFILE_EXTERNAL_PATH" = "target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.${PLATFORM_EXTERNAL_EXT}", "PROFILE_TARGET_DIR" = "target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}" }
 script_runner = "@shell"
 script = [
     '''
@@ -163,10 +168,9 @@ clear = true
 script_runner = "@shell"
 script = [
     '''
-    mkdir -p ${PROFILE_EXTERNAL_PATH}/Contents/MacOS/
+    mkdir -p "${PROFILE_EXTERNAL_PATH}/Contents/MacOS/"
     cp "${PROFILE_TARGET_DIR}/${LIB_FILE_NAME}" "${PROFILE_EXTERNAL_PATH}/Contents/MacOS/${PACKAGED_LIB_FILE_NAME}"
     cp "${CARGO_MAKE_CURRENT_TASK_INITIAL_MAKEFILE_DIRECTORY}/PkgInfo" "${PROFILE_EXTERNAL_PATH}/Contents/"
-    codesign -f -s - "${PROFILE_EXTERNAL_PATH}"
     '''
 ]
 
@@ -174,14 +178,14 @@ script = [
 dependencies = ["build", "name-env"]
 clear = true
 run_task = [
-    { name = "package-mac", condition = { platforms = ["mac"] } },
-    { name = "package-windows", condition = { platforms = ["windows"] } },
+    { name = ["package-mac", "bundle-metadata", "assemble-package"], condition = { platforms = ["mac"] } },
+    { name = ["package-windows", "assemble-package"], condition = { platforms = ["windows"] } },
 ]
 
 [tasks.package-all]
 clear = true
 run_task = [
-    { name = ["package-windows", "build-mac-universal", "copy-all"], condition = { platforms = ["mac"] } },
+    { name = ["package-windows", "build-mac-universal", "bundle-metadata", "copy-all"], condition = { platforms = ["mac"] } },
 ]
 
 [tasks.copy-all]
@@ -199,6 +203,12 @@ script = [
     mkdir -p "${PACKAGE_DIR}/externals/"
     cp -r "target/${TARGET_TRIPLE_MAC_UNIVERSAL}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxo" "${PACKAGE_DIR}/externals/"
     cp -r "target/${TARGET_TRIPLE_WINDOWS}/${PROFILE_DIR}/${MAX_EXT_NAME}.mxe64" "${PACKAGE_DIR}/externals/"
+    metadata="${PACKAGE_DIR}/package-info.json"
+    plutil -create xml1 "$metadata"
+    plutil -insert name -string "${MAX_PACKAGE_NAME}" "$metadata"
+    plutil -insert version -string "${CARGO_MAKE_CRATE_VERSION}" "$metadata"
+    plutil -insert platforms -json '["mac", "windows"]' "$metadata"
+    plutil -convert json "$metadata"
     echo PACKAGE_DIR=${PACKAGE_DIR}
     '''
 ]
@@ -242,7 +252,7 @@ script = [
 
 [tasks.install-universal.mac]
 clear = true
-dependencies = ["build-mac-universal", "install-init"]
+dependencies = ["build-mac-universal", "bundle-metadata", "install-init"]
 script_runner = "@shell"
 script = [
     '''
@@ -260,3 +270,61 @@ script = [
     cp "${INIT_DIR}/"* "${INIT_INSTALL_DIR}"
     '''
 ]
+
+# Native Windows packaging uses PowerShell; the base task remains usable for cross-packaging
+# from macOS.
+[tasks.package-windows.windows]
+script_runner = "powershell"
+script_extension = "ps1"
+script = ['''
+$source = Join-Path $env:PROFILE_TARGET_DIR $env:LIB_FILE_NAME
+Copy-Item -LiteralPath $source -Destination $env:PROFILE_EXTERNAL_PATH -Force
+''']
+
+# plutil escapes values for XML/JSON. No Python or third-party packaging tool is needed.
+[tasks.bundle-metadata]
+private = true
+script_runner = "@shell"
+script = ['''
+set -eu
+plist="${PROFILE_EXTERNAL_PATH}/Contents/Info.plist"
+plutil -create xml1 "$plist"
+plutil -insert CFBundleExecutable -string "${PACKAGED_LIB_FILE_NAME}" "$plist"
+plutil -insert CFBundleName -string "${MAX_EXT_NAME}" "$plist"
+plutil -insert CFBundlePackageType -string iLaX "$plist"
+plutil -insert CFBundleVersion -string "${CARGO_MAKE_CRATE_VERSION}" "$plist"
+plutil -insert CFBundleShortVersionString -string "${CARGO_MAKE_CRATE_VERSION}" "$plist"
+codesign -f -s - "${PROFILE_EXTERNAL_PATH}"
+''']
+
+[tasks.assemble-package.mac]
+private = true
+script_runner = "@shell"
+script = ['''
+set -eu
+package_dir="${PROFILE_TARGET_DIR}/${MAX_PACKAGE_NAME}"
+mkdir -p "$package_dir/externals"
+cp -R "${PROFILE_EXTERNAL_PATH}" "$package_dir/externals/"
+if [ -d "${INIT_DIR}" ]; then cp -R "${INIT_DIR}" "$package_dir/"; fi
+metadata="$package_dir/package-info.json"
+plutil -create xml1 "$metadata"
+plutil -insert name -string "${MAX_PACKAGE_NAME}" "$metadata"
+plutil -insert version -string "${CARGO_MAKE_CRATE_VERSION}" "$metadata"
+plutil -insert platforms -json '["mac"]' "$metadata"
+plutil -convert json "$metadata"
+''']
+
+[tasks.assemble-package.windows]
+private = true
+script_runner = "powershell"
+script_extension = "ps1"
+script = ['''
+$ErrorActionPreference = "Stop"
+$packageDir = Join-Path $env:PROFILE_TARGET_DIR $env:MAX_PACKAGE_NAME
+$externalsDir = Join-Path $packageDir "externals"
+New-Item -ItemType Directory -Force -Path $externalsDir | Out-Null
+Copy-Item -LiteralPath $env:PROFILE_EXTERNAL_PATH -Destination $externalsDir -Force
+if (Test-Path -LiteralPath $env:INIT_DIR -PathType Container) { Copy-Item -LiteralPath $env:INIT_DIR -Destination $packageDir -Recurse -Force }
+$metadata = @{ name = $env:MAX_PACKAGE_NAME; version = $env:CARGO_MAKE_CRATE_VERSION; platforms = @("windows") }
+[System.IO.File]::WriteAllText((Join-Path $packageDir "package-info.json"), ($metadata | ConvertTo-Json))
+''']

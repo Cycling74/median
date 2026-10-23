@@ -11,3 +11,12 @@ Look into the subdirs for more information. Most likely, you want [median/README
 * **median_macros** - Procedural macros (`#[derive(MaxObject)]`, `#[median::methods]`). These are re-exported by `median` so there is no need to depend on this directly.
 * [median project templates](templates/) - `cargo generate` compatible template(s) for starting your own max external project.
 
+
+## Development
+
+The root workspace builds `median`, `max-sys`, `median_macros`, and the `median-mock` test
+kernel. Run `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`.
+Examples are standalone projects with their own linker and packaging settings.
+
+The 0.3 redesign is in progress. Start with [doc/README.md](doc/README.md) and the
+[current handoff](doc/handoff-2026-10-23.md) for completed work and remaining validation.

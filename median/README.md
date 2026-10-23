@@ -124,33 +124,34 @@ cargo make install # creates and installs a development build
 cargo make --profile release install # creates and installs a production build
 ```
 
-## Cross Compiling
+## Universal macOS and Windows builds
 
-Currently this is only enabled for Mac OS, but with a little bit of work we should be able to cross compile on Linux.
-We can build fat (x86 and arm64) Mac OS and Windows externals.
+On macOS, install the other Mac target (`x86_64-apple-darwin` on Apple Silicon,
+`aarch64-apple-darwin` on Intel), then run `cargo make build-mac-universal`. This creates
+an Intel/ARM64 `.mxo`, adds `Info.plist`, signs it ad hoc, and stages a Max package with
+`package-info.json`. Notarization is outside this pipeline.
 
-Assuming you're on x86 Mac OS, install the windows and arm64 targets/toolchains:
+Native Windows builds use the x64 MSVC toolchain and `cargo make package`. Cross-packaging
+from macOS with `cargo make package-all` also needs the Windows GNU target and its linker.
+Windows compilation was checked from macOS; native Windows packaging and CI runner execution
+remain unverified. The pinned Max SDK supplies x64 Windows import libraries; Windows ARM64
+and Linux hosts are not currently supported.
 
-```
-rustup target add x86_64-pc-windows-gnu
-rustup target add aarch64-apple-darwin
-rustup toolchain install stable-x86_64-pc-windows-gnu
-```
+Template projects vendor the packaging tasks and `PkgInfo`; their builds do not download task
+files from a moving branch. `cargo make install` targets the Max 9 user Packages folder by
+default (`MAX_VERSION=8` selects Max 8).
 
-Or, *untested*, on an aarch64 (arm64) Mac OS machine:
+## Dictionaries and Jitter
 
-```
-rustup target add x86_64-pc-windows-gnu
-rustup target add x86_64-apple-darwin
-rustup toolchain install stable-x86_64-pc-windows-gnu
-```
+`median::dict` provides retained dictionaries, owned atomarray builders, transactions and
+registry messaging. `#[dictionary]` takes an owned `Dict`; `#[savestate]` takes `&Dict`.
+Dictionary operations allocate and lock, so they do not belong in `perform`.
 
-Then should be able to build all the externals with:
-
-`cargo make package-all` or `cargo make --profile release package-all`
-
-If this succeeds, you should see a printout of where the externals were put.
-
+`kind = matrix_op` and `kind = gl` derive modes generate the Max/Jitter class glue. See
+[`jit_scalebias`](examples/jit_scalebias/src/lib.rs) and
+[`jit_gl_simple`](examples/jit_gl_simple/src/lib.rs). Matrix access still requires explicit
+unsafe aliasing contracts; GL callbacks receive a context token. These additions have mock
+and packaging checks, with [Max runtime validation](../doc/validation-max.md) still pending.
 
 ## Resources
 
@@ -162,11 +163,7 @@ if you have more than 7 args or if you are mixing floating point and other argum
 ```
 (`#[sel]` and `Class::add_sel` enforce this: a typed selector whose arguments mix `f64` with `t_atom_long`/`SymbolRef` is a compile error, so use `#[sel("name", gimme)]` / `Class::add_sel_gimme` for it. `#[median::methods]` reports it at the method when it can see the types; otherwise, e.g. behind a type alias, a const assertion in `add_sel` fails when the crate is built (`cargo build`, not `cargo check`).)
 
-## TODO
+## Remaining work
 
-* dictionaries
-* Jitter wrapper(s)
-* cross compile on linux
-  * [cctools](https://github.com/tpoechtrager/cctools-port) lipo for linux
-* [github actions](https://github.com/features/actions)
-* explain non mut methods and threading model and `Sync` in docs
+See [the current handoff](../doc/handoff-2026-10-23.md) for open container helpers, GL resource
+wrappers, extra Jitter iolets, native platform checks and runtime validation.

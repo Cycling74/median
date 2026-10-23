@@ -8,20 +8,22 @@ to any other checkout.
 
 | path | what it is |
 |---|---|
-| `max-sys/` | Low-level FFI crate. Pre-generated bindgen output per target in `max-sys/src/ffi-*.rs`, selected by `cfg` in `max-sys/src/lib.rs`. The Max SDK headers are the git submodule at `max-sys/thirdparty/max-sdk` (`source/c74support/{max,msp,jit}-includes`). Regeneration instructions are in `max-sys/README.md`; the generated files are committed, so regenerate only when `build.rs`, the `wrapper*.h` files or the SDK change, and regenerate every target together. |
+| `max-sys/` | Low-level FFI crate. Pre-generated bindgen output per target in `max-sys/src/ffi-*.rs`, selected by `cfg` in `max-sys/src/lib.rs`. The Max SDK headers are the git submodule at `max-sys/thirdparty/max-sdk-base` (`c74support/{max,msp,jit}-includes`); the older `max-sdk` submodule supplies examples. Regeneration instructions are in `max-sys/README.md`; the generated files are committed, so regenerate only when `build.rs`, the `wrapper*.h` files or the SDK change, and regenerate every target together. |
 | `median/` | The safe(r) wrapper crate: `src/wrapper.rs` (object wrappers and trampolines), `builder.rs` (inlets/outlets/clocks/queues at construction), `class.rs`/`method.rs` (class registration: `Class::add_*` take a zero-sized callable and build the trampoline generically; no build script), `attr.rs` (also the generic attribute accessors, `AttrField`, `AttrOptions`), `lib.rs` (crate docs, `ext_main!`, `prelude`), `atom.rs`, `symbol.rs`, `outlet.rs`, `inlet.rs`, `clock.rs` (`Clock`, and `ClockShared`, the callback target clocks, queues and deferred calls share), `queue.rs` (`Queue`, a qelem), `defer.rs` (`#[defer]`/`#[defer_low]`: the per-object deferred-call queue), `fifo.rs` (re-exported `rtrb` ring buffers, `Shared`), `buffer.rs`, `notify.rs`, `thread.rs`, `file.rs`, `num.rs`, `slice.rs`, `alloc.rs`. |
 | `median_macros/` | Proc macros re-exported by `median`: `#[derive(MaxObject)]` (`derive.rs`: `ObjClass`, `register()`, `FieldAttrs`), `#[median::methods]` (`methods.rs`: re-emits the impl without markers, implements `Methods` with `Class::add_*` calls; markers `#[bang]` .. `#[sel]`, `#[attr]`, `#[dblclick]`, `#[loadbang]`, each message marker optionally with `#[defer]`/`#[defer_low]`), shared `#[attr(..)]` options (`attr_opts.rs`), and the reserved-selector mirror (`reserved.rs`). The generated code calls only public `median` API; `ext_main!` is a `macro_rules!` in `median`. |
-| `median/examples/` | `simp` (Max object, derive + `#[median::methods]`), `simp_explicit` (the same without the macros: the reference for the hand-written style), `hello_dsp` (MSP), `multi` (two classes in one external). Each is a `cdylib` built with `cargo make` using `median/utils/Makefile.toml`; `median/tests/` also compiles each into a test (`#[path]` modules) and runs it against `median-mock`. |
-| `templates/` | `cargo generate` template for a new external. Note `templates/max/Makefile.toml` downloads `median/utils/Makefile.toml` from the `develop` branch at build time, so changes to that file affect template users immediately. |
+| `median/examples/` | `simplemax` (SDK constructor/console example), `simp` (Max object, derive + `#[median::methods]`), `simp_explicit` (the same without the macros: the reference for the hand-written style), `hello_dsp` (MSP), `multi` (two classes in one external). Each is a `cdylib` built with `cargo make` using `median/utils/Makefile.toml`; `median/tests/` also compiles each into a test (`#[path]` modules) and runs it against `median-mock`. |
+| `templates/` | `cargo generate` template for a new external. The packaging tasks are vendored in `templates/max/Makefile.package.toml`; keep that copy and `PkgInfo` synchronized with `median/utils/` when changing the pipeline. |
+| `median/src/dict.rs` | Retained dictionaries and owned atomarrays; `dictionary`/`savestate` callbacks are in `method.rs`. See `doc/plan-containers.md` for ownership contracts and unfinished helpers. |
+| `median/src/jit/` | Shared matrix/GL class wrappers (`wrapper.rs`), MOP configuration and borrowed matrix views/iterators/parallel adapters (`matrix/`). Examples: `jit_scalebias`, `jit_gl_simple`. |
 | `doc/` | Design notes: the October 2026 review of the crate and the plans that follow from it. Start with `doc/README.md`. |
 
-There is no Cargo workspace. Run cargo commands inside `median/`, `max-sys/` or `median_macros/`.
+The root Cargo workspace contains `median`, `max-sys`, `median_macros`, and `median-mock`. Examples and the template are standalone workspaces for their own linker flags and profiles.
 
 ## Building and testing
 
 ```sh
-cd median && cargo build && cargo test        # unit, end-to-end (median-mock), doc and UI tests, no Max needed
-cd median && cargo clippy                      # see "Known state" below
+cargo build --workspace && cargo test --workspace        # unit, end-to-end (median-mock), doc and UI tests, no Max needed
+cargo clippy --workspace --all-targets -- -D warnings
 cd median/examples/simp && cargo make build    # needs cargo-make; package/install also exist
 ```
 
@@ -32,10 +34,9 @@ review the `.stderr` diff.
 
 Formatting: run `script/install-hooks.sh` once per clone. The pre-commit hook
 (`script/pre-commit.sh`) runs `rustfmt` on staged `.rs` files, re-staging fully staged ones and
-aborting if a partly staged file needs formatting. `rustfmt.toml` pins edition 2024 (2018 under
-`max-sys/`), so single-file `rustfmt` agrees with `cargo fmt`. The generated bindings
+aborting if a partly staged file needs formatting. `rustfmt.toml` pins edition 2024, so single-file `rustfmt` agrees with `cargo fmt`. The generated bindings
 (`max-sys/src/ffi-*.rs`) and the trybuild cases (`median/tests/ui/*.rs`, whose `.stderr` files
-record line numbers) are left alone. To format everything, run `cargo fmt` in each crate and
+record line numbers) are left alone. To format everything, run `cargo fmt --all` and
 `rustfmt templates/max/src/lib.rs`. A commit that only reformats goes in `.git-blame-ignore-revs`
 (the install script sets `blame.ignoreRevsFile`).
 
@@ -137,8 +138,9 @@ it in the same change.
 - Follow the SDK headers in `max-sys/thirdparty/max-sdk` for signatures and ownership rules; where
   the SDK's examples and its headers disagree, the headers win (there are known cases, listed in
   `doc/plan-containers.md`). Use `c_long`, not `i64`, for SDK `long` parameters (32-bit on Windows).
-- `AttrBuilder` with an offset and no accessors is currently broken (M9); pass accessors or fix
-  the builder first.
+- `AttrBuilder` now passes absent offset accessors as null so the SDK installs them (M9 fixed).
+  Built `Attr` values own their allocation until added to a class or converted to a raw pointer;
+  the wrapper's `MaxObj::IS_JITTER` selects the Jitter constructor and getter allocator.
 
 ## Branches
 
@@ -156,3 +158,12 @@ only `develop` (no `main`), so check the PR target before opening one.
 - Change `median/utils/Makefile.toml` without considering template users (see Layout).
 - Add new offset-based pointer recovery, new non-atomic `Sync` cells, or new safe fns over raw
   pointers; these are the defect classes the review is removing.
+
+## Continuation checkpoint (2026-10-23)
+
+Read `doc/handoff-2026-10-23.md` before resuming. The 0.2.x clock backport remains deferred.
+Jitter derives support `kind = matrix_op|gl`; callbacks use `&self`, per-call borrowed matrices
+and `&DrawContext` for GL. Preserve SDK-owned notification/inlet handlers in Max glue. General
+methods/deferred calls live on the Max forwarding class; direct Jitter `class_setup` methods
+cannot defer. Extra iolets and GL resource wrappers are unfinished. No new Max runtime checks
+have been performed; mock success does not verify host locking or GL ownership contracts.

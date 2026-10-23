@@ -1,0 +1,20 @@
+[package]
+name = "simplemax"
+version = "0.1.0"
+authors = ["Alex Norman <xnor@cycling74.com>"]
+edition = "2024"
+rust-version = "1.85"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+median = { path = "../../" }
+
+[profile.release]
+lto = true
+# The FFI trampolines catch panics and report them to Max.
+panic = "unwind"
+
+# Keep external-specific linker flags and packaging profiles local.
+[workspace]

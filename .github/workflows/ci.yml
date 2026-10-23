@@ -1,0 +1,39 @@
+name: Rust
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Explicit architectures; macos-13 from the original plan is retired.
+        os: [macos-15, macos-15-intel, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Rust toolchain
+        run: rustup update stable --no-self-update
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
+      - name: Build standalone externals
+        shell: bash
+        run: |
+          set -e
+          for example in simplemax simp simp_explicit hello_dsp multi jit_scalebias jit_gl_simple; do
+            (cd "median/examples/$example" && cargo build)
+          done
+      - name: Install cargo-make
+        run: cargo install cargo-make --version 0.37.24 --locked
+      - name: Package simp
+        working-directory: median/examples/simp
+        run: cargo make package
