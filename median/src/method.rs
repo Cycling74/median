@@ -163,6 +163,39 @@ where
     })
 }
 
+pub(crate) extern "C" fn dictionary_tramp<W, T, F, R>(w: &W, name: *mut max_sys::t_symbol)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: Fn(&T, crate::dict::Dict) -> R + Copy,
+    R: MethodResult,
+{
+    crate::ffi::guard(w, "dictionary", || {
+        let name = unsafe { SymbolRef::from_raw(name) };
+        match crate::dict::Dict::find_registered(name) {
+            Some(d) => (unsafe { zst::<F>() })(w.wrapped(), d)
+                .report_if_err(&mut |err| w.report_error(err)),
+            None => w.report_error(&format!("unable to reference dictionary named {name}")),
+        }
+    });
+}
+
+pub(crate) extern "C" fn savestate_tramp<W, T, F, R>(w: &W, ptr: *mut max_sys::t_dictionary)
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: Fn(&T, &crate::dict::Dict) -> R + Copy,
+    R: MethodResult,
+{
+    crate::ffi::guard(w, "appendtodictionary", || {
+        // Max keeps the patcher's dictionary alive for this call. A temporary retain also
+        // allows the user to clone the handle without borrowing storage from the callback.
+        match unsafe { crate::dict::Dict::from_raw(ptr, crate::dict::Ownership::Borrowed) } {
+            Ok(d) => (unsafe { zst::<F>() })(w.wrapped(), &d)
+                .report_if_err(&mut |err| w.report_error(err)),
+            Err(err) => w.report_error(&err),
+        }
+    });
+}
+
 /// Build a `&[Atom]` from the `argc`/`argv` Max passes to an `A_GIMME` method.
 ///
 /// # Safety

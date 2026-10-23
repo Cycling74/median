@@ -34,11 +34,11 @@ error: `#[loadbang]` method must take `(&self)`
 36 |     pub fn loaded(&self, _v: t_atom_long) {}
    |         ^^
 
-error: `#[savestate]` is not supported yet
-  --> tests/ui/methods_markers.rs:38:5
+error: `#[savestate]` method must take `(&self, &Dict)`
+  --> tests/ui/methods_markers.rs:39:9
    |
-38 |     #[savestate]
-   |     ^
+39 |     pub fn save(&self) {}
+   |         ^^
 
 error: `#[bang]` takes no arguments
   --> tests/ui/methods_markers.rs:41:7

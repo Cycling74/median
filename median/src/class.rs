@@ -356,6 +356,40 @@ impl<T> Class<T> {
 
 /// Typed method registration, without trampoline macros: see the documentation of [`Class`].
 impl<W> Class<W> {
+    /// Receive a named dictionary (`A_SYM`). The trampoline retains it for the call and reports
+    /// an unknown name without calling the method. The received handle shares the sender's data.
+    pub fn add_dictionary<T, F, R>(&mut self, _f: F) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        F: Fn(&T, crate::dict::Dict) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        let m = unsafe {
+            erase(dictionary_tramp::<W, T, F, R> as extern "C" fn(&W, *mut max_sys::t_symbol))
+        };
+        unsafe { self.add_typed(c"dictionary", m, &[max_sys::e_max_atomtypes::A_SYM]) }
+    }
+
+    /// Save state into the patcher's dictionary (`appendtodictionary`, `A_CANT`).
+    /// Insert a deep copy of private state to keep the patcher's saved value independent.
+    pub fn add_savestate<T, F, R>(&mut self, _f: F) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        F: Fn(&T, &crate::dict::Dict) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        let m = unsafe {
+            erase(savestate_tramp::<W, T, F, R> as extern "C" fn(&W, *mut max_sys::t_dictionary))
+        };
+        unsafe {
+            self.add_typed(
+                c"appendtodictionary",
+                m,
+                &[max_sys::e_max_atomtypes::A_CANT],
+            )
+        }
+    }
+
     /// Register the `bang` method.
     pub fn add_bang<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where

@@ -381,6 +381,9 @@ pub unsafe extern "C" fn object_alloc(c: *mut t_class) -> *mut c_void {
 /// `x` must not be used after this returns success.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn object_free(x: *mut c_void) -> t_max_err {
+    if crate::containers::release(x as usize) {
+        return 0;
+    }
     let addr = x as usize;
     enum Kind {
         Object(usize),

@@ -10,7 +10,7 @@ use syn::{
 };
 
 /// Markers that are planned but not there yet.
-const LATER: &[&str] = &["notify", "savestate"];
+const LATER: &[&str] = &["notify"];
 
 /// The most typed arguments a `#[sel]` method can have (what `class_addmethod` takes).
 const MAX_SEL_ARGS: usize = 7;
@@ -19,6 +19,8 @@ enum Marker {
     Bang,
     Dblclick,
     Loadbang,
+    Dictionary,
+    Savestate,
     Int,
     Float,
     Sym,
@@ -51,6 +53,8 @@ impl Marker {
             "bang" => no_args(Marker::Bang),
             "dblclick" => no_args(Marker::Dblclick),
             "loadbang" => no_args(Marker::Loadbang),
+            "dictionary" => no_args(Marker::Dictionary),
+            "savestate" => no_args(Marker::Savestate),
             "int" => no_args(Marker::Int),
             "float" => no_args(Marker::Float),
             "sym" => no_args(Marker::Sym),
@@ -135,6 +139,8 @@ impl Marker {
             Marker::Bang => "`#[bang]` method must take `(&self)`",
             Marker::Dblclick => "`#[dblclick]` method must take `(&self)`",
             Marker::Loadbang => "`#[loadbang]` method must take `(&self)`",
+            Marker::Dictionary => "`#[dictionary]` method must take `(&self, Dict)`",
+            Marker::Savestate => "`#[savestate]` method must take `(&self, &Dict)`",
             Marker::Int => "`#[int]` method must take `(&self, t_atom_long)`",
             Marker::Float => "`#[float]` method must take `(&self, f64)`",
             Marker::Sym => "`#[sym]` method must take `(&self, SymbolRef)`",
@@ -357,6 +363,13 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     ));
                     continue;
                 }
+                Some((Marker::Dictionary | Marker::Savestate, _)) => {
+                    push_err(syn::Error::new(
+                        span,
+                        "dictionary and savestate callbacks cannot be deferred; copy the data explicitly",
+                    ));
+                    continue;
+                }
                 Some((Marker::Attr(_), _)) => {
                     push_err(syn::Error::new(
                         span,
@@ -385,7 +398,8 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
         use Arg::*;
         let want: Option<&[Arg]> = match &marker {
             Marker::Bang | Marker::Dblclick | Marker::Loadbang | Marker::Attr(_) => Some(&[]),
-            Marker::Int | Marker::Float | Marker::Sym => Some(&[Value]),
+            Marker::Int | Marker::Float | Marker::Sym | Marker::Dictionary => Some(&[Value]),
+            Marker::Savestate => Some(&[Ref]),
             Marker::List => Some(&[Slice]),
             Marker::Any | Marker::Sel { gimme: true, .. } => Some(&[Ref, Slice]),
             Marker::Sel { .. } => None,
@@ -452,6 +466,8 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             Marker::Bang => Some("bang".to_string()),
             Marker::Dblclick => Some("dblclick".to_string()),
             Marker::Loadbang => Some("loadbang".to_string()),
+            Marker::Dictionary => Some("dictionary".to_string()),
+            Marker::Savestate => Some("appendtodictionary".to_string()),
             Marker::Int => Some("int".to_string()),
             Marker::Float => Some("float".to_string()),
             Marker::Sym => Some("symbol".to_string()),
@@ -486,6 +502,8 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             (Marker::Bang, None) => quote_spanned!(span=> c.add_bang(#path)?;),
             (Marker::Dblclick, _) => quote_spanned!(span=> c.add_dblclick(#path)?;),
             (Marker::Loadbang, _) => quote_spanned!(span=> c.add_loadbang(#path)?;),
+            (Marker::Dictionary, _) => quote_spanned!(span=> c.add_dictionary(#path)?;),
+            (Marker::Savestate, _) => quote_spanned!(span=> c.add_savestate(#path)?;),
             (Marker::Int, None) => quote_spanned!(span=> c.add_int(#path)?;),
             (Marker::Float, None) => quote_spanned!(span=> c.add_float(#path)?;),
             (Marker::Sym, None) => quote_spanned!(span=> c.add_sym(#path)?;),

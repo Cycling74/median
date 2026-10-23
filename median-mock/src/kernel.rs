@@ -61,6 +61,7 @@ impl Kernel {
     /// clock (back to time 0), buffers. Classes and symbols are kept, because code such as
     /// `ext_main` registers its classes once per process and keeps their pointers.
     pub fn reset(&self) {
+        crate::containers::reset();
         state().reset();
     }
 

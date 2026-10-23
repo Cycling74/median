@@ -145,8 +145,11 @@
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
+//! | `#[dictionary]` | a retained registered dictionary | `fn(&self, Dict)` |
+//! | `#[savestate]` | `appendtodictionary` (`A_CANT`): patcher save | `fn(&self, &Dict)` |
 //!
-//! A message marker (not `#[attr]`, `#[dblclick]` or `#[loadbang]`) can be paired with
+//! A message marker (except `#[attr]`, `#[dblclick]`, `#[loadbang]`, `#[dictionary]`, and
+//! `#[savestate]`) can be paired with
 //! `#[defer_low]` (always run later on the main thread) or `#[defer]` (run now on the main thread,
 //! otherwise later on it): `#[sel("read", gimme)] #[defer_low]`. See [`defer`]; never send a
 //! deferred message from `perform`.
@@ -184,6 +187,7 @@ pub mod builder;
 pub mod class;
 pub mod clock;
 pub mod defer;
+pub mod dict;
 pub mod error;
 pub mod ffi;
 pub mod fifo;
@@ -259,6 +263,7 @@ pub mod prelude {
         class::{Class, ClassType},
         clock::Clock,
         defer::Defer,
+        dict::{AtomArray, Dict, DictError, DictValue},
         error::{MaxResult, NewError},
         ext_main,
         inlet::{Inlet, InletId},

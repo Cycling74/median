@@ -1,6 +1,7 @@
 # Plan: containers (dictionary, atomarray, string) and their ownership
 
-Status: design, replaces the "merge feature/dict" step. Revised after a second review pass that
+Status: core implementation and mock tests in progress on `xnor/api-redesign` (2026-10-22).
+Replaces the "merge feature/dict" step. Revised after a second review pass that
 re-verified every kernel citation; the changes from the first draft are listed in §9.
 
 Sources: the Max 8 SDK headers in `max-sys/thirdparty/max-sdk/source/c74support/max-includes`
@@ -8,6 +9,40 @@ Sources: the Max 8 SDK headers in `max-sys/thirdparty/max-sdk/source/c74support/
 page `doxygen/content/datastore.h`, and the SDK examples in `source/dictionary/`. Behaviour the
 headers do not document was verified against the kernel source; those rows are marked *kernel*
 in the table below and should be re-verified against a newer kernel before relying on them.
+
+## Implementation status (2026-10-22)
+
+Implemented in `median/src/dict.rs`: retained `Dict`, owned `AtomArray`, ordered keys,
+locked copy/retain reads, typed getters, path traversal, transfer/copy/shared insertion,
+removal, registry registration and lookup, snapshot-based copies, panic-safe transactions.
+`#[dictionary]`, `#[savestate]`, public `Class::add_dictionary`/`add_savestate`, and
+`Outlet<Any>::send_dict` have end-to-end mock coverage, including missing names and panics.
+
+Decisions made while implementing:
+
+- Fallible allocation/read/copy operations return `DictResult`, including getters, `new`, and
+  `deep_clone`. `DictInsert` is the conversion trait; `DictValue` is the returned value enum.
+  Keys use `SymbolRef` (normally `sym!("key")`).
+- Removal copies/retains under the lock and then calls `dictionary_deleteentry`; it does not
+  manually release a chucked entry. This also handles foreign weak entries according to their
+  actual flags. Opaque objects are still refused and can be explicitly deleted.
+- Child transfers **also** check cycles: `dict.insert(key, dict.clone())` must not evade the
+  shared-insert check. A process-local recursive graph lock serializes check-plus-insert to
+  reject opposite concurrent inserts. Foreign C writers remain outside that lock.
+- Transactions acquire the graph lock before the dictionary lock. Debug checks reject access
+  to another existing dictionary; newly created private dictionaries are allowed. Transactions
+  provide exclusion, not rollback. Cross-dictionary copies are non-atomic snapshots.
+- `send_dict` requires explicit registration and returns an error for an unregistered handle;
+  it never implicitly changes the caller's dictionary identity after a registry collision.
+- The Rust mock now models container reference counts, recursive transaction locks, ordered
+  entries, string conversion by `getatom`, transfers, deep copies and dictionary registry
+  collisions. It is a test of wrapper behavior, not evidence that Max's kernel matches it.
+
+Tests cover acceptance cases 1–9, including 10k concurrent iterations and simultaneous opposite
+cycle attempts, plus panic-safe transaction release and message/save callbacks. Max validation
+is still required. Remaining: JSON parsing/serialization, file I/O, rename/notification helpers,
+raw atom escape hatches, host tests, and the mock's less common external-entry flags/failures.
+`jsonwriter.getoutput` remains deliberately unimplemented until its contract is verified in Max.
 
 ## 1. What the kernel actually does
 

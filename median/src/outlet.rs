@@ -65,6 +65,22 @@ impl std::error::Error for StackOverflow {}
 /// What sending through an outlet returns.
 pub type SendResult = Result<(), StackOverflow>;
 
+/// A dictionary must be registered before its name can be sent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DictSendError {
+    Unregistered,
+    StackOverflow(StackOverflow),
+}
+impl fmt::Display for DictSendError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unregistered => f.write_str("dictionary is not registered"),
+            Self::StackOverflow(e) => e.fmt(f),
+        }
+    }
+}
+impl std::error::Error for DictSendError {}
+
 mod sealed {
     pub trait Sealed {}
 }
@@ -293,6 +309,15 @@ impl Outlet<List> {
 }
 
 impl Outlet<Any> {
+    /// Send a dictionary's registered name. Register it explicitly with `Dict::register` first
+    /// and keep its returned handle alive for downstream lookups. Receivers retaining a copy
+    /// during this synchronous send may keep that copy independently.
+    pub fn send_dict(&self, dict: &crate::dict::Dict) -> Result<SymbolRef, DictSendError> {
+        let name = dict.name().ok_or(DictSendError::Unregistered)?;
+        self.send(&crate::sym!("dictionary"), &[name.into()])
+            .map_err(DictSendError::StackOverflow)?;
+        Ok(name)
+    }
     /// Describe an outlet that sends any message.
     pub fn any() -> OutletDesc<Any> {
         OutletDesc::new()
