@@ -193,6 +193,10 @@ impl ObjRef {
 ///
 /// This is implemented for the wrapper types (and not for your own struct): to post, touch
 /// attributes and so on from your own struct, keep an [`ObjRef`] in it.
+///
+/// # Safety
+/// Implementors must start with a live Max object header at offset zero, valid for every
+/// borrow of `self`, and must obey the host's object lifetime and threading rules.
 pub unsafe trait MaxObj: Sized {
     /// The object is an MSP object (`t_pxobject`): `Class` refuses the selectors
     /// `class_dspinit` adds ([`MSP_RESERVED_SELECTORS`](crate::class::MSP_RESERVED_SELECTORS))
@@ -200,8 +204,13 @@ pub unsafe trait MaxObj: Sized {
     #[doc(hidden)]
     const IS_MSP: bool = false;
 
+    /// Attribute callbacks use Jitter allocation when this is a Jitter wrapper.
+    /// Implementors must match the class API used to register their attributes.
+    #[doc(hidden)]
+    const IS_JITTER: bool = false;
+
     fn max_obj(&self) -> *mut max_sys::t_object {
-        unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self) }
+        self as *const Self as *mut max_sys::t_object
     }
 }
 
@@ -210,13 +219,17 @@ pub unsafe trait MaxObj: Sized {
 ///
 /// This is implemented for the wrapper types (and not for your own struct): to post, touch
 /// attributes and so on from your own struct, keep an [`ObjRef`] in it.
+///
+/// # Safety
+/// Implementors must start with a live `t_pxobject` at offset zero, valid for every borrow of
+/// `self`, and must obey the host's DSP setup, teardown and threading rules.
 pub unsafe trait MSPObj: Sized {
     fn msp_obj(&self) -> *mut max_sys::t_pxobject {
-        unsafe { std::mem::transmute::<_, *mut max_sys::t_pxobject>(self) }
+        self as *const Self as *mut max_sys::t_pxobject
     }
     /// any MSP object can be safely cast to and used as a max_sys::t_object
     fn as_max_obj(&self) -> *mut max_sys::t_object {
-        unsafe { std::mem::transmute::<_, *mut max_sys::t_object>(self.msp_obj()) }
+        self.msp_obj().cast()
     }
 }
 

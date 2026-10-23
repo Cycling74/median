@@ -92,6 +92,8 @@
 //! * `name = "foo.bar"`: the Max class name; by default the type name in lower case.
 //! * `kind = max` (default) or `kind = msp`: which wrapper, and so which of `MaxObjWrapped` and
 //!   `MSPObjWrapped` the type must implement (a mismatch is a type error).
+//! * `kind = matrix_op` or `kind = gl`: implement [`jit::MatrixOp`] or [`jit::Ob3d`];
+//!   the derive registers both the Jitter class and its Max forwarding class.
 //! * `class_type = box` (default) or `class_type = nobox`.
 //! * `no_methods`: also implement [`Methods`](wrapper::Methods) with no methods, for a type
 //!   without a `#[median::methods]` block.
@@ -193,6 +195,7 @@ pub mod ffi;
 pub mod fifo;
 pub mod file;
 pub mod inlet;
+pub mod jit;
 pub mod method;
 pub mod notify;
 pub mod num;

@@ -261,6 +261,34 @@ it. Keep `touch_with_name` on `ObjRef`.
 
 ### J. Jitter: how the redesign absorbs `feature/jitter`
 
+Implementation update (2026-10-23): the matrix and ob3d wrappers and both SDK example ports
+are implemented, unflagged, on `xnor/api-redesign`. Their mock tests exercise zero-matrix
+callbacks, attributes/creation arguments, custom methods, deferred ownership, refused/panicking
+constructors, callback/drop panics, and in-place/intersection matrix processing. macOS ARM64
+packaging succeeds. They have **not run in Max**. Differences from the proposal below:
+
+- Shared `jit::wrapper::Core<T, Kind>` owns a boxed user value (honoring its alignment), with
+  `MaxGlue<T, Kind>` inside the ordinary Max wrapper. Lifecycle cleanup is in these types;
+  the derive selects them and calls public registration functions. `JitObjRef` comes from
+  `JitBuilder::obj()`; no offset-based impl exists for the user type.
+- One `AttrBuilder<W>` selects its SDK constructor using `W::IS_JITTER`, as do generic getter
+  allocation/error paths. `Class` selects `class_addattr`/`jit_class_addattr`. An unattached
+  `Attr` owns its allocation until successfully added or explicitly converted to a raw pointer.
+- Registration runs field/getter attributes on the Jitter class and ordinary/deferred methods
+  on the Max forwarding class. `MatrixOp::class_setup`/`Ob3d::class_setup` can register direct
+  Jitter methods through `Class::add_*`; deferred methods belong on the Max side. The core has
+  no deferred queue. User markers do not replace the SDK's matrix/ob3d callbacks.
+- `calc(&self, ...)` uses per-call stack arrays of at most 32 borrowed input/output handles,
+  including empty arrays. Matrix references require explicit unsafe data-access contracts:
+  the SDK's matrix lock does not establish Rust exclusivity.
+- GL callbacks receive `&DrawContext`, which safe code cannot construct, clone or send across
+  threads. `Drop` has no GL-context guarantee. The leaf GL resource wrappers are still deferred
+  until their context/ownership contracts can be expressed without unchecked `Send`/`Sync`.
+- MOP/ob3d owns its iolets and inlet-info methods; assistance delegates to the SDK. Extra user
+  iolets and the proposed externally-created-position accounting are not implemented.
+
+The remainder of this section records the original branch assessment and design proposal.
+
 What the branch builds (read from `jit/matrix/mod.rs`, `jit/ob3d/mod.rs`, the `wrapper.rs` diff and
 both examples):
 
@@ -383,7 +411,18 @@ without Max.
 Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short series) per item of
 "Order of implementation"; each records here what it did and where it differs from the text above.
 
-### Where things stand (handoff, 2026-10-22)
+### Where things stand (handoff, 2026-10-23)
+
+- Continuation: the user deferred the 0.2.x backport and authorized examples/validation and
+  steps 3–5. The baseline `median` and `median-mock` tests passed again. `simplemax` is now
+  ported from the SDK, including registration/creation posts, argument inspection and inlet
+  assistance; its mock integration test passes and its macOS ARM64 `.mxo` packages. The Rust
+  port omits the raw address in the creation post (the object association is preserved).
+  Runtime checks remain manual; see [validation-max.md](validation-max.md).
+
+- Continuation now also includes core dictionaries, `#[dictionary]`/`#[savestate]`, Jitter
+  wrappers/example ports, all-target binding regeneration, dependency refresh and packaging/CI
+  changes. See [handoff-2026-10-23.md](handoff-2026-10-23.md) for the stopping point and open work.
 
 - All items 0-7 are implemented on `xnor/api-redesign`, each reviewed adversarially (Fable;
   from now on reviews go to Codex, `codex:codex-rescue`) with the findings fixed. The branch is
@@ -403,11 +442,10 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   deferred calls from a `metro` and across a modal dialog, `qelem_set` inside its own function,
   `qelem_set` from the audio thread, attribute options in the inspector, `loadbang`'s signature,
   `int` falling back to `float`, and the two clock gaps from step 1.
-- Not done from this plan: port `simplemax` from the SDK's `basics/simplemax/simplemax.c`
-  (the `igk/examples` branch is deleted); the derive finding the `ObjRef` field (section A);
-  `#[notify]`/`#[savestate]` markers; `defer_delivery()`; maxref fields
+- Not done from this plan: the derive finding the `ObjRef` field (section A);
+  `#[notify]`; `defer_delivery()`; maxref fields
   (`description`/`author`/`tags`). Out of scope by design: `dynlet`, several `#[methods]` blocks.
-- Next, outside this plan: `TODO.md` (backport f587265 to 0.2.x), then
+- Next, outside this plan: `TODO.md` (backport f587265 to 0.2.x deferred by the user), then
   [plan-branches-and-build.md](plan-branches-and-build.md) steps 3-5 (the user wants Jitter's
   known bugs fixed and its feature flag dropped after this plan).
 

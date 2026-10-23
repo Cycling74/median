@@ -62,6 +62,7 @@ impl Kernel {
     /// `ext_main` registers its classes once per process and keeps their pointers.
     pub fn reset(&self) {
         crate::containers::reset();
+        crate::jit::reset();
         state().reset();
     }
 
@@ -102,6 +103,15 @@ impl Kernel {
     /// How many objects made by `object_alloc` are alive (to check for leaks).
     pub fn live_object_count(&self) -> usize {
         state().objects.len()
+    }
+
+    /// Live attribute allocations, including attributes owned by persistent classes.
+    pub fn live_attribute_count(&self) -> usize {
+        state()
+            .subs
+            .values()
+            .filter(|s| s.alive && matches!(s.kind, SubKind::Attr(_)))
+            .count()
     }
 
     /// How many clocks made by `clock_new` have not been freed (to check for leaks).

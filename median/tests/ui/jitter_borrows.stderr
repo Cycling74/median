@@ -1,0 +1,9 @@
+error[E0499]: cannot borrow `chunk` as mutable more than once at a time
+  --> tests/ui/jitter_borrows.rs:9:22
+   |
+ 8 |     let mut first = chunk.entry_iter_mut();
+   |                     ----- first mutable borrow occurs here
+ 9 |     let mut second = chunk.entry_iter_mut();
+   |                      ^^^^^ second mutable borrow occurs here
+10 |     first.next().unwrap()[0] = 3;
+   |     ----- first borrow later used here

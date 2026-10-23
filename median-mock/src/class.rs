@@ -26,6 +26,24 @@ fn max_err(e: err::Type) -> t_max_err {
     e as t_max_err
 }
 
+/// Look up a method on a registered or still-being-built class.
+///
+/// # Safety
+/// `c` is a live class and `name` an interned symbol.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn class_method(c: *mut t_class, name: *mut t_symbol) -> method {
+    let st = state();
+    let address = st
+        .classes
+        .get(&(c as usize))?
+        .methods
+        .get(&name_of(name as usize))?
+        .fun;
+    Some(unsafe {
+        std::mem::transmute::<usize, unsafe extern "C" fn(*mut c_void) -> *mut c_void>(address)
+    })
+}
+
 // ---------------------------------------------------------------------------------------------
 // classes
 

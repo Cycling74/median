@@ -1,10 +1,10 @@
-error: unknown option, expected `name = ".."`, `kind = max|msp`, `class_type = box|nobox` or `no_methods`
+error: unknown option, expected `name = ".."`, `kind = max|msp|matrix_op|gl`, `class_type = box|nobox` or `no_methods`
  --> tests/ui/derive_options.rs:4:7
   |
 4 | #[max(nmae = "x")]
   |       ^^^^
 
-error: expected `kind = max` (a Max object, the default) or `kind = msp` (an MSP object)
+error: expected `kind = max`, `kind = msp`, `kind = matrix_op` or `kind = gl`
  --> tests/ui/derive_options.rs:8:14
   |
 8 | #[max(kind = jitter)]

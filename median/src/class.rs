@@ -162,6 +162,10 @@ use std::os::raw::c_long;
 /// [`Methods::register`]: crate::wrapper::Methods::register
 /// [`FieldAttrs::register_attrs`]: crate::wrapper::FieldAttrs::register_attrs
 pub struct Class<T> {
+    pub(crate) jitter: bool,
+    pub(crate) attributes_only: bool,
+    pub(crate) host_iolets: bool,
+    pub(crate) messages_only: bool,
     class: *mut max_sys::t_class,
     /// The attributes added through this `Class`, to refuse a duplicate name.
     attr_names: Vec<String>,
@@ -176,9 +180,9 @@ pub enum ClassType {
     NoBox,
 }
 
-impl Into<*mut max_sys::t_symbol> for ClassType {
-    fn into(self) -> *mut max_sys::t_symbol {
-        let t = match self {
+impl From<ClassType> for *mut max_sys::t_symbol {
+    fn from(value: ClassType) -> Self {
+        let t = match value {
             ClassType::NoBox => c"nobox",
             ClassType::Box => c"box",
         };
@@ -195,9 +199,17 @@ impl<T> Class<T> {
         unsafe { max_sys::class_findbyname(class_type.into(), max_sys::gensym(name.as_ptr())) }
     }
 
+    /// Wrap an existing Max class.
     ///
+    /// # Safety
+    /// `class` must be a live class whose instances have layout `T`. The caller
+    /// must arrange registration/mutation on a thread where the host permits it.
     pub unsafe fn new_registered(class: *mut max_sys::t_class) -> Self {
         Self {
+            jitter: false,
+            attributes_only: false,
+            host_iolets: false,
+            messages_only: false,
             class,
             attr_names: Vec::new(),
             deferred: false,
@@ -238,6 +250,14 @@ impl<T> Class<T> {
 
     /// Whether a deferred method (`add_*_deferred`) was added, so that the objects of the class
     /// need a deferred-call queue.
+    pub(crate) fn set_deferred(&mut self, value: bool) {
+        self.deferred |= value;
+    }
+
+    pub(crate) fn clear_deferred(&mut self) {
+        self.deferred = false;
+    }
+
     pub(crate) fn has_deferred(&self) -> bool {
         self.deferred
     }
@@ -247,23 +267,33 @@ impl<T> Class<T> {
     /// is freed) if an attribute of the same name was added through this `Class` already: field
     /// attributes, `#[attr]` getters and `class_setup` all add to the same class.
     pub fn add_attribute(&mut self, attr: Attr<T>) -> MaxResult<()> {
+        if self.jitter != attr.jitter {
+            return Err(MaxError::Generic);
+        }
         if self.attr_names.iter().any(|n| n == attr.name()) {
-            // SAFETY: `attr` was made by `AttrBuilder::build` and is not in any class
-            unsafe { max_sys::object_free(attr.inner() as _) };
             return Err(MaxError::Duplicate);
         }
         let name = attr.name().to_string();
         let (val_type, options) = (attr.val_type(), *attr.options());
         let r = MaxError::from(
-            unsafe { max_sys::class_addattr(self.inner(), attr.into()) as _ },
+            unsafe {
+                if self.jitter {
+                    max_sys::jit_class_addattr(self.inner().cast(), attr.inner()) as _
+                } else {
+                    max_sys::class_addattr(self.inner(), attr.inner()) as _
+                }
+            },
             (),
         );
         if r.is_ok() {
+            let _: *mut max_sys::t_object = attr.into(); // class takes ownership
             self.attr_names.push(name.clone());
             //the attributes of the attribute, now that it is in the class
             let name = std::ffi::CString::new(name).map_err(|_| MaxError::Generic)?;
             // SAFETY: the class is valid and has the attribute `name`, added above
-            unsafe { crate::attr::add_attr_attrs(self.class, &name, val_type, &options)? };
+            unsafe {
+                crate::attr::add_attr_attrs(self.class, &name, val_type, &options, self.jitter)?
+            };
         }
         r
     }
@@ -288,6 +318,96 @@ impl<T> Class<T> {
         m: Option<MaxMethod>,
         types: &[max_sys::e_max_atomtypes::Type],
     ) -> max_sys::t_max_err {
+        if self.jitter {
+            // Jitter's variadic type list uses SDK longs, including its terminator.
+            let types: Vec<c_long> = types.iter().map(|&t| t as c_long).collect();
+            let code = unsafe {
+                match types.as_slice() {
+                    [] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        0 as c_long,
+                    ),
+                    [t0] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        0 as c_long,
+                    ),
+                    [t0, t1] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        *t1,
+                        0 as c_long,
+                    ),
+                    [t0, t1, t2] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        *t1,
+                        *t2,
+                        0 as c_long,
+                    ),
+                    [t0, t1, t2, t3] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        *t1,
+                        *t2,
+                        *t3,
+                        0 as c_long,
+                    ),
+                    [t0, t1, t2, t3, t4] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        *t1,
+                        *t2,
+                        *t3,
+                        *t4,
+                        0 as c_long,
+                    ),
+                    [t0, t1, t2, t3, t4, t5] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        *t1,
+                        *t2,
+                        *t3,
+                        *t4,
+                        *t5,
+                        0 as c_long,
+                    ),
+                    [t0, t1, t2, t3, t4, t5, t6] => max_sys::jit_class_addmethod(
+                        self.class.cast(),
+                        m,
+                        sel.as_ptr(),
+                        *t0,
+                        *t1,
+                        *t2,
+                        *t3,
+                        *t4,
+                        *t5,
+                        *t6,
+                        0 as c_long,
+                    ),
+                    _ => return max_sys::e_max_errorcodes::MAX_ERR_GENERIC as _,
+                }
+            };
+            return if code == 0 {
+                0
+            } else {
+                max_sys::e_max_errorcodes::MAX_ERR_GENERIC as _
+            };
+        }
         unsafe {
             match types.len() {
                 0 => max_sys::class_addmethod(self.class, m, sel.as_ptr(), 0),
@@ -712,8 +832,14 @@ impl<W> Class<W> {
         S: Fn(&T, V) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
+        if self.messages_only {
+            return Ok(());
+        }
         if options.is_readonly() {
             return self.add_attr_readonly(name, _get, options);
+        }
+        if self.messages_only {
+            return Ok(());
         }
         let get: AttrTrampGetMethod<W> = crate::attr::get_tramp::<W, T, G, V>;
         let set: AttrTrampSetMethod<W> = crate::attr::set_tramp::<W, T, S, V, R>;
@@ -736,6 +862,9 @@ impl<W> Class<W> {
         V: AttrValue,
         G: Fn(&T) -> V + Copy + Send + Sync + 'static,
     {
+        if self.messages_only {
+            return Ok(());
+        }
         let get: AttrTrampGetMethod<W> = crate::attr::get_tramp::<W, T, G, V>;
         let name = name.to_str().map_err(|_| MaxError::Generic)?;
         self.check_attr_name(name)?;
@@ -768,7 +897,10 @@ impl<W> Class<W> {
         )
     }
 
-    fn add_built_attr(&mut self, b: &mut AttrBuilder<W>, options: AttrOptions) -> MaxResult<()> {
+    fn add_built_attr(&mut self, b: &mut AttrBuilder<W>, options: AttrOptions) -> MaxResult<()>
+    where
+        W: MaxObj,
+    {
         b.options(options);
         let attr = b.build().map_err(|_| MaxError::Generic)?;
         self.add_attribute(attr)
@@ -785,6 +917,13 @@ impl<W> Class<W> {
     where
         W: MaxObj,
     {
+        if self.attributes_only {
+            return Ok(());
+        }
+        if self.jitter && self.deferred {
+            // A standalone Jitter core has no owner-bound Max deferred-call queue.
+            return Err(MaxError::Generic);
+        }
         if is_reserved_selector(sel, W::IS_MSP) {
             return Err(MaxError::Duplicate);
         }

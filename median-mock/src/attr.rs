@@ -224,6 +224,7 @@ fn apply_clip(atoms: Vec<Atom>, clip: Option<Clip>) -> Vec<Atom> {
 }
 
 pub(crate) fn get(obj: usize, name: &str) -> Result<Vec<Atom>, AttrError> {
+    let obj = crate::jit::attribute_target(obj);
     let a = find_attr(obj, name)?;
     let atoms = if a.getter != 0 {
         let mut argc: c_long = 0;
@@ -376,6 +377,7 @@ pub(crate) fn set_null_argv(obj: usize, name: &str, ac: i64) -> Result<i64, Attr
 }
 
 pub(crate) fn set(obj: usize, name: &str, atoms: &[Atom]) -> Result<(), AttrError> {
+    let obj = crate::jit::attribute_target(obj);
     let a = find_attr(obj, name)?;
     let atoms = apply_clip(atoms.to_vec(), a.set_clip);
     if a.setter != 0 {

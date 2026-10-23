@@ -7,6 +7,22 @@ use median::prelude::*;
 use median_mock::{Atom as MockAtom, Kernel};
 use std::sync::Once;
 
+#[test]
+fn unattached_attributes_release_their_allocation() {
+    let k = median_mock::lock();
+    let before = k.live_attribute_count();
+    let attr = AttrBuilder::<MaxObjWrapper<Thing>>::new_get(
+        "unused",
+        AttrType::Float64,
+        median::attr::get_nop,
+    )
+    .build()
+    .unwrap();
+    assert_eq!(k.live_attribute_count(), before + 1);
+    drop(attr);
+    assert_eq!(k.live_attribute_count(), before);
+}
+
 #[derive(MaxObject)]
 #[max(name = "attropts.thing")]
 pub struct Thing {

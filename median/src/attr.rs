@@ -28,6 +28,7 @@ pub type AttrTrampSetMethod<T> = unsafe extern "C" fn(
 
 /// A wrapper for a max attribute. `T` refers to the object that the attribute is attributed to.
 pub struct Attr<T> {
+    pub(crate) jitter: bool,
     inner: *mut max_sys::t_object,
     name: String,
     val_type: AttrType,
@@ -114,6 +115,11 @@ impl<T> AttrBuilder<T> {
     /// * `name` - the name of the attribute.
     /// * `val_type` - the type of the attribute.
     /// * `offset_bytes` - a byte offset within the struct to the member that represents the attribute.
+    ///
+    /// # Safety
+    /// The offset must identify a correctly aligned field of `val_type` in every object of
+    /// the class receiving this attribute. That field must remain valid and permit Max's
+    /// reads/writes from its message threads. Prefer field/accessor attributes for Rust state.
     pub unsafe fn new_offset<I: Into<String>>(
         name: I,
         val_type: AttrType,
@@ -131,6 +137,10 @@ impl<T> AttrBuilder<T> {
     /// * `val_type` - the type of the attribute.
     /// * `offset_bytes` - a byte offset within the struct to the member that represents the attribute.
     /// * `get` - a get method to use with the attribute.
+    ///
+    /// # Safety
+    /// The offset must satisfy [`Self::new_offset`]. `get` must accept this class's object
+    /// pointer, follow Max's attribute getter ABI and contain any panic.
     pub unsafe fn new_offset_get<I: Into<String>>(
         name: I,
         val_type: AttrType,
@@ -150,6 +160,10 @@ impl<T> AttrBuilder<T> {
     /// * `val_type` - the type of the attribute.
     /// * `offset_bytes` - a byte offset within the struct to the member that represents the attribute.
     /// * `set` - a set method to use with the attribute.
+    ///
+    /// # Safety
+    /// The offset must satisfy [`Self::new_offset`]. `set` must accept this class's object
+    /// pointer, follow Max's attribute setter ABI and contain any panic.
     pub unsafe fn new_offset_set<I: Into<String>>(
         name: I,
         val_type: AttrType,
@@ -322,7 +336,10 @@ impl<T> AttrBuilder<T> {
         self
     }
 
-    pub fn build(&self) -> Result<Attr<T>, String> {
+    pub fn build(&self) -> Result<Attr<T>, String>
+    where
+        T: MaxObj,
+    {
         if self.set.is_none() && self.get.is_none() && self.offset.is_none() {
             return Err("you must have at least 1 of get, set or offset".into());
         }
@@ -356,7 +373,29 @@ impl<T> AttrBuilder<T> {
             };
             let get = std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(get);
             let set = std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(set);
-            if let Some(offset) = self.offset {
+            if T::IS_JITTER {
+                let flags = match self.get_vis {
+                    AttrVisiblity::Visible => 0,
+                    AttrVisiblity::UserVisible => {
+                        max_sys::t_jit_attr_flags::JIT_ATTR_GET_OPAQUE_USER
+                    }
+                } | match self.set_vis {
+                    AttrVisiblity::Visible => 0,
+                    AttrVisiblity::UserVisible => {
+                        max_sys::t_jit_attr_flags::JIT_ATTR_SET_OPAQUE_USER
+                    }
+                };
+                max_sys::jit_object_new(
+                    crate::sym!("jit_attr_offset").as_ptr(),
+                    n.as_ptr(),
+                    <*const max_sys::t_symbol>::from(self.val_type),
+                    flags as c_long,
+                    get,
+                    set,
+                    self.offset.unwrap_or(0) as c_long,
+                )
+                .cast()
+            } else if let Some(offset) = self.offset {
                 max_sys::attr_offset_new(
                     n.as_ptr(),
                     self.val_type.into(),
@@ -380,39 +419,84 @@ impl<T> AttrBuilder<T> {
         if inner.is_null() {
             return Err("failed to create attribute".into());
         }
-        //apply clip
-        MaxError::from(
-            unsafe {
-                match self.clip {
-                    AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err,
-                    AttrClip::Get(c) => {
-                        let p: ClipParams = c.into();
-                        max_sys::attr_addfilterget_clip(
-                            inner as _, p.min, p.max, p.use_min, p.use_max,
-                        )
-                    }
-                    AttrClip::Set(c) => {
-                        let p: ClipParams = c.into();
-                        max_sys::attr_addfilterset_clip(
-                            inner as _, p.min, p.max, p.use_min, p.use_max,
-                        )
-                    }
-                    AttrClip::GetSet(c) => {
-                        let p: ClipParams = c.into();
-                        max_sys::attr_addfilter_clip(inner as _, p.min, p.max, p.use_min, p.use_max)
-                    }
-                }
-            } as _,
-            (),
-        )
-        .map_err(|e| format!("error {:?} setting clip", e))?;
-        Ok(Attr {
+        let attr = Attr {
+            jitter: T::IS_JITTER,
             inner,
             name: self.name.clone(),
             val_type: self.val_type,
             options: self.options,
             _phantom: PhantomData,
-        })
+        };
+        //apply clip
+        let code = unsafe {
+            match self.clip {
+                AttrClip::None => max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err,
+                AttrClip::Get(c) => {
+                    let p: ClipParams = c.into();
+                    if T::IS_JITTER {
+                        max_sys::jit_attr_addfilterget_clip(
+                            inner.cast(),
+                            p.min,
+                            p.max,
+                            p.use_min,
+                            p.use_max,
+                        )
+                    } else {
+                        max_sys::attr_addfilterget_clip(
+                            inner.cast(),
+                            p.min,
+                            p.max,
+                            p.use_min,
+                            p.use_max,
+                        )
+                    }
+                }
+                AttrClip::Set(c) => {
+                    let p: ClipParams = c.into();
+                    if T::IS_JITTER {
+                        max_sys::jit_attr_addfilterset_clip(
+                            inner.cast(),
+                            p.min,
+                            p.max,
+                            p.use_min,
+                            p.use_max,
+                        )
+                    } else {
+                        max_sys::attr_addfilterset_clip(
+                            inner.cast(),
+                            p.min,
+                            p.max,
+                            p.use_min,
+                            p.use_max,
+                        )
+                    }
+                }
+                AttrClip::GetSet(c) => {
+                    let p: ClipParams = c.into();
+                    if T::IS_JITTER {
+                        max_sys::jit_attr_addfilter_clip(
+                            inner.cast(),
+                            p.min,
+                            p.max,
+                            p.use_min,
+                            p.use_max,
+                        )
+                    } else {
+                        max_sys::attr_addfilter_clip(
+                            inner.cast(),
+                            p.min,
+                            p.max,
+                            p.use_min,
+                            p.use_max,
+                        )
+                    }
+                }
+            }
+        };
+        if code != 0 {
+            return Err(format!("error {code} setting attribute clip"));
+        }
+        Ok(attr)
     }
 }
 
@@ -475,40 +559,40 @@ struct ClipParams {
     pub use_max: c_long,
 }
 
-impl Into<*const max_sys::t_symbol> for AttrType {
-    fn into(self) -> *const max_sys::t_symbol {
+impl From<AttrType> for *const max_sys::t_symbol {
+    fn from(value: AttrType) -> Self {
         let sym = common_symbols();
-        match self {
-            Self::Char => sym.s_char,
-            Self::Int64 => sym.s_long,
-            Self::Float32 => sym.s_float32,
-            Self::Float64 => sym.s_float64,
-            Self::AtomPtr => sym.s_atom,
-            Self::SymbolRef => sym.s_symbol,
-            Self::Ptr => sym.s_pointer,
-            Self::ObjectPtr => sym.s_object,
+        match value {
+            AttrType::Char => sym.s_char,
+            AttrType::Int64 => sym.s_long,
+            AttrType::Float32 => sym.s_float32,
+            AttrType::Float64 => sym.s_float64,
+            AttrType::AtomPtr => sym.s_atom,
+            AttrType::SymbolRef => sym.s_symbol,
+            AttrType::Ptr => sym.s_pointer,
+            AttrType::ObjectPtr => sym.s_object,
         }
     }
 }
 
-impl Into<ClipParams> for AttrValClip {
-    fn into(self) -> ClipParams {
+impl From<AttrValClip> for ClipParams {
+    fn from(value: AttrValClip) -> Self {
         let mut p = ClipParams {
             min: 0f64,
             max: 0f64,
             use_min: 0,
             use_max: 0,
         };
-        match self {
-            Self::Min(v) => {
+        match value {
+            AttrValClip::Min(v) => {
                 p.min = v;
                 p.use_min = 1;
             }
-            Self::Max(v) => {
+            AttrValClip::Max(v) => {
                 p.max = v;
                 p.use_max = 1;
             }
-            Self::MinMax(min, max) => {
+            AttrValClip::MinMax(min, max) => {
                 p.min = min;
                 p.max = max;
                 p.use_min = 1;
@@ -519,9 +603,22 @@ impl Into<ClipParams> for AttrValClip {
     }
 }
 
-impl<T> Into<*mut max_sys::t_object> for Attr<T> {
-    fn into(self) -> *mut max_sys::t_object {
-        self.inner
+impl<T> From<Attr<T>> for *mut max_sys::t_object {
+    fn from(mut value: Attr<T>) -> Self {
+        std::mem::replace(&mut value.inner, std::ptr::null_mut())
+    }
+}
+impl<T> Drop for Attr<T> {
+    fn drop(&mut self) {
+        if !self.inner.is_null() {
+            unsafe {
+                if self.jitter {
+                    max_sys::jit_object_free(self.inner.cast());
+                } else {
+                    max_sys::object_free(self.inner.cast());
+                }
+            }
+        }
     }
 }
 
@@ -563,6 +660,15 @@ where
     F: Fn() -> T,
     T: Into<Atom>,
 {
+    unsafe { get_alloc(ac, av, getter, false) }
+}
+
+unsafe fn get_alloc<T: Into<Atom>, F: Fn() -> T>(
+    ac: *mut c_long,
+    av: *mut *mut max_sys::t_atom,
+    getter: F,
+    jitter: bool,
+) -> max_sys::t_max_err {
     if ac.is_null() || av.is_null() {
         return max_sys::e_max_errorcodes::MAX_ERR_NONE as _;
     }
@@ -571,14 +677,23 @@ where
     unsafe {
         if *ac < 1 || (*av).is_null() {
             *ac = 1;
-            *av = max_sys::sysmem_newptr(std::mem::size_of::<max_sys::t_atom>() as _) as _;
+            *av = if jitter {
+                max_sys::jit_getbytes(std::mem::size_of::<max_sys::t_atom>() as _) as _
+            } else {
+                max_sys::sysmem_newptr(std::mem::size_of::<max_sys::t_atom>() as _) as _
+            };
             if (*av).is_null() {
                 *ac = 0;
-                return max_sys::e_max_errorcodes::MAX_ERR_OUT_OF_MEM as _;
+                return if jitter {
+                    max_sys::t_jit_error_code::JIT_ERR_OUT_OF_MEM as _
+                } else {
+                    max_sys::e_max_errorcodes::MAX_ERR_OUT_OF_MEM as _
+                };
             }
         }
-        let s: &mut Atom = std::mem::transmute::<_, _>(*av);
-        s.assign(value);
+        // The allocation may be uninitialized. Write the atom without first creating a
+        // reference to an uninitialized value (Atom has no destructor).
+        (*av).cast::<Atom>().write(value);
     }
     max_sys::e_max_errorcodes::MAX_ERR_NONE as _
 }
@@ -931,7 +1046,18 @@ pub(crate) unsafe fn add_attr_attrs(
     name: &CStr,
     ty: AttrType,
     o: &AttrOptions,
+    jitter: bool,
 ) -> MaxResult<()> {
+    let jit_attr = if jitter {
+        unsafe {
+            max_sys::jit_class_attr_get(class.cast(), crate::symbol::SymbolRef::from(name).as_ptr())
+        }
+    } else {
+        std::ptr::null_mut()
+    };
+    if jitter && jit_attr.is_null() {
+        return Err(MaxError::InvalidPtr);
+    }
     let sym = common_symbols();
     let attr_ty: *const max_sys::t_symbol = ty.into();
     let attr_ty = attr_ty as *mut max_sys::t_symbol;
@@ -939,14 +1065,24 @@ pub(crate) unsafe fn add_attr_attrs(
         // SAFETY: the caller's contract; the strings are NUL-terminated and outlive the call
         MaxError::from(
             unsafe {
-                max_sys::class_attr_addattr_parse(
-                    class,
-                    name.as_ptr(),
-                    attr2.as_ptr(),
-                    ty,
-                    0,
-                    text.as_ptr(),
-                )
+                if jitter {
+                    max_sys::object_addattr_parse(
+                        jit_attr.cast(),
+                        attr2.as_ptr(),
+                        ty,
+                        0,
+                        text.as_ptr(),
+                    )
+                } else {
+                    max_sys::class_attr_addattr_parse(
+                        class,
+                        name.as_ptr(),
+                        attr2.as_ptr(),
+                        ty,
+                        0,
+                        text.as_ptr(),
+                    )
+                }
             } as _,
             (),
         )
@@ -961,15 +1097,26 @@ pub(crate) unsafe fn add_attr_attrs(
         // SAFETY: the caller's contract; one valid atom
         MaxError::from(
             unsafe {
-                max_sys::class_attr_addattr_atoms(
-                    class,
-                    name.as_ptr(),
-                    c"label".as_ptr(),
-                    sym.s_symbol,
-                    0,
-                    1,
-                    &mut atom.value,
-                )
+                if jitter {
+                    max_sys::object_addattr_atoms(
+                        jit_attr.cast(),
+                        c"label".as_ptr(),
+                        sym.s_symbol,
+                        0,
+                        1,
+                        &mut atom.value,
+                    )
+                } else {
+                    max_sys::class_attr_addattr_atoms(
+                        class,
+                        name.as_ptr(),
+                        c"label".as_ptr(),
+                        sym.s_symbol,
+                        0,
+                        1,
+                        &mut atom.value,
+                    )
+                }
             } as _,
             (),
         )?;
@@ -1043,7 +1190,7 @@ where
     G: Fn(&T) -> V + Copy,
     V: AttrValue,
 {
-    crate::ffi::guard_or(w, "attribute getter", crate::ffi::ERR_GENERIC, || {
+    crate::ffi::guard_or(w, "attribute getter", attr_error::<W>(), || {
         let t = w.wrapped();
         //nowhere to put the value: as the SDK's accessors, do nothing (and don't call the getter)
         if ac.is_null() || av.is_null() {
@@ -1052,7 +1199,7 @@ where
         // SAFETY: `G` is a zero-sized `Copy` callable, see `zst`
         let v = (unsafe { zst::<G>() })(t);
         // SAFETY: the caller guarantees that `ac` and `av` are what Max passes to a getter
-        unsafe { get(ac, av, || v.to_atom()) }
+        unsafe { get_alloc(ac, av, || v.to_atom(), W::IS_JITTER) }
     })
 }
 
@@ -1075,7 +1222,7 @@ where
     V: AttrValue,
     R: MethodResult,
 {
-    crate::ffi::guard_or(w, "attribute setter", crate::ffi::ERR_GENERIC, || {
+    crate::ffi::guard_or(w, "attribute setter", attr_error::<W>(), || {
         let t = w.wrapped();
         if ac < 1 || av.is_null() {
             return max_sys::e_max_errorcodes::MAX_ERR_NONE as _;
@@ -1087,10 +1234,18 @@ where
         // SAFETY: `S` is a zero-sized `Copy` callable, see `zst`
         (unsafe { zst::<S>() })(t, v).report_if_err(&mut |err| {
             w.report_error(err);
-            code = crate::ffi::ERR_GENERIC;
+            code = attr_error::<W>();
         });
         code
     })
+}
+
+fn attr_error<W: MaxObj>() -> max_sys::t_max_err {
+    if W::IS_JITTER {
+        max_sys::t_jit_error_code::JIT_ERR_GENERIC as _
+    } else {
+        crate::ffi::ERR_GENERIC
+    }
 }
 
 #[cfg(test)]

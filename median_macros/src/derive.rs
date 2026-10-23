@@ -13,6 +13,8 @@ const LATER: &[&str] = &["description", "author", "tags"];
 enum Kind {
     Max,
     Msp,
+    Matrix,
+    Gl,
 }
 
 pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
@@ -67,11 +69,12 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                     kind = Some(match k.to_string().as_str() {
                         "max" => Kind::Max,
                         "msp" => Kind::Msp,
+                        "matrix_op" => Kind::Matrix,
+                        "gl" => Kind::Gl,
                         _ => {
                             return Err(syn::Error::new(
                                 k.span(),
-                                "expected `kind = max` (a Max object, the default) or `kind = msp` \
-                                 (an MSP object)",
+                                "expected `kind = max`, `kind = msp`, `kind = matrix_op` or `kind = gl`",
                             ));
                         }
                     });
@@ -103,7 +106,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 }
                 _ => {
                     return Err(meta.error(
-                        "unknown option, expected `name = \"..\"`, `kind = max|msp`, \
+                        "unknown option, expected `name = \"..\"`, `kind = max|msp|matrix_op|gl`, \
                          `class_type = box|nobox` or `no_methods`",
                     ));
                 }
@@ -118,9 +121,31 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         .unwrap_or_else(|| ident.to_string().to_lowercase());
     let name_span = name.as_ref().map_or(ident.span(), LitStr::span);
     let class_name_expr = crate::cstr::expr(&class_name, name_span);
-    let wrapper = match kind.unwrap_or(Kind::Max) {
-        Kind::Max => format_ident!("MaxObjWrapper"),
-        Kind::Msp => format_ident!("MSPObjWrapper"),
+    let (wrapper, register) = match kind.unwrap_or(Kind::Max) {
+        Kind::Max => (
+            quote!(::median::wrapper::MaxObjWrapper<Self>),
+            quote!(::median::wrapper::MaxObjWrapper::<Self>::register()),
+        ),
+        Kind::Msp => (
+            quote!(::median::wrapper::MSPObjWrapper<Self>),
+            quote!(::median::wrapper::MSPObjWrapper::<Self>::register()),
+        ),
+        Kind::Matrix => (
+            quote!(
+                ::median::wrapper::MaxObjWrapper<
+                    ::median::jit::wrapper::MaxGlue<Self, ::median::jit::wrapper::MatrixKind>,
+                >
+            ),
+            quote!(::median::jit::wrapper::register_matrix::<Self>()),
+        ),
+        Kind::Gl => (
+            quote!(
+                ::median::wrapper::MaxObjWrapper<
+                    ::median::jit::wrapper::MaxGlue<Self, ::median::jit::wrapper::GlKind>,
+                >
+            ),
+            quote!(::median::jit::wrapper::register_gl::<Self>()),
+        ),
     };
     let class_type = class_type.unwrap_or_else(|| format_ident!("Box"));
 
@@ -209,7 +234,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl ::median::wrapper::ObjClass for #ident {
-            type Wrapper = ::median::wrapper::#wrapper<Self>;
+            type Wrapper = #wrapper;
 
             fn class_name() -> &'static ::core::ffi::CStr {
                 #class_name_expr
@@ -224,7 +249,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
             #[doc = #register_doc]
             pub fn register() {
                 ::median::ffi::guard_ext_main(#class_name, || {
-                    ::median::wrapper::#wrapper::<Self>::register()
+                    #register
                 })
             }
         }

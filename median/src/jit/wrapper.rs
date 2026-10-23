@@ -1,0 +1,717 @@
+//! Shared Jitter construction and Max forwarding. The user value lives in the Jitter object;
+//! the Max object uses median's existing constructor, panic guards and deferred-call queue.
+
+use super::{
+    JitResult,
+    matrix::{IOCount, MOP, Matrix},
+};
+use crate::{
+    atom::Atom,
+    builder::MaxBuilder,
+    class::{Class, ClassType},
+    defer::{Defer, DeferredCall},
+    error::{MaxError, MaxResult, NewError},
+    object::{MaxObj, ObjRef},
+    symbol::SymbolRef,
+    wrapper::{FieldAttrs, IoLet, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
+};
+use core::ffi::{c_char, c_long, c_void};
+use max_sys::{self as sys, t_jit_error_code as err};
+use std::{
+    any::TypeId,
+    borrow::Cow,
+    collections::HashMap,
+    ffi::{CStr, CString},
+    fmt::Display,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    ptr::NonNull,
+    sync::{
+        LazyLock, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+
+/// A Jitter object handle. Like `ObjRef`, it is not cloneable or sendable. Keep it in its owner;
+/// deliberately leaking it past the owner's deletion is unsupported. During construction, do
+/// not invoke methods that require the finished user value.
+pub struct JitObjRef(ObjRef);
+impl JitObjRef {
+    pub fn as_ptr(&self) -> *mut sys::t_object {
+        self.0.as_ptr()
+    }
+    pub fn post(&self, text: impl Display) {
+        self.0.post(text);
+    }
+    pub fn error(&self, text: impl Display) {
+        self.0.error(text);
+    }
+}
+
+/// Construction context for a Jitter value. MOP/ob3d creates the matrix iolets and dumpout;
+/// they must not also be declared as ordinary Max iolets.
+pub struct JitBuilder {
+    obj: Option<JitObjRef>,
+    destination: SymbolRef,
+}
+impl JitBuilder {
+    /// Take the object's handle once, for storage in the user value.
+    pub fn obj(&mut self) -> JitObjRef {
+        self.obj.take().expect("Jitter object handle already taken")
+    }
+    /// The GL destination, or the empty symbol for a matrix operator.
+    pub fn destination(&self) -> SymbolRef {
+        self.destination
+    }
+}
+
+/// A matrix operator. `calc` may run concurrently: use atomic/locked state, and keep borrowed
+/// matrices inside the call. Data references require the matrix view's unsafe access contract.
+pub trait MatrixOp: ObjClass + Methods + FieldAttrs + Sync + 'static {
+    fn new(builder: &mut JitBuilder) -> Result<Self, NewError>;
+    fn io_count() -> IOCount;
+    fn mop_setup(_mop: &mut MOP<'_>) -> JitResult<()> {
+        Ok(())
+    }
+    fn class_setup(_class: &mut Class<Core<Self, MatrixKind>>) -> MaxResult<()> {
+        Ok(())
+    }
+    fn calc(&self, inputs: &mut [Matrix<'_>], outputs: &mut [Matrix<'_>]) -> JitResult<()>;
+}
+
+/// Proof that the host is calling a GL callback on this thread. It cannot be constructed,
+/// cloned, or moved out of the callback by safe code. Do not close the context or delete the
+/// owner from inside the callback. `Drop` on an object has no such context guarantee.
+pub struct DrawContext {
+    _thread: PhantomData<*mut ()>,
+}
+impl DrawContext {
+    fn current() -> Self {
+        Self {
+            _thread: PhantomData,
+        }
+    }
+}
+
+/// A Jitter ob3d. OpenGL operations belong in `draw`, with the host's current context.
+/// Release context-specific resources in `dest_closing`; `Drop` may run without a GL context.
+pub trait Ob3d: ObjClass + Methods + FieldAttrs + Sync + 'static {
+    fn new(builder: &mut JitBuilder) -> Result<Self, NewError>;
+    fn flags() -> sys::t_jit_ob3d_flags::Type {
+        0
+    }
+    fn class_setup(_class: &mut Class<Core<Self, GlKind>>) -> MaxResult<()> {
+        Ok(())
+    }
+    fn draw(&self, context: &DrawContext) -> JitResult<()>;
+    fn dest_changed(&self, _context: &DrawContext) -> JitResult<()> {
+        Ok(())
+    }
+    fn dest_closing(&self, _context: &DrawContext) -> JitResult<()> {
+        Ok(())
+    }
+}
+
+#[doc(hidden)]
+pub enum MatrixKind {}
+#[doc(hidden)]
+pub enum GlKind {}
+
+/// The low-level lifecycle implemented by the built-in matrix/ob3d adapters.
+///
+/// # Safety
+/// Implementations must match the SDK's class, object, MOP/ob3d and callback ownership contracts.
+/// Pointer arguments are live instances of the matching registered classes. All new callbacks
+/// must contain panics. Ordinary externals should implement `MatrixOp` or `Ob3d` instead.
+#[doc(hidden)]
+pub unsafe trait JitterObject<K>: ObjClass + Methods + FieldAttrs + Sync + 'static {
+    fn make(b: &mut JitBuilder) -> Result<Self, NewError>;
+    fn destination(_args: &[Atom]) -> SymbolRef {
+        SymbolRef::default()
+    }
+    unsafe fn notify(_obj: *mut sys::t_object, _notification: &crate::notify::Notification) {}
+    unsafe fn setup_class(c: &mut Class<Core<Self, K>>) -> MaxResult<()>;
+    unsafe fn setup_core(_p: *mut Core<Self, K>, _dest: SymbolRef) -> Result<(), NewError> {
+        Ok(())
+    }
+    unsafe fn free_core(_p: *mut Core<Self, K>) {}
+    unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()>;
+    unsafe fn setup_max(
+        obj: *mut sys::t_object,
+        jit: *mut sys::t_object,
+        args: &[Atom],
+    ) -> Result<(), NewError>;
+    unsafe fn free_max(obj: *mut sys::t_object);
+    unsafe fn assist(obj: *mut sys::t_object, io: c_long, index: c_long, text: *mut c_char);
+}
+
+/// The Jitter-side wrapper. The user value is boxed to honor any Rust alignment requirement.
+#[repr(C)]
+pub struct Core<T, K> {
+    header: sys::t_jit_object,
+    ob3d: MaybeUninit<*mut c_void>,
+    value: *mut T,
+    ready: AtomicBool,
+    ob3d_ready: bool,
+    _kind: PhantomData<K>,
+}
+// SAFETY: only the SDK wrapper starts with a Jitter/Max object header; no impl exists for T.
+unsafe impl<T, K> MaxObj for Core<T, K> {
+    const IS_JITTER: bool = true;
+}
+impl<T, K> WrapperWrapped<T> for Core<T, K> {
+    fn wrapped(&self) -> &T {
+        assert!(
+            self.ready.load(Ordering::Acquire),
+            "Jitter object used before construction finished"
+        );
+        unsafe { &*self.value }
+    }
+    fn report_error(&self, error: &dyn Display) {
+        unsafe {
+            crate::object::error(self.max_obj(), error.to_string());
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Entry {
+    class: usize,
+    name: SymbolRef,
+}
+static CLASSES: LazyLock<Mutex<HashMap<TypeId, Entry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+fn entry<T: 'static, K: 'static>() -> Option<Entry> {
+    CLASSES
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&TypeId::of::<(T, K)>())
+        .copied()
+}
+fn max_error(code: sys::t_jit_err) -> MaxResult<()> {
+    if code == 0 {
+        Ok(())
+    } else {
+        Err(MaxError::Generic)
+    }
+}
+fn jit_code(result: JitResult<()>) -> sys::t_jit_err {
+    result.err().unwrap_or(0) as _
+}
+
+struct PendingClass(*mut c_void);
+impl Drop for PendingClass {
+    fn drop(&mut self) {
+        unsafe {
+            sys::jit_class_free(self.0);
+        }
+    }
+}
+struct PendingAdornment(*mut c_void);
+impl Drop for PendingAdornment {
+    fn drop(&mut self) {
+        unsafe {
+            sys::jit_object_free(self.0);
+        }
+    }
+}
+
+impl<T, K> Core<T, K>
+where
+    T: JitterObject<K>,
+    K: 'static,
+{
+    unsafe extern "C" fn new_tramp(dest: *mut sys::t_symbol) -> *mut c_void {
+        crate::ffi::guard_global("Jitter new", std::ptr::null_mut(), || {
+            let Some(class) = entry::<T, K>() else {
+                return std::ptr::null_mut();
+            };
+            let p = unsafe { sys::jit_object_alloc(class.class as _) }.cast::<Self>();
+            if p.is_null() {
+                return std::ptr::null_mut();
+            }
+            unsafe {
+                std::ptr::addr_of_mut!((*p).value).write(std::ptr::null_mut());
+                std::ptr::addr_of_mut!((*p).ready).write(AtomicBool::new(false));
+                std::ptr::addr_of_mut!((*p).ob3d).write(MaybeUninit::new(std::ptr::null_mut()));
+                std::ptr::addr_of_mut!((*p).ob3d_ready).write(false);
+            }
+            struct Pending(*mut c_void);
+            impl Drop for Pending {
+                fn drop(&mut self) {
+                    unsafe {
+                        sys::jit_object_free(self.0);
+                    }
+                }
+            }
+            let pending = Pending(p.cast());
+            let destination = unsafe { SymbolRef::from_raw(dest) };
+            if let Err(e) = unsafe { T::setup_core(p, destination) } {
+                unsafe {
+                    crate::object::error(p.cast(), e.to_string());
+                }
+                return std::ptr::null_mut();
+            }
+            let mut builder = JitBuilder {
+                obj: Some(JitObjRef(unsafe {
+                    ObjRef::from_raw(NonNull::new_unchecked(p.cast()))
+                })),
+                destination,
+            };
+            let value = match T::make(&mut builder) {
+                Ok(value) => value,
+                Err(e) => {
+                    unsafe {
+                        crate::object::error(p.cast(), e.to_string());
+                    }
+                    return std::ptr::null_mut();
+                }
+            };
+            unsafe {
+                (*p).value = Box::into_raw(Box::new(value));
+                (*p).ready.store(true, Ordering::Release);
+            }
+            std::mem::forget(pending);
+            p.cast()
+        })
+    }
+    unsafe extern "C" fn free(p: *mut Self) {
+        if p.is_null() {
+            return;
+        }
+        // Keep ob3d teardown outside the user Drop guard so it runs even if Drop panics.
+        crate::ffi::guard_global("Jitter free", (), || unsafe {
+            if (*p).ready.swap(false, Ordering::AcqRel) {
+                drop(Box::from_raw((*p).value));
+            }
+        });
+        crate::ffi::guard_global("Jitter context free", (), || unsafe {
+            T::free_core(p);
+        });
+    }
+}
+
+/// Max-side glue, automatically selected by `#[max(kind = matrix_op)]` / `kind = gl`.
+pub struct MaxGlue<T: JitterObject<K>, K: 'static> {
+    obj: ObjRef,
+    jit: NonNull<Core<T, K>>,
+}
+// SAFETY: the pointer is immutable while the Max wrapper lives; its Jitter value is Sync and
+// the SDK serializes destruction after callbacks. It is freed only by this wrapper's Drop.
+unsafe impl<T: JitterObject<K>, K: 'static> Sync for MaxGlue<T, K> {}
+impl<T: JitterObject<K>, K: 'static> ObjClass for MaxGlue<T, K> {
+    type Wrapper = MaxObjWrapper<Self>;
+    fn class_name() -> &'static CStr {
+        T::class_name()
+    }
+    fn class_type() -> ClassType {
+        T::class_type()
+    }
+}
+impl<T: JitterObject<K>, K: 'static> FieldAttrs for MaxGlue<T, K> {}
+
+// The transparent adapter lets existing generic message trampolines reach T through the live
+// Max wrapper. It forwards deferred calls into that wrapper's existing, owner-bound queue.
+#[repr(transparent)]
+struct Forward<W, T, K>(W, PhantomData<(T, K)>);
+unsafe impl<W: MaxObj, T, K> MaxObj for Forward<W, T, K> {
+    fn max_obj(&self) -> *mut sys::t_object {
+        self.0.max_obj()
+    }
+}
+impl<W, T, K> WrapperWrapped<T> for Forward<W, T, K>
+where
+    W: WrapperWrapped<MaxGlue<T, K>> + MaxObj,
+    T: JitterObject<K>,
+    K: 'static,
+{
+    fn wrapped(&self) -> &T {
+        unsafe { self.0.wrapped().jit.as_ref() }.wrapped()
+    }
+    fn report_error(&self, error: &dyn Display) {
+        self.0.report_error(error);
+    }
+    fn defer_call(&self, mode: Defer, call: DeferredCall<T>) {
+        let what = call.what();
+        self.0.defer_call(
+            mode,
+            DeferredCall::new(what, move |glue: &MaxGlue<T, K>, report| {
+                call.run(unsafe { glue.jit.as_ref() }.wrapped(), report);
+            }),
+        );
+    }
+}
+impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
+    fn register<W>(class: &mut Class<W>) -> MaxResult<()>
+    where
+        W: WrapperWrapped<Self> + MaxObj,
+    {
+        let jit = entry::<T, K>().ok_or(MaxError::InvalidPtr)?;
+        class.host_iolets = true;
+        unsafe {
+            sys::max_jit_class_obex_setup(
+                class.inner(),
+                MaxObjWrapper::<Self>::obex_offset() as c_long,
+            );
+            T::setup_max_class(class.inner(), jit.class as _)?;
+        }
+        let mut forwarded: Class<Forward<W, T, K>> =
+            unsafe { Class::new_registered(class.inner()) };
+        forwarded.messages_only = true;
+        <T as Methods>::register(&mut forwarded)?;
+        class.set_deferred(forwarded.has_deferred());
+        Ok(())
+    }
+}
+impl<T: JitterObject<K>, K: 'static> MaxObjWrapped for MaxGlue<T, K> {
+    fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        let class = entry::<T, K>().ok_or_else(|| NewError::from("Jitter class is unavailable"))?;
+        let destination = T::destination(b.creation_args());
+        let ptr = unsafe { sys::jit_object_new(class.name.as_ptr(), destination.as_ptr()) }
+            .cast::<Core<T, K>>();
+        let jit =
+            NonNull::new(ptr).ok_or_else(|| NewError::from("unable to create Jitter object"))?;
+        let glue = Self { obj: b.obj(), jit };
+        unsafe {
+            sys::max_jit_object_wrap_complete(glue.obj.as_ptr(), jit.as_ptr().cast(), 0);
+            T::setup_max(glue.obj.as_ptr(), jit.as_ptr().cast(), b.creation_args())?;
+        }
+        Ok(glue)
+    }
+    fn process_creation_attrs(&self, _obj: &ObjRef, args: &[Atom]) {
+        unsafe {
+            sys::max_jit_attr_args(
+                self.obj.as_ptr().cast(),
+                args.len().min(i16::MAX as usize) as _,
+                args.as_ptr().cast_mut().cast(),
+            );
+        }
+    }
+    fn handle_notification(&self, notification: &crate::notify::Notification) {
+        unsafe {
+            T::notify(self.obj.as_ptr(), notification);
+        }
+    }
+    fn assist(&self, io: IoLet) -> Option<Cow<'_, str>> {
+        let (kind, index) = match io {
+            IoLet::Inlet(i) => (1, i),
+            IoLet::Outlet(i) => (2, i),
+        };
+        let mut text = [0 as c_char; 512];
+        unsafe {
+            T::assist(self.obj.as_ptr(), kind, index as c_long, text.as_mut_ptr());
+        }
+        text[511] = 0;
+        Some(Cow::Owned(
+            unsafe { CStr::from_ptr(text.as_ptr()) }
+                .to_string_lossy()
+                .into_owned(),
+        ))
+    }
+}
+impl<T: JitterObject<K>, K: 'static> Drop for MaxGlue<T, K> {
+    fn drop(&mut self) {
+        unsafe {
+            T::free_max(self.obj.as_ptr());
+            sys::jit_object_free(self.jit.as_ptr().cast());
+            sys::max_jit_object_free(self.obj.as_ptr().cast());
+        }
+    }
+}
+
+/// Register the Jitter class first, then the Max class. Called by the derive, also usable by hand.
+pub fn register_matrix<T: MatrixOp>() {
+    register::<T, MatrixKind>();
+}
+pub fn register_gl<T: Ob3d>() {
+    register::<T, GlKind>();
+}
+fn register<T: JitterObject<K>, K: 'static>() {
+    crate::ffi::guard_ext_main(T::class_name().to_string_lossy().as_ref(), || {
+        if entry::<T, K>().is_none() {
+            let mut name = b"median_".to_vec();
+            name.extend_from_slice(T::class_name().to_bytes());
+            let name = CString::new(name).expect("class name contains no NUL");
+            let c = unsafe {
+                sys::jit_class_new(
+                    name.as_ptr(),
+                    Some(crate::method::erase(
+                        Core::<T, K>::new_tramp
+                            as unsafe extern "C" fn(*mut sys::t_symbol) -> *mut c_void,
+                    )),
+                    Some(crate::method::erase(
+                        Core::<T, K>::free as unsafe extern "C" fn(*mut Core<T, K>),
+                    )),
+                    std::mem::size_of::<Core<T, K>>() as c_long,
+                    sys::e_max_atomtypes::A_DEFSYM as c_long,
+                    0 as c_long,
+                )
+            };
+            if c.is_null() {
+                crate::max::error("unable to create Jitter class");
+                return;
+            }
+            let pending = PendingClass(c);
+            let mut class: Class<Core<T, K>> = unsafe { Class::new_registered(c.cast()) };
+            class.jitter = true;
+            let result = (|| {
+                T::register_attrs(&mut class)?;
+                class.attributes_only = true;
+                <T as Methods>::register(&mut class)?;
+                class.attributes_only = false;
+                class.clear_deferred();
+                unsafe {
+                    T::setup_class(&mut class)?;
+                    max_error(sys::jit_class_register(c))
+                }
+            })();
+            if let Err(e) = result {
+                crate::max::error(format!("Jitter class setup failed: {e:?}"));
+                return;
+            }
+            std::mem::forget(pending);
+            CLASSES.lock().unwrap_or_else(|e| e.into_inner()).insert(
+                TypeId::of::<(T, K)>(),
+                Entry {
+                    class: c as usize,
+                    name: SymbolRef::from(name.as_c_str()),
+                },
+            );
+        }
+        MaxObjWrapper::<MaxGlue<T, K>>::register();
+    });
+}
+
+unsafe impl<T: MatrixOp> JitterObject<MatrixKind> for T {
+    unsafe fn notify(obj: *mut sys::t_object, n: &crate::notify::Notification) {
+        unsafe {
+            sys::max_jit_mop_notify(obj.cast(), n.sender_name().as_ptr(), n.message().as_ptr());
+        }
+    }
+    fn make(b: &mut JitBuilder) -> Result<Self, NewError> {
+        T::new(b)
+    }
+    unsafe fn setup_class(class: &mut Class<Core<Self, MatrixKind>>) -> MaxResult<()> {
+        let counts = T::io_count();
+        let inputs = counts.inputs.raw().map_err(|_| MaxError::Generic)?;
+        let outputs = counts.outputs.raw().map_err(|_| MaxError::Generic)?;
+        let p = unsafe { sys::jit_object_new(crate::sym!("jit_mop").as_ptr(), inputs, outputs) };
+        let mut mop = unsafe { MOP::from_raw(p) }.map_err(|_| MaxError::OutOfMem)?;
+        let pending = PendingAdornment(p);
+        T::mop_setup(&mut mop).map_err(|_| MaxError::Generic)?;
+        unsafe {
+            max_error(sys::jit_class_addadornment(class.inner().cast(), p.cast()))?;
+            std::mem::forget(pending);
+            max_error(sys::jit_class_addmethod(
+                class.inner().cast(),
+                Some(crate::method::erase(
+                    matrix_calc::<T>
+                        as unsafe extern "C" fn(
+                            &Core<T, MatrixKind>,
+                            *mut c_void,
+                            *mut c_void,
+                        ) -> sys::t_jit_err,
+                )),
+                c"matrix_calc".as_ptr(),
+                sys::e_max_atomtypes::A_CANT as c_long,
+                0 as c_long,
+            ))?;
+        }
+        T::class_setup(class)
+    }
+    unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()> {
+        unsafe {
+            max_error(sys::max_jit_class_mop_wrap(c, jit, 0))?;
+            sys::max_jit_class_wrap_standard(c, jit, 0);
+            Ok(())
+        }
+    }
+    unsafe fn setup_max(
+        obj: *mut sys::t_object,
+        jit: *mut sys::t_object,
+        args: &[Atom],
+    ) -> Result<(), NewError> {
+        unsafe {
+            max_error(sys::max_jit_mop_setup_simple(
+                obj.cast(),
+                jit.cast(),
+                args.len() as c_long,
+                args.as_ptr().cast_mut().cast(),
+            ))
+            .map_err(NewError::from)
+        }
+    }
+    unsafe fn free_max(obj: *mut sys::t_object) {
+        unsafe {
+            sys::max_jit_mop_free(obj.cast());
+        }
+    }
+    unsafe fn assist(obj: *mut sys::t_object, io: c_long, index: c_long, text: *mut c_char) {
+        unsafe {
+            sys::max_jit_mop_assist(obj.cast(), std::ptr::null_mut(), io, index, text);
+        }
+    }
+}
+
+unsafe extern "C" fn matrix_calc<T: MatrixOp>(
+    w: &Core<T, MatrixKind>,
+    inputs: *mut c_void,
+    outputs: *mut c_void,
+) -> sys::t_jit_err {
+    crate::ffi::guard_or(w, "matrix_calc", err::JIT_ERR_GENERIC as _, || {
+        // Per-call stack storage; no shared mutable vectors and no assumption of nonzero iolets.
+        let mut ins: [MaybeUninit<Matrix<'_>>; 32] = std::array::from_fn(|_| MaybeUninit::uninit());
+        let mut outs: [MaybeUninit<Matrix<'_>>; 32] =
+            std::array::from_fn(|_| MaybeUninit::uninit());
+        unsafe {
+            let mut run = || -> JitResult<()> {
+                let ni = fill(inputs, &mut ins)?;
+                let no = fill(outputs, &mut outs)?;
+                w.wrapped().calc(
+                    std::slice::from_raw_parts_mut(ins.as_mut_ptr().cast(), ni),
+                    std::slice::from_raw_parts_mut(outs.as_mut_ptr().cast(), no),
+                )
+            };
+            jit_code(run())
+        }
+    })
+}
+unsafe fn fill<'a>(
+    list: *mut c_void,
+    data: &mut [MaybeUninit<Matrix<'a>>; 32],
+) -> JitResult<usize> {
+    if list.is_null() {
+        return Ok(0);
+    }
+    let n = unsafe { sys::jit_object_method(list, crate::sym!("getsize").as_ptr()) } as isize;
+    if !(0..=32).contains(&n) {
+        return Err(err::JIT_ERR_OUT_OF_BOUNDS);
+    }
+    for (i, slot) in data.iter_mut().enumerate().take(n as usize) {
+        let p =
+            unsafe { sys::jit_object_method(list, crate::sym!("getindex").as_ptr(), i as c_long) };
+        slot.write(unsafe { Matrix::from_raw(p)? });
+    }
+    Ok(n as usize)
+}
+
+unsafe impl<T: Ob3d> JitterObject<GlKind> for T {
+    fn destination(args: &[Atom]) -> SymbolRef {
+        let s = args.first().map(Atom::get_symbol).unwrap_or_default();
+        if s.name().to_bytes().starts_with(b"@") {
+            SymbolRef::default()
+        } else {
+            s
+        }
+    }
+    fn make(b: &mut JitBuilder) -> Result<Self, NewError> {
+        T::new(b)
+    }
+    unsafe fn setup_class(c: &mut Class<Core<T, GlKind>>) -> MaxResult<()> {
+        unsafe {
+            if sys::jit_ob3d_setup(
+                c.inner().cast(),
+                std::mem::offset_of!(Core<T, GlKind>, ob3d) as c_long,
+                T::flags() as c_long,
+            )
+            .is_null()
+            {
+                return Err(MaxError::OutOfMem);
+            }
+            for (name, method) in [
+                (
+                    c"ob3d_draw",
+                    gl_draw::<T> as extern "C" fn(&Core<T, GlKind>) -> sys::t_jit_err,
+                ),
+                (c"dest_changed", gl_changed::<T>),
+                (c"dest_closing", gl_closing::<T>),
+            ] {
+                max_error(sys::jit_class_addmethod(
+                    c.inner().cast(),
+                    Some(crate::method::erase(method)),
+                    name.as_ptr(),
+                    sys::e_max_atomtypes::A_CANT as c_long,
+                    0 as c_long,
+                ))?;
+            }
+            max_error(sys::jit_class_addmethod(
+                c.inner().cast(),
+                Some(crate::method::erase(
+                    sys::jit_object_register
+                        as unsafe extern "C" fn(*mut c_void, *mut sys::t_symbol) -> *mut c_void,
+                )),
+                c"register".as_ptr(),
+                sys::e_max_atomtypes::A_CANT as c_long,
+                0 as c_long,
+            ))?;
+            T::class_setup(c)
+        }
+    }
+    unsafe fn setup_core(p: *mut Core<T, GlKind>, dest: SymbolRef) -> Result<(), NewError> {
+        unsafe {
+            if sys::jit_ob3d_new(p.cast(), dest.as_ptr()).is_null() {
+                return Err("unable to create ob3d".into());
+            }
+            (*p).ob3d_ready = true;
+            Ok(())
+        }
+    }
+    unsafe fn free_core(p: *mut Core<T, GlKind>) {
+        unsafe {
+            if (*p).ob3d_ready {
+                sys::jit_ob3d_free(p.cast());
+            }
+        }
+    }
+    unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()> {
+        unsafe {
+            sys::max_jit_class_wrap_standard(c, jit, 0);
+            sys::max_jit_class_ob3d_wrap(c);
+            Ok(())
+        }
+    }
+    unsafe fn setup_max(
+        obj: *mut sys::t_object,
+        jit: *mut sys::t_object,
+        _args: &[Atom],
+    ) -> Result<(), NewError> {
+        unsafe {
+            let dump = sys::outlet_new(obj.cast(), std::ptr::null());
+            if dump.is_null() {
+                return Err("unable to create dumpout".into());
+            }
+            sys::max_jit_obex_dumpout_set(obj.cast(), dump);
+            let matrix = sys::outlet_new(obj.cast(), c"jit_matrix".as_ptr());
+            if matrix.is_null() {
+                return Err("unable to create matrix outlet".into());
+            }
+            sys::max_jit_ob3d_attach(obj.cast(), jit, matrix);
+            Ok(())
+        }
+    }
+    unsafe fn free_max(obj: *mut sys::t_object) {
+        unsafe {
+            sys::max_jit_ob3d_detach(obj.cast());
+        }
+    }
+    unsafe fn assist(obj: *mut sys::t_object, io: c_long, index: c_long, text: *mut c_char) {
+        unsafe {
+            sys::max_jit_ob3d_assist(obj.cast(), std::ptr::null_mut(), io, index, text);
+        }
+    }
+}
+extern "C" fn gl_draw<T: Ob3d>(w: &Core<T, GlKind>) -> sys::t_jit_err {
+    crate::ffi::guard_or(w, "ob3d_draw", err::JIT_ERR_GENERIC as _, || {
+        jit_code(w.wrapped().draw(&DrawContext::current()))
+    })
+}
+extern "C" fn gl_changed<T: Ob3d>(w: &Core<T, GlKind>) -> sys::t_jit_err {
+    crate::ffi::guard_or(w, "dest_changed", err::JIT_ERR_GENERIC as _, || {
+        jit_code(w.wrapped().dest_changed(&DrawContext::current()))
+    })
+}
+extern "C" fn gl_closing<T: Ob3d>(w: &Core<T, GlKind>) -> sys::t_jit_err {
+    crate::ffi::guard_or(w, "dest_closing", err::JIT_ERR_GENERIC as _, || {
+        jit_code(w.wrapped().dest_closing(&DrawContext::current()))
+    })
+}

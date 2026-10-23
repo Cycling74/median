@@ -253,6 +253,19 @@ pub trait MaxObjWrapped:
     /// [`NewError`].
     fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError>;
 
+    /// Apply creation attributes after the object is fully constructed. Normally uses Max's
+    /// `attr_args_process`; the generated Jitter glue uses `max_jit_attr_args` instead.
+    #[doc(hidden)]
+    fn process_creation_attrs(&self, obj: &ObjRef, args: &[Atom]) {
+        unsafe {
+            max_sys::attr_args_process(
+                obj.as_ptr().cast(),
+                args.len().min(i16::MAX as usize) as _,
+                args.as_ptr().cast_mut().cast(),
+            );
+        }
+    }
+
     /// Register anything else your class needs (aliases, methods with computed names, ...),
     /// after the field attributes and the methods.
     ///
@@ -380,6 +393,8 @@ pub trait WrapperWrapped<T> {
 #[repr(C)]
 pub struct Wrapper<O, I, T> {
     s_obj: O,
+    // SDK-owned extension storage, located with class_obexoffset_set.
+    obex: MaybeUninit<*mut c_void>,
     wrapped: MaybeUninit<I>,
     /// `wrapped` is initialised. Max can free the object before construction finished (a panic
     /// in `T::new`), in which case `free` must not drop `wrapped`. Written (with `Release`) once
@@ -455,6 +470,15 @@ mod sealed {
 
     pub trait WrapperInternal<O, T>: Sized {
         fn wrapped(&self) -> &T;
+        fn process_creation_attrs(&self, obj: &ObjRef, args: &[Atom]) {
+            unsafe {
+                max_sys::attr_args_process(
+                    obj.as_ptr().cast(),
+                    args.len().min(i16::MAX as usize) as _,
+                    args.as_ptr().cast_mut().cast(),
+                );
+            }
+        }
         /// The callback targets of the clocks and queues created for this object by the builder.
         fn targets(&self) -> &[Arc<ClockShared>];
         /// The deferred-call queue, if the class has deferred methods.
@@ -512,6 +536,9 @@ where
             targets: builder.take_targets(),
             deferred: builder.take_defer_queue().map(DeferQueue::new),
         })
+    }
+    fn process_creation_attrs(&self, obj: &ObjRef, args: &[Atom]) {
+        self.wrapped.process_creation_attrs(obj, args);
     }
     fn class_setup(class: &mut Class<Wrapper<max_sys::t_object, Self, T>>) {
         register_members::<_, T>(class);
@@ -840,16 +867,9 @@ where
         drop(builder);
         // SAFETY: `wrapped` is initialised; only now may clock and queue callbacks run
         unsafe { Self::arm_targets(o.as_ptr()) };
-        //process attribute arguments
-        //TODO optionally don't process?
-        // SAFETY: `o` is a live, constructed object; Max doesn't write to the atoms
-        unsafe {
-            max_sys::attr_args_process(
-                o.max_obj() as _,
-                args.len() as _,
-                args.as_ptr() as *const max_sys::t_atom as *mut max_sys::t_atom,
-            );
-        }
+        // Process attributes only after construction and callback targets are ready.
+        let obj = unsafe { ObjRef::from_raw(std::ptr::NonNull::new_unchecked(o.max_obj())) };
+        o.internal().process_creation_attrs(&obj, args);
         Ok(o)
     }
 
@@ -1112,43 +1132,68 @@ where
             };
             let (max_class, deferred) = if existing.is_null() {
                 let mut c = creator();
+                unsafe {
+                    max_sys::class_obexoffset_set(c.inner(), std::mem::offset_of!(Self, obex) as _);
+                }
                 let notify = c"notify";
                 let assist = c"assist";
                 let inletinfo = c"inletinfo";
                 unsafe {
-                    //register notifications
-                    max_sys::class_addmethod(
-                        c.inner(),
-                        Some(std::mem::transmute::<_, MaxMethod>(notification_handler)),
-                        notify.as_ptr(),
-                        max_sys::e_max_atomtypes::A_CANT,
-                        0,
-                    );
+                    // Keep handlers installed by the SDK's Jitter wrapper.
+                    if !c.host_iolets
+                        || max_sys::class_method(c.inner(), crate::sym!("notify").as_ptr())
+                            .is_none()
+                    {
+                        //register notifications
+                        max_sys::class_addmethod(
+                            c.inner(),
+                            Some(std::mem::transmute::<
+                                extern "C" fn(
+                                    &Self,
+                                    *mut max_sys::t_symbol,
+                                    *mut max_sys::t_symbol,
+                                    *mut c_void,
+                                    *mut c_void,
+                                ),
+                                MaxMethod,
+                            >(notification_handler)),
+                            notify.as_ptr(),
+                            max_sys::e_max_atomtypes::A_CANT,
+                            0,
+                        );
+                    }
                     //assist
                     max_sys::class_addmethod(
                         c.inner(),
-                        Some(std::mem::transmute::<_, MaxMethod>(assist_tramp)),
+                        Some(std::mem::transmute::<
+                            extern "C" fn(&Self, *mut c_void, c_long, c_long, *mut c_char),
+                            MaxMethod,
+                        >(assist_tramp)),
                         assist.as_ptr(),
                         max_sys::e_max_atomtypes::A_CANT,
                         0,
                     );
-                    //hot/cold inlets
-                    max_sys::class_addmethod(
-                        c.inner(),
-                        Some(std::mem::transmute::<
-                            extern "C" fn(&Self, *mut c_void, c_long, *mut c_char),
-                            MaxMethod,
-                        >(Self::inletinfo_tramp)),
-                        inletinfo.as_ptr(),
-                        max_sys::e_max_atomtypes::A_CANT,
-                        0,
-                    );
+                    if !c.host_iolets {
+                        //hot/cold inlets
+                        max_sys::class_addmethod(
+                            c.inner(),
+                            Some(std::mem::transmute::<
+                                extern "C" fn(&Self, *mut c_void, c_long, *mut c_char),
+                                MaxMethod,
+                            >(Self::inletinfo_tramp)),
+                            inletinfo.as_ptr(),
+                            max_sys::e_max_atomtypes::A_CANT,
+                            0,
+                        );
+                    }
                 }
                 //register our ft1, ft2.. in1, in2.. tramps (before the class is registered, as
                 //the SDK examples mark methods undocumented)
-                Self::register_ft_in(c.inner());
+                if !c.host_iolets {
+                    Self::register_ft_in(c.inner());
+                }
                 c.register(T::class_type())
-                    .expect(format!("failed to register {}", key).as_str());
+                    .unwrap_or_else(|_| panic!("failed to register {}", key));
                 (c.inner(), c.has_deferred())
             } else {
                 (existing, false)
@@ -1216,6 +1261,10 @@ where
     ///
     /// # Panics
     /// If Max fails to register the class, or one of its attributes or methods.
+    pub(crate) fn obex_offset() -> usize {
+        std::mem::offset_of!(Self, obex)
+    }
+
     pub fn register() {
         Self::register_with(false)
     }

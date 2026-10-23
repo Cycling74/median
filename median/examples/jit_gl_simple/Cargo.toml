@@ -1,0 +1,17 @@
+[package]
+name = "jit_gl_simple"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+median = { path = "../.." }
+
+[profile.release]
+lto = true
+panic = "unwind"
+
+[workspace]

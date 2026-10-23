@@ -72,9 +72,11 @@
 //!
 //! * Containers: retained dictionaries, registry, ordered entries, recursive transaction locks,
 //!   strings and atomarray builders; see [`containers`]. JSON/file APIs are not modelled.
+//! * Jitter: class/MOP/ob3d lifecycle, attribute forwarding, matrix fixtures and recorded immediate
+//!   GL calls; see [`jit`]. Callbacks are driven directly; there is no renderer or worker scheduler.
 //!
 //! Not modelled: file and path functions (`sysfile_*`, `path_*`, `locatefile_extended`,
-//! `open_dialog`), `object_new`, jitter, patcher/box access, ordinary Max `@attr` argument
+//! `open_dialog`), `object_new`, patcher/box access, ordinary Max `@attr` argument
 //! parsing, signal-rate connections between objects, inlet/outlet connections, and everything
 //! else not listed above. A call to a function that is not defined fails at link time, or at load
 //! time if the binary links lazily.
@@ -93,6 +95,7 @@ pub mod console;
 pub mod containers;
 pub mod dsp;
 pub mod io;
+pub mod jit;
 mod kernel;
 pub mod notify;
 pub mod queue;
