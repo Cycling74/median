@@ -23,7 +23,7 @@ The new forms below are checked against the code at `xnor/api-redesign`; `median
 | attribute touch | `self.attr_touch_with_name(SymbolRef::try_from("blah").unwrap()).unwrap()` | `self.obj.attr_touch_with_name(c"blah")` (returns `MaxResult<()>`) |
 | current proxy inlet | `unsafe { median::inlet::Proxy::get_inlet(self.max_obj()) }` | `self.obj.proxy_inlet()` (safe; only meaningful inside a message method) |
 | inlets | `builder.with_default_inlet_assist("..")`, `add_inlet(MaxInlet::Int(Box::new(f)))`, `add_inlet_with_assist(MaxInlet::Float(..), "..")`, `MaxInlet::Proxy`, `MSPInlet::Signal`, `add_signal_inlets(n)`, `add_signal_inlets_with_assist(&[..])` | `builder.inlet(desc)`: `Inlet::default().assist("..")`, `Inlet::int(f)`, `Inlet::float(f)`, `Inlet::proxy()`, MSP only `Inlet::signal()`; each takes `.assist("..")` and `.hot()`. `f` is a method or non-capturing closure `Fn(&T, v)`, no `Box`. A signal inlet on a Max builder is a compile error. Returns an `InletId` (`.index()`). |
-| outlets | `add_list_outlet_with_assist("..") -> OutList` (also `OutBang`, `OutInt`, `OutFloat`, `OutAnything`: boxed `SendValue` traits), `add_signal_outlets(n)` | `builder.outlet(Outlet::list().assist(".."))` returns an `Outlet<List>`; kinds `Bang`, `Int`, `Float`, `List`, `Any`, `Signal`. `send(..)` takes what the kind carries (`send()`, `send(t_atom_long)`, `send(f64)`, `send(&[Atom])`, `send(&SymbolRef, &[Atom])`) and returns `Result<(), StackOverflow>`. `SendValue`, `SendAnything`, `SendError` are gone. |
+| outlets | `add_list_outlet_with_assist("..") -> OutList` (also `OutBang`, `OutInt`, `OutFloat`, `OutAnything`: boxed `SendValue` traits), `add_signal_outlets(n)` | `builder.outlet(Outlet::list().assist(".."))` returns an `Outlet<List>`; kinds `Bang`, `Int`, `Float`, `List`, `Any`, `Signal`. `send(..)` takes what the kind carries (`send()`, `send(t_atom_long)`, `send(f64)`, `send(&[Atom])`, `send(&SymbolRef, &[Atom])`) and returns `Result<(), SendError>`. Match `SendError::StackOverflow`, `ObjectAtom`, or `InvalidAtom`. `SendValue` and `SendAnything` are gone. |
 | assist hook | `fn assist<F: FnOnce(&CStr)>(&self, iolet: AssistIOlet, render: F)` | `fn assist(&self, iolet: IoLet) -> Option<Cow<'_, str>>`; `IoLet::Inlet(i)` / `IoLet::Outlet(i)` (zero-based). `None` uses the builder's text, else the kind (`"int"`, `"list"`, `"inlet 2"`). Cut to 500 bytes. New sibling: `inlet_hot(&self, usize) -> Option<bool>`. |
 | error hook | none: each method handled its own errors | message methods and attribute setters may return `Result<(), E: Display>`; an `Err` goes to `fn report_error(&self, obj: &ObjRef, err: &dyn Display)`, which by default posts it as an error for the object. Override it to route errors elsewhere. |
 | message methods | `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]` inside `external!` | same markers, in an `impl` marked `#[median::methods]`. Signatures unchanged: `fn(&self)`, `(&self, t_atom_long)`, `(&self, f64)`, `(&self, SymbolRef)`, `(&self, &[Atom])`, `(&self, &SymbolRef, &[Atom])`. Hand-written: `c.add_bang(Self::bang)`, `add_int`, `add_float`, `add_sym`, `add_list`, `add_any`. |
@@ -206,7 +206,12 @@ Notes on the port: the `_tramp` functions and the whole of `class_setup` disappe
 and rejects cycles made through median. Reads copy or retain while transaction-locked. Register
 before `Outlet<Any>::send_dict`; keep the returned handle alive. `#[dictionary]` receives an
 owned `Dict`; `#[savestate]` receives `&Dict`. These callbacks cannot be deferred implicitly.
-JSON/file helpers remain unfinished; see [the container plan](plan-containers.md).
+`from_json`, `from_atoms`, `read`, `write`, and `dump` use the SDK parsers/file APIs. `rename`
+returns the dictionary at the requested name; it does not move the original's entries.
+Call `notify_modified` outside transactions. Ordinary list/anything outlets reject `A_OBJ`;
+use `send_dict`, whose delivery failure is `DictSendError::Send(SendError)`. Raw object/array
+inspection is explicitly unsafe. In-memory `to_json` awaits host verification; see
+[the container plan](plan-containers.md).
 
 Jitter externals use `#[max(kind = matrix_op)]` with `jit::MatrixOp`, or `#[max(kind = gl)]`
 with `jit::Ob3d`. The derive registers both Jitter and Max classes. Keep `JitBuilder::obj()`
@@ -214,3 +219,9 @@ in your struct if you need a `JitObjRef`. Methods take `&self`; attributes need 
 MOP/ob3d creates the iolets and provides assistance. Matrix data references require explicit
 unsafe access contracts, even with a matrix lock held. GL callbacks get `&DrawContext`; do not
 use GL operations from `Drop`. See `jit_scalebias` and `jit_gl_simple` for complete examples.
+
+The `jit::ob3d` resource helpers borrow the callback's context: `GLChunk` owns its matrices
+and supports fallible copying; matrix access and drawing retain their unsafe data contracts.
+`GLDataBuffer` and `GLGeometry` require unsafe ownership adoption. Geometry `set_data_copying`
+additionally requires a verified synchronous-copy ABI; the public SDK headers do not establish
+it. Keep these owners inside the callback, where cleanup has a context, rather than in object fields.

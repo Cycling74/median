@@ -49,6 +49,13 @@ an already loaded external.
   `appendtodictionary` callback delivery in Max. Mock tests cannot establish these kernel contracts.
 - [ ] Verify the `jsonwriter` `getoutput` calling convention and handle ownership before adding
   in-memory JSON serialization.
+- [ ] Exercise `Dict::from_json`/`from_atoms`, file read/write, name switching and modified
+  notifications, including malformed input and file errors. Confirm the SDK parser's partial
+  output ownership on failure; the mock exercises cleanup but cannot establish that contract.
+- [ ] Draw/copy GL chunks and grids in an ob3d callback, including destination changes. Verify
+  `jit_glchunk_copy` partial-result ownership. Before safe buffer/geometry construction or
+  upload is added, establish which allocations `destroy_tagged` releases and the geometry
+  `setdata` ABI, synchronous copying versus retention, and render-context requirements.
 - [ ] Create `jit.median.scalebias` between a 4-plane char `jit.matrix` and `jit.pwindow`.
   Check `scale`, `bias`, `@rscale`, clipping, assist text and repeated creation/deletion.
   Compare in-place processing and mismatched dimensions against the SDK scalebias example.

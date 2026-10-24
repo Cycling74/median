@@ -20,8 +20,9 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   `MatrixOp`/`Ob3d`, `kind = matrix_op|gl`, shared attribute accessors, MOP configuration,
   Max forwarding and owner-bound deferred calls are implemented. The SDK's notification and
   inlet handlers are preserved. Both Jitter examples pass mock tests and package on macOS ARM64.
-  Still open: extra custom iolets, context/resource-safe GL chunk/buffer/geometry helpers, and
-  validation in Max. See API redesign §J for implementation decisions.
+  Callback-scoped chunks and unsafe buffer/geometry adoption now have ownership tests.
+  Still open: extra custom iolets, safe buffer/geometry construction and uploads after ownership
+  verification, and validation in Max. See API redesign §J for implementation decisions.
 - Examples: the SDK simplemax port and constructor/console mock coverage are implemented.
   Host checks are tracked in [validation-max.md](validation-max.md).
 - Build: root workspace, standalone external projects, CI matrix (macos-15,
@@ -35,7 +36,9 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   minimum still needs a run with that exact toolchain.
 - Containers: core ownership/locking, registry, atomarray builders and dictionary/save message
   support are implemented with mock tests; see the detailed status in `plan-containers.md`.
-  JSON/file operations remain open. No old feature branches were merged or deleted. The sections below remain the acceptance plan, not a claim of completion.
+  JSON/atom parsing, file operations, name switching, notifications and raw helpers are now
+  implemented. In-memory JSON output awaits host ABI verification. No old feature branches
+  were merged or deleted. The sections below remain the acceptance plan, not a claim of completion.
 
 ## Step 3: land the open branches
 
