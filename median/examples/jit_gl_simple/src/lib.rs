@@ -8,7 +8,7 @@ use median::{
 #[max(name = "jit.gl.median.simple", kind = gl, no_methods)]
 pub struct Simple;
 impl Ob3d for Simple {
-    fn new(_: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(_: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         Ok(Self)
     }
     fn flags() -> median::max_sys::t_jit_ob3d_flags::Type {

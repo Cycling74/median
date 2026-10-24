@@ -64,6 +64,10 @@ an already loaded external.
   deletion after closing the render context. The example uses SDK immediate-mode GL calls.
 - [ ] Check Jitter attribute inspector/save behavior, SDK notifications and hot/cold iolets;
   the mock checks forwarding/handler preservation but does not implement the host wrappers.
+- [ ] Check a fixed-count MOP and ob3d with extra numeric/proxy inlets and message outlets.
+  Verify SDK iolets precede the custom ones (including dumpout), returned inlet positions,
+  assistance text, hot/cold display and proxy message dispatch. Repeat creation/deletion and
+  constructor refusal. `tests/jitter_iolets.rs` supplies the fixture behavior to port to Max.
 - [ ] Run Jitter parallel callback tests in Max; current tests cover validated iteration
   and direct trampoline calls, not the host scheduler.
 

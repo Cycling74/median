@@ -13,7 +13,7 @@ static COMPLETED: AtomicUsize = AtomicUsize::new(0);
 #[max(name = "jit.gl.helper.test", kind = gl, no_methods)]
 pub struct Helpers;
 impl Ob3d for Helpers {
-    fn new(_: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(_: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         Ok(Self)
     }
     fn draw(&self, context: &DrawContext) -> JitResult<()> {

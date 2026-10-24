@@ -290,8 +290,17 @@ packaging succeeds. They have **not run in Max**. Differences from the proposal 
   geometry constructor is offered until SDK retention/ownership contracts are verified.
   CPU fixtures test cleanup on failed copies and unwinding, and a compile-fail test rejects
   chunks escaping the callback. These tests do not verify GPU behavior or upload retention.
-- MOP/ob3d owns its iolets and inlet-info methods; assistance delegates to the SDK. Extra user
-  iolets and the proposed externally-created-position accounting are not implemented.
+- `JitBuilder<Self>` adds custom numeric/proxy inlets and message outlets after the SDK's
+  matrix iolets and dumpout. A temporary Max builder finalizes custom inlets before SDK setup;
+  the resulting table is transferred to the forwarding wrapper, with callbacks mapped to the
+  live Jitter value. SDK physical counts are reserved in the table. SDK inlet-info delegates
+  preserve the original callback arguments; custom positions use the normal guarded table.
+  Assistance likewise delegates only for SDK positions. `max_obj()` supplies the Max handle
+  for proxy position queries, while `obj()` still supplies the Jitter handle.
+  Standalone cores have no Max iolets. Variable-count MOPs refuse extra iolets: tracking
+  dynamic position changes remains outside this construction-only API. The 2026-10-24 mock
+  tests cover ordering, dispatch, assistance/hotness, panic containment, and failure cleanup
+  both before and after SDK setup starts. Host ordering still needs verification in Max.
 
 The remainder of this section records the original branch assessment and design proposal.
 

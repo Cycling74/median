@@ -7,11 +7,13 @@ use super::{
 };
 use crate::{
     atom::Atom,
-    builder::MaxBuilder,
+    builder::{InletInfoFn, Max, MaxBuilder},
     class::{Class, ClassType},
     defer::{Defer, DeferredCall},
     error::{MaxError, MaxResult, NewError},
+    inlet::{Inlet, InletId},
     object::{MaxObj, ObjRef},
+    outlet::{Outlet, OutletDesc, OutletFor},
     symbol::SymbolRef,
     wrapper::{FieldAttrs, IoLet, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
 };
@@ -49,12 +51,52 @@ impl JitObjRef {
 }
 
 /// Construction context for a Jitter value. MOP/ob3d creates the matrix iolets and dumpout;
-/// they must not also be declared as ordinary Max iolets.
-pub struct JitBuilder {
+/// they must not also be declared as ordinary Max iolets. Use `JitBuilder<Self>` in `new`.
+/// Custom iolets follow the SDK iolets, including dumpout, and are described left to right.
+/// Numeric callbacks receive `&Self`; proxy messages use the regular forwarded methods and
+/// the Max handle's `proxy_inlet()` reports the final position. Extra iolets require a Max
+/// wrapper and fixed matrix counts; standalone Jitter cores cannot create Max iolets.
+pub struct JitBuilder<'a, T> {
+    host: Option<&'a mut MaxBuilder<T>>,
+    fixed_iolets: bool,
     obj: Option<JitObjRef>,
     destination: SymbolRef,
 }
-impl JitBuilder {
+impl<T> JitBuilder<'_, T> {
+    fn iolets(&mut self) -> Result<&mut MaxBuilder<T>, NewError> {
+        if !self.fixed_iolets {
+            return Err(
+                "extra Jitter iolets require a Max wrapper with fixed matrix counts".into(),
+            );
+        }
+        self.host
+            .as_deref_mut()
+            .ok_or_else(|| "this Jitter object has no Max wrapper".into())
+    }
+    /// Add a non-signal inlet after the SDK inlets. The returned id is its final position.
+    /// `Inlet::default()` is reserved for the SDK; a variable-count MOP cannot add extra iolets.
+    pub fn inlet(&mut self, inlet: Inlet<T>) -> Result<InletId, NewError> {
+        Ok(self.iolets()?.inlet(inlet))
+    }
+    /// Append a message outlet after the SDK matrix outlets and dumpout.
+    pub fn outlet<O: OutletFor<Max>>(
+        &mut self,
+        outlet: OutletDesc<O>,
+    ) -> Result<Outlet<O>, NewError> {
+        Ok(self.iolets()?.outlet(outlet))
+    }
+    /// A handle to the Max forwarding object, for sending messages or reading `proxy_inlet`.
+    /// Unavailable when the core is constructed directly through `jit_object_new`.
+    pub fn max_obj(&mut self) -> Result<ObjRef, NewError> {
+        self.host
+            .as_deref_mut()
+            .map(|b| b.obj())
+            .ok_or_else(|| "this Jitter object has no Max wrapper".into())
+    }
+    /// The Max creation arguments, or an empty slice for a standalone Jitter core.
+    pub fn creation_args(&self) -> &[Atom] {
+        self.host.as_deref().map_or(&[], |b| b.creation_args())
+    }
     /// Take the object's handle once, for storage in the user value.
     pub fn obj(&mut self) -> JitObjRef {
         self.obj.take().expect("Jitter object handle already taken")
@@ -68,7 +110,7 @@ impl JitBuilder {
 /// A matrix operator. `calc` may run concurrently: use atomic/locked state, and keep borrowed
 /// matrices inside the call. Data references require the matrix view's unsafe access contract.
 pub trait MatrixOp: ObjClass + Methods + FieldAttrs + Sync + 'static {
-    fn new(builder: &mut JitBuilder) -> Result<Self, NewError>;
+    fn new(builder: &mut JitBuilder<Self>) -> Result<Self, NewError>;
     fn io_count() -> IOCount;
     fn mop_setup(_mop: &mut MOP<'_>) -> JitResult<()> {
         Ok(())
@@ -101,7 +143,7 @@ impl DrawContext {
 /// A Jitter ob3d. OpenGL operations belong in `draw`, with the host's current context.
 /// Release context-specific resources in `dest_closing`; `Drop` may run without a GL context.
 pub trait Ob3d: ObjClass + Methods + FieldAttrs + Sync + 'static {
-    fn new(builder: &mut JitBuilder) -> Result<Self, NewError>;
+    fn new(builder: &mut JitBuilder<Self>) -> Result<Self, NewError>;
     fn flags() -> sys::t_jit_ob3d_flags::Type {
         0
     }
@@ -130,12 +172,14 @@ pub enum GlKind {}
 /// must contain panics. Ordinary externals should implement `MatrixOp` or `Ob3d` instead.
 #[doc(hidden)]
 pub unsafe trait JitterObject<K>: ObjClass + Methods + FieldAttrs + Sync + 'static {
-    fn make(b: &mut JitBuilder) -> Result<Self, NewError>;
+    fn make(b: &mut JitBuilder<Self>) -> Result<Self, NewError>;
     fn destination(_args: &[Atom]) -> SymbolRef {
         SymbolRef::default()
     }
     unsafe fn notify(_obj: *mut sys::t_object, _notification: &crate::notify::Notification) {}
-    unsafe fn setup_class(c: &mut Class<Core<Self, K>>) -> MaxResult<()>;
+    /// Return the SDK's physical inlet/outlet counts, including inlet 0 and dumpout, or None
+    /// for a variable layout. They must match the subsequent `setup_max` implementation.
+    unsafe fn setup_class(c: &mut Class<Core<Self, K>>) -> MaxResult<Option<(usize, usize)>>;
     unsafe fn setup_core(_p: *mut Core<Self, K>, _dest: SymbolRef) -> Result<(), NewError> {
         Ok(())
     }
@@ -182,7 +226,8 @@ impl<T, K> WrapperWrapped<T> for Core<T, K> {
 #[derive(Clone, Copy)]
 struct Entry {
     class: usize,
-    name: SymbolRef,
+    iolets: Option<(usize, usize)>,
+    inletinfo: Option<InletInfoFn>,
 }
 static CLASSES: LazyLock<Mutex<HashMap<TypeId, Entry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -227,6 +272,13 @@ where
     K: 'static,
 {
     unsafe extern "C" fn new_tramp(dest: *mut sys::t_symbol) -> *mut c_void {
+        Self::create(dest, None, false)
+    }
+    fn create(
+        dest: *mut sys::t_symbol,
+        host: Option<&mut MaxBuilder<T>>,
+        fixed_iolets: bool,
+    ) -> *mut c_void {
         crate::ffi::guard_global("Jitter new", std::ptr::null_mut(), || {
             let Some(class) = entry::<T, K>() else {
                 return std::ptr::null_mut();
@@ -258,6 +310,8 @@ where
                 return std::ptr::null_mut();
             }
             let mut builder = JitBuilder {
+                host,
+                fixed_iolets,
                 obj: Some(JitObjRef(unsafe {
                     ObjRef::from_raw(NonNull::new_unchecked(p.cast()))
                 })),
@@ -300,6 +354,8 @@ where
 pub struct MaxGlue<T: JitterObject<K>, K: 'static> {
     obj: ObjRef,
     jit: NonNull<Core<T, K>>,
+    max_setup_started: bool,
+    iolets: Option<(usize, usize)>,
 }
 // SAFETY: the pointer is immutable while the Max wrapper lives; its Jitter value is Sync and
 // the SDK serializes destruction after callbacks. It is freed only by this wrapper's Drop.
@@ -359,6 +415,19 @@ impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
                 MaxObjWrapper::<Self>::obex_offset() as c_long,
             );
             T::setup_max_class(class.inner(), jit.class as _)?;
+            let inletinfo = sys::class_method(class.inner(), crate::sym!("inletinfo").as_ptr())
+                .map(|f| {
+                    std::mem::transmute::<
+                        sys::method,
+                        unsafe extern "C" fn(*mut sys::t_object, *mut c_void, c_long, *mut c_char),
+                    >(Some(f))
+                });
+            CLASSES
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get_mut(&TypeId::of::<(T, K)>())
+                .unwrap()
+                .inletinfo = inletinfo;
         }
         let mut forwarded: Class<Forward<W, T, K>> =
             unsafe { Class::new_registered(class.inner()) };
@@ -372,13 +441,40 @@ impl<T: JitterObject<K>, K: 'static> MaxObjWrapped for MaxGlue<T, K> {
     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         let class = entry::<T, K>().ok_or_else(|| NewError::from("Jitter class is unavailable"))?;
         let destination = T::destination(b.creation_args());
-        let ptr = unsafe { sys::jit_object_new(class.name.as_ptr(), destination.as_ptr()) }
-            .cast::<Core<T, K>>();
+        // Custom outlets append now; SDK outlets are later inserted to their left. Custom
+        // inlets are finalized before SDK setup for the same ordering on the inlet side.
+        let mut host = unsafe {
+            MaxBuilder::<T>::new(
+                NonNull::new_unchecked(b.max_obj()),
+                b.creation_symbol(),
+                b.creation_args(),
+            )
+        };
+        if let Some((inputs, outputs)) = class.iolets {
+            host.reserve_host_iolets(inputs, outputs);
+        }
+        let ptr = Core::<T, K>::create(
+            destination.as_ptr(),
+            Some(&mut host),
+            class.iolets.is_some(),
+        )
+        .cast::<Core<T, K>>();
         let jit =
             NonNull::new(ptr).ok_or_else(|| NewError::from("unable to create Jitter object"))?;
-        let glue = Self { obj: b.obj(), jit };
+        let mut glue = Self {
+            obj: b.obj(),
+            jit,
+            max_setup_started: false,
+            iolets: class.iolets,
+        };
         unsafe {
             sys::max_jit_object_wrap_complete(glue.obj.as_ptr(), jit.as_ptr().cast(), 0);
+        }
+        let mut iolets = host.finalize().map_err(NewError::from)?;
+        iolets.set_host_inletinfo(class.iolets.map(|(inputs, _)| inputs), class.inletinfo);
+        b.use_prebuilt_iolets(iolets.map(|glue: &Self| unsafe { glue.jit.as_ref().wrapped() }));
+        glue.max_setup_started = true;
+        unsafe {
             T::setup_max(glue.obj.as_ptr(), jit.as_ptr().cast(), b.creation_args())?;
         }
         Ok(glue)
@@ -402,6 +498,12 @@ impl<T: JitterObject<K>, K: 'static> MaxObjWrapped for MaxGlue<T, K> {
             IoLet::Inlet(i) => (1, i),
             IoLet::Outlet(i) => (2, i),
         };
+        if self
+            .iolets
+            .is_some_and(|(ins, outs)| index >= if kind == 1 { ins } else { outs })
+        {
+            return None;
+        }
         let mut text = [0 as c_char; 512];
         unsafe {
             T::assist(self.obj.as_ptr(), kind, index as c_long, text.as_mut_ptr());
@@ -414,10 +516,13 @@ impl<T: JitterObject<K>, K: 'static> MaxObjWrapped for MaxGlue<T, K> {
         ))
     }
 }
+
 impl<T: JitterObject<K>, K: 'static> Drop for MaxGlue<T, K> {
     fn drop(&mut self) {
         unsafe {
-            T::free_max(self.obj.as_ptr());
+            if self.max_setup_started {
+                T::free_max(self.obj.as_ptr());
+            }
             sys::jit_object_free(self.jit.as_ptr().cast());
             sys::max_jit_object_free(self.obj.as_ptr().cast());
         }
@@ -459,6 +564,7 @@ fn register<T: JitterObject<K>, K: 'static>() {
             let pending = PendingClass(c);
             let mut class: Class<Core<T, K>> = unsafe { Class::new_registered(c.cast()) };
             class.jitter = true;
+            let mut iolets = None;
             let result = (|| {
                 T::register_attrs(&mut class)?;
                 class.attributes_only = true;
@@ -466,7 +572,7 @@ fn register<T: JitterObject<K>, K: 'static>() {
                 class.attributes_only = false;
                 class.clear_deferred();
                 unsafe {
-                    T::setup_class(&mut class)?;
+                    iolets = T::setup_class(&mut class)?;
                     max_error(sys::jit_class_register(c))
                 }
             })();
@@ -479,7 +585,8 @@ fn register<T: JitterObject<K>, K: 'static>() {
                 TypeId::of::<(T, K)>(),
                 Entry {
                     class: c as usize,
-                    name: SymbolRef::from(name.as_c_str()),
+                    iolets,
+                    inletinfo: None,
                 },
             );
         }
@@ -493,10 +600,12 @@ unsafe impl<T: MatrixOp> JitterObject<MatrixKind> for T {
             sys::max_jit_mop_notify(obj.cast(), n.sender_name().as_ptr(), n.message().as_ptr());
         }
     }
-    fn make(b: &mut JitBuilder) -> Result<Self, NewError> {
+    fn make(b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         T::new(b)
     }
-    unsafe fn setup_class(class: &mut Class<Core<Self, MatrixKind>>) -> MaxResult<()> {
+    unsafe fn setup_class(
+        class: &mut Class<Core<Self, MatrixKind>>,
+    ) -> MaxResult<Option<(usize, usize)>> {
         let counts = T::io_count();
         let inputs = counts.inputs.raw().map_err(|_| MaxError::Generic)?;
         let outputs = counts.outputs.raw().map_err(|_| MaxError::Generic)?;
@@ -522,7 +631,12 @@ unsafe impl<T: MatrixOp> JitterObject<MatrixKind> for T {
                 0 as c_long,
             ))?;
         }
-        T::class_setup(class)
+        T::class_setup(class)?;
+        Ok(if inputs >= 0 && outputs >= 0 {
+            Some((inputs.max(1) as usize, outputs as usize + 1))
+        } else {
+            None
+        })
     }
     unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()> {
         unsafe {
@@ -609,10 +723,10 @@ unsafe impl<T: Ob3d> JitterObject<GlKind> for T {
             s
         }
     }
-    fn make(b: &mut JitBuilder) -> Result<Self, NewError> {
+    fn make(b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         T::new(b)
     }
-    unsafe fn setup_class(c: &mut Class<Core<T, GlKind>>) -> MaxResult<()> {
+    unsafe fn setup_class(c: &mut Class<Core<T, GlKind>>) -> MaxResult<Option<(usize, usize)>> {
         unsafe {
             if sys::jit_ob3d_setup(
                 c.inner().cast(),
@@ -649,7 +763,8 @@ unsafe impl<T: Ob3d> JitterObject<GlKind> for T {
                 sys::e_max_atomtypes::A_CANT as c_long,
                 0 as c_long,
             ))?;
-            T::class_setup(c)
+            T::class_setup(c)?;
+            Ok(Some((1, 2)))
         }
     }
     unsafe fn setup_core(p: *mut Core<T, GlKind>, dest: SymbolRef) -> Result<(), NewError> {

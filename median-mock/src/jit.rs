@@ -49,6 +49,9 @@ struct Jitter {
     dumps: HashMap<usize, usize>,
     gl_attached: HashMap<usize, usize>,
     gl_calls: Vec<GlCall>,
+    inletinfo_calls: Vec<(usize, usize, c_long)>,
+    mop_owners: std::collections::HashSet<usize>,
+    fail_mop_setup: bool,
 }
 static JIT: LazyLock<parking_lot::Mutex<Jitter>> =
     LazyLock::new(|| parking_lot::Mutex::new(Jitter::default()));
@@ -77,6 +80,9 @@ pub(crate) fn reset() {
         }
     }
     jit.gl_calls.clear();
+    jit.inletinfo_calls.clear();
+    jit.mop_owners.clear();
+    jit.fail_mop_setup = false;
     jit.contexts.clear();
     jit.max_objects.clear();
     jit.dumps.clear();
@@ -92,6 +98,16 @@ pub fn object_for(max: *mut c_void) -> *mut c_void {
 /// Live GL context attachments (separate from the user value's destructor).
 pub fn context_count() -> usize {
     JIT.lock().contexts.len()
+}
+
+pub fn take_inletinfo_calls() -> Vec<(usize, usize, c_long)> {
+    std::mem::take(&mut JIT.lock().inletinfo_calls)
+}
+pub fn fail_next_mop_setup() {
+    JIT.lock().fail_mop_setup = true;
+}
+pub fn live_mop_count() -> usize {
+    JIT.lock().mop_owners.len()
 }
 
 /// Own a matrix with aligned storage for direct `matrix_calc` tests. Raw pointers passed to SDK
@@ -412,11 +428,14 @@ pub unsafe extern "C" fn max_jit_class_wrap_standard(
     }
 }
 unsafe extern "C" fn standard_inletinfo(
-    _: *mut c_void,
-    _: *mut c_void,
+    owner: *mut c_void,
+    box_ptr: *mut c_void,
     index: c_long,
     cold: *mut c_char,
 ) {
+    JIT.lock()
+        .inletinfo_calls
+        .push((owner as usize, box_ptr as usize, index));
     unsafe {
         cold.write((index > 0) as c_char);
     }
@@ -497,7 +516,14 @@ pub unsafe extern "C" fn max_jit_mop_setup_simple(
         m.clone()
     };
     let dump = unsafe { crate::io::outlet_new(obj, std::ptr::null()) };
-    JIT.lock().dumps.insert(obj as usize, dump as usize);
+    {
+        let mut jit = JIT.lock();
+        jit.dumps.insert(obj as usize, dump as usize);
+        jit.mop_owners.insert(obj as usize);
+        if std::mem::take(&mut jit.fail_mop_setup) {
+            return -1;
+        }
+    }
     for _ in 0..mop.outputs.max(0) {
         unsafe {
             crate::io::outlet_new(obj, c"jit_matrix".as_ptr());
@@ -511,7 +537,11 @@ pub unsafe extern "C" fn max_jit_mop_setup_simple(
     0
 }
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn max_jit_mop_free(_: *mut c_void) {}
+pub unsafe extern "C" fn max_jit_mop_free(obj: *mut c_void) {
+    if !JIT.lock().mop_owners.remove(&(obj as usize)) {
+        state().post_error(obj as usize, "median-mock: MOP freed without setup".into());
+    }
+}
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_mop_notify(
     _: *mut c_void,

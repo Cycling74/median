@@ -71,6 +71,10 @@ pub struct Builder<T, K> {
     signal_outlets: usize,
     int_inlets: usize,
     float_inlets: usize,
+    /// SDK-owned iolets will be inserted to the left of these custom iolets.
+    external_inlets: Option<usize>,
+    external_outlets: usize,
+    prebuilt: Option<Iolets<T>>,
     /// The first mistake in the description; construction fails with it.
     error: Option<String>,
     buffer_refs: Vec<ManagedBufferRefInternal>,
@@ -124,6 +128,9 @@ impl<T, K: BuilderKind> Builder<T, K> {
             signal_outlets: 0,
             int_inlets: 0,
             float_inlets: 0,
+            external_inlets: None,
+            external_outlets: 0,
+            prebuilt: None,
             error: None,
             buffer_refs: Vec::new(),
             targets: Vec::new(),
@@ -155,7 +162,11 @@ impl<T, K: BuilderKind> Builder<T, K> {
         let mut id = 0;
         let position = match &inlet.kind {
             InletKind::Default => {
-                if n != 0 {
+                if self.external_inlets.is_some() {
+                    self.fail(
+                        "the SDK owns inlet 0; extra Jitter inlets must be int, float or proxy",
+                    );
+                } else if n != 0 {
                     self.fail("Inlet::default() describes inlet 0 and must be the first inlet");
                 }
                 0
@@ -185,7 +196,13 @@ impl<T, K: BuilderKind> Builder<T, K> {
                         ));
                     }
                 }
-                if zero_described { n } else { n + 1 }
+                if let Some(count) = self.external_inlets {
+                    count + n
+                } else if zero_described {
+                    n
+                } else {
+                    n + 1
+                }
             }
         };
         self.inlets.push(InletEntry {
@@ -450,6 +467,7 @@ pub(crate) struct IoletInfo {
 /// The table is filled once, at construction. (A later `dynlet` API, for iolets added after
 /// construction, would make it updatable here.)
 pub(crate) struct Iolets<T> {
+    host_inletinfo: Option<(Option<usize>, InletInfoFn)>,
     ints: [Option<IntCB<T>>; MAX_TYPED_INLETS],
     floats: [Option<FloatCB<T>>; MAX_TYPED_INLETS],
     /// by position
@@ -462,7 +480,36 @@ pub(crate) struct Iolets<T> {
     _proxies: Vec<Proxy>,
 }
 
+pub(crate) type InletInfoFn = unsafe extern "C" fn(
+    *mut max_sys::t_object,
+    *mut core::ffi::c_void,
+    core::ffi::c_long,
+    *mut core::ffi::c_char,
+);
+
 impl<T> Iolets<T> {
+    pub(crate) fn set_host_inletinfo(&mut self, count: Option<usize>, method: Option<InletInfoFn>) {
+        self.host_inletinfo = method.map(|method| (count, method));
+    }
+    /// # Safety
+    /// All arguments are from Max's live inletinfo callback, including its writable result.
+    pub(crate) unsafe fn host_inletinfo(
+        &self,
+        owner: *mut max_sys::t_object,
+        b: *mut core::ffi::c_void,
+        index: core::ffi::c_long,
+        cold: *mut core::ffi::c_char,
+    ) -> bool {
+        if let Some((count, method)) = self.host_inletinfo {
+            if count.is_none_or(|count| index >= 0 && (index as usize) < count) {
+                unsafe {
+                    method(owner, b, index, cold);
+                }
+                return true;
+            }
+        }
+        false
+    }
     /// Call the callback of the `int` inlet `in<id>`.
     pub(crate) fn call_int(&self, t: &T, id: usize, v: max_sys::t_atom_long) {
         if let Some(Some(f)) = id.checked_sub(1).and_then(|i| self.ints.get(i)) {
@@ -495,11 +542,42 @@ impl<T> Iolets<T> {
     }
 }
 
+impl<T: 'static> Iolets<T> {
+    /// Move a completed table into a forwarding wrapper without changing callback ownership.
+    pub(crate) fn map<U: 'static>(self, target: fn(&U) -> &T) -> Iolets<U> {
+        Iolets {
+            host_inletinfo: self.host_inletinfo,
+            ints: self
+                .ints
+                .map(|f| f.map(|f| Box::new(move |u: &U, v| f(target(u), v)) as IntCB<U>)),
+            floats: self
+                .floats
+                .map(|f| f.map(|f| Box::new(move |u: &U, v| f(target(u), v)) as FloatCB<U>)),
+            inlets: self.inlets,
+            outlets: self.outlets,
+            signal_inlets: self.signal_inlets,
+            signal_outlets: self.signal_outlets,
+            _proxies: self._proxies,
+        }
+    }
+}
+
 impl<T, K: BuilderKind> Builder<T, K> {
+    /// Reserve positions for iolets the host will insert after custom inlets are finalized.
+    pub(crate) fn reserve_host_iolets(&mut self, inlets: usize, outlets: usize) {
+        self.external_inlets = Some(inlets.max(1));
+        self.external_outlets = outlets;
+    }
+    pub(crate) fn use_prebuilt_iolets(&mut self, iolets: Iolets<T>) {
+        self.prebuilt = Some(iolets);
+    }
     /// Make the inlets (the non-signal inlets right to left, then, for MSP, `z_dsp_setup` last,
     /// so that the signal inlets end up leftmost) and hand over the table and the callbacks.
     /// Nothing is made if the description has a mistake.
     pub(crate) fn finalize(&mut self) -> Result<Iolets<T>, String> {
+        if let Some(iolets) = self.prebuilt.take() {
+            return Ok(iolets);
+        }
         if let Some(e) = self.error.take() {
             return Err(format!("median: {e}"));
         }
@@ -511,7 +589,9 @@ impl<T, K: BuilderKind> Builder<T, K> {
         let obj = self.obj.as_ptr();
 
         //the table, by position; inlet 0 exists even if it wasn't described
-        let count = entries.last().map_or(1, |e| e.position + 1);
+        let count = entries
+            .last()
+            .map_or(self.external_inlets.unwrap_or(1), |e| e.position + 1);
         let mut inlets: Vec<IoletInfo> = (0..count)
             .map(|i| IoletInfo {
                 assist: None,
@@ -556,11 +636,20 @@ impl<T, K: BuilderKind> Builder<T, K> {
             unsafe { max_sys::z_dsp_setup(obj.cast(), signal_inlets as _) };
             self.dsp_pending = true;
         }
+        let mut outlets: Vec<IoletInfo> = (0..self.external_outlets)
+            .map(|i| IoletInfo {
+                assist: None,
+                default: format!("outlet {}", i + 1).into(),
+                hot: false,
+            })
+            .collect();
+        outlets.append(&mut self.outlets);
         Ok(Iolets {
+            host_inletinfo: None,
             ints,
             floats,
             inlets,
-            outlets: std::mem::take(&mut self.outlets),
+            outlets,
             signal_inlets,
             signal_outlets: self.signal_outlets,
             _proxies: proxies,

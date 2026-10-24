@@ -21,8 +21,11 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   Max forwarding and owner-bound deferred calls are implemented. The SDK's notification and
   inlet handlers are preserved. Both Jitter examples pass mock tests and package on macOS ARM64.
   Callback-scoped chunks and unsafe buffer/geometry adoption now have ownership tests.
-  Still open: extra custom iolets, safe buffer/geometry construction and uploads after ownership
-  verification, and validation in Max. See API redesign §J for implementation decisions.
+  Fixed-count MOPs and ob3d now support custom inlets/outlets with SDK position accounting,
+  guarded callbacks and delegated assistance/inlet-info (2026-10-24). Variable-count MOPs
+  reject extra iolets pending a dynamic-layout design. Still open: safe buffer/geometry
+  construction and uploads after ownership verification, and validation in Max.
+  See API redesign §J for implementation decisions.
 - Examples: the SDK simplemax port and constructor/console mock coverage are implemented.
   Host checks are tracked in [validation-max.md](validation-max.md).
 - Build: root workspace, standalone external projects, CI matrix (macos-15,

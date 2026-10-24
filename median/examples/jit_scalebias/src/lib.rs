@@ -32,7 +32,7 @@ pub struct ScaleBias {
     bbias: Float32,
 }
 impl MatrixOp for ScaleBias {
-    fn new(_: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(_: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         Ok(Self {
             mode: 0i64.into(),
             ascale: 1.0.into(),

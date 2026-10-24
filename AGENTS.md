@@ -165,5 +165,9 @@ Read `doc/handoff-2026-10-23.md` before resuming. The 0.2.x clock backport remai
 Jitter derives support `kind = matrix_op|gl`; callbacks use `&self`, per-call borrowed matrices
 and `&DrawContext` for GL. Preserve SDK-owned notification/inlet handlers in Max glue. General
 methods/deferred calls live on the Max forwarding class; direct Jitter `class_setup` methods
-cannot defer. Extra iolets and GL resource wrappers are unfinished. No new Max runtime checks
-have been performed; mock success does not verify host locking or GL ownership contracts.
+cannot defer. `JitBuilder<Self>` adds custom numeric/proxy inlets and message outlets after
+SDK-owned positions for fixed-count MOPs and GL objects; variable-count layouts reject extras.
+Preserve SDK inlet-info callback arguments when delegating for SDK positions. GL chunks are
+callback-scoped; buffer/geometry adoption and upload remain unsafe pending host ownership
+verification. No new Max runtime checks have been performed; mock success does not verify
+host locking, iolet ordering or GL ownership contracts.

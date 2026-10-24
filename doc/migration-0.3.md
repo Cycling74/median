@@ -220,6 +220,15 @@ MOP/ob3d creates the iolets and provides assistance. Matrix data references requ
 unsafe access contracts, even with a matrix lock held. GL callbacks get `&DrawContext`; do not
 use GL operations from `Drop`. See `jit_scalebias` and `jit_gl_simple` for complete examples.
 
+Jitter constructors now take `&mut JitBuilder<Self>`. Add custom iolets with
+`b.inlet(Inlet::int(|s: &Self, value| { /* update s */ }))?`, `Inlet::float`, or
+`Inlet::proxy`, and `b.outlet(Outlet::list().assist("results"))?`. Inlets follow the SDK
+matrix inlets; outlets follow the matrix outlets and dumpout. The returned `InletId` is
+the final position. Store `b.max_obj()?` to read `proxy_inlet()` in forwarded messages;
+`b.obj()` still refers to the Jitter core. Do not describe the SDK's inlet 0 again.
+Extra iolets are supported for fixed-count matrix operators and GL objects; standalone
+Jitter cores and variable-count MOPs return an error for these requests.
+
 The `jit::ob3d` resource helpers borrow the callback's context: `GLChunk` owns its matrices
 and supports fallible copying; matrix access and drawing retain their unsafe data contracts.
 `GLDataBuffer` and `GLGeometry` require unsafe ownership adoption. Geometry `set_data_copying`

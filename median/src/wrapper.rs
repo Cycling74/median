@@ -502,6 +502,17 @@ mod sealed {
         unsafe fn assist(&self, io: c_long, index: c_long, s: *mut c_char);
         /// Whether inlet `index` is hot.
         fn inlet_hot(&self, index: usize) -> bool;
+        /// # Safety
+        /// All arguments must be the live arguments supplied to Max's inletinfo callback.
+        unsafe fn host_inletinfo(
+            &self,
+            _owner: *mut max_sys::t_object,
+            _b: *mut c_void,
+            _index: c_long,
+            _cold: *mut c_char,
+        ) -> bool {
+            false
+        }
     }
 }
 use sealed::WrapperInternal;
@@ -573,6 +584,15 @@ where
         self.wrapped
             .inlet_hot(index)
             .unwrap_or_else(|| self.iolets.hot(index))
+    }
+    unsafe fn host_inletinfo(
+        &self,
+        owner: *mut max_sys::t_object,
+        b: *mut c_void,
+        index: c_long,
+        cold: *mut c_char,
+    ) -> bool {
+        unsafe { self.iolets.host_inletinfo(owner, b, index, cold) }
     }
 }
 
@@ -1173,25 +1193,22 @@ where
                         max_sys::e_max_atomtypes::A_CANT,
                         0,
                     );
-                    if !c.host_iolets {
-                        //hot/cold inlets
-                        max_sys::class_addmethod(
-                            c.inner(),
-                            Some(std::mem::transmute::<
-                                extern "C" fn(&Self, *mut c_void, c_long, *mut c_char),
-                                MaxMethod,
-                            >(Self::inletinfo_tramp)),
-                            inletinfo.as_ptr(),
-                            max_sys::e_max_atomtypes::A_CANT,
-                            0,
-                        );
-                    }
+                    // SDK-owned positions delegate to the saved host method; custom inlets
+                    // use the same guarded table lookup as ordinary Max/MSP objects.
+                    max_sys::class_addmethod(
+                        c.inner(),
+                        Some(std::mem::transmute::<
+                            extern "C" fn(&Self, *mut c_void, c_long, *mut c_char),
+                            MaxMethod,
+                        >(Self::inletinfo_tramp)),
+                        inletinfo.as_ptr(),
+                        max_sys::e_max_atomtypes::A_CANT,
+                        0,
+                    );
                 }
                 //register our ft1, ft2.. in1, in2.. tramps (before the class is registered, as
                 //the SDK examples mark methods undocumented)
-                if !c.host_iolets {
-                    Self::register_ft_in(c.inner());
-                }
+                Self::register_ft_in(c.inner());
                 c.register(T::class_type())
                     .unwrap_or_else(|_| panic!("failed to register {}", key));
                 (c.inner(), c.has_deferred())
@@ -1223,8 +1240,15 @@ where
 
     /// The `inletinfo` method: `*t` is 0 for a hot inlet and 1 for a cold one (as the SDK
     /// examples write it).
-    extern "C" fn inletinfo_tramp(&self, _b: *mut c_void, index: c_long, t: *mut c_char) {
+    extern "C" fn inletinfo_tramp(&self, b: *mut c_void, index: c_long, t: *mut c_char) {
         self.guard_or("inletinfo", (), || {
+            if !t.is_null()
+                // SAFETY: s_obj is this SDK wrapper's live header; preserve all callback args.
+                && unsafe { self.internal().host_inletinfo(
+                    std::ptr::from_ref(&self.s_obj).cast_mut().cast(), b, index, t) }
+            {
+                return;
+            }
             let Ok(index) = usize::try_from(index) else {
                 return;
             };

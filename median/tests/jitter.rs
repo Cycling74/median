@@ -19,7 +19,7 @@ struct Operator {
     gain: Float32,
 }
 impl MatrixOp for Operator {
-    fn new(b: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         Ok(Self {
             obj: b.obj(),
             gain: 1.0.into(),
@@ -74,7 +74,7 @@ impl Operator {
 #[max(name = "jit.test.refuse", kind = matrix_op, no_methods)]
 struct Refuse;
 impl MatrixOp for Refuse {
-    fn new(_b: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(_b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         Err("Jitter creation refused".into())
     }
     fn io_count() -> IOCount {
@@ -92,7 +92,7 @@ impl MatrixOp for Refuse {
 #[max(name = "jit.test.gl", kind = gl, no_methods)]
 struct Draw;
 impl Ob3d for Draw {
-    fn new(b: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         if b.destination() == sym!("refuse") {
             return Err("GL creation refused".into());
         }
@@ -125,7 +125,7 @@ struct FailedClass {
     value: Int64,
 }
 impl MatrixOp for FailedClass {
-    fn new(_: &mut JitBuilder) -> Result<Self, NewError> {
+    fn new(_: &mut JitBuilder<Self>) -> Result<Self, NewError> {
         unreachable!("failed class must not be instantiated")
     }
     fn io_count() -> IOCount {
@@ -180,7 +180,7 @@ fn jitter_registration_callbacks_deferred_ownership_and_partial_construction() {
     assert_ne!(core, obj);
     assert_eq!(k.inlet_is_hot(obj, 0), Some(true));
     assert_eq!(k.inlet_is_hot(obj, 1), Some(false));
-    assert!(k.method(obj, "ft1").is_none());
+    assert!(k.method(obj, "ft1").is_some());
     let (notify, _) = k.method(obj, "notify").unwrap();
     let notify: unsafe extern "C" fn(
         *mut c_void,
