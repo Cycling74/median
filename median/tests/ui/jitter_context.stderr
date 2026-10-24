@@ -4,12 +4,30 @@ error: cannot construct `DrawContext` with struct literal syntax due to private 
 6 |     let _ = DrawContext {};
   |             ^^^^^^^^^^^
   |
-  = note: private field `_thread` that was not provided
+  = note: private fields `owner` and `_thread` that were not provided
 help: you might have meant to use the `current` associated function
   |
 6 -     let _ = DrawContext {};
-6 +     let _ = DrawContext::current();
+6 +     let _ = DrawContext::current(_);
   |
+
+error[E0277]: `NonNull<median::max_sys::object>` cannot be sent between threads safely
+ --> tests/ui/jitter_context.rs:7:19
+  |
+7 |     assert_send::<DrawContext>();
+  |                   ^^^^^^^^^^^ `NonNull<median::max_sys::object>` cannot be sent between threads safely
+  |
+  = help: within `DrawContext`, the trait `std::marker::Send` is not implemented for `NonNull<median::max_sys::object>`
+note: required because it appears within the type `DrawContext`
+ --> src/jit/wrapper.rs
+  |
+  | pub struct DrawContext {
+  |            ^^^^^^^^^^^
+note: required by a bound in `assert_send`
+ --> tests/ui/jitter_context.rs:3:19
+  |
+3 | fn assert_send<T: Send>() {}
+  |                   ^^^^ required by this bound in `assert_send`
 
 error[E0277]: `*mut ()` cannot be sent between threads safely
  --> tests/ui/jitter_context.rs:7:19
@@ -17,7 +35,7 @@ error[E0277]: `*mut ()` cannot be sent between threads safely
 7 |     assert_send::<DrawContext>();
   |                   ^^^^^^^^^^^ `*mut ()` cannot be sent between threads safely
   |
-  = help: within `DrawContext`, the trait `Send` is not implemented for `*mut ()`
+  = help: within `DrawContext`, the trait `std::marker::Send` is not implemented for `*mut ()`
 note: required because it appears within the type `PhantomData<*mut ()>`
  --> $RUST/core/src/marker.rs
   |

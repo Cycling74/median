@@ -2,6 +2,7 @@
 //! requires an explicit access contract; a Jitter `lock` alone is not a Rust exclusive borrow.
 
 pub mod matrix;
+pub mod ob3d;
 pub mod wrapper;
 pub use wrapper::{DrawContext, JitBuilder, JitObjRef, MatrixOp, Ob3d};
 

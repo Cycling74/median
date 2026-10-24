@@ -1,0 +1,7 @@
+error: lifetime may not live long enough
+ --> tests/ui/jitter_chunk_lifetime.rs:4:5
+  |
+3 | fn escape(context: &DrawContext) -> GLChunk<'static> {
+  |                    - let's call the lifetime of this reference `'1`
+4 |     GLChunk::new(context, GLPrim::Triangles, 3, 3, None).unwrap()
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ returning this value requires that `'1` must outlive `'static`

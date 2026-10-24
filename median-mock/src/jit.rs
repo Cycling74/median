@@ -3,6 +3,12 @@
 //! Exported C functions use the SDK's pointer and lifecycle contracts.
 #![allow(clippy::missing_safety_doc)]
 
+mod gl;
+pub use gl::{
+    buffer_descriptor, buffer_destroy_count, fail_next_chunk_copy, live_chunk_count,
+    live_geometry_count, new_geometry,
+};
+
 use crate::{
     atoms::Atom,
     state::{SubKind, state},
@@ -20,6 +26,7 @@ struct Mop {
     planes: c_long,
 }
 enum Aux {
+    Geometry,
     Mop(Mop),
     List(Vec<usize>),
     Matrix(Box<MatrixData>),
@@ -51,6 +58,7 @@ fn alloc(value: Aux) -> *mut c_void {
     ptr.cast()
 }
 pub(crate) fn reset() {
+    gl::reset();
     let mut jit = JIT.lock();
     let retained: Vec<usize> = jit.adornments.values().copied().collect();
     jit.aux.retain(|p, _| {

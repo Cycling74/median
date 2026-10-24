@@ -83,13 +83,18 @@ pub trait MatrixOp: ObjClass + Methods + FieldAttrs + Sync + 'static {
 /// cloned, or moved out of the callback by safe code. Do not close the context or delete the
 /// owner from inside the callback. `Drop` on an object has no such context guarantee.
 pub struct DrawContext {
+    owner: NonNull<sys::t_jit_object>,
     _thread: PhantomData<*mut ()>,
 }
 impl DrawContext {
-    fn current() -> Self {
+    fn current(owner: &impl MaxObj) -> Self {
         Self {
+            owner: NonNull::new(owner.max_obj()).expect("live ob3d wrapper"),
             _thread: PhantomData,
         }
+    }
+    pub(crate) fn ob3d(&self) -> *mut c_void {
+        unsafe { sys::jit_ob3d_get(self.owner.as_ptr().cast()) }
     }
 }
 
@@ -702,16 +707,16 @@ unsafe impl<T: Ob3d> JitterObject<GlKind> for T {
 }
 extern "C" fn gl_draw<T: Ob3d>(w: &Core<T, GlKind>) -> sys::t_jit_err {
     crate::ffi::guard_or(w, "ob3d_draw", err::JIT_ERR_GENERIC as _, || {
-        jit_code(w.wrapped().draw(&DrawContext::current()))
+        jit_code(w.wrapped().draw(&DrawContext::current(w)))
     })
 }
 extern "C" fn gl_changed<T: Ob3d>(w: &Core<T, GlKind>) -> sys::t_jit_err {
     crate::ffi::guard_or(w, "dest_changed", err::JIT_ERR_GENERIC as _, || {
-        jit_code(w.wrapped().dest_changed(&DrawContext::current()))
+        jit_code(w.wrapped().dest_changed(&DrawContext::current(w)))
     })
 }
 extern "C" fn gl_closing<T: Ob3d>(w: &Core<T, GlKind>) -> sys::t_jit_err {
     crate::ffi::guard_or(w, "dest_closing", err::JIT_ERR_GENERIC as _, || {
-        jit_code(w.wrapped().dest_closing(&DrawContext::current()))
+        jit_code(w.wrapped().dest_closing(&DrawContext::current(w)))
     })
 }

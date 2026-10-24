@@ -282,8 +282,14 @@ packaging succeeds. They have **not run in Max**. Differences from the proposal 
   including empty arrays. Matrix references require explicit unsafe data-access contracts:
   the SDK's matrix lock does not establish Rust exclusivity.
 - GL callbacks receive `&DrawContext`, which safe code cannot construct, clone or send across
-  threads. `Drop` has no GL-context guarantee. The leaf GL resource wrappers are still deferred
-  until their context/ownership contracts can be expressed without unchecked `Send`/`Sync`.
+  threads. An object's `Drop` has no GL-context guarantee. `jit::ob3d::GLChunk` owns a chunk
+  inside the callback, validates allocation dimensions, borrows its matrices and supports
+  fallible deep copying. Its unsafe draw resolves the owner's ob3d via `jit_ob3d_get`.
+  `GLDataBuffer` and `GLGeometry` provide unsafe adoption with callback-bounded cleanup;
+  geometry upload remains unsafe with an explicit ABI/copy requirement. No safe buffer or
+  geometry constructor is offered until SDK retention/ownership contracts are verified.
+  CPU fixtures test cleanup on failed copies and unwinding, and a compile-fail test rejects
+  chunks escaping the callback. These tests do not verify GPU behavior or upload retention.
 - MOP/ob3d owns its iolets and inlet-info methods; assistance delegates to the SDK. Extra user
   iolets and the proposed externally-created-position accounting are not implemented.
 
