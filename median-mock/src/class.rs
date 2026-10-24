@@ -517,75 +517,112 @@ fn release_object(addr: usize) {
     // and a clock that fires into a freed object is the owner's bug to find.
 }
 
-/// Forwards a call of `object_method` from `c/variadic.c`. Max's `object_method` calls the method
-/// `s` of `x` with the variadic arguments. Here up to four pointer sized arguments are forwarded:
-/// to an `A_CANT` method as they are (a callee that takes fewer ignores the rest), and to a method
-/// with a typed argument list converted per that list as long as it has no float argument.
-///
-/// `getname` on a buffer~ made by [`crate::Kernel::create_buffer`] is understood.
+// Argument kinds shared with c/variadic.c. A_CANT has no signature: never guess its arity.
+const METHOD_PTR: c_int = 1;
+const METHOD_INT: c_int = 2;
+const METHOD_FLOAT: c_int = 3;
+const METHOD_LONG: c_int = 4;
+const MAX_METHOD_ARGS: usize = 5; // call_raw supports six arguments including the receiver.
+
+fn object_method_signature(x: usize, s: usize) -> Result<(Option<usize>, Vec<c_int>), String> {
+    let sel = name_of(s);
+    let st = state();
+    if st.buffers.values().any(|b| b.ptr == x) && sel == "getname" {
+        return Ok((None, vec![METHOD_PTR]));
+    }
+    let obj = st
+        .objects
+        .get(&x)
+        .ok_or_else(|| "receiver is not a live object".to_owned())?;
+    let rec = st.classes[&obj.class]
+        .methods
+        .get(&sel)
+        .ok_or_else(|| format!("no method \"{sel}\""))?;
+    let kinds = if rec.types.as_slice() == [ty::A_GIMME as i32] {
+        vec![METHOD_PTR, METHOD_LONG, METHOD_PTR]
+    } else {
+        rec.types.iter().map(|&t| match t as u32 {
+            ty::A_LONG | ty::A_DEFLONG => Ok(METHOD_INT),
+            ty::A_FLOAT | ty::A_DEFFLOAT => Ok(METHOD_FLOAT),
+            ty::A_SYM | ty::A_DEFSYM | ty::A_OBJ => Ok(METHOD_PTR),
+            _ => Err(format!("method \"{sel}\" has no supported argument signature (A_CANT requires a direct typed call)")),
+        }).collect::<Result<Vec<_>, _>>()?
+    };
+    if kinds.len() > MAX_METHOD_ARGS {
+        return Err(format!(
+            "method \"{sel}\" exceeds {MAX_METHOD_ARGS} arguments"
+        ));
+    }
+    Ok((Some(rec.fun), kinds))
+}
+
+/// Describe the arguments before the C shim reads any variadic slots. Unknown signatures
+/// are reported and rejected, including A_CANT (which specifies neither types nor arity).
 ///
 /// # Safety
-/// `x` must be a live object (or buffer) and `s` a symbol; the arguments must be what the method
-/// expects.
+/// `s` is an interned symbol and `kinds` has room for five ints.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn median_mock_object_method_signature(
+    x: *mut c_void,
+    s: *mut c_void,
+    kinds: *mut c_int,
+) -> c_int {
+    match object_method_signature(x as usize, s as usize) {
+        Ok((_, signature)) => {
+            unsafe {
+                std::ptr::copy_nonoverlapping(signature.as_ptr(), kinds, signature.len());
+            }
+            signature.len() as c_int
+        }
+        Err(e) => {
+            state().post_error(x as usize, format!("median-mock: object_method: {e}"));
+            -1
+        }
+    }
+}
+
+/// Dispatch arguments collected with the registered ABI. Supports up to five typed arguments,
+/// A_GIMME's explicit `(symbol, long, atoms)` arguments, and buffer~'s `getname(symbol**)`.
+/// Default argument types still require actual arguments: this raw API performs no defaulting.
+///
+/// # Safety
+/// `x` and `s` identify the same live method inspected by the signature query. Both arrays have
+/// five initialized elements; each argument occupies its index in the corresponding array.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn median_mock_object_method(
     x: *mut c_void,
     s: *mut c_void,
-    a0: *mut c_void,
-    a1: *mut c_void,
-    a2: *mut c_void,
-    a3: *mut c_void,
+    integers: *const usize,
+    floats: *const f64,
 ) -> *mut c_void {
-    let sel = name_of(s as usize);
-    let args = [a0 as usize, a1 as usize, a2 as usize, a3 as usize];
-    let found = {
-        let mut st = state();
-        if let Some(b) = st.buffers.values().find(|b| b.ptr == x as usize) {
-            if sel == "getname" && !a0.is_null() {
-                let name = intern(b.name.as_bytes());
-                // SAFETY: the caller passes a `t_symbol **` for `getname`
-                unsafe { (a0 as *mut *mut t_symbol).write(name) };
-            }
-            return std::ptr::null_mut();
-        }
-        match st.objects.get(&(x as usize)) {
-            Some(o) => st.classes[&o.class].methods.get(&sel).cloned(),
-            None => {
-                st.post_error(
-                    x as usize,
-                    format!(
-                        "median-mock: object_method \"{sel}\" on {x:?}, which is not a live object"
-                    ),
-                );
-                return std::ptr::null_mut();
-            }
-        }
-    };
-    let Some(rec) = found else {
-        state().post_error(
-            x as usize,
-            format!("median-mock: object_method: no method \"{sel}\""),
-        );
+    let Ok((fun, kinds)) = object_method_signature(x as usize, s as usize) else {
         return std::ptr::null_mut();
     };
-    let mut raws = vec![Raw::I(x as usize)];
-    if rec.types.as_slice() == [ty::A_CANT as i32] {
-        raws.extend(args.iter().map(|&a| Raw::I(a)));
+    let integers = unsafe { std::slice::from_raw_parts(integers, MAX_METHOD_ARGS) };
+    let floats = unsafe { std::slice::from_raw_parts(floats, MAX_METHOD_ARGS) };
+    if let Some(fun) = fun {
+        let mut args = vec![Raw::I(x as usize)];
+        args.extend(kinds.iter().enumerate().map(|(i, &kind)| {
+            if kind == METHOD_FLOAT {
+                Raw::F(floats[i])
+            } else {
+                Raw::I(integers[i])
+            }
+        }));
+        unsafe { call_raw(fun, &args) }
     } else {
-        for (i, &t) in rec.types.iter().enumerate().take(args.len()) {
-            match t as u32 {
-                ty::A_LONG | ty::A_DEFLONG | ty::A_SYM | ty::A_DEFSYM | ty::A_OBJ => {
-                    raws.push(Raw::I(args[i]))
-                }
-                _ => {
-                    state().post_error(x as usize, format!("median-mock: object_method \"{sel}\": float and gimme arguments are not supported"));
-                    return std::ptr::null_mut();
-                }
+        let name = state()
+            .buffers
+            .values()
+            .find(|b| b.ptr == x as usize)
+            .map(|b| intern(b.name.as_bytes()));
+        if let Some(name) = name.filter(|_| integers[0] != 0) {
+            unsafe {
+                (integers[0] as *mut *mut t_symbol).write(name);
             }
         }
+        std::ptr::null_mut()
     }
-    // SAFETY: `rec.fun` is a registered method whose arguments are of the kinds in `raws`
-    unsafe { call_raw(rec.fun, &raws) }
 }
 
 // ---------------------------------------------------------------------------------------------

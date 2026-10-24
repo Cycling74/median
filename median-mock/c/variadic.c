@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 /* Most arguments a class_new/class_addmethod type list can carry (MSG_MAXARG in the SDK). */
 #define MOCK_MAX_TYPES 32
@@ -18,7 +19,8 @@ extern void *median_mock_class_new(const char *name, void *mnew, void *mfree, lo
 extern long median_mock_class_addmethod(void *c, void *m, const char *name, const int *types,
                                         int ntypes);
 extern void median_mock_console(int level, void *obj, const char *text);
-extern void *median_mock_object_method(void *x, void *s, void *a0, void *a1, void *a2, void *a3);
+extern int median_mock_object_method_signature(void *x, void *s, int *kinds);
+extern void *median_mock_object_method(void *x, void *s, const uintptr_t *integers, const double *floats);
 
 /* The type list of class_new is `type, ...` terminated by a 0 after the last type; `type` itself
  * is the first entry (0 meaning no arguments).
@@ -58,17 +60,28 @@ long class_addmethod(void *c, void *m, const char *name, ...) {
     return median_mock_class_addmethod(c, m, name, types, n);
 }
 
-/* Forwards up to four pointer sized arguments; see median_mock_object_method. */
+/* Query before touching va_list: A_CANT and unknown methods carry no usable signature.
+ * Kinds match class.rs. Max's typed integer arguments are t_atom_long (pointer-sized),
+ * whereas A_GIMME's count is C long, which is 32 bits on Windows. */
 void *object_method(void *x, void *s, ...) {
-    void *a[4];
+    int kinds[5];
+    uintptr_t integers[5] = {0};
+    double floats[5] = {0};
+    int n = median_mock_object_method_signature(x, s, kinds);
     int i;
     va_list ap;
+    if (n < 0) return NULL;
     va_start(ap, s);
-    for (i = 0; i < 4; i++) {
-        a[i] = va_arg(ap, void *);
+    for (i = 0; i < n; i++) {
+        switch (kinds[i]) {
+        case 1: integers[i] = (uintptr_t)va_arg(ap, void *); break;
+        case 2: integers[i] = (uintptr_t)va_arg(ap, intptr_t); break;
+        case 3: floats[i] = va_arg(ap, double); break;
+        case 4: integers[i] = (uintptr_t)va_arg(ap, long); break;
+        }
     }
     va_end(ap);
-    return median_mock_object_method(x, s, a[0], a[1], a[2], a[3]);
+    return median_mock_object_method(x, s, integers, floats);
 }
 
 /* Jitter has its own class API. Median passes long-typed terminators and type codes. */
