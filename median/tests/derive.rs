@@ -105,7 +105,7 @@ impl Marks {
         self.obj.post("reset");
     }
 
-    #[sel("gimme", gimme)]
+    #[sel_gimme("gimme")]
     pub fn gimme(&self, sel: &SymbolRef, atoms: &[Atom]) {
         self.obj.post(format!("gimme {sel} {}", atoms.len()));
     }

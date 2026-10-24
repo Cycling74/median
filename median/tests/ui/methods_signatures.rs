@@ -19,7 +19,7 @@ impl Simp {
     #[any]
     pub fn any(&self, _atoms: &[Atom]) {}
 
-    #[sel("gimme", gimme)]
+    #[sel_gimme("gimme")]
     pub fn gimme(&self, _sel: SymbolRef, _atoms: &[Atom]) {}
 
     #[sel("eight")]

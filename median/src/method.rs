@@ -452,7 +452,7 @@ macro_rules! sel_fn_arity {
                 const {
                     assert!(
                         !mixes_float(Self::TYPES),
-                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel(\"name\", gimme)] / add_sel_gimme"
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel_gimme(\"name\")] / add_sel_gimme"
                     )
                 };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = $tramp::<W, T, F, R, $($A),*>;
@@ -469,7 +469,7 @@ macro_rules! sel_fn_arity {
                 const {
                     assert!(
                         !mixes_float(Self::TYPES),
-                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel(\"name\", gimme)] / add_sel_gimme"
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel_gimme(\"name\")] / add_sel_gimme"
                     )
                 };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = match mode {

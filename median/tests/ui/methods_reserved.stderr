@@ -5,10 +5,10 @@ error: `in1` is a selector median registers for itself (inlets, assist, dsp); pi
    |           ^^^^^
 
 error: `assist` is a selector median registers for itself (inlets, assist, dsp); pick another name
-  --> tests/ui/methods_reserved.rs:18:11
+  --> tests/ui/methods_reserved.rs:18:17
    |
-18 |     #[sel("assist", gimme)]
-   |           ^^^^^^^^
+18 |     #[sel_gimme("assist")]
+   |                 ^^^^^^^^
 
 error: `notify` is a selector median registers for itself (inlets, assist, dsp); pick another name
   --> tests/ui/methods_reserved.rs:21:11

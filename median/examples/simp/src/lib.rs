@@ -117,7 +117,7 @@ impl Simp {
     //"read" with any arguments, run later on the main thread whichever thread sent it (as a
     //C external would `defer_low` it, for example to open a file dialog). The arguments are
     //copied for the deferred call.
-    #[sel("read", gimme)]
+    #[sel_gimme("read")]
     #[defer_low]
     pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
         median::object_post!(

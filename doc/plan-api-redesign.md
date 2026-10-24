@@ -548,7 +548,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `attr::AttrOptions` (`new().clip(min, max).readonly()`, `clip_with(AttrClip)`); step 7 adds
     to it.
   - `#[median::methods]`: markers `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]`,
-    `#[sel("name")]`, `#[sel("name", defaults = n)]`, `#[sel("name", gimme)]`, `#[attr(..)]` on a
+    `#[sel("name")]`, `#[sel("name", defaults = n)]`, `#[sel_gimme("name")]`, `#[attr(..)]` on a
     getter (paired with `set_<name>` from the same impl; read-only without one or with
     `readonly`, in which case the setter is not registered). Not the min special messages and no
     `#[defer]`: `defer`, `defer_low`, `dblclick`, `loadbang`, `notify`, `savestate` are rejected
@@ -577,12 +577,15 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `tests/hello_dsp.rs`, `tests/e2e.rs` (its macro external now uses the derive), unit tests for
     the accessor trampolines refusing a half-built object, and `tests/ui.rs` (trybuild
     compile-fail cases for the macro errors).
+  - Named atom-list selectors now use `#[sel_gimme("name")]`. The old
+    `#[sel("name", gimme)]` spelling reports a migration error; `defaults` belongs only to
+    typed `#[sel]` methods. Immediate and deferred registration use the same public API.
   - Typed selectors may not mix `f64` with other argument types (from step 2, found again
     here; now enforced). The SDK says to use `A_GIMME` for such a method, because Max passes
     floats and other arguments of a typed method in different registers on x64, and the old
     `build.rs` never generated a mix. `SelFn::trampoline` (so `Class::add_sel` and `#[sel]`) has a
     post-monomorphisation `const { assert!(..) }` that rejects a mix ("use
-    `#[sel("name", gimme)]` / `add_sel_gimme`"); like the zero-size check it fires on `cargo
+    `#[sel_gimme("name")]` / `add_sel_gimme`"); like the zero-size check it fires on `cargo
     build`, not `cargo check`. `#[median::methods]` also reports it with a spanned error when the
     argument types are written `f64` (best effort: an alias hides it). The tests that mixed were
     changed to same-typed selectors.
@@ -878,7 +881,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     added: `basic`, `paint`, `selfsave`, `defaultname`. Issue #17's hand-written
     `class_attr_addattr_parse(.., "save", ..)` is now `save`.
   - Examples: `simp`/`simp_explicit` have a `Queue` (`changed`, set by `int`), a deferred
-    `read` (`#[sel("read", gimme)] #[defer_low]` / `add_sel_gimme_deferred`) and `value` with
+    `read` (`#[sel_gimme("read")] #[defer_low]` / `add_sel_gimme_deferred`) and `value` with
     `label`, `category`, `save`; `hello_dsp` and the template use attribute options. The shared
     simp script checks all three.
   - `median-mock` (dbec6cd): `qelem_front`, `qelem_free` of a dead qelem reported,

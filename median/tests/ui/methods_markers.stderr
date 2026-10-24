@@ -4,7 +4,7 @@ error: a method can have only one median marker
 14 |     #[int]
    |     ^
 
-error: `#[defer]` goes with a message marker: `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]` or `#[sel(..)]`
+error: `#[defer]` goes with a message marker: `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[sel_gimme(..)]`
   --> tests/ui/methods_markers.rs:17:5
    |
 17 |     #[defer]
@@ -46,7 +46,7 @@ error: `#[bang]` takes no arguments
 41 |     #[bang(now)]
    |       ^^^^
 
-error: unknown option, expected `defaults = n` or `gimme`
+error: unknown option, expected `defaults = n`
   --> tests/ui/methods_markers.rs:44:18
    |
 44 |     #[sel("set", sometimes)]

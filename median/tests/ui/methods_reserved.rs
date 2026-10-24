@@ -15,7 +15,7 @@ impl Simp {
     #[sel("in1")]
     pub fn a(&self, _v: t_atom_long) {}
 
-    #[sel("assist", gimme)]
+    #[sel_gimme("assist")]
     pub fn b(&self, _s: &SymbolRef, _a: &[Atom]) {}
 
     #[sel("notify")]

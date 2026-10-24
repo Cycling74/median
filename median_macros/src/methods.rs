@@ -60,7 +60,8 @@ impl Marker {
             "sym" => no_args(Marker::Sym),
             "list" => no_args(Marker::List),
             "any" => no_args(Marker::Any),
-            "sel" => Self::parse_sel(attr),
+            "sel" => Self::parse_sel(attr, false),
+            "sel_gimme" => Self::parse_sel(attr, true),
             "attr" => AttrOpts::parse(attr).map(|o| Marker::Attr(Box::new(o))),
             "defer" => no_args(Marker::Defer { low: false }),
             "defer_low" => no_args(Marker::Defer { low: true }),
@@ -72,15 +73,19 @@ impl Marker {
         })
     }
 
-    /// `#[sel("name")]`, `#[sel("name", defaults = n)]` or `#[sel("name", gimme)]`.
-    fn parse_sel(attr: &Attribute) -> syn::Result<Self> {
-        const FORM: &str = "expected `#[sel(\"name\")]`, `#[sel(\"name\", defaults = n)]` or `#[sel(\"name\", gimme)]`";
+    /// Typed selectors accept defaults; gimme selectors accept only a name.
+    fn parse_sel(attr: &Attribute, gimme: bool) -> syn::Result<Self> {
+        let form = if gimme {
+            "expected `#[sel_gimme(\"name\")]`"
+        } else {
+            "expected `#[sel(\"name\")]` or `#[sel(\"name\", defaults = n)]`"
+        };
         let list = match &attr.meta {
             syn::Meta::List(l) => l,
-            other => return Err(syn::Error::new(other.span(), FORM)),
+            other => return Err(syn::Error::new(other.span(), form)),
         };
         list.parse_args_with(|input: syn::parse::ParseStream| {
-            let name: LitStr = input.parse().map_err(|e| syn::Error::new(e.span(), FORM))?;
+            let name: LitStr = input.parse().map_err(|e| syn::Error::new(e.span(), form))?;
             crate::cstr::check(&name)?;
             if crate::reserved::RESERVED_SELECTORS.contains(&name.value().as_str()) {
                 return Err(syn::Error::new(
@@ -93,13 +98,18 @@ impl Marker {
                 ));
             }
             let mut defaults = None;
-            let mut gimme = false;
             while !input.is_empty() {
                 input.parse::<syn::Token![,]>()?;
                 if input.is_empty() {
                     break;
                 }
                 let key: syn::Ident = input.parse()?;
+                if gimme {
+                    return Err(syn::Error::new(
+                        key.span(),
+                        "`#[sel_gimme]` takes only a selector name; it receives all the atoms",
+                    ));
+                }
                 match key.to_string().as_str() {
                     "defaults" if defaults.is_none() => {
                         input.parse::<syn::Token![=]>()?;
@@ -107,23 +117,22 @@ impl Marker {
                         n.base10_parse::<usize>()?;
                         defaults = Some(n);
                     }
-                    "gimme" if !gimme => gimme = true,
-                    "defaults" | "gimme" => {
+                    "gimme" => {
+                        return Err(syn::Error::new(
+                            key.span(),
+                            "use `#[sel_gimme(\"name\")]` instead of `#[sel(\"name\", gimme)]`",
+                        ));
+                    }
+                    "defaults" => {
                         return Err(syn::Error::new(key.span(), format!("`{key}` given twice")));
                     }
                     _ => {
                         return Err(syn::Error::new(
                             key.span(),
-                            "unknown option, expected `defaults = n` or `gimme`",
+                            "unknown option, expected `defaults = n`",
                         ));
                     }
                 }
-            }
-            if gimme && defaults.is_some() {
-                return Err(syn::Error::new(
-                    name.span(),
-                    "`gimme` and `defaults` don't go together: a `gimme` method gets all the atoms",
-                ));
             }
             Ok(Marker::Sel {
                 name,
@@ -147,7 +156,7 @@ impl Marker {
             Marker::List => "`#[list]` method must take `(&self, &[Atom])`",
             Marker::Any => "`#[any]` method must take `(&self, &SymbolRef, &[Atom])`",
             Marker::Sel { gimme: true, .. } => {
-                "`#[sel(.., gimme)]` method must take `(&self, &SymbolRef, &[Atom])`"
+                "`#[sel_gimme]` method must take `(&self, &SymbolRef, &[Atom])`"
             }
             Marker::Sel { .. } => {
                 "`#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, \
@@ -276,7 +285,7 @@ fn check_no_float_mix(sig: &Signature) -> syn::Result<()> {
         return Err(syn::Error::new(
             sig.span(),
             "a typed selector cannot mix f64 with other argument types (Max passes them in \
-             different registers); use #[sel(\"name\", gimme)] / add_sel_gimme",
+             different registers); use #[sel_gimme(\"name\")] / add_sel_gimme",
         ));
     }
     Ok(())
@@ -358,7 +367,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                         span,
                         format!(
                             "`#[{name}]` goes with a message marker: `#[bang]`, `#[int]`, \
-                             `#[float]`, `#[sym]`, `#[list]`, `#[any]` or `#[sel(..)]`"
+                             `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[sel_gimme(..)]`"
                         ),
                     ));
                     continue;

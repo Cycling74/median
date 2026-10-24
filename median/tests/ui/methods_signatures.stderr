@@ -28,7 +28,7 @@ error: `#[any]` method must take `(&self, &SymbolRef, &[Atom])`
 20 |     pub fn any(&self, _atoms: &[Atom]) {}
    |         ^^
 
-error: `#[sel(.., gimme)]` method must take `(&self, &SymbolRef, &[Atom])`
+error: `#[sel_gimme]` method must take `(&self, &SymbolRef, &[Atom])`
   --> tests/ui/methods_signatures.rs:23:9
    |
 23 |     pub fn gimme(&self, _sel: SymbolRef, _atoms: &[Atom]) {}

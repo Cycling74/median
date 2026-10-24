@@ -90,7 +90,7 @@ impl Thing {
         self.log(format!("floats {a} {b}"));
     }
 
-    #[sel("open", gimme)]
+    #[sel_gimme("open")]
     #[defer_low]
     pub fn open(&self, sel: &SymbolRef, atoms: &[Atom]) {
         self.log(format!("{sel} {}", describe(atoms)));
