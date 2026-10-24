@@ -10,10 +10,17 @@ struct SdkComments;
 #[cfg(feature = "build-bindings")]
 impl bindgen::callbacks::ParseCallbacks for SdkComments {
     fn process_comment(&self, comment: &str) -> Option<String> {
+        let comment = comment.trim_start();
+        // `///< text` and `/**< text */` document the preceding C field. Bindgen's
+        // preprocessing leaves `< text`; remove that marker without stripping HTML tags.
+        let comment = comment
+            .strip_prefix("< ")
+            .or_else(|| comment.strip_prefix("<\t"))
+            .map(str::trim_start)
+            .unwrap_or(comment);
         let mut code = false;
         Some(
             comment
-                .trim_start()
                 .lines()
                 .map(|line| match line.trim() {
                     "@code" => {

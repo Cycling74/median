@@ -23,15 +23,15 @@ pub mod e_max_errorcodes {
     use super::*;
     #[doc = "Standard values returned by function calls with a return type of #t_max_err\n@ingroup misc"]
     pub type Type = ::std::os::raw::c_int;
-    #[doc = "< No error"]
+    #[doc = "No error"]
     pub const MAX_ERR_NONE: Type = 0;
-    #[doc = "< Generic error"]
+    #[doc = "Generic error"]
     pub const MAX_ERR_GENERIC: Type = -1;
-    #[doc = "< Invalid Pointer"]
+    #[doc = "Invalid Pointer"]
     pub const MAX_ERR_INVALID_PTR: Type = -2;
-    #[doc = "< Duplicate"]
+    #[doc = "Duplicate"]
     pub const MAX_ERR_DUPLICATE: Type = -3;
-    #[doc = "< Out of memory"]
+    #[doc = "Out of memory"]
     pub const MAX_ERR_OUT_OF_MEM: Type = -4;
 }
 pub type USHORT = ::std::os::raw::c_ushort;
@@ -203,9 +203,9 @@ pub type t_toolfile = ::std::os::raw::c_void;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct symbol {
-    #[doc = "< name: a c-string"]
+    #[doc = "name: a c-string"]
     pub s_name: *mut ::std::os::raw::c_char,
-    #[doc = "< possible binding to a t_object"]
+    #[doc = "possible binding to a t_object"]
     pub s_thing: *mut object,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -225,11 +225,11 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct messlist {
-    #[doc = "< Name of the message"]
+    #[doc = "Name of the message"]
     pub m_sym: *mut symbol,
-    #[doc = "< Method associated with the message"]
+    #[doc = "Method associated with the message"]
     pub m_fun: method,
-    #[doc = "< Argument type information"]
+    #[doc = "Argument type information"]
     pub m_type: [::std::os::raw::c_char; 8usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -246,13 +246,13 @@ pub type t_messlist = messlist;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct object {
-    #[doc = "<  list of messages and methods. The -1 entry of the message list of an object contains a pointer to its #t_class entry."]
+    #[doc = "list of messages and methods. The -1 entry of the message list of an object contains a pointer to its #t_class entry."]
     pub o_messlist: *mut messlist,
-    #[doc = "< magic number"]
+    #[doc = "magic number"]
     pub o_magic: t_ptr_int,
-    #[doc = "<  list of inlets"]
+    #[doc = "list of inlets"]
     pub o_inlet: *mut t_inlet,
-    #[doc = "<  list of outlets"]
+    #[doc = "list of outlets"]
     pub o_outlet: *mut t_outlet,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -270,14 +270,14 @@ pub type t_object = object;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct maxclass {
-    #[doc = "< symbol giving name of class"]
+    #[doc = "symbol giving name of class"]
     pub c_sym: *mut symbol,
     pub c_freelist: *mut *mut object,
     pub c_freefun: method,
     pub c_size: t_getbytes_size,
     pub c_tiny: ::std::os::raw::c_char,
     pub c_noinlet: ::std::os::raw::c_char,
-    #[doc = "< name of file associated with this class"]
+    #[doc = "name of file associated with this class"]
     pub c_filename: *mut symbol,
     pub c_newmess: *mut t_messlist,
     pub c_menufun: method,
@@ -336,41 +336,41 @@ pub mod e_max_class_flags {
     use super::*;
     #[doc = "Class flags. If not box or polyglot, class is only accessible in C via known interface\n@ingroup class"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< for use in a patcher"]
+    #[doc = "for use in a patcher"]
     pub const CLASS_FLAG_BOX: Type = 1;
-    #[doc = "< for use by any text language (c/js/java/etc)"]
+    #[doc = "for use by any text language (c/js/java/etc)"]
     pub const CLASS_FLAG_POLYGLOT: Type = 2;
-    #[doc = "< dictionary based constructor"]
+    #[doc = "dictionary based constructor"]
     pub const CLASS_FLAG_NEWDICTIONARY: Type = 4;
-    #[doc = "< for backward compatible messlist implementation (once reg'd can't grow)"]
+    #[doc = "for backward compatible messlist implementation (once reg'd can't grow)"]
     pub const CLASS_FLAG_REGISTERED: Type = 8;
-    #[doc = "< for objects that don't go inside a newobj box."]
+    #[doc = "for objects that don't go inside a newobj box."]
     pub const CLASS_FLAG_UIOBJECT: Type = 16;
-    #[doc = "< for classes that are just copies of some other class (i.e. del is a copy of delay)"]
+    #[doc = "for classes that are just copies of some other class (i.e. del is a copy of delay)"]
     pub const CLASS_FLAG_ALIAS: Type = 32;
-    #[doc = "< sent multitouch version of mouse messages"]
+    #[doc = "sent multitouch version of mouse messages"]
     pub const CLASS_FLAG_MULTITOUCH: Type = 64;
-    #[doc = "< override dictionary based constructor attr arg parsing"]
+    #[doc = "override dictionary based constructor attr arg parsing"]
     pub const CLASS_FLAG_DO_NOT_PARSE_ATTR_ARGS: Type = 128;
-    #[doc = "< don't zero the object struct on construction (for efficiency)"]
+    #[doc = "don't zero the object struct on construction (for efficiency)"]
     pub const CLASS_FLAG_DO_NOT_ZERO: Type = 256;
-    #[doc = "< for efficiency"]
+    #[doc = "for efficiency"]
     pub const CLASS_FLAG_NOATTRIBUTES: Type = 65536;
-    #[doc = "< for classes which support a custom attr interface (e.g. jitter)"]
+    #[doc = "for classes which support a custom attr interface (e.g. jitter)"]
     pub const CLASS_FLAG_OWNATTRIBUTES: Type = 131072;
-    #[doc = "< for classes which have a parameter"]
+    #[doc = "for classes which have a parameter"]
     pub const CLASS_FLAG_PARAMETER: Type = 262144;
-    #[doc = "< object box can be retyped without recreating the object"]
+    #[doc = "object box can be retyped without recreating the object"]
     pub const CLASS_FLAG_RETYPEABLE: Type = 524288;
-    #[doc = "< objects of this class may have object specific methods"]
+    #[doc = "objects of this class may have object specific methods"]
     pub const CLASS_FLAG_OBJECT_METHOD: Type = 1048576;
-    #[doc = "< objects of this class are signal visualizers"]
+    #[doc = "objects of this class are signal visualizers"]
     pub const CLASS_FLAG_VISUALIZER: Type = 2097152;
-    #[doc = "< objects of this class might use proxies (set automatically in proxy_new)"]
+    #[doc = "objects of this class might use proxies (set automatically in proxy_new)"]
     pub const CLASS_FLAG_USES_PROXIES: Type = 4194304;
-    #[doc = "< objects of this class save data in their own format"]
+    #[doc = "objects of this class save data in their own format"]
     pub const CLASS_FLAG_OWN_DATA: Type = 8388608;
-    #[doc = "< objects which contain colors supporting dynamic colors (set automatically in class_attr_dynamiccolor_init)"]
+    #[doc = "objects which contain colors supporting dynamic colors (set automatically in class_attr_dynamiccolor_init)"]
     pub const CLASS_FLAG_DYNAMICCOLOR: Type = 16777216;
 }
 pub mod e_max_atomtypes {
@@ -378,56 +378,56 @@ pub mod e_max_atomtypes {
     use super::*;
     #[doc = "the list of officially recognized types, including pseudotypes for\ncommas and semicolons.  Used in two places: 1. the reader, when it reads\na string, returns long, float, sym, comma, semi, or dollar;\nand 2. each object method comes with an array of them saying what types\nit needs, from among long, float, sym, obj, gimme, and cant.\n\n@ingroup atom\n\n@remark\tWhile these values are defined in an enum, you should use a long to represent the value.\nUsing the enum type creates ambiguity in struct size and is subject to various inconsistent\ncompiler settings."]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< no type, thus no atom"]
+    #[doc = "no type, thus no atom"]
     pub const A_NOTHING: Type = 0;
-    #[doc = "< long integer"]
+    #[doc = "long integer"]
     pub const A_LONG: Type = 1;
-    #[doc = "< 32-bit float"]
+    #[doc = "32-bit float"]
     pub const A_FLOAT: Type = 2;
-    #[doc = "< t_symbol pointer"]
+    #[doc = "t_symbol pointer"]
     pub const A_SYM: Type = 3;
-    #[doc = "< t_object pointer (for argtype lists; passes the value of sym)"]
+    #[doc = "t_object pointer (for argtype lists; passes the value of sym)"]
     pub const A_OBJ: Type = 4;
-    #[doc = "< long but defaults to zero"]
+    #[doc = "long but defaults to zero"]
     pub const A_DEFLONG: Type = 5;
-    #[doc = "< float, but defaults to zero"]
+    #[doc = "float, but defaults to zero"]
     pub const A_DEFFLOAT: Type = 6;
-    #[doc = "< symbol, defaults to \"\""]
+    #[doc = "symbol, defaults to \"\""]
     pub const A_DEFSYM: Type = 7;
-    #[doc = "< request that args be passed as an array, the routine will check the types itself."]
+    #[doc = "request that args be passed as an array, the routine will check the types itself."]
     pub const A_GIMME: Type = 8;
-    #[doc = "< cannot typecheck args"]
+    #[doc = "cannot typecheck args"]
     pub const A_CANT: Type = 9;
-    #[doc = "< semicolon"]
+    #[doc = "semicolon"]
     pub const A_SEMI: Type = 10;
-    #[doc = "< comma"]
+    #[doc = "comma"]
     pub const A_COMMA: Type = 11;
-    #[doc = "< dollar"]
+    #[doc = "dollar"]
     pub const A_DOLLAR: Type = 12;
-    #[doc = "< dollar"]
+    #[doc = "dollar"]
     pub const A_DOLLSYM: Type = 13;
-    #[doc = "< request that args be passed as an array, the routine will check the types itself. can return atom value in final atom ptr arg. function returns long error code 0 = no err. see gimmeback_meth typedef"]
+    #[doc = "request that args be passed as an array, the routine will check the types itself. can return atom value in final atom ptr arg. function returns long error code 0 = no err. see gimmeback_meth typedef"]
     pub const A_GIMMEBACK: Type = 14;
-    #[doc = "< A special signature for declaring methods. This is like A_GIMME, but the call is deferred."]
+    #[doc = "A special signature for declaring methods. This is like A_GIMME, but the call is deferred."]
     pub const A_DEFER: Type = 65;
-    #[doc = "< A special signature for declaring methods. This is like A_GIMME, but the call is deferred and multiple calls within one servicing of the queue are filtered down to one call."]
+    #[doc = "A special signature for declaring methods. This is like A_GIMME, but the call is deferred and multiple calls within one servicing of the queue are filtered down to one call."]
     pub const A_USURP: Type = 66;
-    #[doc = "< A special signature for declaring methods. This is like A_GIMME, but the call is deferref to the back of the queue."]
+    #[doc = "A special signature for declaring methods. This is like A_GIMME, but the call is deferref to the back of the queue."]
     pub const A_DEFER_LOW: Type = 67;
-    #[doc = "< A special signature for declaring methods. This is like A_GIMME, but the call is deferred to the back of the queue and multiple calls within one servicing of the queue are filtered down to one call."]
+    #[doc = "A special signature for declaring methods. This is like A_GIMME, but the call is deferred to the back of the queue and multiple calls within one servicing of the queue are filtered down to one call."]
     pub const A_USURP_LOW: Type = 68;
 }
 #[doc = "Union for packing any of the datum defined in #e_max_atomtypes.\n@ingroup atom"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union word {
-    #[doc = "< long integer"]
+    #[doc = "long integer"]
     pub w_long: t_atom_long,
-    #[doc = "< 32-bit float"]
+    #[doc = "32-bit float"]
     pub w_float: t_atom_float,
-    #[doc = "< pointer to a symbol in the Max symbol table"]
+    #[doc = "pointer to a symbol in the Max symbol table"]
     pub w_sym: *mut symbol,
-    #[doc = "< pointer to a #t_object or other generic pointer"]
+    #[doc = "pointer to a #t_object or other generic pointer"]
     pub w_obj: *mut object,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -563,13 +563,13 @@ pub mod t_sysfile_pos_mode {
     use super::*;
     #[doc = "Modes used by sysfile_setpos()\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< ?"]
+    #[doc = "?"]
     pub const SYSFILE_ATMARK: Type = 0;
-    #[doc = "< Calculate the file position from the start of the file."]
+    #[doc = "Calculate the file position from the start of the file."]
     pub const SYSFILE_FROMSTART: Type = 1;
-    #[doc = "< Calculate the file position from the logical end of the file."]
+    #[doc = "Calculate the file position from the logical end of the file."]
     pub const SYSFILE_FROMLEOF: Type = 2;
-    #[doc = "< Calculate the file position from the current file position."]
+    #[doc = "Calculate the file position from the current file position."]
     pub const SYSFILE_FROMMARK: Type = 3;
 }
 pub mod t_sysfile_flags {
@@ -594,18 +594,18 @@ pub mod t_sysfile_text_flags {
     use super::*;
     #[doc = "Flags used reading and writing text files.\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Use the linebreak format native to the current platform."]
+    #[doc = "Use the linebreak format native to the current platform."]
     pub const TEXT_LB_NATIVE: Type = 1;
-    #[doc = "< Use Macintosh line breaks"]
+    #[doc = "Use Macintosh line breaks"]
     pub const TEXT_LB_MAC: Type = 2;
-    #[doc = "< Use Windows line breaks"]
+    #[doc = "Use Windows line breaks"]
     pub const TEXT_LB_PC: Type = 4;
-    #[doc = "< Use Unix line breaks"]
+    #[doc = "Use Unix line breaks"]
     pub const TEXT_LB_UNIX: Type = 8;
     pub const TEXT_LB_MASK: Type = 15;
-    #[doc = "< If this flag is not set then the encoding is forced to UTF8"]
+    #[doc = "If this flag is not set then the encoding is forced to UTF8"]
     pub const TEXT_ENCODING_USE_FILE: Type = 256;
-    #[doc = "< Terminate memory returned from sysfile_readtextfile() with a NULL character"]
+    #[doc = "Terminate memory returned from sysfile_readtextfile() with a NULL character"]
     pub const TEXT_NULL_TERMINATE: Type = 512;
 }
 unsafe extern "C" {
@@ -704,19 +704,19 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _datetime {
-    #[doc = "< year"]
+    #[doc = "year"]
     pub year: t_uint32,
-    #[doc = "< month, in range 1 through 12"]
+    #[doc = "month, in range 1 through 12"]
     pub month: t_uint32,
-    #[doc = "< day, in range 1 through 31"]
+    #[doc = "day, in range 1 through 31"]
     pub day: t_uint32,
-    #[doc = "< hour"]
+    #[doc = "hour"]
     pub hour: t_uint32,
-    #[doc = "< minute"]
+    #[doc = "minute"]
     pub minute: t_uint32,
-    #[doc = "< second"]
+    #[doc = "second"]
     pub second: t_uint32,
-    #[doc = "< (reserved for future use)"]
+    #[doc = "(reserved for future use)"]
     pub millisecond: t_uint32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -739,11 +739,11 @@ pub mod e_max_dateflags {
     use super::*;
     #[doc = "Flags for the sysdateformat_formatdatetime() function.\n@ingroup systime"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< short"]
+    #[doc = "short"]
     pub const SYSDATEFORMAT_FLAGS_SHORT: Type = 1;
-    #[doc = "< medium"]
+    #[doc = "medium"]
     pub const SYSDATEFORMAT_FLAGS_MEDIUM: Type = 2;
-    #[doc = "< long"]
+    #[doc = "long"]
     pub const SYSDATEFORMAT_FLAGS_LONG: Type = 3;
     pub const SYSDATEFORMAT_RELATIVE: Type = 16;
 }
@@ -797,40 +797,40 @@ pub mod e_max_expr_types {
     use super::*;
     #[doc = "Defines for ex_type.\nWe treat parenthesis and brackets special to keep a pointer to their match in the content.\n@ingroup expr"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< an int"]
+    #[doc = "an int"]
     pub const ET_INT: Type = 1;
-    #[doc = "< a float"]
+    #[doc = "a float"]
     pub const ET_FLT: Type = 2;
-    #[doc = "< operator"]
+    #[doc = "operator"]
     pub const ET_OP: Type = 3;
-    #[doc = "< string"]
+    #[doc = "string"]
     pub const ET_STR: Type = 4;
-    #[doc = "< a table, the content is a pointer"]
+    #[doc = "a table, the content is a pointer"]
     pub const ET_TBL: Type = 5;
-    #[doc = "< a function"]
+    #[doc = "a function"]
     pub const ET_FUNC: Type = 6;
-    #[doc = "< symbol (\"string\")"]
+    #[doc = "symbol (\"string\")"]
     pub const ET_SYM: Type = 7;
-    #[doc = "< variable symbol (\"$s?\")"]
+    #[doc = "variable symbol (\"$s?\")"]
     pub const ET_VSYM: Type = 8;
-    #[doc = "< left parenthesis"]
+    #[doc = "left parenthesis"]
     pub const ET_LP: Type = 9;
-    #[doc = "< left bracket"]
+    #[doc = "left bracket"]
     pub const ET_LB: Type = 16;
-    #[doc = "< and integer inlet"]
+    #[doc = "and integer inlet"]
     pub const ET_II: Type = 17;
-    #[doc = "< float inlet"]
+    #[doc = "float inlet"]
     pub const ET_FI: Type = 18;
-    #[doc = "< string inlet"]
+    #[doc = "string inlet"]
     pub const ET_SI: Type = 19;
 }
 #[doc = "ex_ex.\n@ingroup expr"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ex_ex {
-    #[doc = "< content"]
+    #[doc = "content"]
     pub ex_cont: ex_ex__bindgen_ty_1,
-    #[doc = "< type of the node"]
+    #[doc = "type of the node"]
     pub ex_type: ::std::os::raw::c_long,
 }
 #[repr(C)]
@@ -871,7 +871,7 @@ pub struct expr {
     pub exp_outlet: *mut ::std::os::raw::c_void,
     pub exp_stack: *mut t_ex_ex,
     pub exp_var: [t_ex_ex; 9usize],
-    #[doc = "< the result of last evaluation"]
+    #[doc = "the result of last evaluation"]
     pub exp_res: t_ex_ex,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -908,15 +908,15 @@ pub mod e_max_path_styles {
     use super::*;
     #[doc = "Constants that determine the output of path_nameconform().\n@ingroup files\n@see #e_max_path_types\n@see path_nameconform()"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< use PATH_STYLE_MAX_PLAT"]
+    #[doc = "use PATH_STYLE_MAX_PLAT"]
     pub const PATH_STYLE_MAX: Type = 0;
-    #[doc = "< use PATH_STYLE_NATIVE_PLAT"]
+    #[doc = "use PATH_STYLE_NATIVE_PLAT"]
     pub const PATH_STYLE_NATIVE: Type = 1;
-    #[doc = "< ':'  sep, \"vol:\"   volume, \":\"   relative, \"^:\" boot"]
+    #[doc = "':'  sep, \"vol:\"   volume, \":\"   relative, \"^:\" boot"]
     pub const PATH_STYLE_COLON: Type = 2;
-    #[doc = "< '/'  sep, \"vol:/\"  volume, \"./\"  relative, \"/\"  boot"]
+    #[doc = "'/'  sep, \"vol:/\"  volume, \"./\"  relative, \"/\"  boot"]
     pub const PATH_STYLE_SLASH: Type = 3;
-    #[doc = "< '\\\\' sep, \"vol:\\\\\" volume, \".\\\\\" relative, \"\\\\\" boot"]
+    #[doc = "'\\\\' sep, \"vol:\\\\\" volume, \".\\\\\" relative, \"\\\\\" boot"]
     pub const PATH_STYLE_NATIVE_WIN: Type = 4;
 }
 pub mod e_max_path_types {
@@ -924,29 +924,29 @@ pub mod e_max_path_types {
     use super::*;
     #[doc = "Constants that determine the output of path_nameconform().\n@ingroup files\n@see #e_max_path_styles\n@see path_nameconform()"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< ignore"]
+    #[doc = "ignore"]
     pub const PATH_TYPE_IGNORE: Type = 0;
-    #[doc = "< absolute path"]
+    #[doc = "absolute path"]
     pub const PATH_TYPE_ABSOLUTE: Type = 1;
-    #[doc = "< relative path"]
+    #[doc = "relative path"]
     pub const PATH_TYPE_RELATIVE: Type = 2;
-    #[doc = "< boot path"]
+    #[doc = "boot path"]
     pub const PATH_TYPE_BOOT: Type = 3;
-    #[doc = "< Cycling '74 folder"]
+    #[doc = "Cycling '74 folder"]
     pub const PATH_TYPE_C74: Type = 4;
-    #[doc = "< path"]
+    #[doc = "path"]
     pub const PATH_TYPE_PATH: Type = 5;
-    #[doc = "< desktop"]
+    #[doc = "desktop"]
     pub const PATH_TYPE_DESKTOP: Type = 6;
-    #[doc = "< \"home\""]
+    #[doc = "\"home\""]
     pub const PATH_TYPE_TILDE: Type = 7;
-    #[doc = "< /tmp"]
+    #[doc = "/tmp"]
     pub const PATH_TYPE_TEMPFOLDER: Type = 8;
-    #[doc = "< ~/Documents/Max 8"]
+    #[doc = "~/Documents/Max 8"]
     pub const PATH_TYPE_USERMAX: Type = 9;
-    #[doc = "< combi: try PATH_TYPE_C74, PATH_TYPE_TILDE, PATH_TYPE_RELATIVE, PATH_TYPE_ABSOLUTE in that order"]
+    #[doc = "combi: try PATH_TYPE_C74, PATH_TYPE_TILDE, PATH_TYPE_RELATIVE, PATH_TYPE_ABSOLUTE in that order"]
     pub const PATH_TYPE_MAXDB: Type = 10;
-    #[doc = "< AudioUnit/VST plugin (an .auinfo or .vstinfo file in AppSupport)"]
+    #[doc = "AudioUnit/VST plugin (an .auinfo or .vstinfo file in AppSupport)"]
     pub const PATH_TYPE_PLUGIN: Type = 11;
     pub const PATH_TYPE_PACKAGE: Type = 12;
 }
@@ -955,11 +955,11 @@ pub mod e_max_fileinfo_flags {
     use super::*;
     #[doc = "Flags used to represent properties of a file in a #t_fileinfo struct.\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< alias"]
+    #[doc = "alias"]
     pub const PATH_FILEINFO_ALIAS: Type = 1;
-    #[doc = "< folder"]
+    #[doc = "folder"]
     pub const PATH_FILEINFO_FOLDER: Type = 2;
-    #[doc = "< package (Mac-only)"]
+    #[doc = "package (Mac-only)"]
     pub const PATH_FILEINFO_PACKAGE: Type = 4;
 }
 pub mod e_max_path_folder_flags {
@@ -967,11 +967,11 @@ pub mod e_max_path_folder_flags {
     use super::*;
     #[doc = "Flags used by functions such as path_foldernextfile() and path_openfolder().\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< if not true, then a Mac OS package will be reported as a file rather than a folder."]
+    #[doc = "if not true, then a Mac OS package will be reported as a file rather than a folder."]
     pub const PATH_REPORTPACKAGEASFOLDER: Type = 1;
-    #[doc = "< sniff"]
+    #[doc = "sniff"]
     pub const PATH_FOLDER_SNIFF: Type = 2;
-    #[doc = "< no alias resolution"]
+    #[doc = "no alias resolution"]
     pub const PATH_NOALIASRESOLUTION: Type = 4;
 }
 pub mod e_max_openfile_permissions {
@@ -979,11 +979,11 @@ pub mod e_max_openfile_permissions {
     use super::*;
     #[doc = "Permissions or mode with which to open a file.\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Read mode"]
+    #[doc = "Read mode"]
     pub const PATH_READ_PERM: Type = 1;
-    #[doc = "< Write mode"]
+    #[doc = "Write mode"]
     pub const PATH_WRITE_PERM: Type = 2;
-    #[doc = "< Read/Write mode"]
+    #[doc = "Read/Write mode"]
     pub const PATH_RW_PERM: Type = 3;
 }
 pub mod e_max_path_indices {
@@ -1011,13 +1011,13 @@ pub mod e_max_typelists {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _fileinfo {
-    #[doc = "< type (four-char-code)"]
+    #[doc = "type (four-char-code)"]
     pub type_: t_fourcc,
-    #[doc = "< Mac-only creator (four-char-code)"]
+    #[doc = "Mac-only creator (four-char-code)"]
     pub creator: t_fourcc,
-    #[doc = "< this was date but it wasn't populated and it wasn't used"]
+    #[doc = "this was date but it wasn't populated and it wasn't used"]
     pub unused: t_uint32,
-    #[doc = "< One of the values defined in #e_max_fileinfo_flags"]
+    #[doc = "One of the values defined in #e_max_fileinfo_flags"]
     pub flags: t_int32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -1453,11 +1453,11 @@ pub mod e_max_wind_advise_result {
     use super::*;
     #[doc = "Returned values from wind_advise()\n@ingroup misc"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Yes button was choosen"]
+    #[doc = "Yes button was choosen"]
     pub const aaYes: Type = 1;
-    #[doc = "< No button was choosen"]
+    #[doc = "No button was choosen"]
     pub const aaNo: Type = 2;
-    #[doc = "< Cancel button was choosen"]
+    #[doc = "Cancel button was choosen"]
     pub const aaCancel: Type = 3;
 }
 unsafe extern "C" {
@@ -2673,9 +2673,9 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct atombuf {
-    #[doc = "< the number of atoms"]
+    #[doc = "the number of atoms"]
     pub a_argc: ::std::os::raw::c_long,
-    #[doc = "< the first of the array of atoms"]
+    #[doc = "the first of the array of atoms"]
     pub a_argv: [t_atom; 1usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -3875,25 +3875,25 @@ pub mod e_max_atom_gettext_flags {
     use super::*;
     #[doc = "Flags that determine how functions convert atoms into text (C-strings).\n@ingroup atom"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< default translation rules for getting text from atoms"]
+    #[doc = "default translation rules for getting text from atoms"]
     pub const OBEX_UTIL_ATOM_GETTEXT_DEFAULT: Type = 0;
-    #[doc = "< eliminate redundant zeros for floating point numbers (default used)"]
+    #[doc = "eliminate redundant zeros for floating point numbers (default used)"]
     pub const OBEX_UTIL_ATOM_GETTEXT_TRUNCATE_ZEROS: Type = 1;
-    #[doc = "< don't introduce quotes around symbols with spaces"]
+    #[doc = "don't introduce quotes around symbols with spaces"]
     pub const OBEX_UTIL_ATOM_GETTEXT_SYM_NO_QUOTE: Type = 2;
-    #[doc = "< always introduce quotes around symbols (useful for JSON)"]
+    #[doc = "always introduce quotes around symbols (useful for JSON)"]
     pub const OBEX_UTIL_ATOM_GETTEXT_SYM_FORCE_QUOTE: Type = 4;
-    #[doc = "< separate atoms with commas (useful for JSON)"]
+    #[doc = "separate atoms with commas (useful for JSON)"]
     pub const OBEX_UTIL_ATOM_GETTEXT_COMMA_DELIM: Type = 8;
-    #[doc = "< always print the zeros"]
+    #[doc = "always print the zeros"]
     pub const OBEX_UTIL_ATOM_GETTEXT_FORCE_ZEROS: Type = 16;
-    #[doc = "< print more decimal places"]
+    #[doc = "print more decimal places"]
     pub const OBEX_UTIL_ATOM_GETTEXT_NUM_HI_RES: Type = 32;
-    #[doc = "< print fewer decimal places (HI_RES will win though)"]
+    #[doc = "print fewer decimal places (HI_RES will win though)"]
     pub const OBEX_UTIL_ATOM_GETTEXT_NUM_LO_RES: Type = 64;
-    #[doc = "< don't add extra escape characters"]
+    #[doc = "don't add extra escape characters"]
     pub const OBEX_UTIL_ATOM_GETTEXT_NOESCAPE: Type = 128;
-    #[doc = "< don't insert spaces before/after linebreak characters"]
+    #[doc = "don't insert spaces before/after linebreak characters"]
     pub const OBEX_UTIL_ATOM_GETTEXT_LINEBREAK_NODELIM: Type = 256;
 }
 unsafe extern "C" {
@@ -9277,15 +9277,15 @@ pub mod e_max_attrflags {
     use super::*;
     #[doc = "Attribute flags\n@ingroup attr\n\n@remark \tTo create a readonly attribute, for example,\nyou should pass ATTR_SET_OPAQUE or ATTR_SET_OPAQUE_USER as a flag when you create your attribute."]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< No flags"]
+    #[doc = "No flags"]
     pub const ATTR_FLAGS_NONE: Type = 0;
-    #[doc = "< The attribute cannot be queried by either max message when used inside of a CLASS_BOX object, nor from C code."]
+    #[doc = "The attribute cannot be queried by either max message when used inside of a CLASS_BOX object, nor from C code."]
     pub const ATTR_GET_OPAQUE: Type = 1;
-    #[doc = "< The attribute cannot be set by either max message when used inside of a CLASS_BOX object, nor from C code."]
+    #[doc = "The attribute cannot be set by either max message when used inside of a CLASS_BOX object, nor from C code."]
     pub const ATTR_SET_OPAQUE: Type = 2;
-    #[doc = "< The attribute cannot be queried by max message when used inside of a CLASS_BOX object, but <em>can</em> be queried from C code."]
+    #[doc = "The attribute cannot be queried by max message when used inside of a CLASS_BOX object, but <em>can</em> be queried from C code."]
     pub const ATTR_GET_OPAQUE_USER: Type = 256;
-    #[doc = "< The attribute cannot be set by max message when used inside of a CLASS_BOX object, but <em>can</em> be set from C code."]
+    #[doc = "The attribute cannot be set by max message when used inside of a CLASS_BOX object, but <em>can</em> be set from C code."]
     pub const ATTR_SET_OPAQUE_USER: Type = 512;
     pub const ATTR_GET_DEFER: Type = 65536;
     pub const ATTR_GET_USURP: Type = 131072;
@@ -9303,25 +9303,25 @@ pub mod e_max_datastore_flags {
     use super::*;
     #[doc = "Flags used in linklist and hashtab objects\n@ingroup datastore"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< free using object_free()"]
+    #[doc = "free using object_free()"]
     pub const OBJ_FLAG_OBJ: Type = 0;
-    #[doc = "< don't free"]
+    #[doc = "don't free"]
     pub const OBJ_FLAG_REF: Type = 1;
-    #[doc = "< don't free data or call method"]
+    #[doc = "don't free data or call method"]
     pub const OBJ_FLAG_DATA: Type = 2;
-    #[doc = "< don't call method, and when freeing use sysmem_freeptr() instead of freeobject"]
+    #[doc = "don't call method, and when freeing use sysmem_freeptr() instead of freeobject"]
     pub const OBJ_FLAG_MEMORY: Type = 4;
-    #[doc = "< don't notify when modified"]
+    #[doc = "don't notify when modified"]
     pub const OBJ_FLAG_SILENT: Type = 256;
-    #[doc = "< obexprototype entry will be inherited by subpatchers and abstractions"]
+    #[doc = "obexprototype entry will be inherited by subpatchers and abstractions"]
     pub const OBJ_FLAG_INHERITABLE: Type = 512;
-    #[doc = "< used by linklist to signal when is inside iteration"]
+    #[doc = "used by linklist to signal when is inside iteration"]
     pub const OBJ_FLAG_ITERATING: Type = 4096;
-    #[doc = "< object should be cloned when added to data structure (i.e. dictionary)"]
+    #[doc = "object should be cloned when added to data structure (i.e. dictionary)"]
     pub const OBJ_FLAG_CLONE: Type = 8192;
-    #[doc = "< context-dependent flag, used internally for hashtable code"]
+    #[doc = "context-dependent flag, used internally for hashtable code"]
     pub const OBJ_FLAG_DANGER: Type = 536870912;
-    #[doc = "< context-dependent flag, used internally for linklist debug code"]
+    #[doc = "context-dependent flag, used internally for linklist debug code"]
     pub const OBJ_FLAG_DEBUG: Type = 1073741824;
 }
 unsafe extern "C" {
@@ -10535,11 +10535,11 @@ pub mod e_max_systhread_mutex_flags {
     use super::*;
     #[doc = "systhread_mutex_new() flags\n@ingroup threading"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Normal"]
+    #[doc = "Normal"]
     pub const SYSTHREAD_MUTEX_NORMAL: Type = 0;
-    #[doc = "< Error-checking"]
+    #[doc = "Error-checking"]
     pub const SYSTHREAD_MUTEX_ERRORCHECK: Type = 1;
-    #[doc = "< Recursive"]
+    #[doc = "Recursive"]
     pub const SYSTHREAD_MUTEX_RECURSIVE: Type = 2;
 }
 pub mod e_max_systhread_priority {
@@ -10821,25 +10821,25 @@ pub mod _modifiers {
     use super::*;
     #[doc = "Bit mask values for various meta-key presses on the keyboard.\n@ingroup\tjmouse"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Command Key"]
+    #[doc = "Command Key"]
     pub const eCommandKey: Type = 1;
-    #[doc = "< Shift Key"]
+    #[doc = "Shift Key"]
     pub const eShiftKey: Type = 2;
-    #[doc = "< Control Key"]
+    #[doc = "Control Key"]
     pub const eControlKey: Type = 4;
-    #[doc = "< Alt Key"]
+    #[doc = "Alt Key"]
     pub const eAltKey: Type = 8;
-    #[doc = "< Left mouse button"]
+    #[doc = "Left mouse button"]
     pub const eLeftButton: Type = 16;
-    #[doc = "< Right mouse button"]
+    #[doc = "Right mouse button"]
     pub const eRightButton: Type = 32;
-    #[doc = "< Middle mouse button"]
+    #[doc = "Middle mouse button"]
     pub const eMiddleButton: Type = 64;
-    #[doc = "< Popup Menu (contextual menu requested)"]
+    #[doc = "Popup Menu (contextual menu requested)"]
     pub const ePopupMenu: Type = 128;
-    #[doc = "< Caps lock"]
+    #[doc = "Caps lock"]
     pub const eCapsLock: Type = 256;
-    #[doc = "< Key is generated by key press auto-repeat"]
+    #[doc = "Key is generated by key press auto-repeat"]
     pub const eAutoRepeat: Type = 512;
 }
 #[doc = "Bit mask values for various meta-key presses on the keyboard.\n@ingroup\tjmouse"]
@@ -10863,13 +10863,13 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _rect {
-    #[doc = "< The horizontal origin"]
+    #[doc = "The horizontal origin"]
     pub x: f64,
-    #[doc = "< The vertical origin"]
+    #[doc = "The vertical origin"]
     pub y: f64,
-    #[doc = "< The width"]
+    #[doc = "The width"]
     pub width: f64,
-    #[doc = "< The height"]
+    #[doc = "The height"]
     pub height: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -10887,9 +10887,9 @@ pub type t_rect = _rect;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _pt {
-    #[doc = "< The horizontal coordinate"]
+    #[doc = "The horizontal coordinate"]
     pub x: f64,
-    #[doc = "< The vertical coordinate"]
+    #[doc = "The vertical coordinate"]
     pub y: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -10905,9 +10905,9 @@ pub type t_pt = _pt;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _size {
-    #[doc = "< The width"]
+    #[doc = "The width"]
     pub width: f64,
-    #[doc = "< The height"]
+    #[doc = "The height"]
     pub height: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -10923,12 +10923,12 @@ pub type t_size = _size;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jrgba {
-    #[doc = "< Red component in the range \\[0.0, 1.0\\]"]
+    #[doc = "Red component in the range \\[0.0, 1.0\\]"]
     pub red: f64,
-    #[doc = "< Green component in the range \\[0.0, 1.0\\]"]
+    #[doc = "Green component in the range \\[0.0, 1.0\\]"]
     pub green: f64,
     pub blue: f64,
-    #[doc = "< Alpha (transparency) component in the range \\[0.0, 1.0\\]"]
+    #[doc = "Alpha (transparency) component in the range \\[0.0, 1.0\\]"]
     pub alpha: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -11993,43 +11993,43 @@ pub mod _jmouse_cursortype {
     use super::*;
     #[doc = "Mouse cursor types.\n@ingroup jmouse"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< None"]
+    #[doc = "None"]
     pub const JMOUSE_CURSOR_NONE: Type = 0;
-    #[doc = "< Arrow"]
+    #[doc = "Arrow"]
     pub const JMOUSE_CURSOR_ARROW: Type = 1;
-    #[doc = "< Wait"]
+    #[doc = "Wait"]
     pub const JMOUSE_CURSOR_WAIT: Type = 2;
-    #[doc = "< I-Beam"]
+    #[doc = "I-Beam"]
     pub const JMOUSE_CURSOR_IBEAM: Type = 3;
-    #[doc = "< Crosshair"]
+    #[doc = "Crosshair"]
     pub const JMOUSE_CURSOR_CROSSHAIR: Type = 4;
-    #[doc = "< Copying"]
+    #[doc = "Copying"]
     pub const JMOUSE_CURSOR_COPYING: Type = 5;
-    #[doc = "< Pointing Hand"]
+    #[doc = "Pointing Hand"]
     pub const JMOUSE_CURSOR_POINTINGHAND: Type = 6;
-    #[doc = "< Dragging Hand"]
+    #[doc = "Dragging Hand"]
     pub const JMOUSE_CURSOR_DRAGGINGHAND: Type = 7;
-    #[doc = "< Left-Right"]
+    #[doc = "Left-Right"]
     pub const JMOUSE_CURSOR_RESIZE_LEFTRIGHT: Type = 8;
-    #[doc = "< Up-Down"]
+    #[doc = "Up-Down"]
     pub const JMOUSE_CURSOR_RESIZE_UPDOWN: Type = 9;
-    #[doc = "< Four Way"]
+    #[doc = "Four Way"]
     pub const JMOUSE_CURSOR_RESIZE_FOURWAY: Type = 10;
-    #[doc = "< Top Edge"]
+    #[doc = "Top Edge"]
     pub const JMOUSE_CURSOR_RESIZE_TOPEDGE: Type = 11;
-    #[doc = "< Bottom Edge"]
+    #[doc = "Bottom Edge"]
     pub const JMOUSE_CURSOR_RESIZE_BOTTOMEDGE: Type = 12;
-    #[doc = "< Left Edge"]
+    #[doc = "Left Edge"]
     pub const JMOUSE_CURSOR_RESIZE_LEFTEDGE: Type = 13;
-    #[doc = "< Right Edge"]
+    #[doc = "Right Edge"]
     pub const JMOUSE_CURSOR_RESIZE_RIGHTEDGE: Type = 14;
-    #[doc = "< Top-Left Corner"]
+    #[doc = "Top-Left Corner"]
     pub const JMOUSE_CURSOR_RESIZE_TOPLEFTCORNER: Type = 15;
-    #[doc = "< Top-Right Corner"]
+    #[doc = "Top-Right Corner"]
     pub const JMOUSE_CURSOR_RESIZE_TOPRIGHTCORNER: Type = 16;
-    #[doc = "< Bottom-Left Corner"]
+    #[doc = "Bottom-Left Corner"]
     pub const JMOUSE_CURSOR_RESIZE_BOTTOMLEFTCORNER: Type = 17;
-    #[doc = "< Bottom-Right Corner"]
+    #[doc = "Bottom-Right Corner"]
     pub const JMOUSE_CURSOR_RESIZE_BOTTOMRIGHTCORNER: Type = 18;
 }
 #[doc = "Mouse cursor types.\n@ingroup jmouse"]
@@ -12402,11 +12402,11 @@ pub mod _jgraphics_format {
     use super::*;
     #[doc = "Enumeration of color formats used by jgraphics surfaces.\n@ingroup\tjgraphics"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Color is represented using 32 bits, 8 bits each for the components, and including an alpha component."]
+    #[doc = "Color is represented using 32 bits, 8 bits each for the components, and including an alpha component."]
     pub const JGRAPHICS_FORMAT_ARGB32: Type = 0;
-    #[doc = "< Color is represented using 32 bits, 8 bits each for the components.  There is no alpha component."]
+    #[doc = "Color is represented using 32 bits, 8 bits each for the components.  There is no alpha component."]
     pub const JGRAPHICS_FORMAT_RGB24: Type = 1;
-    #[doc = "< The color is represented only as an 8-bit alpha mask."]
+    #[doc = "The color is represented only as an 8-bit alpha mask."]
     pub const JGRAPHICS_FORMAT_A8: Type = 2;
 }
 #[doc = "Enumeration of color formats used by jgraphics surfaces.\n@ingroup\tjgraphics"]
@@ -12416,9 +12416,9 @@ pub mod _jgraphics_fileformat {
     use super::*;
     #[doc = "Enumeration of file formats usable for jgraphics surfaces.\n@ingroup\tjgraphics"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Portable Network Graphics (PNG) format"]
+    #[doc = "Portable Network Graphics (PNG) format"]
     pub const JGRAPHICS_FILEFORMAT_PNG: Type = 0;
-    #[doc = "< JPEG format"]
+    #[doc = "JPEG format"]
     pub const JGRAPHICS_FILEFORMAT_JPEG: Type = 1;
 }
 unsafe extern "C" {
@@ -12927,9 +12927,9 @@ pub mod _jgraphics_font_slant {
     use super::*;
     #[doc = "Enumeration of slanting options for font display.\n@ingroup\tjfont"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Normal slanting (typically this means no slanting)"]
+    #[doc = "Normal slanting (typically this means no slanting)"]
     pub const JGRAPHICS_FONT_SLANT_NORMAL: Type = 0;
-    #[doc = "< Italic slanting"]
+    #[doc = "Italic slanting"]
     pub const JGRAPHICS_FONT_SLANT_ITALIC: Type = 1;
 }
 #[doc = "Enumeration of slanting options for font display.\n@ingroup\tjfont"]
@@ -12939,9 +12939,9 @@ pub mod _jgraphics_font_weight {
     use super::*;
     #[doc = "Enumeration of font weight options for font display.\n@ingroup\tjfont"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Normal font weight"]
+    #[doc = "Normal font weight"]
     pub const JGRAPHICS_FONT_WEIGHT_NORMAL: Type = 0;
-    #[doc = "< Bold font weight"]
+    #[doc = "Bold font weight"]
     pub const JGRAPHICS_FONT_WEIGHT_BOLD: Type = 1;
 }
 #[doc = "Enumeration of font weight options for font display.\n@ingroup\tjfont"]
@@ -12979,15 +12979,15 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jgraphics_font_extents {
-    #[doc = "< The ascent."]
+    #[doc = "The ascent."]
     pub ascent: f64,
-    #[doc = "< The descent."]
+    #[doc = "The descent."]
     pub descent: f64,
-    #[doc = "< The hieght."]
+    #[doc = "The hieght."]
     pub height: f64,
-    #[doc = "< Unused / Not valid."]
+    #[doc = "Unused / Not valid."]
     pub max_x_advance: f64,
-    #[doc = "< Unused / Not valid."]
+    #[doc = "Unused / Not valid."]
     pub max_y_advance: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -13174,21 +13174,21 @@ pub mod _jgraphics_text_justification {
     use super::*;
     #[doc = "Enumeration of text justification options, which are specified as a bitmask.\n@ingroup\tjgraphics"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< Justify left"]
+    #[doc = "Justify left"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_LEFT: Type = 1;
-    #[doc = "< Justify right"]
+    #[doc = "Justify right"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_RIGHT: Type = 2;
-    #[doc = "< Centered horizontally"]
+    #[doc = "Centered horizontally"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_HCENTERED: Type = 4;
-    #[doc = "< Justified to the top"]
+    #[doc = "Justified to the top"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_TOP: Type = 8;
-    #[doc = "< Justified to the bottom"]
+    #[doc = "Justified to the bottom"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_BOTTOM: Type = 16;
-    #[doc = "< Centered vertically"]
+    #[doc = "Centered vertically"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_VCENTERED: Type = 32;
-    #[doc = "< Horizontally justified"]
+    #[doc = "Horizontally justified"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_HJUSTIFIED: Type = 64;
-    #[doc = "< Shortcut for Centering both vertically and horizontally"]
+    #[doc = "Shortcut for Centering both vertically and horizontally"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_CENTERED: Type = 36;
 }
 #[doc = "Enumeration of text justification options, which are specified as a bitmask.\n@ingroup\tjgraphics"]
@@ -13198,9 +13198,9 @@ pub mod _jgraphics_textlayout_flags {
     use super::*;
     #[doc = "Flags for setting text layout options.\n@ingroup\ttextlayout"]
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< disable word wrapping"]
+    #[doc = "disable word wrapping"]
     pub const JGRAPHICS_TEXTLAYOUT_NOWRAP: Type = 1;
-    #[doc = "< show ... if a line doesn't fit (implies NOWRAP too)"]
+    #[doc = "show ... if a line doesn't fit (implies NOWRAP too)"]
     pub const JGRAPHICS_TEXTLAYOUT_USEELLIPSIS: Type = 3;
 }
 #[doc = "Flags for setting text layout options.\n@ingroup\ttextlayout"]
@@ -13275,17 +13275,17 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct t_jmatrix {
-    #[doc = "< xx component"]
+    #[doc = "xx component"]
     pub xx: f64,
-    #[doc = "< yx component"]
+    #[doc = "yx component"]
     pub yx: f64,
-    #[doc = "< xy component"]
+    #[doc = "xy component"]
     pub xy: f64,
-    #[doc = "< yy component"]
+    #[doc = "yy component"]
     pub yy: f64,
-    #[doc = "< x translation"]
+    #[doc = "x translation"]
     pub x0: f64,
-    #[doc = "< y translation"]
+    #[doc = "y translation"]
     pub y0: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -17276,15 +17276,15 @@ pub type t_sample = f64;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct t_pxobject {
-    #[doc = "< The standard #t_object struct."]
+    #[doc = "The standard #t_object struct."]
     pub z_ob: object,
     pub z_in: ::std::os::raw::c_long,
     pub z_proxy: *mut ::std::os::raw::c_void,
-    #[doc = "< set to non-zero if this object is muted (using the pcontrol or mute~ objects)"]
+    #[doc = "set to non-zero if this object is muted (using the pcontrol or mute~ objects)"]
     pub z_disabled: ::std::os::raw::c_long,
-    #[doc = "< the number of signal inlets"]
+    #[doc = "the number of signal inlets"]
     pub z_count: ::std::os::raw::c_short,
-    #[doc = "< flags (bitmask) determining object behaviour, such as #Z_NO_INPLACE, #Z_PUT_FIRST, or #Z_PUT_LAST"]
+    #[doc = "flags (bitmask) determining object behaviour, such as #Z_NO_INPLACE, #Z_PUT_FIRST, or #Z_PUT_LAST"]
     pub z_misc: ::std::os::raw::c_short,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -17303,11 +17303,11 @@ const _: () = {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _signal {
-    #[doc = "< The vector size of the signal."]
+    #[doc = "The vector size of the signal."]
     pub s_n: ::std::os::raw::c_long,
-    #[doc = "< A buffer holding the vector of audio samples."]
+    #[doc = "A buffer holding the vector of audio samples."]
     pub s_vec: *mut t_sample,
-    #[doc = "< The sample rate of the signal."]
+    #[doc = "The sample rate of the signal."]
     pub s_sr: f32,
     pub s_next: *mut _signal,
     pub s_nextused: *mut _signal,
@@ -17721,15 +17721,15 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _pxjbox {
-    #[doc = "< The box struct used by all ui objects."]
+    #[doc = "The box struct used by all ui objects."]
     pub z_box: t_jbox,
     pub z_in: ::std::os::raw::c_long,
     pub z_proxy: *mut ::std::os::raw::c_void,
-    #[doc = "< set to non-zero if this object is muted (using the pcontrol or mute~ objects)"]
+    #[doc = "set to non-zero if this object is muted (using the pcontrol or mute~ objects)"]
     pub z_disabled: ::std::os::raw::c_long,
-    #[doc = "< the number of signal inlets"]
+    #[doc = "the number of signal inlets"]
     pub z_count: ::std::os::raw::c_short,
-    #[doc = "< flags (bitmask) determining object behaviour, such as #Z_NO_INPLACE, #Z_PUT_FIRST, or #Z_PUT_LAST"]
+    #[doc = "flags (bitmask) determining object behaviour, such as #Z_NO_INPLACE, #Z_PUT_FIRST, or #Z_PUT_LAST"]
     pub z_misc: ::std::os::raw::c_short,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -17765,21 +17765,21 @@ pub type t_buffer_obj = t_object;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _buffer_info {
-    #[doc = "< name of the buffer"]
+    #[doc = "name of the buffer"]
     pub b_name: *mut t_symbol,
-    #[doc = "< stored with interleaved channels if multi-channel"]
+    #[doc = "stored with interleaved channels if multi-channel"]
     pub b_samples: *mut f32,
-    #[doc = "< number of sample frames (each one is sizeof(float) * b_nchans bytes)"]
+    #[doc = "number of sample frames (each one is sizeof(float) * b_nchans bytes)"]
     pub b_frames: ::std::os::raw::c_long,
-    #[doc = "< number of channels"]
+    #[doc = "number of channels"]
     pub b_nchans: ::std::os::raw::c_long,
-    #[doc = "< size of buffer in floats"]
+    #[doc = "size of buffer in floats"]
     pub b_size: ::std::os::raw::c_long,
-    #[doc = "< sampling rate of the buffer"]
+    #[doc = "sampling rate of the buffer"]
     pub b_sr: f32,
-    #[doc = "< last modified time (\"dirty\" method)"]
+    #[doc = "last modified time (\"dirty\" method)"]
     pub b_modtime: ::std::os::raw::c_long,
-    #[doc = "< reserved for future use (total struct size is 64x4 = 256 bytes)"]
+    #[doc = "reserved for future use (total struct size is 64x4 = 256 bytes)"]
     pub b_rfu: [::std::os::raw::c_long; 57usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -18496,622 +18496,622 @@ unsafe extern "C" {
     pub fn jit_math_fast_atan(x: f32) -> f32;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_nothing: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_new: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_free: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_classname: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getname: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getmethod: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_get: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_set: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_register: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_char: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_long: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_float32: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_float64: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_symbol: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_pointer: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_object: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_atom: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_list: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_type: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_dim: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_planecount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_val: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_plane: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_cell: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_matrix: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_class_jit_matrix: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_togworld: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_fromgworld: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_frommatrix: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_class_jit_attribute: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_attribute: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_attr_offset: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_attr_offset_array: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_rebuilding: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_modified: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_lock: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_setinfo: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_setinfo_ex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getinfo: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_data: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getdata: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_outputmatrix: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_clear: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_clear_custom: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_err_calculate: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_max_jit_classex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_setall: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_chuck: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getsize: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getindex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_objptr2index: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_append: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_insertindex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_deleteindex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_chuckindex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_makearray: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_reverse: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_rotate: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_shuffle: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_swap: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_findfirst: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_findall: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_methodall: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_methodindex: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_sort: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_matrix_calc: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_genframe: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_filter: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_mop: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_newcopy: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_linklist: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_inputcount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_outputcount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getinput: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getoutput: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getinputlist: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getoutputlist: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_ioname: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_matrixname: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_outputmode: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_matrix: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getmatrix: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_typelink: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_dimlink: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_planelink: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_restrict_type: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_restrict_planecount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_restrict_dim: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_special: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getspecial: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_adapt: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_decorator: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_frommatrix_trunc: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_ioproc: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_getioproc: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_name: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_types: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_minplanecount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_maxplanecount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_mindimcount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_maxdimcount: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_mindim: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_maxdim: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_points: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_point_sprite: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_lines: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_line_strip: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_line_loop: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_triangles: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_tri_strip: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_tri_fan: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_quads: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_quad_strip: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_polygon: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_tri_grid: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gl_quad_grid: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_err_lockout_stack: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_class_jit_namespace: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_jit_namespace: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_findsize: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_attach: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_detach: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_add: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_replace: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_gettype: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_ob_sym: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_resolve_name: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_resolve_raw: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_notifyall: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_block: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_unblock: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_position: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_rotatexyz: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_scale: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_quat: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_direction: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_lookat: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_anim: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_bounds: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_boundcalc: *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "< cached #t_symbol @ingroup jitter"]
+    #[doc = "cached #t_symbol @ingroup jitter"]
     pub static mut _jit_sym_calcbounds: *mut t_symbol;
 }
 pub mod t_jit_attr_flags {
     #[allow(unused_imports)]
     use super::*;
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< private getter (all)          @ingroup jitter"]
+    #[doc = "private getter (all)          @ingroup jitter"]
     pub const JIT_ATTR_GET_OPAQUE: Type = 1;
-    #[doc = "< private setter (all)          @ingroup jitter"]
+    #[doc = "private setter (all)          @ingroup jitter"]
     pub const JIT_ATTR_SET_OPAQUE: Type = 2;
-    #[doc = "< private getter (user)         @ingroup jitter"]
+    #[doc = "private getter (user)         @ingroup jitter"]
     pub const JIT_ATTR_GET_OPAQUE_USER: Type = 256;
-    #[doc = "< private setter (user)         @ingroup jitter"]
+    #[doc = "private setter (user)         @ingroup jitter"]
     pub const JIT_ATTR_SET_OPAQUE_USER: Type = 512;
-    #[doc = "< defer getter (deprecated)     @ingroup jitter"]
+    #[doc = "defer getter (deprecated)     @ingroup jitter"]
     pub const JIT_ATTR_GET_DEFER: Type = 65536;
-    #[doc = "< usurp getter (deprecated)     @ingroup jitter"]
+    #[doc = "usurp getter (deprecated)     @ingroup jitter"]
     pub const JIT_ATTR_GET_USURP: Type = 131072;
-    #[doc = "< defer getter                  @ingroup jitter"]
+    #[doc = "defer getter                  @ingroup jitter"]
     pub const JIT_ATTR_GET_DEFER_LOW: Type = 262144;
-    #[doc = "< usurp getter                  @ingroup jitter"]
+    #[doc = "usurp getter                  @ingroup jitter"]
     pub const JIT_ATTR_GET_USURP_LOW: Type = 524288;
-    #[doc = "< defer setter (deprecated)     @ingroup jitter"]
+    #[doc = "defer setter (deprecated)     @ingroup jitter"]
     pub const JIT_ATTR_SET_DEFER: Type = 16777216;
-    #[doc = "< usurp setter (deprecated)     @ingroup jitter"]
+    #[doc = "usurp setter (deprecated)     @ingroup jitter"]
     pub const JIT_ATTR_SET_USURP: Type = 33554432;
-    #[doc = "< defer setter                  @ingroup jitter"]
+    #[doc = "defer setter                  @ingroup jitter"]
     pub const JIT_ATTR_SET_DEFER_LOW: Type = 67108864;
-    #[doc = "< usurp setter                  @ingroup jitter"]
+    #[doc = "usurp setter                  @ingroup jitter"]
     pub const JIT_ATTR_SET_USURP_LOW: Type = 134217728;
 }
 pub mod t_jit_matrix_info_flags {
     #[allow(unused_imports)]
     use super::*;
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< data is handle                                                   @ingroup jitter"]
+    #[doc = "data is handle                                                   @ingroup jitter"]
     pub const JIT_MATRIX_DATA_HANDLE: Type = 2;
-    #[doc = "< data is reference to outside memory                              @ingroup jitter"]
+    #[doc = "data is reference to outside memory                              @ingroup jitter"]
     pub const JIT_MATRIX_DATA_REFERENCE: Type = 4;
-    #[doc = "< data is tightly packed (doesn't use standard 16 byte alignment)  @ingroup jitter"]
+    #[doc = "data is tightly packed (doesn't use standard 16 byte alignment)  @ingroup jitter"]
     pub const JIT_MATRIX_DATA_PACK_TIGHT: Type = 8;
-    #[doc = "< necessary if using handle/reference data flags when creating     @ingroup jitter\n jit_matrix, however, it is never stored in matrix"]
+    #[doc = "necessary if using handle/reference data flags when creating     @ingroup jitter\n jit_matrix, however, it is never stored in matrix"]
     pub const JIT_MATRIX_DATA_FLAGS_USE: Type = 32768;
 }
 pub mod t_matrix_conv_info_flags {
     #[allow(unused_imports)]
     use super::*;
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< not currently used                                               @ingroup jitter"]
+    #[doc = "not currently used                                               @ingroup jitter"]
     pub const JIT_MATRIX_CONVERT_CLAMP: Type = 1;
-    #[doc = "< use interpolation                                                @ingroup jitter"]
+    #[doc = "use interpolation                                                @ingroup jitter"]
     pub const JIT_MATRIX_CONVERT_INTERP: Type = 2;
-    #[doc = "< use source dimensions                                            @ingroup jitter"]
+    #[doc = "use source dimensions                                            @ingroup jitter"]
     pub const JIT_MATRIX_CONVERT_SRCDIM: Type = 4;
-    #[doc = "< use destination dimensions                                       @ingroup jitter"]
+    #[doc = "use destination dimensions                                       @ingroup jitter"]
     pub const JIT_MATRIX_CONVERT_DSTDIM: Type = 8;
 }
 pub type uint = ::std::os::raw::c_uint;
@@ -19120,9 +19120,9 @@ pub type uchar = ::std::os::raw::c_uchar;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_op_info {
-    #[doc = "< base pointer (coerced to appropriate type)"]
+    #[doc = "base pointer (coerced to appropriate type)"]
     pub p: *mut ::std::os::raw::c_void,
-    #[doc = "< stride between elements (in type, not bytes)"]
+    #[doc = "stride between elements (in type, not bytes)"]
     pub stride: ::std::os::raw::c_long,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -21473,19 +21473,19 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_matrix_info {
-    #[doc = "< in bytes (0xFFFFFFFF=UNKNOWN)"]
+    #[doc = "in bytes (0xFFFFFFFF=UNKNOWN)"]
     pub size: ::std::os::raw::c_long,
-    #[doc = "< primitifve type (char, long, float32, or float64)"]
+    #[doc = "primitifve type (char, long, float32, or float64)"]
     pub type_: *mut t_symbol,
-    #[doc = "< flags to specify data reference, handle, or tightly packed"]
+    #[doc = "flags to specify data reference, handle, or tightly packed"]
     pub flags: ::std::os::raw::c_long,
-    #[doc = "< number of dimensions"]
+    #[doc = "number of dimensions"]
     pub dimcount: ::std::os::raw::c_long,
-    #[doc = "< dimension sizes"]
+    #[doc = "dimension sizes"]
     pub dim: [::std::os::raw::c_long; 32usize],
-    #[doc = "< stride across dimensions in bytes"]
+    #[doc = "stride across dimensions in bytes"]
     pub dimstride: [::std::os::raw::c_long; 32usize],
-    #[doc = "< number of planes"]
+    #[doc = "number of planes"]
     pub planecount: ::std::os::raw::c_long,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -22674,37 +22674,37 @@ pub mod t_jit_ob3d_flags {
     #[allow(unused_imports)]
     use super::*;
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_ROTATION_SCALE: Type = 1;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_POLY_VARS: Type = 2;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_BLEND: Type = 4;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_TEXTURE: Type = 8;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_MATRIXOUTPUT: Type = 16;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_AUTO_ONLY: Type = 32;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_DOES_UI: Type = 64;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_DEPTH: Type = 128;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_ANTIALIAS: Type = 256;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_FOG: Type = 512;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_LIGHTING_MATERIAL: Type = 1024;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_HAS_LIGHTS: Type = 2048;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_HAS_CAMERA: Type = 4096;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_IS_RENDERER: Type = 8192;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_NO_COLOR: Type = 16384;
-    #[doc = "< ob3d flag @ingroup jitter"]
+    #[doc = "ob3d flag @ingroup jitter"]
     pub const JIT_OB3D_IS_SLAB: Type = 32768;
     pub const JIT_OB3D_NO_SHADER: Type = 65536;
     pub const JIT_OB3D_IS_NODE: Type = 131072;
@@ -22768,11 +22768,11 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct t_wind_mouse_info {
-    #[doc = "< h, v, (up/down), cmdKey, shiftKey, alphaLock, option, control."]
+    #[doc = "h, v, (up/down), cmdKey, shiftKey, alphaLock, option, control."]
     pub mouseatoms: [t_atom; 8usize],
-    #[doc = "< argument count"]
+    #[doc = "argument count"]
     pub argc: ::std::os::raw::c_int,
-    #[doc = "< mouse event type"]
+    #[doc = "mouse event type"]
     pub mousesymbol: *mut t_symbol,
     pub scalefactor: f64,
 }
@@ -22792,11 +22792,11 @@ const _: () = {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct t_wind_mousewheel_info {
-    #[doc = "< h, v, (up/down), cmdKey, shiftKey, alphaLock, option, control, dx, dy + RFU"]
+    #[doc = "h, v, (up/down), cmdKey, shiftKey, alphaLock, option, control, dx, dy + RFU"]
     pub mouseatoms: [t_atom; 16usize],
-    #[doc = "< argument count"]
+    #[doc = "argument count"]
     pub argc: ::std::os::raw::c_int,
-    #[doc = "< mouse event type"]
+    #[doc = "mouse event type"]
     pub mousesymbol: *mut t_symbol,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -22814,11 +22814,11 @@ const _: () = {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct t_wind_key_info {
-    #[doc = "< keycode, textcharacter, (up/down), cmdKey, shiftKey, alphaLock, option, control."]
+    #[doc = "keycode, textcharacter, (up/down), cmdKey, shiftKey, alphaLock, option, control."]
     pub keyatoms: [t_atom; 8usize],
-    #[doc = "< argument count"]
+    #[doc = "argument count"]
     pub argc: ::std::os::raw::c_int,
-    #[doc = "< key event type"]
+    #[doc = "key event type"]
     pub keysymbol: *mut t_symbol,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -22837,13 +22837,13 @@ pub type t_point_3d = [f32; 3usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct t_jit_gl_texture_info {
-    #[doc = "< texture colormode"]
+    #[doc = "texture colormode"]
     pub colormode: *mut t_symbol,
-    #[doc = "< texture data type (char, float32, ...)"]
+    #[doc = "texture data type (char, float32, ...)"]
     pub type_: *mut t_symbol,
-    #[doc = "< texture dimensions"]
+    #[doc = "texture dimensions"]
     pub dim: [::std::os::raw::c_int; 3usize],
-    #[doc = "< number of texture dimensions"]
+    #[doc = "number of texture dimensions"]
     pub dimcount: ::std::os::raw::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -24796,19 +24796,19 @@ unsafe extern "C" {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_glchunk {
-    #[doc = "< drawing primitive. \"tri_strip\", \"tri\", \"quads\", \"quad_grid\", etc."]
+    #[doc = "drawing primitive. \"tri_strip\", \"tri\", \"quads\", \"quad_grid\", etc."]
     pub prim: *mut t_symbol,
-    #[doc = "< vertex matrix containing xyzst... data"]
+    #[doc = "vertex matrix containing xyzst... data"]
     pub m_vertex: *mut t_jit_object,
-    #[doc = "< vertex matrix name"]
+    #[doc = "vertex matrix name"]
     pub m_vertex_name: *mut t_symbol,
-    #[doc = "< optional 1d matrix of vertex indices to use with drawing primitive"]
+    #[doc = "optional 1d matrix of vertex indices to use with drawing primitive"]
     pub m_index: *mut t_jit_object,
-    #[doc = "< index matrix name"]
+    #[doc = "index matrix name"]
     pub m_index_name: *mut t_symbol,
-    #[doc = "< chunk flags to ignore texture, normal, color, or edge planes when drawing"]
+    #[doc = "chunk flags to ignore texture, normal, color, or edge planes when drawing"]
     pub m_flags: ::std::os::raw::c_ulong,
-    #[doc = "< pointer to next chunk for drawing a list of chunks together"]
+    #[doc = "pointer to next chunk for drawing a list of chunks together"]
     pub next_chunk: *mut ::std::os::raw::c_void,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -31267,11 +31267,11 @@ pub mod t_jit_gl_target_type {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_gl_drawinfo {
-    #[doc = "< current t_jit_gl_context"]
+    #[doc = "current t_jit_gl_context"]
     pub ctx: t_jit_gl_context,
-    #[doc = "< object's t_jit_ob3d pointer"]
+    #[doc = "object's t_jit_ob3d pointer"]
     pub ob3d: *mut ::std::os::raw::c_void,
-    #[doc = "< reserved for future use"]
+    #[doc = "reserved for future use"]
     pub rfu: [*mut ::std::os::raw::c_void; 6usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -31671,64 +31671,64 @@ pub type t_jit_gl_context_view_cache = _jit_gl_context_view_cache;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct _jit_gl_context_view {
-    #[doc = "< jitter object"]
+    #[doc = "jitter object"]
     pub ob: t_object,
-    #[doc = "< rebuild flag"]
+    #[doc = "rebuild flag"]
     pub rebuild: ::std::os::raw::c_long,
-    #[doc = "< OpenGL context"]
+    #[doc = "OpenGL context"]
     pub context: t_jit_gl_context,
-    #[doc = "< data for mouse events"]
+    #[doc = "data for mouse events"]
     pub mouse_info: t_wind_mouse_info,
-    #[doc = "< data for mouse wheel events"]
+    #[doc = "data for mouse wheel events"]
     pub mousewheel_info: t_wind_mousewheel_info,
-    #[doc = "< data for key events"]
+    #[doc = "data for key events"]
     pub key_info: t_wind_key_info,
-    #[doc = "< flag for whether the context can rebuild or not"]
+    #[doc = "flag for whether the context can rebuild or not"]
     pub canrebuild: ::std::os::raw::c_long,
-    #[doc = "< double buffer flag"]
+    #[doc = "double buffer flag"]
     pub doublebuffer: ::std::os::raw::c_long,
-    #[doc = "< depth buffer flag"]
+    #[doc = "depth buffer flag"]
     pub depthbuffer: ::std::os::raw::c_long,
-    #[doc = "< active stereo flag"]
+    #[doc = "active stereo flag"]
     pub stereo: ::std::os::raw::c_long,
-    #[doc = "< frame of context"]
+    #[doc = "frame of context"]
     pub frame: t_jit_rect,
-    #[doc = "< FSAA flag"]
+    #[doc = "FSAA flag"]
     pub fsaa: ::std::os::raw::c_long,
-    #[doc = "< V-sync flag"]
+    #[doc = "V-sync flag"]
     pub sync: ::std::os::raw::c_long,
-    #[doc = "< Shader context flag"]
+    #[doc = "Shader context flag"]
     pub shared: ::std::os::raw::c_long,
-    #[doc = "< Hashtab of shared context names"]
+    #[doc = "Hashtab of shared context names"]
     pub shared_contexts: *mut t_hashtab,
-    #[doc = "< Idlemouse flag (events on mouse move)"]
+    #[doc = "Idlemouse flag (events on mouse move)"]
     pub idlemouse: ::std::os::raw::c_long,
-    #[doc = "< mosuewheel flag (events on mouse wheel)"]
+    #[doc = "mosuewheel flag (events on mouse wheel)"]
     pub mousewheel: ::std::os::raw::c_long,
-    #[doc = "< target object we're controlled by"]
+    #[doc = "target object we're controlled by"]
     pub target: *mut ::std::os::raw::c_void,
-    #[doc = "< target type we're controlled by"]
+    #[doc = "target type we're controlled by"]
     pub targettype: ::std::os::raw::c_long,
-    #[doc = "< name of the view"]
+    #[doc = "name of the view"]
     pub name: *mut t_symbol,
-    #[doc = "< flag for breaking cycles on reshape notification"]
+    #[doc = "flag for breaking cycles on reshape notification"]
     pub reshaping: ::std::os::raw::c_long,
-    #[doc = "< flag for if the owner handles reshaping the context"]
+    #[doc = "flag for if the owner handles reshaping the context"]
     pub ownerreshape: ::std::os::raw::c_long,
-    #[doc = "< in the process of freeing flag"]
+    #[doc = "in the process of freeing flag"]
     pub freeing: ::std::os::raw::c_long,
-    #[doc = "< in the process of creating flag"]
+    #[doc = "in the process of creating flag"]
     pub creating: ::std::os::raw::c_long,
-    #[doc = "< in the process of destroying flag"]
+    #[doc = "in the process of destroying flag"]
     pub destroying: ::std::os::raw::c_long,
     pub recreating: ::std::os::raw::c_long,
-    #[doc = "< scaling factor when drawing to retina display"]
+    #[doc = "scaling factor when drawing to retina display"]
     pub scalefactor: f32,
-    #[doc = "< allows for high resolution drawing when available"]
+    #[doc = "allows for high resolution drawing when available"]
     pub allow_hi_res: ::std::os::raw::c_long,
     pub view_valid: ::std::os::raw::c_char,
     pub first_frame: ::std::os::raw::c_char,
-    #[doc = "< patcher native window handle, for offscreen contexts"]
+    #[doc = "patcher native window handle, for offscreen contexts"]
     pub nativewinhandle: *mut ::std::os::raw::c_void,
     pub is_mfl: ::std::os::raw::c_char,
     pub threaded: ::std::os::raw::c_char,
@@ -32151,33 +32151,33 @@ pub mod t_max_jit_mop_flag {
     #[allow(unused_imports)]
     use super::*;
     pub type Type = ::std::os::raw::c_uint;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_NONE: Type = 0;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_ALL: Type = 268435455;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_JIT_MATRIX: Type = 1;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_BANG: Type = 2;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_OUTPUTMATRIX: Type = 4;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_NAME: Type = 8;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_TYPE: Type = 16;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_DIM: Type = 32;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_PLANECOUNT: Type = 64;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_CLEAR: Type = 128;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_NOTIFY: Type = 256;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_ADAPT: Type = 512;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_OWN_OUTPUTMODE: Type = 1024;
-    #[doc = "< mop flag @ingroup jitter"]
+    #[doc = "mop flag @ingroup jitter"]
     pub const MAX_JIT_MOP_FLAGS_ONLY_MATRIX_PROBE: Type = 268435456;
 }
 unsafe extern "C" {
