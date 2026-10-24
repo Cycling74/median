@@ -11,6 +11,7 @@ publish = false
 
 [dependencies]
 parking_lot = "0.12.5"
+serde_json = "1"
 max-sys = { path = "../max-sys" }
 
 [build-dependencies]

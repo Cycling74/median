@@ -268,7 +268,7 @@ fn sel_args() {
         F::TYPES
     }
     use max_sys::e_max_atomtypes::{A_FLOAT, A_LONG, A_SYM};
-    assert_eq!(types(zero), &[]);
+    assert!(types(zero).is_empty());
     assert_eq!(types(set), &[A_SYM]);
     assert_eq!(types(mixed), &[A_LONG, A_SYM]);
     assert_eq!(types(floats_and_others), &[A_FLOAT, A_LONG]);

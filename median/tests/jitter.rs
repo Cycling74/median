@@ -226,7 +226,7 @@ fn jitter_registration_callbacks_deferred_ownership_and_partial_construction() {
         let too_many = MatrixList::new(&[&fixture; 33]);
         assert_eq!(
             unsafe { calc(core, too_many.as_ptr(), std::ptr::null_mut()) },
-            max_sys::t_jit_error_code::JIT_ERR_OUT_OF_BOUNDS as _
+            max_sys::t_jit_error_code::JIT_ERR_OUT_OF_BOUNDS as max_sys::t_jit_err
         );
     }
     k.send_bang(obj).unwrap();

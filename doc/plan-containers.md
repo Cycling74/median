@@ -1,6 +1,7 @@
 # Plan: containers (dictionary, atomarray, string) and their ownership
 
-Status: core implementation and mock tests in progress on `xnor/api-redesign` (2026-10-22).
+Status: core and container helpers implemented on `xnor/api-redesign` (2026-10-23);
+in-memory JSON output and host validation remain open.
 Replaces the "merge feature/dict" step. Revised after a second review pass that
 re-verified every kernel citation; the changes from the first draft are listed in §9.
 
@@ -10,11 +11,16 @@ page `doxygen/content/datastore.h`, and the SDK examples in `source/dictionary/`
 headers do not document was verified against the kernel source; those rows are marked *kernel*
 in the table below and should be re-verified against a newer kernel before relying on them.
 
-## Implementation status (2026-10-22)
+## Implementation status (2026-10-23)
 
 Implemented in `median/src/dict.rs`: retained `Dict`, owned `AtomArray`, ordered keys,
 locked copy/retain reads, typed getters, path traversal, transfer/copy/shared insertion,
 removal, registry registration and lookup, snapshot-based copies, panic-safe transactions.
+`dict/io.rs` adds SDK JSON/atom parsing, file reads/writes and dump. Constructors initialize
+their output pointer and clean up partial results on error; writes/dump use private snapshots.
+`rename` selects the existing/new dictionary at another name, leaving the original unchanged.
+`notify_modified` delivers outside dictionary locks. Raw atom inspection, locked array access,
+and typed foreign-entry flags have explicit unsafe contracts.
 `#[dictionary]`, `#[savestate]`, public `Class::add_dictionary`/`add_savestate`, and
 `Outlet<Any>::send_dict` have end-to-end mock coverage, including missing names and panics.
 
@@ -40,8 +46,12 @@ Decisions made while implementing:
 
 Tests cover acceptance cases 1–9, including 10k concurrent iterations and simultaneous opposite
 cycle attempts, plus panic-safe transaction release and message/save callbacks. Max validation
-is still required. Remaining: JSON parsing/serialization, file I/O, rename/notification helpers,
-raw atom escape hatches, host tests, and the mock's less common external-entry flags/failures.
+is still required. Helper tests cover nested JSON, file round trips, null/partial-output errors,
+name switching, other-class registry collisions, notifications, weak entries, and raw atoms.
+List/anything outlets now reject object and unsupported atom types before delivery, returning
+`SendError`; dictionaries go through their registered name. The mock parser intentionally
+supports a subset of Max syntax, and cannot establish its coercions or file search behavior.
+Remaining: in-memory JSON serialization, host tests, and wider SDK failure/entry-flag coverage.
 `jsonwriter.getoutput` remains deliberately unimplemented until its contract is verified in Max.
 
 ## 1. What the kernel actually does

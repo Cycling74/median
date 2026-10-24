@@ -5,6 +5,8 @@
 //! `deep_clone` copies it. Inserting `&Dict` copies, while `insert_shared` explicitly shares.
 //! Objects placed in a dictionary by other externals must obey Max's ownership and locking rules.
 
+mod io;
+
 use crate::{
     atom::{Atom, AtomType, AtomValue},
     symbol::SymbolRef,
@@ -58,6 +60,19 @@ fn non_audio() {
 pub enum Ownership {
     Retained,
     Borrowed,
+}
+
+/// Ownership policy for foreign entries inserted with `insert_object`.
+#[derive(Clone, Copy, Debug)]
+pub enum ObjectFlags {
+    /// Transfer one reference, released with `object_free`.
+    Owned,
+    /// Borrow a live Max object; the dictionary does not release it.
+    Reference,
+    /// Opaque borrowed data, never released by the dictionary.
+    Data,
+    /// Transfer an allocation made by `sysmem_newptr`, freed by the dictionary.
+    Memory,
 }
 
 /// A non-owning object address. Safe code cannot dereference it or insert it into a dictionary.
@@ -253,6 +268,33 @@ impl Dict {
     pub fn insert(&self, key: SymbolRef, value: impl DictInsert) -> DictResult<()> {
         non_audio();
         value.insert_into(self, key)
+    }
+
+    /// Insert a foreign object/data pointer with an explicit SDK ownership flag.
+    ///
+    /// # Safety
+    /// `value` must satisfy `flags`' ownership policy. Borrowed objects/data must remain valid
+    /// while any dictionary/clone can access the entry. Owned references/allocations transfer
+    /// even on an ambiguous SDK failure; do not free them afterwards. Object entries must
+    /// obey Max's threading and cloning rules. Do not create dictionary cycles or store an
+    /// unlocked shared atomarray. Do not use `Memory` for a Max object.
+    pub unsafe fn insert_object(
+        &self,
+        key: SymbolRef,
+        value: *mut sys::t_object,
+        flags: ObjectFlags,
+    ) -> DictResult<()> {
+        let _graph = GRAPH.lock();
+        let _lock = self.lock();
+        let flags = match flags {
+            ObjectFlags::Owned => 0,
+            ObjectFlags::Reference => sys::e_max_datastore_flags::OBJ_FLAG_REF,
+            ObjectFlags::Data => sys::e_max_datastore_flags::OBJ_FLAG_DATA,
+            ObjectFlags::Memory => sys::e_max_datastore_flags::OBJ_FLAG_MEMORY,
+        };
+        check(unsafe {
+            sys::dictionary_appendobject_flags(self.as_ptr(), key.as_ptr(), value, flags as c_long)
+        })
     }
     /// Share a child, rejecting direct and indirect cycles made through this API.
     /// External C writers are outside the graph lock; do not create cycles through them.
@@ -478,6 +520,75 @@ impl Dict {
         non_audio();
         check(unsafe { sys::dictobj_unregister(self.as_ptr()) })
     }
+
+    /// Select the dictionary registered under `name`, creating an empty one if necessary.
+    /// This follows Max's `dict` name-switching behavior: it does not move/copy entries or
+    /// rename the shared dictionary behind other handles. Replace your handle with the result.
+    /// Selecting the current name simply retains, without registering it a second time.
+    pub fn rename(&self, name: SymbolRef) -> Result<Self, RegisterError> {
+        if self.name() == Some(name) {
+            return self.try_clone().map_err(RegisterError::Creation);
+        }
+        Self::new()
+            .map_err(RegisterError::Creation)?
+            .register(Some(name))
+            .map(|(d, _)| d)
+    }
+
+    /// Notify subscribers after modifying this dictionary. Delivery may synchronously call
+    /// other objects; call this outside a transaction so no dictionary lock spans their code.
+    pub fn notify_modified(&self) -> DictResult<()> {
+        non_audio();
+        debug_assert!(
+            TRANSACTIONS.with(|t| t.borrow().is_empty()),
+            "notify outside dictionary transactions"
+        );
+        check(unsafe {
+            sys::object_notify(
+                self.as_ptr().cast(),
+                crate::sym!("modified").as_ptr(),
+                std::ptr::null_mut(),
+            )
+        })
+    }
+
+    /// Borrow an atomarray entry while its dictionary remains locked. Other entry kinds
+    /// return `None`; no string-to-symbol conversion is performed.
+    ///
+    /// # Safety
+    /// During `f`, do not mutate this dictionary or the array through any handle or callback.
+    /// Object atoms are non-owning and must not be dereferenced without their own lifetime
+    /// guarantees. The array's contents must follow the SDK's valid-atom contract.
+    pub unsafe fn with_atoms_raw<R>(
+        &self,
+        key: SymbolRef,
+        f: impl FnOnce(&[Atom]) -> R,
+    ) -> DictResult<Option<R>> {
+        let _lock = self.lock();
+        if unsafe { sys::dictionary_entryisatomarray(self.as_ptr(), key.as_ptr()) } == 0 {
+            return Ok(None);
+        }
+        let mut array = std::ptr::null_mut();
+        check(unsafe { sys::dictionary_getatomarray(self.as_ptr(), key.as_ptr(), &mut array) })?;
+        if array.is_null() {
+            return Err(DictError::InvalidData);
+        }
+        let mut count = 0;
+        let mut atoms = std::ptr::null_mut();
+        check(unsafe { sys::atomarray_getatoms(array.cast(), &mut count, &mut atoms) })?;
+        let values = if count == 0 {
+            &[]
+        } else {
+            if count < 0
+                || atoms.is_null()
+                || count as usize > isize::MAX as usize / std::mem::size_of::<Atom>()
+            {
+                return Err(DictError::InvalidData);
+            }
+            unsafe { std::slice::from_raw_parts(atoms.cast::<Atom>(), count as usize) }
+        };
+        Ok(Some(f(values)))
+    }
 }
 impl Clone for Dict {
     fn clone(&self) -> Self {
@@ -497,6 +608,7 @@ impl Drop for Dict {
 
 #[derive(Debug)]
 pub enum RegisterError {
+    Creation(DictError),
     AlreadyRegistered(Dict),
     InvalidName(Dict),
     NameTakenByOtherClass,
@@ -599,7 +711,7 @@ impl DictInsert for &Dict {
     }
 }
 
-unsafe fn copy_array(p: *mut sys::t_atomarray) -> DictResult<Vec<Atom>> {
+pub(crate) unsafe fn copy_array(p: *mut sys::t_atomarray) -> DictResult<Vec<Atom>> {
     let mut n = 0;
     let mut atoms = std::ptr::null_mut();
     check(unsafe { sys::atomarray_getatoms(p, &mut n, &mut atoms) })?;

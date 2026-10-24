@@ -1,8 +1,12 @@
 //! Reference counts, recursive transaction locks, ordered dictionary entries, and atomarrays.
 //! The C entry points require live pointers, writable output parameters and valid atom slices,
 //! exactly as the SDK does. Arrays have no independent locking contract; a containing dictionary
-//! must be transaction-locked while a borrowed array is copied. JSON/file APIs are not modelled.
+//! must be transaction-locked while a borrowed array is copied. JSON/file APIs implement a
+//! subset for ownership tests; they do not reproduce every Max parser coercion or path lookup.
 #![allow(clippy::missing_safety_doc)] // Shared SDK pointer contract above, for these mock exports.
+
+mod io;
+pub use io::fail_next_constructor;
 
 use crate::{
     atoms::Atom,
@@ -75,11 +79,21 @@ fn alloc(body: Body) -> usize {
 }
 fn release_entry(e: Entry) {
     match e {
+        Entry::Object(_, flags)
+            if flags
+                & (e_max_datastore_flags::OBJ_FLAG_REF | e_max_datastore_flags::OBJ_FLAG_DATA)
+                    as c_long
+                != 0 => {}
         Entry::Dict(p) | Entry::Array(p) => unsafe {
             crate::class::object_free(p as *mut c_void);
         },
         Entry::Object(p, 0) => unsafe {
             crate::class::object_free(p as *mut c_void);
+        },
+        Entry::Object(p, flags)
+            if flags & e_max_datastore_flags::OBJ_FLAG_MEMORY as c_long != 0 =>
+        unsafe {
+            crate::sysmem::sysmem_freeptr(p as *mut c_void);
         },
         _ => (),
     }
@@ -97,6 +111,7 @@ pub(crate) fn release(p: usize) -> bool {
         s.names.retain(|_, v| *v != p);
         s.objects.remove(&p).unwrap().object
     };
+    crate::notify::unregister_addr(p);
     let lock = object.body.lock();
     if let Body::Dict(entries) = &mut *lock.borrow_mut() {
         for (_, e) in std::mem::take(entries) {
@@ -109,6 +124,7 @@ pub(crate) fn release(p: usize) -> bool {
     true
 }
 pub(crate) fn reset() {
+    io::reset();
     let objects = {
         let mut s = STORE.lock();
         s.names.clear();
@@ -532,6 +548,7 @@ pub unsafe extern "C" fn dictobj_namefromptr(d: *mut t_dictionary) -> *mut t_sym
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn dictobj_unregister(d: *mut t_dictionary) -> t_max_err {
     STORE.lock().names.retain(|_, p| *p != d as usize);
+    crate::notify::unregister_addr(d as usize);
     0
 }
 #[unsafe(no_mangle)]
@@ -548,13 +565,16 @@ pub unsafe extern "C" fn dictobj_register(
     d: *mut t_dictionary,
     name: *mut *mut t_symbol,
 ) -> *mut t_dictionary {
+    let registry = crate::state::state().registry.clone();
     let mut s = STORE.lock();
     let mut n = unsafe { *name };
     if n.is_null() || name_of(n as usize).is_empty() {
         loop {
             s.next_name += 1;
             n = intern(format!("u{}", s.next_name).as_bytes());
-            if !s.names.contains_key(&(n as usize)) {
+            if !s.names.contains_key(&(n as usize))
+                && !registry.contains_key(&("dictionary".into(), name_of(n as usize)))
+            {
                 break;
             }
         }
@@ -573,13 +593,66 @@ pub unsafe extern "C" fn dictobj_register(
         }
         return existing as _;
     }
+    if registry.contains_key(&("dictionary".into(), name_of(n as usize))) {
+        drop(s);
+        release(d as usize);
+        return std::ptr::null_mut();
+    }
     s.names.insert(n as usize, d as usize);
+    drop(s);
+    crate::notify::register_with_class(
+        "dictionary",
+        &name_of(n as usize),
+        d as usize,
+        Some("dictionary"),
+    );
     d
+}
+
+fn atom_container(atom: &t_atom) -> Option<Arc<Container>> {
+    let Atom::Obj(p) = Atom::from_raw(atom) else {
+        return None;
+    };
+    STORE.lock().objects.get(&p).map(|r| r.object.clone())
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn atomisdictionary(atom: *mut t_atom) -> c_long {
+    atom_container(unsafe { &*atom })
+        .is_some_and(|object| matches!(*object.body.lock().borrow(), Body::Dict(_))) as c_long
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn atomisatomarray(atom: *mut t_atom) -> c_long {
+    atom_container(unsafe { &*atom })
+        .is_some_and(|object| matches!(*object.body.lock().borrow(), Body::Array(_))) as c_long
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn borrowed_entry_flags_suppress_release_even_with_memory_flag() {
+        let _k = crate::lock();
+        for flags in [
+            e_max_datastore_flags::OBJ_FLAG_REF,
+            e_max_datastore_flags::OBJ_FLAG_DATA,
+        ] {
+            let ptr = alloc(Body::Dict(Vec::new()));
+            release_entry(Entry::Object(
+                ptr,
+                (flags | e_max_datastore_flags::OBJ_FLAG_MEMORY) as c_long,
+            ));
+            assert_eq!(live_count(), 1);
+            release(ptr);
+        }
+        let ptr = alloc(Body::Dict(Vec::new()));
+        release_entry(Entry::Object(ptr, 0));
+        assert_eq!(live_count(), 0);
+        let ptr = unsafe { crate::sysmem::sysmem_newptr(16) };
+        release_entry(Entry::Object(
+            ptr as usize,
+            e_max_datastore_flags::OBJ_FLAG_MEMORY as c_long,
+        ));
+    }
     #[test]
     fn ownership_registry_and_string_conversion_match_sdk() {
         let _kernel = crate::lock();

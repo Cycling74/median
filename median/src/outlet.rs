@@ -35,6 +35,9 @@
 //! The kind of an outlet is part of its type ([`Bang`], [`Int`], [`Float`], [`List`], [`Any`],
 //! and [`Signal`] for MSP objects), and gives what `send` takes. It is also the type Max uses to
 //! check connections, and the default assist text.
+//! Lists and anything messages accept integer, float and symbol atoms. Object atoms and
+//! unsupported atom types are rejected before delivery, even beyond the SDK's length limit.
+//! Send a registered dictionary with [`Outlet::send_dict`] instead of an object pointer.
 //!
 //! # Threads
 //!
@@ -63,19 +66,54 @@ impl fmt::Display for StackOverflow {
 impl std::error::Error for StackOverflow {}
 
 /// What sending through an outlet returns.
-pub type SendResult = Result<(), StackOverflow>;
+pub type SendResult = Result<(), SendError>;
+
+/// An outlet rejected the message before delivery, or Max stopped it on stack overflow.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SendError {
+    StackOverflow,
+    ObjectAtom,
+    InvalidAtom,
+}
+impl fmt::Display for SendError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::StackOverflow => "stack overflow",
+            Self::ObjectAtom => {
+                "object atoms cannot be sent on an outlet; send a dictionary name instead"
+            }
+            Self::InvalidAtom => "unsupported outlet atom type",
+        })
+    }
+}
+impl std::error::Error for SendError {}
+impl From<StackOverflow> for SendError {
+    fn from(_: StackOverflow) -> Self {
+        Self::StackOverflow
+    }
+}
+fn validate_message(atoms: &[Atom]) -> SendResult {
+    for atom in atoms {
+        match atom.get_type() {
+            Some(crate::atom::AtomType::Object) => return Err(SendError::ObjectAtom),
+            None => return Err(SendError::InvalidAtom),
+            _ => (),
+        }
+    }
+    Ok(())
+}
 
 /// A dictionary must be registered before its name can be sent.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DictSendError {
     Unregistered,
-    StackOverflow(StackOverflow),
+    Send(SendError),
 }
 impl fmt::Display for DictSendError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unregistered => f.write_str("dictionary is not registered"),
-            Self::StackOverflow(e) => e.fmt(f),
+            Self::Send(e) => e.fmt(f),
         }
     }
 }
@@ -232,7 +270,7 @@ impl<K: OutletKind> Outlet<K> {
         }
         //the outlet functions return null for a stack overflow, non-null otherwise
         if f(self.inner).is_null() {
-            Err(StackOverflow)
+            Err(SendError::StackOverflow)
         } else {
             Ok(())
         }
@@ -294,8 +332,9 @@ impl Outlet<List> {
         OutletDesc::new()
     }
 
-    /// Send a list (at most 32767 atoms are sent).
+    /// Send a list (at most 32767 atoms are sent). Object/unsupported atoms reject the whole message.
     pub fn send(&self, atoms: &[Atom]) -> SendResult {
+        validate_message(atoms)?;
         // SAFETY: as in `Outlet<Bang>::send`; `atoms` is valid for `list_len(atoms)` atoms
         self.send_with(|o| unsafe {
             max_sys::outlet_list(
@@ -315,7 +354,7 @@ impl Outlet<Any> {
     pub fn send_dict(&self, dict: &crate::dict::Dict) -> Result<SymbolRef, DictSendError> {
         let name = dict.name().ok_or(DictSendError::Unregistered)?;
         self.send(&crate::sym!("dictionary"), &[name.into()])
-            .map_err(DictSendError::StackOverflow)?;
+            .map_err(DictSendError::Send)?;
         Ok(name)
     }
     /// Describe an outlet that sends any message.
@@ -323,8 +362,9 @@ impl Outlet<Any> {
         OutletDesc::new()
     }
 
-    /// Send the message `sel atoms...` (at most 32767 atoms are sent).
+    /// Send `sel atoms...` (at most 32767 atoms). Object/unsupported atoms reject the whole message.
     pub fn send(&self, sel: &SymbolRef, atoms: &[Atom]) -> SendResult {
+        validate_message(atoms)?;
         // SAFETY: as in `Outlet<List>::send`
         self.send_with(|o| unsafe {
             max_sys::outlet_anything(o as _, sel.as_ptr(), list_len(atoms), atoms_ptr(atoms))
@@ -349,8 +389,9 @@ impl Outlet<Any> {
         self.send_with(|o| unsafe { max_sys::outlet_float(o as _, v) })
     }
 
-    /// Send a list (at most 32767 atoms are sent).
+    /// Send a list (at most 32767 atoms are sent). Object/unsupported atoms reject the whole message.
     pub fn send_list(&self, atoms: &[Atom]) -> SendResult {
+        validate_message(atoms)?;
         // SAFETY: as in `Outlet<List>::send`
         self.send_with(|o| unsafe {
             max_sys::outlet_list(

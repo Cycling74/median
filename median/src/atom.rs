@@ -28,6 +28,51 @@ pub struct Atom {
 }
 
 impl Atom {
+    /// Store a non-owning object pointer. An atom never retains or releases it.
+    ///
+    /// # Safety
+    /// Keep the pointee alive whenever this atom is passed to APIs that inspect the object.
+    /// Object atoms cannot be sent through median's ordinary list/anything outlets.
+    pub unsafe fn from_object_raw(ptr: *mut max_sys::t_object) -> Self {
+        Self::from(ptr.cast::<c_void>())
+    }
+
+    /// Retain the dictionary referenced by an object atom, if it is a dictionary.
+    ///
+    /// # Safety
+    /// Any non-null object pointer in this atom must be a live Max object for this call.
+    /// A dictionary must satisfy `Dict::from_raw`'s locking/child-ownership contract.
+    pub unsafe fn as_dict_unchecked(&self) -> crate::dict::DictResult<Option<crate::dict::Dict>> {
+        if !matches!(self.get_type(), Some(AtomType::Object)) || self.get_obj().is_null() {
+            return Ok(None);
+        }
+        let mut atom = self.value;
+        if unsafe { max_sys::atomisdictionary(&mut atom) } == 0 {
+            return Ok(None);
+        }
+        unsafe {
+            crate::dict::Dict::from_raw(self.get_obj().cast(), crate::dict::Ownership::Borrowed)
+        }
+        .map(Some)
+    }
+
+    /// Copy an atomarray referenced by an object atom, if it is an atomarray.
+    ///
+    /// # Safety
+    /// Any non-null object pointer must be a live Max object. Keep the array alive and exclude
+    /// mutation while it is copied (e.g. hold its containing dictionary's transaction lock).
+    /// Copied object atoms are still non-owning.
+    pub unsafe fn as_atomarray_unchecked(&self) -> crate::dict::DictResult<Option<Vec<Atom>>> {
+        if !matches!(self.get_type(), Some(AtomType::Object)) || self.get_obj().is_null() {
+            return Ok(None);
+        }
+        let mut atom = self.value;
+        if unsafe { max_sys::atomisatomarray(&mut atom) } == 0 {
+            return Ok(None);
+        }
+        unsafe { crate::dict::copy_array(self.get_obj().cast()) }.map(Some)
+    }
+
     pub fn get_type(&self) -> Option<AtomType> {
         unsafe {
             let t = max_sys::atom_gettype(&self.value as _) as max_sys::e_max_atomtypes::Type;

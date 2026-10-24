@@ -275,7 +275,7 @@ pub mod prelude {
         num::{Float32, Float64, Int64},
         object::{MaxObj, ObjRef},
         object_error, object_post, object_warn,
-        outlet::{Any, Bang, Float, Int, List, Outlet, Signal, StackOverflow},
+        outlet::{Any, Bang, Float, Int, List, Outlet, SendError, Signal, StackOverflow},
         post,
         queue::Queue,
         sym,

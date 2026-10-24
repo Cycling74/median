@@ -118,6 +118,7 @@ new_error_from!(
     std::fmt::Error,
     std::io::Error,
     crate::outlet::StackOverflow,
+    crate::outlet::SendError,
 );
 
 #[cfg(test)]

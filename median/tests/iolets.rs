@@ -50,6 +50,29 @@ impl MaxObjWrapped for IoMax {
 
 #[median::methods]
 impl IoMax {
+    #[sel("reject_objects")]
+    pub fn reject_objects(&self) {
+        // An opaque value must be rejected without dereferencing it or delivering anything.
+        let atom = Atom::from(std::ptr::dangling_mut::<core::ffi::c_void>());
+        assert_eq!(
+            self.list.send(std::slice::from_ref(&atom)),
+            Err(SendError::ObjectAtom)
+        );
+        assert_eq!(
+            self.any
+                .send(&median::sym!("opaque"), std::slice::from_ref(&atom)),
+            Err(SendError::ObjectAtom)
+        );
+        assert_eq!(
+            self.any.send_list(std::slice::from_ref(&atom)),
+            Err(SendError::ObjectAtom)
+        );
+        let mut beyond_limit: Vec<Atom> = (0..32768).map(|_| 1i64.into()).collect();
+        beyond_limit[32767] = atom;
+        assert_eq!(self.list.send(&beyond_limit), Err(SendError::ObjectAtom));
+        self.obj.post("rejected objects");
+    }
+
     #[bang]
     pub fn bang(&self) {
         self.obj
@@ -70,7 +93,10 @@ impl IoMax {
             self.any.send_list(&[SymbolRef::from(c"x").into()]),
         ];
         let ok = results.iter().filter(|r| r.is_ok()).count();
-        let overflow = results.iter().filter(|r| **r == Err(StackOverflow)).count();
+        let overflow = results
+            .iter()
+            .filter(|r| **r == Err(SendError::StackOverflow))
+            .count();
         self.obj.post(format!("sent {ok}, overflow {overflow}"));
     }
 }
@@ -402,7 +428,7 @@ fn typed_outlets_send_with_the_right_outlet_calls() {
         log.last().map(|e| e.text.as_str()),
         Some("sent 9, overflow 0")
     );
-    //a stack overflow: each send is an `Err(StackOverflow)` and nothing goes out
+    //a stack overflow: each send is an `Err(SendError::StackOverflow)` and nothing goes out
     k.set_outlet_overflow(true);
     k.send(obj, "fire", &[]).unwrap();
     assert!(k.take_outlet_log().is_empty());
@@ -412,6 +438,16 @@ fn typed_outlets_send_with_the_right_outlet_calls() {
         Some("sent 0, overflow 9")
     );
     k.set_outlet_overflow(false);
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn object_atoms_are_rejected_before_outlet_delivery() {
+    let k = setup();
+    let obj = k.new_object("io.max", &[]);
+    k.send(obj, "reject_objects", &[]).unwrap();
+    assert!(k.take_outlet_log().is_empty());
+    assert_eq!(posts(&k), ["rejected objects"]);
     assert!(k.free_object(obj));
 }
 
