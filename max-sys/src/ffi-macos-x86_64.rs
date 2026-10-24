@@ -38,7 +38,7 @@ pub type t_bool = t_uint8;
 pub mod e_max_errorcodes {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Standard values returned by function calls with a return type of #t_max_err\n@ingroup misc"]
+    #[doc = "Standard values returned by function calls with a return type of #t_max_err\n@ingroup misc"]
     pub type Type = ::std::os::raw::c_int;
     #[doc = "< No error"]
     pub const MAX_ERR_NONE: Type = 0;
@@ -73,14 +73,14 @@ unsafe extern "C" {
         ...
     ) -> ::std::os::raw::c_int;
 }
-#[doc = "\tFunction pointer type for generic methods.\n@ingroup datatypes"]
+#[doc = "Function pointer type for generic methods.\n@ingroup datatypes"]
 pub type method = ::std::option::Option<
     unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void,
 >;
 pub type t_intmethod = ::std::option::Option<
     unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_long,
 >;
-#[doc = " The atomarray object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup atomarray"]
+#[doc = "The atomarray object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup atomarray"]
 pub type t_atomarray = _atomarray;
 pub type t_outlet = ::std::os::raw::c_void;
 pub type t_inlet = ::std::os::raw::c_void;
@@ -90,7 +90,7 @@ pub type t_scheduler = ::std::os::raw::c_void;
 pub type t_clock = ::std::os::raw::c_void;
 pub type t_setclock = ::std::os::raw::c_void;
 pub type t_toolfile = ::std::os::raw::c_void;
-#[doc = " The symbol.\n\nNote: You should <em>never</em> manipulate the s_name field of the #t_symbol directly!\nDoing so will corrupt Max's symbol table.\nInstead, <em>always</em> use gensym() to get a symbol with the desired string\ncontents for the s_name field.\n\n@ingroup symbol"]
+#[doc = "The symbol.\n\nNote: You should <em>never</em> manipulate the s_name field of the #t_symbol directly!\nDoing so will corrupt Max's symbol table.\nInstead, <em>always</em> use gensym() to get a symbol with the desired string\ncontents for the s_name field.\n\n@ingroup symbol"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct symbol {
@@ -106,13 +106,13 @@ const _: () = {
     ["Offset of field: symbol::s_name"][::std::mem::offset_of!(symbol, s_name) - 0usize];
     ["Offset of field: symbol::s_thing"][::std::mem::offset_of!(symbol, s_thing) - 8usize];
 };
-#[doc = " The symbol.\n\nNote: You should <em>never</em> manipulate the s_name field of the #t_symbol directly!\nDoing so will corrupt Max's symbol table.\nInstead, <em>always</em> use gensym() to get a symbol with the desired string\ncontents for the s_name field.\n\n@ingroup symbol"]
+#[doc = "The symbol.\n\nNote: You should <em>never</em> manipulate the s_name field of the #t_symbol directly!\nDoing so will corrupt Max's symbol table.\nInstead, <em>always</em> use gensym() to get a symbol with the desired string\ncontents for the s_name field.\n\n@ingroup symbol"]
 pub type t_symbol = symbol;
 unsafe extern "C" {
-    #[doc = " function version of NOGOOD test is potentially more reliable"]
+    #[doc = "function version of NOGOOD test is potentially more reliable"]
     pub fn object_isnogood(x: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_long;
 }
-#[doc = " A list of symbols and their corresponding methods,\ncomplete with typechecking information.\n@ingroup obj"]
+#[doc = "A list of symbols and their corresponding methods,\ncomplete with typechecking information.\n@ingroup obj"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct messlist {
@@ -131,9 +131,9 @@ const _: () = {
     ["Offset of field: messlist::m_fun"][::std::mem::offset_of!(messlist, m_fun) - 8usize];
     ["Offset of field: messlist::m_type"][::std::mem::offset_of!(messlist, m_type) - 16usize];
 };
-#[doc = " A list of symbols and their corresponding methods,\ncomplete with typechecking information.\n@ingroup obj"]
+#[doc = "A list of symbols and their corresponding methods,\ncomplete with typechecking information.\n@ingroup obj"]
 pub type t_messlist = messlist;
-#[doc = " The structure for the head of any object which wants to have inlets or outlets,\nor support attributes.\n@ingroup obj"]
+#[doc = "The structure for the head of any object which wants to have inlets or outlets,\nor support attributes.\n@ingroup obj"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct object {
@@ -155,7 +155,7 @@ const _: () = {
     ["Offset of field: object::o_inlet"][::std::mem::offset_of!(object, o_inlet) - 16usize];
     ["Offset of field: object::o_outlet"][::std::mem::offset_of!(object, o_outlet) - 24usize];
 };
-#[doc = " The structure for the head of any object which wants to have inlets or outlets,\nor support attributes.\n@ingroup obj"]
+#[doc = "The structure for the head of any object which wants to have inlets or outlets,\nor support attributes.\n@ingroup obj"]
 pub type t_object = object;
 #[doc = "The data structure for a Max class. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup class"]
 #[repr(C)]
@@ -225,7 +225,7 @@ pub type t_class = maxclass;
 pub mod e_max_class_flags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Class flags. If not box or polyglot, class is only accessible in C via known interface\n@ingroup class"]
+    #[doc = "Class flags. If not box or polyglot, class is only accessible in C via known interface\n@ingroup class"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< for use in a patcher"]
     pub const CLASS_FLAG_BOX: Type = 1;
@@ -267,7 +267,7 @@ pub mod e_max_class_flags {
 pub mod e_max_atomtypes {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " the list of officially recognized types, including pseudotypes for\ncommas and semicolons.  Used in two places: 1. the reader, when it reads\na string, returns long, float, sym, comma, semi, or dollar;\nand 2. each object method comes with an array of them saying what types\nit needs, from among long, float, sym, obj, gimme, and cant.\n\n@ingroup atom\n\n@remark\tWhile these values are defined in an enum, you should use a long to represent the value.\nUsing the enum type creates ambiguity in struct size and is subject to various inconsistent\ncompiler settings."]
+    #[doc = "the list of officially recognized types, including pseudotypes for\ncommas and semicolons.  Used in two places: 1. the reader, when it reads\na string, returns long, float, sym, comma, semi, or dollar;\nand 2. each object method comes with an array of them saying what types\nit needs, from among long, float, sym, obj, gimme, and cant.\n\n@ingroup atom\n\n@remark\tWhile these values are defined in an enum, you should use a long to represent the value.\nUsing the enum type creates ambiguity in struct size and is subject to various inconsistent\ncompiler settings."]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< no type, thus no atom"]
     pub const A_NOTHING: Type = 0;
@@ -308,7 +308,7 @@ pub mod e_max_atomtypes {
     #[doc = "< A special signature for declaring methods. This is like A_GIMME, but the call is deferred to the back of the queue and multiple calls within one servicing of the queue are filtered down to one call."]
     pub const A_USURP_LOW: Type = 68;
 }
-#[doc = " Union for packing any of the datum defined in #e_max_atomtypes.\n@ingroup atom"]
+#[doc = "Union for packing any of the datum defined in #e_max_atomtypes.\n@ingroup atom"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union word {
@@ -330,7 +330,7 @@ const _: () = {
     ["Offset of field: word::w_sym"][::std::mem::offset_of!(word, w_sym) - 0usize];
     ["Offset of field: word::w_obj"][::std::mem::offset_of!(word, w_obj) - 0usize];
 };
-#[doc = " An atom is a typed datum.\n@ingroup atom"]
+#[doc = "An atom is a typed datum.\n@ingroup atom"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct atom {
@@ -344,7 +344,7 @@ const _: () = {
     ["Offset of field: atom::a_type"][::std::mem::offset_of!(atom, a_type) - 0usize];
     ["Offset of field: atom::a_w"][::std::mem::offset_of!(atom, a_w) - 8usize];
 };
-#[doc = " An atom is a typed datum.\n@ingroup atom"]
+#[doc = "An atom is a typed datum.\n@ingroup atom"]
 pub type t_atom = atom;
 unsafe extern "C" {
     pub fn stdinletinfo(
@@ -354,7 +354,7 @@ unsafe extern "C" {
         t: *mut ::std::os::raw::c_char,
     );
 }
-#[doc = "\tA patcher. As of Max 5, the patcher struct is opaque.\nMessages can be sent to a patcher using object_method() or object_method_typed(), or by using @ref attr accessors.\n@ingroup patcher"]
+#[doc = "A patcher. As of Max 5, the patcher struct is opaque.\nMessages can be sent to a patcher using object_method() or object_method_typed(), or by using @ref attr accessors.\n@ingroup patcher"]
 pub type t_patcher = t_object;
 unsafe extern "C" {
     pub fn swapf32(f: f32) -> f32;
@@ -430,7 +430,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tAdd memory to an existing handle and copy memory to the resized portion from a pointer.\nUnlike sysmem_ptrandhand(), however, this copies the ptr before the previously exising handle data.\n\n@ingroup memory\n@param\tp\t\tThe existing pointer whose data will be copied into the resized handle.\n@param\th\t\tThe handle which will be enlarged by the size of the pointer.\n@param\tsize\tThe size in bytes that will be added to the handle.\n@return\t\t\tAn error code."]
+    #[doc = "Add memory to an existing handle and copy memory to the resized portion from a pointer.\nUnlike sysmem_ptrandhand(), however, this copies the ptr before the previously exising handle data.\n\n@ingroup memory\n@param\tp\t\tThe existing pointer whose data will be copied into the resized handle.\n@param\th\t\tThe handle which will be enlarged by the size of the pointer.\n@param\tsize\tThe size in bytes that will be added to the handle.\n@return\t\t\tAn error code."]
     pub fn sysmem_ptrbeforehand(
         p: *mut ::std::os::raw::c_void,
         h: t_handle,
@@ -438,7 +438,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a null terminator to a handle.\n@ingroup memory\n@param\th\t\tA handle to null terminate.\n@return\t\t\tAn error code."]
+    #[doc = "Add a null terminator to a handle.\n@ingroup memory\n@param\th\t\tA handle to null terminate.\n@return\t\t\tAn error code."]
     pub fn sysmem_nullterminatehandle(h: t_handle) -> t_max_err;
 }
 #[repr(C)]
@@ -447,12 +447,12 @@ pub struct _filestruct {
     _unused: [u8; 0],
 }
 pub type t_filestruct = _filestruct;
-#[doc = " A t_filehandle is a cross-platform way of referring to an open file.\nIt is an opaque structure, meaning you don’t have access to the individual\nelements of the data structure. You can use a t_filehandle only\nwith the file routines in the Sysfile API. Do not use other platform-\nspecific file functions in conjunction with these functions.\nThe perm parameter can be either READ_PERM, WRITE_PERM, or RW_PERM.\n\n@ingroup files"]
+#[doc = "A t_filehandle is a cross-platform way of referring to an open file.\nIt is an opaque structure, meaning you don’t have access to the individual\nelements of the data structure. You can use a t_filehandle only\nwith the file routines in the Sysfile API. Do not use other platform-\nspecific file functions in conjunction with these functions.\nThe perm parameter can be either READ_PERM, WRITE_PERM, or RW_PERM.\n\n@ingroup files"]
 pub type t_filehandle = *mut t_filestruct;
 pub mod t_sysfile_pos_mode {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Modes used by sysfile_setpos()\n@ingroup files"]
+    #[doc = "Modes used by sysfile_setpos()\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< ?"]
     pub const SYSFILE_ATMARK: Type = 0;
@@ -483,7 +483,7 @@ pub mod t_sysfile_flags {
 pub mod t_sysfile_text_flags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Flags used reading and writing text files.\n@ingroup files"]
+    #[doc = "Flags used reading and writing text files.\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Use the linebreak format native to the current platform."]
     pub const TEXT_LB_NATIVE: Type = 1;
@@ -500,11 +500,11 @@ pub mod t_sysfile_text_flags {
     pub const TEXT_NULL_TERMINATE: Type = 512;
 }
 unsafe extern "C" {
-    #[doc = "\tClose a file opened with sysfile_open().\nThis function is similar to FSClose() or fclose().\nIt should be used instead of system-specific file closing routines in order to make max external\ncode that will compile cross-platform.\n\n@ingroup\tfiles\n@param\tf\tThe #t_filehandle structure of the file the user wants to close.\n@return\t\tAn error code."]
+    #[doc = "Close a file opened with sysfile_open().\nThis function is similar to FSClose() or fclose().\nIt should be used instead of system-specific file closing routines in order to make max external\ncode that will compile cross-platform.\n\n@ingroup\tfiles\n@param\tf\tThe #t_filehandle structure of the file the user wants to close.\n@return\t\tAn error code."]
     pub fn sysfile_close(f: t_filehandle) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRead a file from disk.\nThis function is similar to FSRead() or fread(). It should be used instead of\nthese functions (or other system-specific file reading routines) in order\nto make max external code that will compile cross-platform. It reads\n\"count\" bytes from file handle at current file position into \"bufptr\".\nThe byte count actually read is set in \"count\", and the file position is\nupdated by the actual byte count read.\n\n@ingroup files\n@param\tf\t\tThe #t_filehandle structure of the file the user wants to open.\n@param\tcount\tPointer to the number of bytes that will be read from the file at the current file position.\nThe byte count actually read is returned to this value.\n@param\tbufptr\tPointer to the buffer that the data will be read into.\n@return\t\t\tAn error code."]
+    #[doc = "Read a file from disk.\nThis function is similar to FSRead() or fread(). It should be used instead of\nthese functions (or other system-specific file reading routines) in order\nto make max external code that will compile cross-platform. It reads\n\"count\" bytes from file handle at current file position into \"bufptr\".\nThe byte count actually read is set in \"count\", and the file position is\nupdated by the actual byte count read.\n\n@ingroup files\n@param\tf\t\tThe #t_filehandle structure of the file the user wants to open.\n@param\tcount\tPointer to the number of bytes that will be read from the file at the current file position.\nThe byte count actually read is returned to this value.\n@param\tbufptr\tPointer to the buffer that the data will be read into.\n@return\t\t\tAn error code."]
     pub fn sysfile_read(
         f: t_filehandle,
         count: *mut t_ptr_size,
@@ -512,18 +512,18 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRead the contents of a file into a handle.\n@ingroup files\n@param\tf\tThe open #t_filehandle structure to read into the handle.\n@param\th\tThe address of a handle into which the file will be read.\n@return \tAn error code.\n@remark\t\tYou should free the pointer, when you are done with it, using sysmem_freehandle()."]
+    #[doc = "Read the contents of a file into a handle.\n@ingroup files\n@param\tf\tThe open #t_filehandle structure to read into the handle.\n@param\th\tThe address of a handle into which the file will be read.\n@return \tAn error code.\n@remark\t\tYou should free the pointer, when you are done with it, using sysmem_freehandle()."]
     pub fn sysfile_readtohandle(
         f: t_filehandle,
         h: *mut *mut *mut ::std::os::raw::c_char,
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRead the contents of a file into a pointer.\n@ingroup files\n@param\tf\tThe open #t_filehandle structure to read into the handle.\n@param\tp\tThe address of a pointer into which the file will be read.\n@return \tAn error code.\n@remark\t\tYou should free the pointer, when you are done with it, using sysmem_freeptr()."]
+    #[doc = "Read the contents of a file into a pointer.\n@ingroup files\n@param\tf\tThe open #t_filehandle structure to read into the handle.\n@param\tp\tThe address of a pointer into which the file will be read.\n@return \tAn error code.\n@remark\t\tYou should free the pointer, when you are done with it, using sysmem_freeptr()."]
     pub fn sysfile_readtoptr(f: t_filehandle, p: *mut *mut ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Write part of a file to disk.\nThis function is similar to FSWrite() or fwrite(). It should be used instead\nof these functions (or other system-specific file reading routines) in\norder to make max external code that will compile cross-platform. The\nfunction writes \"count\" bytes from \"bufptr\" into file handle at current\nfile position. The byte count actually written is set in \"count\", and the\nfile position is updated by the actual byte count written.\n\n@ingroup files\n@param\tf\t\tThe t_filehandle structure of the file to which the user wants to write.\n@param\tcount\tPointer to the number of bytes that will be written to the file at the current file position.\nThe byte count actually written is returned to this value.\n@param\tbufptr\tPointer to the buffer that the data will be read from.\n@return\t\t\tAn error code."]
+    #[doc = "Write part of a file to disk.\nThis function is similar to FSWrite() or fwrite(). It should be used instead\nof these functions (or other system-specific file reading routines) in\norder to make max external code that will compile cross-platform. The\nfunction writes \"count\" bytes from \"bufptr\" into file handle at current\nfile position. The byte count actually written is set in \"count\", and the\nfile position is updated by the actual byte count written.\n\n@ingroup files\n@param\tf\t\tThe t_filehandle structure of the file to which the user wants to write.\n@param\tcount\tPointer to the number of bytes that will be written to the file at the current file position.\nThe byte count actually written is returned to this value.\n@param\tbufptr\tPointer to the buffer that the data will be read from.\n@return\t\t\tAn error code."]
     pub fn sysfile_write(
         f: t_filehandle,
         count: *mut t_ptr_size,
@@ -531,15 +531,15 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the size of a file handle.\nThis function is similar to and should be used instead of SetEOF().\nThe function sets the size of file handle in bytes, specified by �“logeof?.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tlogeof\tThe file size in bytes.\n@return\t\t\tAn error code."]
+    #[doc = "Set the size of a file handle.\nThis function is similar to and should be used instead of SetEOF().\nThe function sets the size of file handle in bytes, specified by �“logeof?.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tlogeof\tThe file size in bytes.\n@return\t\t\tAn error code."]
     pub fn sysfile_seteof(f: t_filehandle, logeof: t_ptr_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the size of a file handle.\nThis function is similar to and should be used instead of GetEOF().\nThe function gets the size of file handle in bytes, and places it in �“logeof?.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tlogeof\tThe file size in bytes is returned to this value.\n@return\t\t\tAn error code."]
+    #[doc = "Get the size of a file handle.\nThis function is similar to and should be used instead of GetEOF().\nThe function gets the size of file handle in bytes, and places it in �“logeof?.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tlogeof\tThe file size in bytes is returned to this value.\n@return\t\t\tAn error code."]
     pub fn sysfile_geteof(f: t_filehandle, logeof: *mut t_ptr_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the current file position of a file handle.\nThis function is similar to and should be used instead of SetFPos().\nIt is used to set the current file position of file handle to by the given\nnumber of offset bytes relative to the mode used, as defined in #t_sysfile_pos_mode.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tmode\tMode from which the offset will be calculated, as defined in #t_sysfile_pos_mode.\n@param\toffset\tThe offset in bytes relative to the mode.\n@return\t\t\tAn error code."]
+    #[doc = "Set the current file position of a file handle.\nThis function is similar to and should be used instead of SetFPos().\nIt is used to set the current file position of file handle to by the given\nnumber of offset bytes relative to the mode used, as defined in #t_sysfile_pos_mode.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tmode\tMode from which the offset will be calculated, as defined in #t_sysfile_pos_mode.\n@param\toffset\tThe offset in bytes relative to the mode.\n@return\t\t\tAn error code."]
     pub fn sysfile_setpos(
         f: t_filehandle,
         mode: t_sysfile_pos_mode::Type,
@@ -547,18 +547,18 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the current file position of a file handle.\nThis function is similar to and should be used instead of GetFPos().\nThe function gets the current file position of file handle in bytes, and places it in \"filepos\".\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tfilepos\tThe address of a variable to hold the current file position of file handle in bytes.\n@return\t\t\tAn error code."]
+    #[doc = "Get the current file position of a file handle.\nThis function is similar to and should be used instead of GetFPos().\nThe function gets the current file position of file handle in bytes, and places it in \"filepos\".\n\n@ingroup\t\tfiles\n@param\tf\t\tThe file's #t_filehandle structure.\n@param\tfilepos\tThe address of a variable to hold the current file position of file handle in bytes.\n@return\t\t\tAn error code."]
     pub fn sysfile_getpos(f: t_filehandle, filepos: *mut t_ptr_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCopy the contents of one file handle to another file handle.\n@ingroup files\n@param\tsrc\t\tThe file handle from which to copy.\n@param\tdst\t\tThe file handle to which the copy is written.\n@param\tsize\tThe number of bytes to copy.  If 0 the size of src will be used.\n@return\t\t\tAn error code."]
+    #[doc = "Copy the contents of one file handle to another file handle.\n@ingroup files\n@param\tsrc\t\tThe file handle from which to copy.\n@param\tdst\t\tThe file handle to which the copy is written.\n@param\tsize\tThe number of bytes to copy.  If 0 the size of src will be used.\n@return\t\t\tAn error code."]
     pub fn sysfile_spoolcopy(src: t_filehandle, dst: t_filehandle, size: t_ptr_size) -> t_max_err;
 }
 unsafe extern "C" {
     pub fn sysfile_setobject(f: t_filehandle, o: *mut t_object);
 }
 unsafe extern "C" {
-    #[doc = "\tRead a text file from disk.\nThis function reads up to the maximum number of bytes given by\nmaxlen from file handle at current file position into the htext\nhandle, performing linebreak translation if set in flags.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe #t_filehandle structure of the text file the user wants to open.\n@param\thtext\tHandle that the data will be read into.\n@param\tmaxlen\tThe maximum length in bytes to be read into the handle.\nPassing the value 0L indicates no maximum (i.e. read the entire file).\n@param\tflags\tFlags to set linebreak translation as defined in #t_sysfile_text_flags.\n@return\t\t\tAn error code."]
+    #[doc = "Read a text file from disk.\nThis function reads up to the maximum number of bytes given by\nmaxlen from file handle at current file position into the htext\nhandle, performing linebreak translation if set in flags.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe #t_filehandle structure of the text file the user wants to open.\n@param\thtext\tHandle that the data will be read into.\n@param\tmaxlen\tThe maximum length in bytes to be read into the handle.\nPassing the value 0L indicates no maximum (i.e. read the entire file).\n@param\tflags\tFlags to set linebreak translation as defined in #t_sysfile_text_flags.\n@return\t\t\tAn error code."]
     pub fn sysfile_readtextfile(
         f: t_filehandle,
         htext: t_handle,
@@ -567,7 +567,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tWrite a text file to disk.\nThis function writes a text handle to a text file performing linebreak\ntranslation if set in flags.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe #t_filehandle structure of the text file to which the user wants to write.\n@param\thtext\tHandle that the data that will be read from.\n@param\tflags\tFlags to set linebreak translation as defined in #t_sysfile_text_flags.\n@return\t\t\tAn error code."]
+    #[doc = "Write a text file to disk.\nThis function writes a text handle to a text file performing linebreak\ntranslation if set in flags.\n\n@ingroup\t\tfiles\n@param\tf\t\tThe #t_filehandle structure of the text file to which the user wants to write.\n@param\thtext\tHandle that the data that will be read from.\n@param\tflags\tFlags to set linebreak translation as defined in #t_sysfile_text_flags.\n@return\t\t\tAn error code."]
     pub fn sysfile_writetextfile(
         f: t_filehandle,
         htext: t_handle,
@@ -575,7 +575,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a #t_filehandle from a pre-existing handle.\n@ingroup\tfiles\n@param\t\th\t\tA handle for some data, data is *not* copied and *not* freed on file close.\n@param\t\tflags\tPass 0 (additional flags are private).\n@param\t\tfh\t\tThe address of a #t_filehandle which will be allocated.\n@return\t\t\t\tAn error code."]
+    #[doc = "Create a #t_filehandle from a pre-existing handle.\n@ingroup\tfiles\n@param\t\th\t\tA handle for some data, data is *not* copied and *not* freed on file close.\n@param\t\tflags\tPass 0 (additional flags are private).\n@param\t\tfh\t\tThe address of a #t_filehandle which will be allocated.\n@return\t\t\t\tAn error code."]
     pub fn sysfile_openhandle(
         h: *mut *mut ::std::os::raw::c_char,
         flags: t_sysfile_flags::Type,
@@ -583,7 +583,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a #t_filehandle from a pre-existing pointer.\n@ingroup\tfiles\n@param\t\tp\t\tA pointer to some data. Data is *not* copied and *not* freed on file close.\n@param\t\tlength\tThe size of p.\n@param\t\tflags\tPass 0 (additional flags are private).\n@param\t\tfh\t\tThe address of a #t_filehandle which will be allocated.\n@return\t\t\t\tAn error code."]
+    #[doc = "Create a #t_filehandle from a pre-existing pointer.\n@ingroup\tfiles\n@param\t\tp\t\tA pointer to some data. Data is *not* copied and *not* freed on file close.\n@param\t\tlength\tThe size of p.\n@param\t\tflags\tPass 0 (additional flags are private).\n@param\t\tfh\t\tThe address of a #t_filehandle which will be allocated.\n@return\t\t\t\tAn error code."]
     pub fn sysfile_openptrsize(
         p: *mut ::std::os::raw::c_char,
         length: t_ptr_size,
@@ -628,7 +628,7 @@ pub type t_datetime = _datetime;
 pub mod e_max_dateflags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tFlags for the sysdateformat_formatdatetime() function.\n@ingroup systime"]
+    #[doc = "Flags for the sysdateformat_formatdatetime() function.\n@ingroup systime"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< short"]
     pub const SYSDATEFORMAT_FLAGS_SHORT: Type = 1;
@@ -686,7 +686,7 @@ unsafe extern "C" {
 pub mod e_max_expr_types {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tDefines for ex_type.\nWe treat parenthesis and brackets special to keep a pointer to their match in the content.\n@ingroup expr"]
+    #[doc = "Defines for ex_type.\nWe treat parenthesis and brackets special to keep a pointer to their match in the content.\n@ingroup expr"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< an int"]
     pub const ET_INT: Type = 1;
@@ -715,7 +715,7 @@ pub mod e_max_expr_types {
     #[doc = "< string inlet"]
     pub const ET_SI: Type = 19;
 }
-#[doc = "\tex_ex.\n@ingroup expr"]
+#[doc = "ex_ex.\n@ingroup expr"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ex_ex {
@@ -752,9 +752,9 @@ const _: () = {
     ["Offset of field: ex_ex::ex_cont"][::std::mem::offset_of!(ex_ex, ex_cont) - 0usize];
     ["Offset of field: ex_ex::ex_type"][::std::mem::offset_of!(ex_ex, ex_type) - 8usize];
 };
-#[doc = "\tex_ex.\n@ingroup expr"]
+#[doc = "ex_ex.\n@ingroup expr"]
 pub type t_ex_ex = ex_ex;
-#[doc = "\tStruct for an instance of expr.\n@ingroup expr"]
+#[doc = "Struct for an instance of expr.\n@ingroup expr"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct expr {
@@ -775,10 +775,10 @@ const _: () = {
     ["Offset of field: expr::exp_var"][::std::mem::offset_of!(expr, exp_var) - 48usize];
     ["Offset of field: expr::exp_res"][::std::mem::offset_of!(expr, exp_res) - 192usize];
 };
-#[doc = "\tStruct for an instance of expr.\n@ingroup expr"]
+#[doc = "Struct for an instance of expr.\n@ingroup expr"]
 pub type t_expr = expr;
 unsafe extern "C" {
-    #[doc = "\tCreate a new expr object.\n@ingroup expr\n\n@param\targc\tCount of arguments in argv.\n@param\targv\tArguments that are used to create the expr. See the example below for details.\n@param\ttypes\tA pre-existing array of nine t_atoms, that will hold the\ntypes of any variable arguments created in the expr.\nThe types are returned in the a_type field of each\n#t_atom. If an argument was not present, #A_NOTHING is returned.\n@return\t\t\texpr_new() creates an expr object from the arguments in argv and\nreturns the type of any expr-style arguments contained in argv (i.e.\n$i1, etc.) in atoms in an array pointed to by types.\n\n@remark\t\t\ttypes should already exist as an array of nine t_atom values, all of which will be filled in by\nexpr_new(). If an argument was not present, it will set to type\n#A_NOTHING. For example, suppose argv pointed to the following atoms:\n@code\n$i1 (A_SYM)\n+ (A_SYM)\n$f3 (A_SYM)\n+ (A_SYM)\n3 (A_LONG)\n@endcode\n\nAfter calling expr_new, types would contain the following:\n@code\nIndex\tArgument\tType\t\tValue\n0\t1 ($i1)\t\tA_LONG\t\t0\n1\t2\t\tA_NOTHING\t0\n2\t3 ($f3)\t\tA_FLOAT\t\t0.0\n3\t4\t\tA_NOTHING\t0\n4\t5\t\tA_NOTHING\t0\n5\t6\t\tA_NOTHING\t0\n6\t7\t\tA_NOTHING\t0\n7\t8\t\tA_NOTHING\t0\n8\t9\t\tA_NOTHING\t0\n@endcode"]
+    #[doc = "Create a new expr object.\n@ingroup expr\n\n@param\targc\tCount of arguments in argv.\n@param\targv\tArguments that are used to create the expr. See the example below for details.\n@param\ttypes\tA pre-existing array of nine t_atoms, that will hold the\ntypes of any variable arguments created in the expr.\nThe types are returned in the a_type field of each\n#t_atom. If an argument was not present, #A_NOTHING is returned.\n@return\t\t\texpr_new() creates an expr object from the arguments in argv and\nreturns the type of any expr-style arguments contained in argv (i.e.\n$i1, etc.) in atoms in an array pointed to by types.\n\n@remark\t\t\ttypes should already exist as an array of nine t_atom values, all of which will be filled in by\nexpr_new(). If an argument was not present, it will set to type\n#A_NOTHING. For example, suppose argv pointed to the following atoms:\n\n```c\n$i1 (A_SYM)\n+ (A_SYM)\n$f3 (A_SYM)\n+ (A_SYM)\n3 (A_LONG)\n```\n\n\nAfter calling expr_new, types would contain the following:\n\n```c\nIndex\tArgument\tType\t\tValue\n0\t1 ($i1)\t\tA_LONG\t\t0\n1\t2\t\tA_NOTHING\t0\n2\t3 ($f3)\t\tA_FLOAT\t\t0.0\n3\t4\t\tA_NOTHING\t0\n4\t5\t\tA_NOTHING\t0\n5\t6\t\tA_NOTHING\t0\n6\t7\t\tA_NOTHING\t0\n7\t8\t\tA_NOTHING\t0\n8\t9\t\tA_NOTHING\t0\n```\n"]
     pub fn expr_new(
         argc: ::std::os::raw::c_long,
         argv: *mut t_atom,
@@ -786,7 +786,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tEvaluate an expression in an expr object.\n@ingroup expr\n\n@param\tx\t\tThe expr object to evaluate.\n@param\targc\tCount of arguments in argv.\n@param\targv\tArray of nine t_atom values that will be substituted for\nvariable arguments (such as $i1) in the expression.\nUnused arguments should be of type #A_NOTHING.\n@param\tresult\tA pre-existing t_atom that will hold the type and value\nof the result of evaluating the expression.\n@return\t\t\t.\n\n@remark\t\t\tEvaluates the expression in an expr object with arguments in argv and\nreturns the type and value of the evaluated expression as a t_atom in\nresult. result need only point to a single #t_atom, but argv should\ncontain at least argc t_atom values. If, as in the example shown above under\nexpr_new(), there are “gaps” between arguments, they should be filled\nin with t_atom of type #A_NOTHING."]
+    #[doc = "Evaluate an expression in an expr object.\n@ingroup expr\n\n@param\tx\t\tThe expr object to evaluate.\n@param\targc\tCount of arguments in argv.\n@param\targv\tArray of nine t_atom values that will be substituted for\nvariable arguments (such as $i1) in the expression.\nUnused arguments should be of type #A_NOTHING.\n@param\tresult\tA pre-existing t_atom that will hold the type and value\nof the result of evaluating the expression.\n@return\t\t\t.\n\n@remark\t\t\tEvaluates the expression in an expr object with arguments in argv and\nreturns the type and value of the evaluated expression as a t_atom in\nresult. result need only point to a single #t_atom, but argv should\ncontain at least argc t_atom values. If, as in the example shown above under\nexpr_new(), there are “gaps” between arguments, they should be filled\nin with t_atom of type #A_NOTHING."]
     pub fn expr_eval(
         x: *mut t_expr,
         argc: ::std::os::raw::c_long,
@@ -856,7 +856,7 @@ pub mod e_max_fileinfo_flags {
 pub mod e_max_path_folder_flags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Flags used by functions such as path_foldernextfile() and path_openfolder().\n@ingroup files"]
+    #[doc = "Flags used by functions such as path_foldernextfile() and path_openfolder().\n@ingroup files"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< if not true, then a Mac OS package will be reported as a file rather than a folder."]
     pub const PATH_REPORTPACKAGEASFOLDER: Type = 1;
@@ -922,7 +922,7 @@ const _: () = {
 };
 #[doc = "Information about a file.\n@ingroup files"]
 pub type t_fileinfo = _fileinfo;
-#[doc = " The pathlink data structure. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n@ingroup files"]
+#[doc = "The pathlink data structure. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n@ingroup files"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _pathlink {
@@ -946,7 +946,7 @@ const _: () = {
     ["Offset of field: _pathlink::l_recursive"]
         [::std::mem::offset_of!(_pathlink, l_recursive) - 18usize];
 };
-#[doc = " The pathlink data structure. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n@ingroup files"]
+#[doc = "The pathlink data structure. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n@ingroup files"]
 pub type t_pathlink = _pathlink;
 pub mod e_max_searchpath_flags {
     #[allow(unused_imports)]
@@ -1000,7 +1000,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = "Find a file by name.\nIf a complete path is not specified, search for the name in the search path.\nThis is the preferred method for file searching since its introduction in Max version 4.\n\n@ingroup\tfiles\n@version\t4.0\n\n@param\tname\t\t\tThe file name for the search, receives actual filename upon return.\n@param\toutvol\t\t\tThe Path ID of the file (if found).\n@param\touttype\t\t\tThe file type of the file (if found).\n@param\tfiletypelist\tThe file type(s) for which you are searching for, or NULL if any type is acceptable.\n@param\tnumtypes\t\tThe number of file types in the typelist array (1 if a single entry, 0 if any type is acceptable).\n\n@return\t\t\t\t\tIf a file is found with the name\nspecified by filename, locatefile returns 0, otherwise it returns non-zero.\n\n@see\t\t\t\t\tpath_getdefault().\n\n@remark\t\t\tThe old file search routines locatefile() and locatefiletype()\nare still supported in Max 4, but the use of a new routine\nlocatefile_extended() is highly recommended. However,\nlocatefile_extended() has an important difference from\nlocatefile() and locatefiletype() that may require some rewriting\nof your code. <em>It modifies its name parameter</em> in certain cases, while\nlocatefile() and locatefiletype() do not. The two cases where it\ncould modify the incoming filename string are 1) when an alias is\nspecified, the file pointed to by the alias is returned; and 2) when a full\npath is specified, the output is the filename plus the path number of the\nfolder it's in.\n\nThis is important because many people pass the s_name field of a\n#t_symbol to locatefile(). If the name field of a #t_symbol were to be\nmodified, the symbol table would be corrupted. To avoid this problem,\nuse strncpy_zero() to copy the contents of a #t_symbol to a character string first,\nas shown below:\n@code\nchar filename[MAX_FILENAME_CHARS];\nstrncpy_zero(filename,str->s_name, MAX_FILENAME_CHARS);\nresult = locatefile_extended(filename,&path,&type,typelist,1);\n@endcode"]
+    #[doc = "Find a file by name.\nIf a complete path is not specified, search for the name in the search path.\nThis is the preferred method for file searching since its introduction in Max version 4.\n\n@ingroup\tfiles\n@version\t4.0\n\n@param\tname\t\t\tThe file name for the search, receives actual filename upon return.\n@param\toutvol\t\t\tThe Path ID of the file (if found).\n@param\touttype\t\t\tThe file type of the file (if found).\n@param\tfiletypelist\tThe file type(s) for which you are searching for, or NULL if any type is acceptable.\n@param\tnumtypes\t\tThe number of file types in the typelist array (1 if a single entry, 0 if any type is acceptable).\n\n@return\t\t\t\t\tIf a file is found with the name\nspecified by filename, locatefile returns 0, otherwise it returns non-zero.\n\n@see\t\t\t\t\tpath_getdefault().\n\n@remark\t\t\tThe old file search routines locatefile() and locatefiletype()\nare still supported in Max 4, but the use of a new routine\nlocatefile_extended() is highly recommended. However,\nlocatefile_extended() has an important difference from\nlocatefile() and locatefiletype() that may require some rewriting\nof your code. <em>It modifies its name parameter</em> in certain cases, while\nlocatefile() and locatefiletype() do not. The two cases where it\ncould modify the incoming filename string are 1) when an alias is\nspecified, the file pointed to by the alias is returned; and 2) when a full\npath is specified, the output is the filename plus the path number of the\nfolder it's in.\n\nThis is important because many people pass the s_name field of a\n#t_symbol to locatefile(). If the name field of a #t_symbol were to be\nmodified, the symbol table would be corrupted. To avoid this problem,\nuse strncpy_zero() to copy the contents of a #t_symbol to a character string first,\nas shown below:\n\n```c\nchar filename[MAX_FILENAME_CHARS];\nstrncpy_zero(filename,str->s_name, MAX_FILENAME_CHARS);\nresult = locatefile_extended(filename,&path,&type,typelist,1);\n```\n"]
     pub fn locatefile_extended(
         name: *mut ::std::os::raw::c_char,
         outvol: *mut ::std::os::raw::c_short,
@@ -1299,7 +1299,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = "Translates a Max path+filename combo into a correct POSIX absolute path that can be used to pass to libraries\nand also handles multiple volumes correctly.\n\n@ingroup files\n@param\tin_path\t\t\tThe Max path reference\n@param\tin_filename\t\tThe name of the file in that path.\n@param\tout_filepath\tA string that is MAX_PATH_CHARS in length, which will receive the formatted absolute path upon return.\n@return\t\t\t\t\tReturns 0 if successful.\n\n@see path_topotentialname()\n@see path_nameconform()\n\n@code\n// example for getting a windows-formatted path for a folder path:\npath_toabsolutesystempath(pathid, \"\", filestring);\npath_nameconform(filestring, sNativeQualifiedPathname, PATH_STYLE_NATIVE, PATH_TYPE_PATH);\n@endcode"]
+    #[doc = "Translates a Max path+filename combo into a correct POSIX absolute path that can be used to pass to libraries\nand also handles multiple volumes correctly.\n\n@ingroup files\n@param\tin_path\t\t\tThe Max path reference\n@param\tin_filename\t\tThe name of the file in that path.\n@param\tout_filepath\tA string that is MAX_PATH_CHARS in length, which will receive the formatted absolute path upon return.\n@return\t\t\t\t\tReturns 0 if successful.\n\n@see path_topotentialname()\n@see path_nameconform()\n\n\n```c\n// example for getting a windows-formatted path for a folder path:\npath_toabsolutesystempath(pathid, \"\", filestring);\npath_nameconform(filestring, sNativeQualifiedPathname, PATH_STYLE_NATIVE, PATH_TYPE_PATH);\n```\n"]
     pub fn path_toabsolutesystempath(
         in_path: ::std::os::raw::c_short,
         in_filename: *const ::std::os::raw::c_char,
@@ -1316,7 +1316,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Determine if a path/filename combination exists on disk.\n\n@ingroup files\n@param\tpath\t\t\tThe Max path reference.\n@param filename\t\tThe name of the file in that path to test.\n@return\t\t\t\t1 = the specified file exists, 0 = the specified file does not exist.\n\n@see path_topathname()\n@see path_topotentialname()\n"]
+    #[doc = "Determine if a path/filename combination exists on disk.\n\n@ingroup files\n@param\tpath\t\t\tThe Max path reference.\n@param filename\t\tThe name of the file in that path to test.\n@return\t\t\t\t1 = the specified file exists, 0 = the specified file does not exist.\n\n@see path_topathname()\n@see path_topotentialname()"]
     pub fn path_exists(
         path: ::std::os::raw::c_short,
         filename: *const ::std::os::raw::c_char,
@@ -1352,7 +1352,7 @@ unsafe extern "C" {
 pub mod e_max_wind_advise_result {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Returned values from wind_advise()\n@ingroup misc"]
+    #[doc = "Returned values from wind_advise()\n@ingroup misc"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Yes button was choosen"]
     pub const aaYes: Type = 1;
@@ -1362,7 +1362,7 @@ pub mod e_max_wind_advise_result {
     pub const aaCancel: Type = 3;
 }
 unsafe extern "C" {
-    #[doc = "\tThrow a dialog which may have text and up to three buttons.\nFor example, this can be used to ask \"Save changes before...\"\n@ingroup\tmisc\n@param\tw\tThe window with which this dialog is associated.\n@param\ts\tA string with any sprintf()-like formatting to be displayed.\n@param\t...\tAny variables that should be substituted in the string defined by s.\n@return\t\tOne of the values defined in #e_max_wind_advise_result, depending on what the user selected."]
+    #[doc = "Throw a dialog which may have text and up to three buttons.\nFor example, this can be used to ask \"Save changes before...\"\n@ingroup\tmisc\n@param\tw\tThe window with which this dialog is associated.\n@param\ts\tA string with any sprintf()-like formatting to be displayed.\n@param\t...\tAny variables that should be substituted in the string defined by s.\n@return\t\tOne of the values defined in #e_max_wind_advise_result, depending on what the user selected."]
     pub fn wind_advise(
         w: *mut t_object,
         s: *const ::std::os::raw::c_char,
@@ -1380,7 +1380,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = "\tChange the cursor.\n@ingroup\t\tmisc\n\n@param\twhich\tOne of the following predefined cursors:\n@code\n#define C_ARROW\t\t1\n#define C_WATCH\t\t2\n#define C_IBEAM\t\t3\n#define C_HAND\t\t4\n#define\tC_CROSS\t\t5\n#define C_PENCIL\t6\n#define\tC_GROW\t\t8\n@endcode\n\n@remark\t\twind_setcursor() keeps track of what the cursor was previously set\nto, so if something else has changed the cursor, you may not see a new\ncursor if you set it to the previous argument to wind_setcursor().\n\nThe solution is to call wind_setcursor(0) before calling it with the\ndesired cursor constant. Use wind_setcursor(-1) to tell Max you’ll set\nthe cursor to your own cursor directly."]
+    #[doc = "Change the cursor.\n@ingroup\t\tmisc\n\n@param\twhich\tOne of the following predefined cursors:\n\n```c\n#define C_ARROW\t\t1\n#define C_WATCH\t\t2\n#define C_IBEAM\t\t3\n#define C_HAND\t\t4\n#define\tC_CROSS\t\t5\n#define C_PENCIL\t6\n#define\tC_GROW\t\t8\n```\n\n\n@remark\t\twind_setcursor() keeps track of what the cursor was previously set\nto, so if something else has changed the cursor, you may not see a new\ncursor if you set it to the previous argument to wind_setcursor().\n\nThe solution is to call wind_setcursor(0) before calling it with the\ndesired cursor constant. Use wind_setcursor(-1) to tell Max you’ll set\nthe cursor to your own cursor directly."]
     pub fn wind_setcursor(which: ::std::os::raw::c_short);
 }
 unsafe extern "C" {
@@ -1420,7 +1420,7 @@ unsafe extern "C" {
     pub fn freeobject(op: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
-    #[doc = " Make a new instance of an existing Max class.\n@ingroup class_old\n\n@param s\tclassName Symbol specifying the name of the class of the instance to be created.\n@param argc\tCount of arguments in argv.\n@param argv\tArray of t_atoms; arguments to the class's instance creation function.\n\n@return \tA pointer to the created object, or 0 if the class\ndidn't exist or there was another type of error in creating the instance.\n\n@remark This function creates a new instance of the specified class. Using\nnewinstance is equivalent to typing something in a New Object box\nwhen using Max. The difference is that no object box is created in any\nPatcher window, and you can send messages to the object directly\nwithout connecting any patch cords. The messages can either be type-\nchecked (using typedmess) or non-type-checked (using the members\nof the getfn family).\n\nThis function is useful for taking advantage of other already-defined\nobjects that you would like to use 'privately' in your object, such as\ntables. See the source code for the coll object for an example of using a\nprivately defined class."]
+    #[doc = "Make a new instance of an existing Max class.\n@ingroup class_old\n\n@param s\tclassName Symbol specifying the name of the class of the instance to be created.\n@param argc\tCount of arguments in argv.\n@param argv\tArray of t_atoms; arguments to the class's instance creation function.\n\n@return \tA pointer to the created object, or 0 if the class\ndidn't exist or there was another type of error in creating the instance.\n\n@remark This function creates a new instance of the specified class. Using\nnewinstance is equivalent to typing something in a New Object box\nwhen using Max. The difference is that no object box is created in any\nPatcher window, and you can send messages to the object directly\nwithout connecting any patch cords. The messages can either be type-\nchecked (using typedmess) or non-type-checked (using the members\nof the getfn family).\n\nThis function is useful for taking advantage of other already-defined\nobjects that you would like to use 'privately' in your object, such as\ntables. See the source code for the coll object for an example of using a\nprivately defined class."]
     pub fn newinstance(
         s: *mut t_symbol,
         argc: ::std::os::raw::c_short,
@@ -1521,7 +1521,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "Use inlet_new() to create an inlet that can receive a specific message or any message.\n\n@ingroup inout\n@param\tx\tYour object.\n@param\ts\tCharacter string of the message, or NULL to receive any message.\n@return\t\tA pointer to the new inlet.\n\n@remark\t\tinlet_new() ceates a general purpose inlet.\nYou can use it in circumstances where you would like special messages to be received in\ninlets other than the leftmost one.\nTo create an inlet that receives a particular message, pass the message's\ncharacter string. For example, to create an inlet that receives only bang\nmessages, do the following\n@code\ninlet_new (myObject,\"bang\");\n@endcode\n\n@remark\t\tTo create an inlet that can receive any message, pass NULL for msg\n@code\ninlet_new (myObject, NULL);\n@endcode\n\n@remark\t\tProxies are an alternative method for general-purpose inlets that have\na number of advantages. If you create multiple inlets as shown above,\nthere would be no way to figure out which inlet received a message. See\nthe discussion in @ref chapter_inout_proxies."]
+    #[doc = "Use inlet_new() to create an inlet that can receive a specific message or any message.\n\n@ingroup inout\n@param\tx\tYour object.\n@param\ts\tCharacter string of the message, or NULL to receive any message.\n@return\t\tA pointer to the new inlet.\n\n@remark\t\tinlet_new() ceates a general purpose inlet.\nYou can use it in circumstances where you would like special messages to be received in\ninlets other than the leftmost one.\nTo create an inlet that receives a particular message, pass the message's\ncharacter string. For example, to create an inlet that receives only bang\nmessages, do the following\n\n```c\ninlet_new (myObject,\"bang\");\n```\n\n\n@remark\t\tTo create an inlet that can receive any message, pass NULL for msg\n\n```c\ninlet_new (myObject, NULL);\n```\n\n\n@remark\t\tProxies are an alternative method for general-purpose inlets that have\na number of advantages. If you create multiple inlets as shown above,\nthere would be no way to figure out which inlet received a message. See\nthe discussion in @ref chapter_inout_proxies."]
     pub fn inlet_new(
         x: *mut ::std::os::raw::c_void,
         s: *const ::std::os::raw::c_char,
@@ -1704,23 +1704,23 @@ unsafe extern "C" {
     pub fn clock_getftime(time: *mut f64);
 }
 unsafe extern "C" {
-    #[doc = " Schedule a Clock on a scheduler.\nSchedules the Clock c to execute at time units after the current\ntime. If scheduler x is 0 or does not point to a setclock object, the\ninternal millisecond scheduler is used. Otherwise c is scheduled on\nthe setclock object's list of Clocks. The Clock should be created with\nclock_new(), the same as for a Clock passed to clock_delay().\n\n@ingroup clocks\n@param\tx\t\tA setclock object to be used for scheduling this clock.\n@param\tc\t\tClock object containing the function to be executed.\n@param\ttime\tTime delay (in the units of the Setclock) from the\ncurrent time when the Clock will be executed.\n@see\t@ref \tsetclock\n@see\t\t\tsetclock_fdelay()"]
+    #[doc = "Schedule a Clock on a scheduler.\nSchedules the Clock c to execute at time units after the current\ntime. If scheduler x is 0 or does not point to a setclock object, the\ninternal millisecond scheduler is used. Otherwise c is scheduled on\nthe setclock object's list of Clocks. The Clock should be created with\nclock_new(), the same as for a Clock passed to clock_delay().\n\n@ingroup clocks\n@param\tx\t\tA setclock object to be used for scheduling this clock.\n@param\tc\t\tClock object containing the function to be executed.\n@param\ttime\tTime delay (in the units of the Setclock) from the\ncurrent time when the Clock will be executed.\n@see\t@ref \tsetclock\n@see\t\t\tsetclock_fdelay()"]
     pub fn setclock_delay(x: *mut t_setclock, c: *mut t_clock, when: ::std::os::raw::c_long);
 }
 unsafe extern "C" {
-    #[doc = " Remove a Clock from a scheduler.\nThis function unschedules the Clock c in the list of Clocks in the\nsetclock object x, or the internal millisecond scheduler if scheduler is 0.\n\n@ingroup clocks\n@param\tx\t\tThe setclock object that was used to schedule this clock.\nIf 0, the clock is unscheduled from the internal millisecond scheduler.\n@param\tc\t\tClock object to be removed from the scheduler.\n@see\t@ref\tsetclock"]
+    #[doc = "Remove a Clock from a scheduler.\nThis function unschedules the Clock c in the list of Clocks in the\nsetclock object x, or the internal millisecond scheduler if scheduler is 0.\n\n@ingroup clocks\n@param\tx\t\tThe setclock object that was used to schedule this clock.\nIf 0, the clock is unscheduled from the internal millisecond scheduler.\n@param\tc\t\tClock object to be removed from the scheduler.\n@see\t@ref\tsetclock"]
     pub fn setclock_unset(x: *mut t_setclock, c: *mut t_clock);
 }
 unsafe extern "C" {
-    #[doc = " Find out the current time value of a setclock object.\n@ingroup clocks\n@param\tx\t\tA setclock object.\n@return\t\t\tReturns the current time value of the setclock object scheduler.\nIf scheduler is 0, setclock_gettime is equivalent to the function\ngettime that returns the current value of the internal millisecond clock.\n@see\t@ref\tsetclock\n@see\t\t\tsetclock_getftime()"]
+    #[doc = "Find out the current time value of a setclock object.\n@ingroup clocks\n@param\tx\t\tA setclock object.\n@return\t\t\tReturns the current time value of the setclock object scheduler.\nIf scheduler is 0, setclock_gettime is equivalent to the function\ngettime that returns the current value of the internal millisecond clock.\n@see\t@ref\tsetclock\n@see\t\t\tsetclock_getftime()"]
     pub fn setclock_gettime(x: *mut t_setclock) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tSchedule a Clock on a scheduler, using a floating-point time argument.\n@ingroup clocks\n@param\ts\t\tA setclock object to be used for scheduling this clock.\n@param\tc\t\tClock object containing the function to be executed.\n@param\ttime\tTime delay (in the units of the Setclock) from the\ncurrent time when the Clock will be executed.\n@see\t@ref\tsetclock\n@see\t\t\tsetclock_delay()"]
+    #[doc = "Schedule a Clock on a scheduler, using a floating-point time argument.\n@ingroup clocks\n@param\ts\t\tA setclock object to be used for scheduling this clock.\n@param\tc\t\tClock object containing the function to be executed.\n@param\ttime\tTime delay (in the units of the Setclock) from the\ncurrent time when the Clock will be executed.\n@see\t@ref\tsetclock\n@see\t\t\tsetclock_delay()"]
     pub fn setclock_fdelay(x: *mut t_setclock, c: *mut t_clock, f: f64);
 }
 unsafe extern "C" {
-    #[doc = " Find out the current time value of a setclock object in floating-point milliseconds.\n@ingroup clocks\n@param\ts\t\tA setclock object.\n@param\ttime\tThe current time in milliseconds.\n@see\t@ref\tsetclock\n@see\t\t\tsetclock_gettime()"]
+    #[doc = "Find out the current time value of a setclock object in floating-point milliseconds.\n@ingroup clocks\n@param\ts\t\tA setclock object.\n@param\ttime\tThe current time in milliseconds.\n@see\t@ref\tsetclock\n@see\t\t\tsetclock_gettime()"]
     pub fn setclock_getftime(x: *mut t_setclock, time: *mut f64);
 }
 unsafe extern "C" {
@@ -1748,7 +1748,7 @@ unsafe extern "C" {
     pub fn gettime_forobject(x: *mut t_object) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "Cause a function to be executed at the timer level at some time in the future.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfun\t\tFunction to be called, see below for how it should be declared.\n@param\t\twhen\tThe logical time that the function fun will be executed.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, defer allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n\n@remark\t\t\t\tschedule() calls a function at some time in the future. Unlike defer(),\nthe function is called in the scheduling loop when logical time is equal\nto the specified value when. This means that the function could be\ncalled at interrupt level, so it should follow the usual restrictions on\ninterrupt-level conduct. The function fun passed to schedule should\nbe declared as follows:\n\n@code\nvoid myobject_do (myObject *client, t_symbol *s, short argc, t_atom *argv);\n@endcode\n\n@remark\t\t\t\tOne use of schedule() is as an alternative to using the lockout flag.\n\n@see\t\tdefer()"]
+    #[doc = "Cause a function to be executed at the timer level at some time in the future.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfun\t\tFunction to be called, see below for how it should be declared.\n@param\t\twhen\tThe logical time that the function fun will be executed.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, defer allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n\n@remark\t\t\t\tschedule() calls a function at some time in the future. Unlike defer(),\nthe function is called in the scheduling loop when logical time is equal\nto the specified value when. This means that the function could be\ncalled at interrupt level, so it should follow the usual restrictions on\ninterrupt-level conduct. The function fun passed to schedule should\nbe declared as follows:\n\n\n```c\nvoid myobject_do (myObject *client, t_symbol *s, short argc, t_atom *argv);\n```\n\n\n@remark\t\t\t\tOne use of schedule() is as an alternative to using the lockout flag.\n\n@see\t\tdefer()"]
     pub fn schedule(
         ob: *mut ::std::os::raw::c_void,
         fun: method,
@@ -1769,39 +1769,39 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new local scheduler.\n@ingroup\t\tclocks\n@return\t\t\tA pointer to the newly created scheduler.\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Create a new local scheduler.\n@ingroup\t\tclocks\n@return\t\t\tA pointer to the newly created scheduler.\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_new() -> *mut t_scheduler;
 }
 unsafe extern "C" {
-    #[doc = "\tMake a scheduler current, so that future related calls (such as\nclock_delay()) will affect the appropriate scheduler.\n\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to make current.\n@return\t\t\tThis routine returns a pointer to the previously current scheduler,\nsaved and restored when local scheduling is complete.\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Make a scheduler current, so that future related calls (such as\nclock_delay()) will affect the appropriate scheduler.\n\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to make current.\n@return\t\t\tThis routine returns a pointer to the previously current scheduler,\nsaved and restored when local scheduling is complete.\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_set(x: *mut t_scheduler) -> *mut t_scheduler;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the currently set scheduler.\n\n@ingroup\t\tclocks\n@return\t\t\tThis routine returns a pointer to the current scheduler,\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Get the currently set scheduler.\n\n@ingroup\t\tclocks\n@return\t\t\tThis routine returns a pointer to the current scheduler,\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_get() -> *mut t_scheduler;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the scheduler associated with a given object, if any.\n\n@ingroup\t\tclocks\n@param o\t\tThe object who's scheduler is to be returned.\n@return\t\t\tThis routine returns a pointer to the scheduler or the passed in object,\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Get the scheduler associated with a given object, if any.\n\n@ingroup\t\tclocks\n@param o\t\tThe object who's scheduler is to be returned.\n@return\t\t\tThis routine returns a pointer to the scheduler or the passed in object,\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_fromobject(obj: *mut t_object) -> *mut t_scheduler;
 }
 unsafe extern "C" {
-    #[doc = " Run scheduler events to a selected time.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to advance.\n@param\tuntil\tThe ending time for this run (in milliseconds).\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Run scheduler events to a selected time.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to advance.\n@param\tuntil\tThe ending time for this run (in milliseconds).\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_run(x: *mut t_scheduler, until: f64);
 }
 unsafe extern "C" {
-    #[doc = " Set the current time of the scheduler.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to set.\n@param\ttime\tThe new current time for the selected scheduler (in milliseconds).\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Set the current time of the scheduler.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to set.\n@param\ttime\tThe new current time for the selected scheduler (in milliseconds).\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_settime(x: *mut t_scheduler, time: f64);
 }
 unsafe extern "C" {
-    #[doc = " Retrieve the current time of the selected scheduler.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to query.\n@param\ttime\tThe current time of the selected scheduler.\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Retrieve the current time of the selected scheduler.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to query.\n@param\ttime\tThe current time of the selected scheduler.\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_gettime(x: *mut t_scheduler, time: *mut f64);
 }
 unsafe extern "C" {
-    #[doc = " Shift scheduler's current time and run time for all pending clock.\nCould be used to change scheduler's time reference without impacting current clocks.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to affect.\n@param\tamount\tNumber of milliseconds to shift by.\n@see\t@ref\tcreating_schedulers"]
+    #[doc = "Shift scheduler's current time and run time for all pending clock.\nCould be used to change scheduler's time reference without impacting current clocks.\n@ingroup\t\tclocks\n@param\tx\t\tThe scheduler to affect.\n@param\tamount\tNumber of milliseconds to shift by.\n@see\t@ref\tcreating_schedulers"]
     pub fn scheduler_shift(x: *mut t_scheduler, amount: f64);
 }
 unsafe extern "C" {
-    #[doc = "Cause a function to be executed at the timer level at some time in the future specified by a delay offset.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfun\t\tFunction to be called, see below for how it should be declared.\n@param\t\tdelay\tThe delay from the current time before the function will be executed.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, schedule_delay() allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n\n@remark\t\t\t\tschedule_delay() is similar to schedule() but allows you to specify the\ntime as a delay rather than a specific logical time.\n\n@code\nvoid myobject_click (t_myobject *x, Point pt, short modifiers)\n{\nt_atom a[1];\na[0].a_type = A_LONG;\na[0].a_w.w_long = Random();\nschedule_delay(x, myobject_sched, 0 ,0, 1, a);\n}\n\nvoid myobject_sched (t_myobject *x, t_symbol *s, short ac, t_atom *av)\n{\noutlet_int(x->m_out,av->a_w.w_long);\n}\n@endcode\n\n@see schedule()"]
+    #[doc = "Cause a function to be executed at the timer level at some time in the future specified by a delay offset.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfun\t\tFunction to be called, see below for how it should be declared.\n@param\t\tdelay\tThe delay from the current time before the function will be executed.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, schedule_delay() allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n\n@remark\t\t\t\tschedule_delay() is similar to schedule() but allows you to specify the\ntime as a delay rather than a specific logical time.\n\n\n```c\nvoid myobject_click (t_myobject *x, Point pt, short modifiers)\n{\nt_atom a[1];\na[0].a_type = A_LONG;\na[0].a_w.w_long = Random();\nschedule_delay(x, myobject_sched, 0 ,0, 1, a);\n}\n\nvoid myobject_sched (t_myobject *x, t_symbol *s, short ac, t_atom *av)\n{\noutlet_int(x->m_out,av->a_w.w_long);\n}\n```\n\n\n@see schedule()"]
     pub fn schedule_delay(
         ob: *mut ::std::os::raw::c_void,
         fun: method,
@@ -1869,7 +1869,7 @@ unsafe extern "C" {
     pub fn qelem_front(x: *mut t_qelem);
 }
 unsafe extern "C" {
-    #[doc = "Defer execution of a function to the main thread if (and only if)\nyour function is executing in the scheduler thread.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfn\t\tFunction to be called, see below for how it should be declared.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, defer allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n@return\t\tReturn values is for internal Cycling '74 use only.\n\n@remark\t\tThis function uses the isr() routine to determine whether you're at the\nMax timer interrupt level (in the scheduler thread).\nIf so, defer() creates a Qelem (see @ref qelems), calls\nqelem_front(), and its queue function calls the function fn you\npassed with the specified arguments.\nIf you're not in the scheduler thread, the function is executed immediately with the\narguments. Note that this implies that defer() is not appropriate for\nusing in situations such as Device or File manager I/0 completion routines.\nThe defer_low() function is appropriate however, because it always defers.\n\nThe deferred function should be declared as follows:\n@code\nvoid myobject_do (myObject *client, t_symbol *s, short argc, t_atom *argv);\n@endcode\n\n@see\t\tdefer_low()"]
+    #[doc = "Defer execution of a function to the main thread if (and only if)\nyour function is executing in the scheduler thread.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfn\t\tFunction to be called, see below for how it should be declared.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, defer allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n@return\t\tReturn values is for internal Cycling '74 use only.\n\n@remark\t\tThis function uses the isr() routine to determine whether you're at the\nMax timer interrupt level (in the scheduler thread).\nIf so, defer() creates a Qelem (see @ref qelems), calls\nqelem_front(), and its queue function calls the function fn you\npassed with the specified arguments.\nIf you're not in the scheduler thread, the function is executed immediately with the\narguments. Note that this implies that defer() is not appropriate for\nusing in situations such as Device or File manager I/0 completion routines.\nThe defer_low() function is appropriate however, because it always defers.\n\nThe deferred function should be declared as follows:\n\n```c\nvoid myobject_do (myObject *client, t_symbol *s, short argc, t_atom *argv);\n```\n\n\n@see\t\tdefer_low()"]
     pub fn defer(
         ob: *mut ::std::os::raw::c_void,
         fn_: method,
@@ -1879,7 +1879,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "Defer execution of a function to the back of the queue on the main thread.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfn\t\tFunction to be called, see below for how it should be declared.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, defer allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n@return\t\tReturn values is for internal Cycling '74 use only.\n\n@remark\t\tdefer_low() always defers a call to the function fun whether you are already\nin the main thread or not, and uses qelem_set(), not qelem_front(). This\nfunction is recommended for responding to messages that will cause\nyour object to open a dialog box, such as read and write.\n\nThe deferred function should be declared as follows:\n@code\nvoid myobject_do (myObject *client, t_symbol *s, short argc, t_atom *argv);\n@endcode\n\n@see\t\tdefer()"]
+    #[doc = "Defer execution of a function to the back of the queue on the main thread.\n\n@ingroup\tthreading\n@param\t\tob\t\tFirst argument passed to the function fun when it executes.\n@param\t\tfn\t\tFunction to be called, see below for how it should be declared.\n@param\t\tsym\t\tSecond argument passed to the function fun when it executes.\n@param\t\targc\tCount of arguments in argv. argc is also the third argument passed to the function fun when it executes.\n@param\t\targv\tArray containing a variable number of #t_atom function arguments.\nIf this argument is non-zero, defer allocates memory to make a copy of the arguments\n(according to the size passed in argc)\nand passes the copied array to the function fun when it executes as the fourth argument.\n@return\t\tReturn values is for internal Cycling '74 use only.\n\n@remark\t\tdefer_low() always defers a call to the function fun whether you are already\nin the main thread or not, and uses qelem_set(), not qelem_front(). This\nfunction is recommended for responding to messages that will cause\nyour object to open a dialog box, such as read and write.\n\nThe deferred function should be declared as follows:\n\n```c\nvoid myobject_do (myObject *client, t_symbol *s, short argc, t_atom *argv);\n```\n\n\n@see\t\tdefer()"]
     pub fn defer_low(
         ob: *mut ::std::os::raw::c_void,
         fn_: method,
@@ -1920,11 +1920,11 @@ unsafe extern "C" {
     pub fn binbuf_new() -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "Use binbuf_vinsert() to append a Max message to a Binbuf adding a semicolon.\n@ingroup binbuf\n\n@param\tx\t\tBinbuf containing the desired t_atom.\n@param\tfmt\t\tA C-string containing one or more letters corresponding to the types of each element of the message.\ns for #t_symbol*, l for long, or f for float.\n@param\t...\t\tElements of the message, passed directly to the function as Symbols, longs, or floats.\n\n@remark\tbinbuf_vinsert() works somewhat like a printf() for Binbufs. It\nallows you to pass a number of arguments of different types and insert\nthem into a Binbuf. The entire message will then be terminated with a\nsemicolon. Only 16 items can be passed to binbuf_vinsert().\n\nThe example below shows the implementation of a normal object's\nsave method. The save method requires that you build a message that\nbegins with #N (the new object) , followed by the name of your object\n(in this case, represented by the #t_symbol myobject), followed by any\narguments your instance creation function requires. In this example,\nwe save the values of two fields m_val1 and m_val2 defined as longs.\n\n@code\nvoid myobject_save (myObject *x, Binbuf *dstBuf)\n{\nbinbuf_vinsert(dstBuf, \"ssll\", gensym(\"#N\"),\ngensym(\"myobject\"),\nx->m_val1, x->m_val2);\n}\n@endcode\n\nSuppose that such an object had written this data into a file. If you\nopened the file as text, you would see the following:\n\n@code\n#N myobject 10 20;\n#P newobj 218 82 30 myobject;\n@endcode\n\nThe first line will result in a new myobject object to be created; the\ncreation function receives the arguments 10 and 20. The second line\ncontains the text of the object box. The newobj message to a patcher\ncreates the object box user interface object and attaches it to the\npreviously created myobject object. Normally, the newex message is\nused. This causes the object to be created using the arguments that\nwere typed into the object box."]
+    #[doc = "Use binbuf_vinsert() to append a Max message to a Binbuf adding a semicolon.\n@ingroup binbuf\n\n@param\tx\t\tBinbuf containing the desired t_atom.\n@param\tfmt\t\tA C-string containing one or more letters corresponding to the types of each element of the message.\ns for #t_symbol*, l for long, or f for float.\n@param\t...\t\tElements of the message, passed directly to the function as Symbols, longs, or floats.\n\n@remark\tbinbuf_vinsert() works somewhat like a printf() for Binbufs. It\nallows you to pass a number of arguments of different types and insert\nthem into a Binbuf. The entire message will then be terminated with a\nsemicolon. Only 16 items can be passed to binbuf_vinsert().\n\nThe example below shows the implementation of a normal object's\nsave method. The save method requires that you build a message that\nbegins with #N (the new object) , followed by the name of your object\n(in this case, represented by the #t_symbol myobject), followed by any\narguments your instance creation function requires. In this example,\nwe save the values of two fields m_val1 and m_val2 defined as longs.\n\n\n```c\nvoid myobject_save (myObject *x, Binbuf *dstBuf)\n{\nbinbuf_vinsert(dstBuf, \"ssll\", gensym(\"#N\"),\ngensym(\"myobject\"),\nx->m_val1, x->m_val2);\n}\n```\n\n\nSuppose that such an object had written this data into a file. If you\nopened the file as text, you would see the following:\n\n\n```c\n#N myobject 10 20;\n#P newobj 218 82 30 myobject;\n```\n\n\nThe first line will result in a new myobject object to be created; the\ncreation function receives the arguments 10 and 20. The second line\ncontains the text of the object box. The newobj message to a patcher\ncreates the object box user interface object and attaches it to the\npreviously created myobject object. Normally, the newex message is\nused. This causes the object to be created using the arguments that\nwere typed into the object box."]
     pub fn binbuf_vinsert(x: *mut ::std::os::raw::c_void, fmt: *mut ::std::os::raw::c_char, ...);
 }
 unsafe extern "C" {
-    #[doc = "Use binbuf_insert() to append a Max message to a Binbuf adding a semicolon.\n@ingroup binbuf\n\n@param\tx\t\tBinbuf to receive the items.\n@param\ts\t\tIgnored. Pass NULL.\n@param\targc\tCount of items in the argv array.\n@param\targv\tArray of t_atoms to add to the Binbuf.\n\n@remark\tYou'll use binbuf_insert() instead of binbuf_append() if you were\nsaving your object into a Binbuf and wanted a semicolon at the end. If\nthe message is part of a file that will later be evaluated, such as a\nPatcher file, the first argument argv[0] will be the receiver of the\nmessage and must be a Symbol. binbuf_vinsert() is\neasier to use than binbuf_insert(), since you don't have to format\nyour data into an array of Atoms first.\n\nbinbuf_insert() will also convert the t_symbols #1 through #9 into\n$1 through $9. This is used for saving patcher files that take\narguments; you will probably never save these symbols as part of\nanything you are doing."]
+    #[doc = "Use binbuf_insert() to append a Max message to a Binbuf adding a semicolon.\n@ingroup binbuf\n\n@param\tx\t\tBinbuf to receive the items.\n@param\ts\t\tIgnored. Pass NULL.\n@param\targc\tCount of items in the argv array.\n@param\targv\tArray of t_atoms to add to the Binbuf.\n\n@remark\tYou'll use binbuf_insert() instead of binbuf_append() if you were\nsaving your object into a Binbuf and wanted a semicolon at the end. If\nthe message is part of a file that will later be evaluated, such as a\nPatcher file, the first argument argv\\[0\\] will be the receiver of the\nmessage and must be a Symbol. binbuf_vinsert() is\neasier to use than binbuf_insert(), since you don't have to format\nyour data into an array of Atoms first.\n\nbinbuf_insert() will also convert the t_symbols #1 through #9 into\n$1 through $9. This is used for saving patcher files that take\narguments; you will probably never save these symbols as part of\nanything you are doing."]
     pub fn binbuf_insert(
         x: *mut t_binbuf,
         s: *mut t_symbol,
@@ -1942,7 +1942,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "Use binbuf_getatom to retrieve a single t_atom from a Binbuf.\n\n@ingroup binbuf\n@param\tx\tBinbuf containing the desired #t_atom.\n@param\tp1\tOffset into the Binbuf's array of types. Modified to point to the next #t_atom.\n@param\tp2\tOffset into the Binbuf's array of data. Modified to point to the next #t_atom.\n@param\tap\tLocation of a #t_atom where the retrieved data will be placed.\n\n@return\t\t1 if there were no t_atoms at the specified offsets,\n0 if there's a legitimate t_atom returned in result.\n\n@remark\t\tTo get the first t_atom, set both typeOffset and stuffOffset to 0.\nHere's an example of getting all the items in a Binbuf:\n@code\nt_atom holder;\nlong to, so;\n\nto = 0;\nso = 0;\nwhile (!binbuf_getatom(x, &to, &so, &holder)){\n// do something with the t_atom\n}\n@endcode"]
+    #[doc = "Use binbuf_getatom to retrieve a single t_atom from a Binbuf.\n\n@ingroup binbuf\n@param\tx\tBinbuf containing the desired #t_atom.\n@param\tp1\tOffset into the Binbuf's array of types. Modified to point to the next #t_atom.\n@param\tp2\tOffset into the Binbuf's array of data. Modified to point to the next #t_atom.\n@param\tap\tLocation of a #t_atom where the retrieved data will be placed.\n\n@return\t\t1 if there were no t_atoms at the specified offsets,\n0 if there's a legitimate t_atom returned in result.\n\n@remark\t\tTo get the first t_atom, set both typeOffset and stuffOffset to 0.\nHere's an example of getting all the items in a Binbuf:\n\n```c\nt_atom holder;\nlong to, so;\n\nto = 0;\nso = 0;\nwhile (!binbuf_getatom(x, &to, &so, &holder)){\n// do something with the t_atom\n}\n```\n"]
     pub fn binbuf_getatom(
         x: *mut t_binbuf,
         p1: *mut ::std::os::raw::c_long,
@@ -2017,7 +2017,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = "Use readatom() to read a single t_atom from a text buffer.\n@ingroup\t\tbinbuf\n@param\toutstr\tC-string of 256 characters that will receive the next text item read from the buffer.\n@param\ttext\tHandle to the text buffer to be read.\n@param\tn\t\tStarts at 0, and is modified by readatom to point to the next item in the text buffer.\n@param\te\t\tNumber of characters in text.\n@param\tap\t\tWhere the resulting t_atom read from the text buffer is placed.\n@return\t\t\treadatom() returns non-zero if there is more text to read,\nand zero if it has reached the end of the text.\nNote that this return value has the opposite logic from that of binbuf_getatom().\n\n@remark\t\t\tThis function provides access to the low-level Max text evaluator used\nby binbuf_text(). It is designed to operate on a handle of characters\n(text) and called in a loop, as in the example shown below.\n@code\nlong index = 0;\nt_atom dst;\nchar outstr[256];\n\nwhile (readatom(outstr,textHandle,&index,textLength,&dst))\n{\n// do something with the resulting t_atom\n}\n@endcode\n\n@remark\t\t\tAn alternative to using readatom is to turn your text into a Binbuf\nusing binbuf_text(), then call binbuf_getatom() in a loop."]
+    #[doc = "Use readatom() to read a single t_atom from a text buffer.\n@ingroup\t\tbinbuf\n@param\toutstr\tC-string of 256 characters that will receive the next text item read from the buffer.\n@param\ttext\tHandle to the text buffer to be read.\n@param\tn\t\tStarts at 0, and is modified by readatom to point to the next item in the text buffer.\n@param\te\t\tNumber of characters in text.\n@param\tap\t\tWhere the resulting t_atom read from the text buffer is placed.\n@return\t\t\treadatom() returns non-zero if there is more text to read,\nand zero if it has reached the end of the text.\nNote that this return value has the opposite logic from that of binbuf_getatom().\n\n@remark\t\t\tThis function provides access to the low-level Max text evaluator used\nby binbuf_text(). It is designed to operate on a handle of characters\n(text) and called in a loop, as in the example shown below.\n\n```c\nlong index = 0;\nt_atom dst;\nchar outstr[256];\n\nwhile (readatom(outstr,textHandle,&index,textLength,&dst))\n{\n// do something with the resulting t_atom\n}\n```\n\n\n@remark\t\t\tAn alternative to using readatom is to turn your text into a Binbuf\nusing binbuf_text(), then call binbuf_getatom() in a loop."]
     pub fn readatom(
         outstr: *mut ::std::os::raw::c_char,
         text: *mut *mut ::std::os::raw::c_char,
@@ -2040,7 +2040,7 @@ unsafe extern "C" {
     pub fn atom_string(a: *mut t_atom) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSend a typed message directly to a Max object.\n@ingroup class_old\n\n@param op\tMax object that will receive the message.\n@param msg\tThe message selector.\n@param argc\tCount of message arguments in argv.\n@param argp\tArray of t_atoms; the message arguments.\n@return\t\tIf the receiver object can respond to the message,\ntypedmess() returns the result. Otherwise, an error message will be\nseen in the Max window and 0 will be returned.\n\n@remark\ttypedmess sends a message to a Max object (receiver) a message\nwith arguments. Note that the message\nmust be a #t_symbol, not a character string, so you must call gensym\non a string before passing it to typedmess. Also, note that untyped\nmessages defined for classes with the argument list #A_CANT cannot be\nsent using typedmess. You must use getfn() etc. instead.\n\nExample:\n@code\n//If you want to send a bang message to the object bang_me…\nvoid *bangResult;\nbangResult = typedmess(bang_me,gensym(\"bang\"),0,0L);\n@endcode"]
+    #[doc = "Send a typed message directly to a Max object.\n@ingroup class_old\n\n@param op\tMax object that will receive the message.\n@param msg\tThe message selector.\n@param argc\tCount of message arguments in argv.\n@param argp\tArray of t_atoms; the message arguments.\n@return\t\tIf the receiver object can respond to the message,\ntypedmess() returns the result. Otherwise, an error message will be\nseen in the Max window and 0 will be returned.\n\n@remark\ttypedmess sends a message to a Max object (receiver) a message\nwith arguments. Note that the message\nmust be a #t_symbol, not a character string, so you must call gensym\non a string before passing it to typedmess. Also, note that untyped\nmessages defined for classes with the argument list #A_CANT cannot be\nsent using typedmess. You must use getfn() etc. instead.\n\nExample:\n\n```c\n//If you want to send a bang message to the object bang_me…\nvoid *bangResult;\nbangResult = typedmess(bang_me,gensym(\"bang\"),0,0L);\n```\n"]
     pub fn typedmess(
         op: *mut t_object,
         msg: *mut t_symbol,
@@ -2049,15 +2049,15 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Use getfn() to send an untyped message to a Max object with error checking.\n@ingroup class_old\n\n@param op\tReceiver of the message.\n@param msg\tMessage selector.\n@return\t\tgetfn returns a pointer to the method bound to the message selector\nmsg in the receiver's message list. It returns 0 and prints an error\nmessage in Max Window if the method can't be found."]
+    #[doc = "Use getfn() to send an untyped message to a Max object with error checking.\n@ingroup class_old\n\n@param op\tReceiver of the message.\n@param msg\tMessage selector.\n@return\t\tgetfn returns a pointer to the method bound to the message selector\nmsg in the receiver's message list. It returns 0 and prints an error\nmessage in Max Window if the method can't be found."]
     pub fn getfn(op: *mut t_object, msg: *mut t_symbol) -> method;
 }
 unsafe extern "C" {
-    #[doc = " Use egetfn() to send an untyped message to a Max object that always works.\n@ingroup class_old\n\n@param op\tReceiver of the message.\n@param msg\tMessage selector.\n@return\t\tegetfn returns a pointer to the method bound to the message selector\nmsg in the receiver's message list. If the method can't be found, a\npointer to a do-nothing function is returned."]
+    #[doc = "Use egetfn() to send an untyped message to a Max object that always works.\n@ingroup class_old\n\n@param op\tReceiver of the message.\n@param msg\tMessage selector.\n@return\t\tegetfn returns a pointer to the method bound to the message selector\nmsg in the receiver's message list. If the method can't be found, a\npointer to a do-nothing function is returned."]
     pub fn egetfn(op: *mut t_object, msg: *mut t_symbol) -> method;
 }
 unsafe extern "C" {
-    #[doc = " Use zgetfn() to send an untyped message to a Max object without error checking.\n@ingroup class_old\n\n@param op\tReceiver of the message.\n@param msg\tMessage selector.\n@return\t\tzgetfn returns a pointer to the method bound to the message selector\nmsg in the receiver's message list. It returns 0 but doesn't print an\nerror message in Max Window if the method can't be found."]
+    #[doc = "Use zgetfn() to send an untyped message to a Max object without error checking.\n@ingroup class_old\n\n@param op\tReceiver of the message.\n@param msg\tMessage selector.\n@return\t\tzgetfn returns a pointer to the method bound to the message selector\nmsg in the receiver's message list. It returns 0 but doesn't print an\nerror message in Max Window if the method can't be found."]
     pub fn zgetfn(op: *mut t_object, msg: *mut t_symbol) -> method;
 }
 unsafe extern "C" {
@@ -2073,7 +2073,7 @@ unsafe extern "C" {
     pub fn noloadbangdisable_get() -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tGet a handle to the data in a named table object.\n@ingroup tables\n\n@param s\tSymbol containing the name of the table object to find.\n@param hp\tAddress of a handle where the table's data will be returned if the named table object is found.\n@param sp\tNumber of elements in the table (its size in longs).\n@return\t\tIf no table object is associated with the symbol tableName, table_get() returns a non-zero result.\n\n@remark\t\ttable_get searches for a table associated with the t_symbol\ntableName. If one is found, a Handle to its elements (stored as an\narray of long integers) is returned and the function returns 0.\nNever count on a table to exist across calls to\none of your methods. Call table_get and check the result each time\nyou wish to use a table.\n\nHere is an example of retrieving the 40th element of a table:\n@code\nlong **storage,size,value;\nif (!table_get(gensym(\"somename\"),&storage,&size)) {\nif (size > 40)\nvalue = *((*storage)+40);\n}\n@endcode"]
+    #[doc = "Get a handle to the data in a named table object.\n@ingroup tables\n\n@param s\tSymbol containing the name of the table object to find.\n@param hp\tAddress of a handle where the table's data will be returned if the named table object is found.\n@param sp\tNumber of elements in the table (its size in longs).\n@return\t\tIf no table object is associated with the symbol tableName, table_get() returns a non-zero result.\n\n@remark\t\ttable_get searches for a table associated with the t_symbol\ntableName. If one is found, a Handle to its elements (stored as an\narray of long integers) is returned and the function returns 0.\nNever count on a table to exist across calls to\none of your methods. Call table_get and check the result each time\nyou wish to use a table.\n\nHere is an example of retrieving the 40th element of a table:\n\n```c\nlong **storage,size,value;\nif (!table_get(gensym(\"somename\"),&storage,&size)) {\nif (size > 40)\nvalue = *((*storage)+40);\n}\n```\n"]
     pub fn table_get(
         s: *mut t_symbol,
         hp: *mut *mut *mut ::std::os::raw::c_long,
@@ -2081,11 +2081,11 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = "\tMark a table object as having changed data.\n@ingroup tables\n@param s\tSymbol containing the name of a table object.\n@return\t\tIf no table is associated with tableName, table_dirty returns a non-zero result."]
+    #[doc = "Mark a table object as having changed data.\n@ingroup tables\n@param s\tSymbol containing the name of a table object.\n@return\t\tIf no table is associated with tableName, table_dirty returns a non-zero result."]
     pub fn table_dirty(s: *mut t_symbol) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = " Load a data file into a handle.\nThis is a low-level routine used for reading text and data files. You\nspecify the file's name and Path ID, as well as a pointer to a Handle.\n\n@ingroup loading_max_files\n@param\tname\tName of the patcher file to load.\n@param\tvolume\tPath ID specifying the location of the file.\n@param\th\t\tPointer to a handle variable that will receive the handle\nthat contains the data in the file.\n@param\tsizep\tSize of the handle returned in h.\n@return\t\t\tIf the file is found, readtohandle creates a Handle, reads all the data in\nthe file into it, assigns the handle to the variable hp, and returns the\nsize of the data in size. readtohandle returns 0 if the file was\nopened and read successfully, and non-zero if there was an error."]
+    #[doc = "Load a data file into a handle.\nThis is a low-level routine used for reading text and data files. You\nspecify the file's name and Path ID, as well as a pointer to a Handle.\n\n@ingroup loading_max_files\n@param\tname\tName of the patcher file to load.\n@param\tvolume\tPath ID specifying the location of the file.\n@param\th\t\tPointer to a handle variable that will receive the handle\nthat contains the data in the file.\n@param\tsizep\tSize of the handle returned in h.\n@return\t\t\tIf the file is found, readtohandle creates a Handle, reads all the data in\nthe file into it, assigns the handle to the variable hp, and returns the\nsize of the data in size. readtohandle returns 0 if the file was\nopened and read successfully, and non-zero if there was an error."]
     pub fn readtohandle(
         name: *const ::std::os::raw::c_char,
         volume: ::std::os::raw::c_short,
@@ -2094,14 +2094,14 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = " Load a patcher file by name and volume reference number.\n@ingroup loading_max_files\n@param\tname\tFilename of the patcher file to load (C string).\n@param\tvol\t\tPath ID specifying the location of the file.\n@return\t\t\tIf the file is found, fileload tries to open\nthe file, evaluate it, open a window, and bring it to the front. A pointer\nto the newly created Patcher is returned if loading is successful,\notherwise, if the file is not found or there is insufficient memory, zero\nis returned."]
+    #[doc = "Load a patcher file by name and volume reference number.\n@ingroup loading_max_files\n@param\tname\tFilename of the patcher file to load (C string).\n@param\tvol\t\tPath ID specifying the location of the file.\n@return\t\t\tIf the file is found, fileload tries to open\nthe file, evaluate it, open a window, and bring it to the front. A pointer\nto the newly created Patcher is returned if loading is successful,\notherwise, if the file is not found or there is insufficient memory, zero\nis returned."]
     pub fn fileload(
         name: *const ::std::os::raw::c_char,
         vol: ::std::os::raw::c_short,
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Pass arguments to Max files when you open them.\nThis function loads the specified file and returns a pointer to the\ncreated object. Historically, intload() is was used to open patcher files,\nwhether they are in text or Max binary format.\nIt could also open table files whose contents begin with the word \"table\".\n\n@ingroup loading_max_files\n@param\tname\t\tName of the file to open.\n@param\tvolume\t\tPath ID specifying the location of the file.\n@param\ts\t\t\tA symbol.\n@param\tac\t\t\tCount of t_atoms in av. To properly open a patcher file, ac should be 9.\n@param\tav\t\t\tArray of t_atoms that will replace the changeable\narguments 1-9. The default behavior could be to set\nall these to t_atoms of type #A_LONG with a value of 0.\n@param\tcouldedit\tIf non-zero and the file is not a patcher file, the file is opened as a text file.\n@return\t\t\t\tIf couldedit is non-zero and the file is not a patcher file, it is made into\na text editor, and intoad() returns 0. If couldedit is non-zero, intload()\nwill alert the user to an error and return 0. If there is no error, the\nvalue returned will be a pointer to a patcher or table object."]
+    #[doc = "Pass arguments to Max files when you open them.\nThis function loads the specified file and returns a pointer to the\ncreated object. Historically, intload() is was used to open patcher files,\nwhether they are in text or Max binary format.\nIt could also open table files whose contents begin with the word \"table\".\n\n@ingroup loading_max_files\n@param\tname\t\tName of the file to open.\n@param\tvolume\t\tPath ID specifying the location of the file.\n@param\ts\t\t\tA symbol.\n@param\tac\t\t\tCount of t_atoms in av. To properly open a patcher file, ac should be 9.\n@param\tav\t\t\tArray of t_atoms that will replace the changeable\narguments 1-9. The default behavior could be to set\nall these to t_atoms of type #A_LONG with a value of 0.\n@param\tcouldedit\tIf non-zero and the file is not a patcher file, the file is opened as a text file.\n@return\t\t\t\tIf couldedit is non-zero and the file is not a patcher file, it is made into\na text editor, and intoad() returns 0. If couldedit is non-zero, intload()\nwill alert the user to an error and return 0. If there is no error, the\nvalue returned will be a pointer to a patcher or table object."]
     pub fn intload(
         name: *const ::std::os::raw::c_char,
         volume: ::std::os::raw::c_short,
@@ -2112,7 +2112,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Load a patcher file located in the Max search path by name.\nThis function searches for a patcher file, opens it,\nevaluates it as a patcher file, opens a window for the patcher and brings\nit to the front. You need only specify a filename and Max will look\nthrough its search path for the file. The search path begins with the\ncurrent 'default volume' that is often the volume of the last opened\npatcher file, then the folders specified in the File Preferences dialog,\nsearched depth first, then finally the folder that contains the Max\napplication.\n\n@ingroup loading_max_files\n@param\tname\tFilename of the patcher file to load (C string).\n@return\t\t\tIf stringload() returns a non-zero result, you can later\nuse freeobject() to close the patcher, or just let users do it themselves.\nIf stringload() returns zero, no file with the specified name was\nfound or there was insufficient memory to open it."]
+    #[doc = "Load a patcher file located in the Max search path by name.\nThis function searches for a patcher file, opens it,\nevaluates it as a patcher file, opens a window for the patcher and brings\nit to the front. You need only specify a filename and Max will look\nthrough its search path for the file. The search path begins with the\ncurrent 'default volume' that is often the volume of the last opened\npatcher file, then the folders specified in the File Preferences dialog,\nsearched depth first, then finally the folder that contains the Max\napplication.\n\n@ingroup loading_max_files\n@param\tname\tFilename of the patcher file to load (C string).\n@return\t\t\tIf stringload() returns a non-zero result, you can later\nuse freeobject() to close the patcher, or just let users do it themselves.\nIf stringload() returns zero, no file with the specified name was\nfound or there was insufficient memory to open it."]
     pub fn stringload(name: *const ::std::os::raw::c_char) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
@@ -2146,15 +2146,15 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Give the preset object a general message to restore the current state of your object.\nThis is a general preset function for use when your object's state\ncannot be restored with a simple int or set message. The example\nbelow shows the expected format for specifying what your current\nstate is to a preset object. The first thing you supply is your object itself,\nfollowed by the symbol that is the name of your object's class (which\nyou can retrieve from your object using the macro ob_sym, declared in\next_mess.h). Next, supply the symbol that specifies the message you\nwant receive (a method for which had better be defined in your class),\nfollowed by the arguments to this message—the current values of your\nobject's fields.\n\n@ingroup presets\n@param\tfmt\t\tC string containing one or more letters corresponding\nto the types of each element of the message. s for\nSymbol, l for long, or f for float.\n@param\t...\t\tElements of the message used to restore the state of\nyour object, passed directly to the function as Symbols,\nlongs, or floats. See below for an example that\nconforms to what the preset object expects."]
+    #[doc = "Give the preset object a general message to restore the current state of your object.\nThis is a general preset function for use when your object's state\ncannot be restored with a simple int or set message. The example\nbelow shows the expected format for specifying what your current\nstate is to a preset object. The first thing you supply is your object itself,\nfollowed by the symbol that is the name of your object's class (which\nyou can retrieve from your object using the macro ob_sym, declared in\next_mess.h). Next, supply the symbol that specifies the message you\nwant receive (a method for which had better be defined in your class),\nfollowed by the arguments to this message—the current values of your\nobject's fields.\n\n@ingroup presets\n@param\tfmt\t\tC string containing one or more letters corresponding\nto the types of each element of the message. s for\nSymbol, l for long, or f for float.\n@param\t...\t\tElements of the message used to restore the state of\nyour object, passed directly to the function as Symbols,\nlongs, or floats. See below for an example that\nconforms to what the preset object expects."]
     pub fn preset_store(fmt: *mut ::std::os::raw::c_char, ...);
 }
 unsafe extern "C" {
-    #[doc = " Restore the state of your object with a set message.\nThis function causes a set message with the argument value to be sent\nto your object from the preset object when the user executes a preset.\n\n@ingroup presets\n@param\tobj\t\tYour object.\n@param\tval\t\tCurrent value of your object."]
+    #[doc = "Restore the state of your object with a set message.\nThis function causes a set message with the argument value to be sent\nto your object from the preset object when the user executes a preset.\n\n@ingroup presets\n@param\tobj\t\tYour object.\n@param\tval\t\tCurrent value of your object."]
     pub fn preset_set(obj: *mut t_object, val: t_atom_long);
 }
 unsafe extern "C" {
-    #[doc = "\tRestore the state of your object with an int message.\nThis function causes an int message with the argument value to be\nsent to your object from the preset object when the user executes a\npreset. All of the existing user interface objects use the int message for\nrestoring their state when a preset is executed.\n\n@ingroup presets\n@param\tx\tYour object.\n@param\tn\tCurrent value of your object."]
+    #[doc = "Restore the state of your object with an int message.\nThis function causes an int message with the argument value to be\nsent to your object from the preset object when the user executes a\npreset. All of the existing user interface objects use the int message for\nrestoring their state when a preset is executed.\n\n@ingroup presets\n@param\tx\tYour object.\n@param\tn\tCurrent value of your object."]
     pub fn preset_int(x: *mut t_object, n: t_atom_long);
 }
 unsafe extern "C" {
@@ -2293,7 +2293,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new filewatcher.\nThe file will not be actively watched until filewatcher_start() is called.\nThe filewatcher can be freed using object_free().\n\n@ingroup\t\t\tfiles\n@param\towner\t\tYour object.\nThis object will receive the message \"filechanged\" when the watcher sees a change in the file or folder.\n@param\tpath\t\tThe path in which the file being watched resides, or the path of the folder being watched.\n@param\tfilename\tThe name of the file being watched, or an empty string if you are simply watching the folder specified by path.\n@return\t\t\t\tA pointer to the new filewatcher.\n@remark\t\t\t\tThe \"filechanged\" method should have the prototype:\n@code\nvoid myObject_filechanged(t_myObject *x, char *filename, short path);\n@endcode"]
+    #[doc = "Create a new filewatcher.\nThe file will not be actively watched until filewatcher_start() is called.\nThe filewatcher can be freed using object_free().\n\n@ingroup\t\t\tfiles\n@param\towner\t\tYour object.\nThis object will receive the message \"filechanged\" when the watcher sees a change in the file or folder.\n@param\tpath\t\tThe path in which the file being watched resides, or the path of the folder being watched.\n@param\tfilename\tThe name of the file being watched, or an empty string if you are simply watching the folder specified by path.\n@return\t\t\t\tA pointer to the new filewatcher.\n@remark\t\t\t\tThe \"filechanged\" method should have the prototype:\n\n```c\nvoid myObject_filechanged(t_myObject *x, char *filename, short path);\n```\n"]
     pub fn filewatcher_new(
         owner: *mut t_object,
         path: ::std::os::raw::c_short,
@@ -2301,15 +2301,15 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tStart watching a file using a filewatcher created with filewatcher_new().\n@param\tx\t\t\tA filewatcher pointer, as returned by filewatcher_new()."]
+    #[doc = "Start watching a file using a filewatcher created with filewatcher_new().\n@param\tx\t\t\tA filewatcher pointer, as returned by filewatcher_new()."]
     pub fn filewatcher_start(x: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
-    #[doc = "\tStop watching a file using a filewatcher created with filewatcher_new().\n@param\tx\t\t\tA filewatcher pointer, as returned by filewatcher_new()."]
+    #[doc = "Stop watching a file using a filewatcher created with filewatcher_new().\n@param\tx\t\t\tA filewatcher pointer, as returned by filewatcher_new()."]
     pub fn filewatcher_stop(x: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a file to a collective.\n@ingroup\t\tfiles\n@param\tw\t\tHandle for the collective builder.\n@param\tflags\tIf flags == 1, copy this file to support folder of an app instead of to the collective in an app.\n@param\tname\tThe name of the file.\n@param\tpath\tThe path of the file to add."]
+    #[doc = "Add a file to a collective.\n@ingroup\t\tfiles\n@param\tw\t\tHandle for the collective builder.\n@param\tflags\tIf flags == 1, copy this file to support folder of an app instead of to the collective in an app.\n@param\tname\tThe name of the file.\n@param\tpath\tThe path of the file to add."]
     pub fn fileusage_addfile(
         w: *mut ::std::os::raw::c_void,
         flags: ::std::os::raw::c_long,
@@ -2325,7 +2325,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a package to a standalone.\n@ingroup\t\t\t\t\tfiles\n@param\tw\t\t\t\t\tHandle for the standalone builder\n@param\tname\t\t\t\tThe name of the package\n@param\tsubfoldernames\t\tA #t_atomarray containing symbols, each of which is a foldername in the package to include.\nPass NULL to include the entire package contents.\n@version\t\t\t\t\tIntroduced in Max 7.0.4"]
+    #[doc = "Add a package to a standalone.\n@ingroup\t\t\t\t\tfiles\n@param\tw\t\t\t\t\tHandle for the standalone builder\n@param\tname\t\t\t\tThe name of the package\n@param\tsubfoldernames\t\tA #t_atomarray containing symbols, each of which is a foldername in the package to include.\nPass NULL to include the entire package contents.\n@version\t\t\t\t\tIntroduced in Max 7.0.4"]
     pub fn fileusage_addpackage(
         w: *mut ::std::os::raw::c_void,
         name: *const ::std::os::raw::c_char,
@@ -2353,7 +2353,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a folder to a standalone.\n@ingroup\t\t\t\t\tfiles\n@param\tw\t\t\t\t\tHandle for the standalone builder\n@param\tpath\t\t\t\tPath of the folder\n@param\trecursive\t\t\tAdd the contents of the folder recursively (respected only when building standalones)\n@version\t\t\t\t\tIntroduced in Max 8.0.2"]
+    #[doc = "Add a folder to a standalone.\n@ingroup\t\t\t\t\tfiles\n@param\tw\t\t\t\t\tHandle for the standalone builder\n@param\tpath\t\t\t\tPath of the folder\n@param\trecursive\t\t\tAdd the contents of the folder recursively (respected only when building standalones)\n@version\t\t\t\t\tIntroduced in Max 8.0.2"]
     pub fn fileusage_addfolder(
         w: *mut ::std::os::raw::c_void,
         path: ::std::os::raw::c_short,
@@ -2495,7 +2495,7 @@ unsafe extern "C" {
         path: ::std::os::raw::c_short,
     ) -> ::std::os::raw::c_short;
 }
-#[doc = " The atomarray object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup atomarray"]
+#[doc = "The atomarray object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup atomarray"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _atomarray {
@@ -2514,7 +2514,7 @@ const _: () = {
     ["Offset of field: _atomarray::flags"][::std::mem::offset_of!(_atomarray, flags) - 48usize];
 };
 unsafe extern "C" {
-    #[doc = "Create a new atomarray object.\nNote that atoms provided to this function will be <em>copied</em>. The copies stored internally to the atomarray instance.\nYou can free the atomarray by calling object_free().\n\n@ingroup\tatomarray\n@param\tac\tThe number of atoms to be initially contained in the atomarray.\n@param\tav\tA pointer to the first of an array of atoms to initially copy into the atomarray.\n@return\t\tPointer to the new atomarray object.\n\n@remark\t\tNote that due to the unusual prototype of this method that you cannot instantiate this object using the\nobject_new_typed() function.  If you wish to use the dynamically bound creator to instantiate the object,\nyou should instead should use object_new() as demonstrated below.  The primary reason that you might choose\nto instantiate an atomarray using object_new() instead of atomarray_new() is for using the atomarray object\nin code that is also intended to run in Max 4.\n@code\nobject_new(CLASS_NOBOX, gensym(\"atomarray\"), argc, argv);\n@endcode\n\n@see\t\tatomarray_duplicate()"]
+    #[doc = "Create a new atomarray object.\nNote that atoms provided to this function will be <em>copied</em>. The copies stored internally to the atomarray instance.\nYou can free the atomarray by calling object_free().\n\n@ingroup\tatomarray\n@param\tac\tThe number of atoms to be initially contained in the atomarray.\n@param\tav\tA pointer to the first of an array of atoms to initially copy into the atomarray.\n@return\t\tPointer to the new atomarray object.\n\n@remark\t\tNote that due to the unusual prototype of this method that you cannot instantiate this object using the\nobject_new_typed() function.  If you wish to use the dynamically bound creator to instantiate the object,\nyou should instead should use object_new() as demonstrated below.  The primary reason that you might choose\nto instantiate an atomarray using object_new() instead of atomarray_new() is for using the atomarray object\nin code that is also intended to run in Max 4.\n\n```c\nobject_new(CLASS_NOBOX, gensym(\"atomarray\"), argc, argv);\n```\n\n\n@see\t\tatomarray_duplicate()"]
     pub fn atomarray_new(ac: ::std::os::raw::c_long, av: *mut t_atom) -> *mut t_atomarray;
 }
 unsafe extern "C" {
@@ -2542,7 +2542,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Retrieve a copy of the atoms in the array.\nTo retrieve a pointer to the contained atoms use atomarray_getatoms().\n\n@ingroup\tatomarray\n\n@param\tx\tThe atomarray instance.\n@param\tac\tThe address of a long where the number of atoms will be set.\n@param\tav\tThe address of a #t_atom pointer where the atoms will be allocated and copied.\n@return\t\tA Max error code.\n\n@remark\t\tYou are responsible for freeing memory allocated for the copy of the atoms returned.\n@code\nlong\tac = 0;\nt_atom *av = NULL;\n\natomarray_copyatoms(anAtomarray, &ac, &av);\nif(ac && av){\n// do something with ac and av here...\nsysmem_freeptr(av);\n}\n@endcode\n\n@see\t\tatomarray_getatoms()"]
+    #[doc = "Retrieve a copy of the atoms in the array.\nTo retrieve a pointer to the contained atoms use atomarray_getatoms().\n\n@ingroup\tatomarray\n\n@param\tx\tThe atomarray instance.\n@param\tac\tThe address of a long where the number of atoms will be set.\n@param\tav\tThe address of a #t_atom pointer where the atoms will be allocated and copied.\n@return\t\tA Max error code.\n\n@remark\t\tYou are responsible for freeing memory allocated for the copy of the atoms returned.\n\n```c\nlong\tac = 0;\nt_atom *av = NULL;\n\natomarray_copyatoms(anAtomarray, &ac, &av);\nif(ac && av){\n// do something with ac and av here...\nsysmem_freeptr(av);\n}\n```\n\n\n@see\t\tatomarray_getatoms()"]
     pub fn atomarray_copyatoms(
         x: *mut t_atomarray,
         ac: *mut ::std::os::raw::c_long,
@@ -2554,7 +2554,7 @@ unsafe extern "C" {
     pub fn atomarray_getsize(x: *mut t_atomarray) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "Copy an a specific atom from the array.\n\n@ingroup\t\tatomarray\n@param\tx\t\tThe atomarray instance.\n@param\tindex\tThe zero-based index into the array from which to retrieve an atom pointer.\n@param\tav\t\tThe address of an atom to contain the copy.\n@return\t\t\tA Max error code.\n\n@remark\t\t\tExample:\n@code\n{\nt_atom a;\n\n// fetch a copy of the second atom in a previously existing array\natomarray_getindex(anAtomarray, 1, &a);\n// do something with the atom here...\n}\n@endcode"]
+    #[doc = "Copy an a specific atom from the array.\n\n@ingroup\t\tatomarray\n@param\tx\t\tThe atomarray instance.\n@param\tindex\tThe zero-based index into the array from which to retrieve an atom pointer.\n@param\tav\t\tThe address of an atom to contain the copy.\n@return\t\t\tA Max error code.\n\n@remark\t\t\tExample:\n\n```c\n{\nt_atom a;\n\n// fetch a copy of the second atom in a previously existing array\natomarray_getindex(anAtomarray, 1, &a);\n// do something with the atom here...\n}\n```\n"]
     pub fn atomarray_getindex(
         x: *mut t_atomarray,
         index: ::std::os::raw::c_long,
@@ -2586,10 +2586,10 @@ unsafe extern "C" {
     pub fn atomarray_clear(x: *mut t_atomarray);
 }
 unsafe extern "C" {
-    #[doc = "Call the specified function for every item in the atom array.\n\n@ingroup atomarray\n@param\tx\t\tThe atomarray instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n@return\t\t\tA max error code.\n\n@remark\t\t\tThe atomarray_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by hashtab_funall().\n@code\nvoid myFun(t_atom *a, void *myArg)\n{\n// do something with a and myArg here\n// a is the atom in the atom array\n}\n@endcode\n\n@see\t\t\tlinklist_funall()\n@see\t\t\thashtab_funall()"]
+    #[doc = "Call the specified function for every item in the atom array.\n\n@ingroup atomarray\n@param\tx\t\tThe atomarray instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n@return\t\t\tA max error code.\n\n@remark\t\t\tThe atomarray_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by hashtab_funall().\n\n```c\nvoid myFun(t_atom *a, void *myArg)\n{\n// do something with a and myArg here\n// a is the atom in the atom array\n}\n```\n\n\n@see\t\t\tlinklist_funall()\n@see\t\t\thashtab_funall()"]
     pub fn atomarray_funall(x: *mut t_atomarray, fun: method, arg: *mut ::std::os::raw::c_void);
 }
-#[doc = " The atombuf struct provides a way to pass a collection of atoms.\n@ingroup atombuf"]
+#[doc = "The atombuf struct provides a way to pass a collection of atoms.\n@ingroup atombuf"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct atombuf {
@@ -2605,7 +2605,7 @@ const _: () = {
     ["Offset of field: atombuf::a_argc"][::std::mem::offset_of!(atombuf, a_argc) - 0usize];
     ["Offset of field: atombuf::a_argv"][::std::mem::offset_of!(atombuf, a_argv) - 8usize];
 };
-#[doc = " The atombuf struct provides a way to pass a collection of atoms.\n@ingroup atombuf"]
+#[doc = "The atombuf struct provides a way to pass a collection of atoms.\n@ingroup atombuf"]
 pub type t_atombuf = atombuf;
 unsafe extern "C" {
     #[doc = "Use atombuf_new() to create a new Atombuf from an array of t_atoms.\n\n@ingroup atombuf\n@param\targc\tNumber of t_atoms in the argv array. May be 0.\n@param\targv\tArray of t_atoms. If creating an empty Atombuf, you may pass 0.\n@return\t\t\tatombuf_new() create a new #t_atombuf and returns a pointer to it.\nIf 0 is returned, insufficient memory was available."]
@@ -2729,7 +2729,7 @@ unsafe extern "C" {
 }
 pub type t_int32_atomic = i32;
 pub type t_uint32_atomic = u_int32_t;
-#[doc = " A linklist element. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_linklist"]
+#[doc = "A linklist element. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_linklist"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _llelem {
@@ -2749,9 +2749,9 @@ const _: () = {
     ["Offset of field: _llelem::flags"][::std::mem::offset_of!(_llelem, flags) - 24usize];
     ["Offset of field: _llelem::marked"][::std::mem::offset_of!(_llelem, marked) - 32usize];
 };
-#[doc = " A linklist element. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_linklist"]
+#[doc = "A linklist element. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_linklist"]
 pub type t_llelem = _llelem;
-#[doc = " The linklist object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_llelem"]
+#[doc = "The linklist object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_llelem"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _linklist {
@@ -2787,7 +2787,7 @@ const _: () = {
     ["Offset of field: _linklist::locktype"]
         [::std::mem::offset_of!(_linklist, locktype) - 112usize];
 };
-#[doc = " The linklist object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_llelem"]
+#[doc = "The linklist object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup linklist\n@see t_llelem"]
 pub type t_linklist = _linklist;
 unsafe extern "C" {
     #[doc = "Create a new linklist object.\nYou can free the linklist by calling object_free() on the linklist's pointer,\nor by using linklist_chuck().\n\n@ingroup linklist\n@return  Pointer to the new linklist object.\n\n@see\t\t\t\tobject_free()\n@see\t\t\t\tlinklist_chuck()"]
@@ -2818,7 +2818,7 @@ unsafe extern "C" {
     pub fn linklist_append(x: *mut t_linklist, o: *mut ::std::os::raw::c_void) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "\tInsert an item into the list at the specified index.\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\to\t\tThe item pointer to insert.\n@param\tindex\tThe index at which to insert.  Index 0 is the head of the list.\n@return\t\t\tThe index of the item in the linklist, or -1 if the insert failed."]
+    #[doc = "Insert an item into the list at the specified index.\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\to\t\tThe item pointer to insert.\n@param\tindex\tThe index at which to insert.  Index 0 is the head of the list.\n@return\t\t\tThe index of the item in the linklist, or -1 if the insert failed."]
     pub fn linklist_insertindex(
         x: *mut t_linklist,
         o: *mut ::std::os::raw::c_void,
@@ -2826,7 +2826,7 @@ unsafe extern "C" {
     ) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "\tInsert an item into the list, keeping the list sorted according to a specified comparison function.\n@ingroup\t\tlinklist\n@param\tx\t\tThe linklist instance.\n@param\to\t\tThe item pointer to insert.\n@param\tcmpfn\tA comparison function by which the list should be sorted.\n@return\t\t\tThe index of the new item in the linklist, or -1 if the insert failed."]
+    #[doc = "Insert an item into the list, keeping the list sorted according to a specified comparison function.\n@ingroup\t\tlinklist\n@param\tx\t\tThe linklist instance.\n@param\to\t\tThe item pointer to insert.\n@param\tcmpfn\tA comparison function by which the list should be sorted.\n@return\t\t\tThe index of the new item in the linklist, or -1 if the insert failed."]
     pub fn linklist_insert_sorted(
         x: *mut t_linklist,
         o: *mut ::std::os::raw::c_void,
@@ -2927,7 +2927,7 @@ unsafe extern "C" {
     pub fn linklist_swap(x: *mut t_linklist, a: ::std::os::raw::c_long, b: ::std::os::raw::c_long);
 }
 unsafe extern "C" {
-    #[doc = "Search the linked list for the first item meeting defined criteria.\nThe items in the list are traversed, calling a specified comparison function on each\nuntil the comparison function returns true.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\to\t\tThe address to pointer that will be set with the matching item.\n@param\tcmpfn\tThe function used to determine a match in the list.\n@param\tcmpdata\tAn argument to be passed to the #t_cmpfn.\nThis will be passed as the second of the two args to the #t_cmpfn.\nThe first arg will be the linklist item at each iteration in the list.\n@return\t\t\tThe index of the matching item, or -1 if no match is found.\n\n@remark\t\tThe following shows how to manually do what linklist_chuckobject() does.\n@code\nvoid *obj;\nlong index;\n\nindex = linklist_findfirst(x, &obj, #linklist_match, o);\nif(index != -1)\nlinklist_chuckindex(x, index);\n@endcode\n\n@see linklist_match\n@see t_cmpfn\n@see linklist_findall"]
+    #[doc = "Search the linked list for the first item meeting defined criteria.\nThe items in the list are traversed, calling a specified comparison function on each\nuntil the comparison function returns true.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\to\t\tThe address to pointer that will be set with the matching item.\n@param\tcmpfn\tThe function used to determine a match in the list.\n@param\tcmpdata\tAn argument to be passed to the #t_cmpfn.\nThis will be passed as the second of the two args to the #t_cmpfn.\nThe first arg will be the linklist item at each iteration in the list.\n@return\t\t\tThe index of the matching item, or -1 if no match is found.\n\n@remark\t\tThe following shows how to manually do what linklist_chuckobject() does.\n\n```c\nvoid *obj;\nlong index;\n\nindex = linklist_findfirst(x, &obj, #linklist_match, o);\nif(index != -1)\nlinklist_chuckindex(x, index);\n```\n\n\n@see linklist_match\n@see t_cmpfn\n@see linklist_findall"]
     pub fn linklist_findfirst(
         x: *mut t_linklist,
         o: *mut *mut ::std::os::raw::c_void,
@@ -2941,7 +2941,7 @@ unsafe extern "C" {
     ) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "Search the linked list for all items meeting defined criteria.\nThe items in the list are traversed, calling a specified comparison function on each,\nand returning the matches in another linklist.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tout\t\tThe address to a #t_linklist pointer.\nYou should initialize the pointer to NULL before calling linklist_findall().\nA new linklist will be created internally by linklist_findall() and returned here.\n@param\tcmpfn\tThe function used to determine a match in the list.\n@param\tcmpdata\tAn argument to be passed to the #t_cmpfn.\nThis will be passed as the second of the two args to the #t_cmpfn.\nThe first arg will be the linklist item at each iteration in the list.\n\n@remark\t\tThe following example assumes you have a linklist called myLinkList, and #t_cmpfn called\nmyCmpFunction, and some sort of data to match in someCriteria.\n@code\nt_linklist *results = NULL;\n\nlinklist_findall(myLinkList, &results, myCmpFunction, (void *)someCriteria);\n// do something here with the 'results' linklist\n// then free the results linklist\nlinklist_chuck(results);\n@endcode\n\n@see\tlinklist_match\n@see\tt_cmpfn\n@see\tlinklist_findfirst"]
+    #[doc = "Search the linked list for all items meeting defined criteria.\nThe items in the list are traversed, calling a specified comparison function on each,\nand returning the matches in another linklist.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tout\t\tThe address to a #t_linklist pointer.\nYou should initialize the pointer to NULL before calling linklist_findall().\nA new linklist will be created internally by linklist_findall() and returned here.\n@param\tcmpfn\tThe function used to determine a match in the list.\n@param\tcmpdata\tAn argument to be passed to the #t_cmpfn.\nThis will be passed as the second of the two args to the #t_cmpfn.\nThe first arg will be the linklist item at each iteration in the list.\n\n@remark\t\tThe following example assumes you have a linklist called myLinkList, and #t_cmpfn called\nmyCmpFunction, and some sort of data to match in someCriteria.\n\n```c\nt_linklist *results = NULL;\n\nlinklist_findall(myLinkList, &results, myCmpFunction, (void *)someCriteria);\n// do something here with the 'results' linklist\n// then free the results linklist\nlinklist_chuck(results);\n```\n\n\n@see\tlinklist_match\n@see\tt_cmpfn\n@see\tlinklist_findfirst"]
     pub fn linklist_findall(
         x: *mut t_linklist,
         out: *mut *mut t_linklist,
@@ -2996,7 +2996,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "Sort the linked list.\nThe items in the list are ordered using a #t_cmpfn function that is passed in as an argument.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tcmpfn\tThe function used to sort the list.\n\n@remark\t\tThe following is example is a real-world example of sorting a linklist of symbols alphabetically\nby first letter only.  First the cmpfn is defined, then it is used in a different function\nby linklist_sort().\n@code\nlong myAlphabeticalCmpfn(void *a, void *b)\n{\nt_symbol *s1 = (t_symbol *)a;\nt_symbol *s2 = (t_symbol *)b;\n\nif(s1->s_name[0] < s2->s_name[0])\nreturn true;\nelse\nreturn false;\n}\n\nvoid mySortMethod(t_myobj *x)\n{\n// the linklist was already created and filled with items previously\nlinklist_sort(x->myLinkList, myAlphabeticalCmpfn);\n}\n@endcode"]
+    #[doc = "Sort the linked list.\nThe items in the list are ordered using a #t_cmpfn function that is passed in as an argument.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tcmpfn\tThe function used to sort the list.\n\n@remark\t\tThe following is example is a real-world example of sorting a linklist of symbols alphabetically\nby first letter only.  First the cmpfn is defined, then it is used in a different function\nby linklist_sort().\n\n```c\nlong myAlphabeticalCmpfn(void *a, void *b)\n{\nt_symbol *s1 = (t_symbol *)a;\nt_symbol *s2 = (t_symbol *)b;\n\nif(s1->s_name[0] < s2->s_name[0])\nreturn true;\nelse\nreturn false;\n}\n\nvoid mySortMethod(t_myobj *x)\n{\n// the linklist was already created and filled with items previously\nlinklist_sort(x->myLinkList, myAlphabeticalCmpfn);\n}\n```\n"]
     pub fn linklist_sort(
         x: *mut t_linklist,
         cmpfn: ::std::option::Option<
@@ -3008,11 +3008,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "Call the specified function for every item in the linklist.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe linklist_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by linklist_funall().\n@code\nvoid myFun(t_object *myObj, void *myArg)\n{\n// do something with myObj and myArg here\n// myObj is the item in the linklist\n}\n@endcode"]
+    #[doc = "Call the specified function for every item in the linklist.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe linklist_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by linklist_funall().\n\n```c\nvoid myFun(t_object *myObj, void *myArg)\n{\n// do something with myObj and myArg here\n// myObj is the item in the linklist\n}\n```\n"]
     pub fn linklist_funall(x: *mut t_linklist, fun: method, arg: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
-    #[doc = "Call the specified function for every item in the linklist.\nThe iteration through the list will halt if the function returns a non-zero value.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe linklist_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by linklist_funall().\n@code\nlong myFun(t_symbol *myListItemSymbol, void *myArg)\n{\n// this function is called by a linklist that contains symbols for its items\nif(myListItemSymbol == gensym(\"\")){\nerror(\"empty symbol -- aborting linklist traversal\")\nreturn 1;\n}\nelse{\n// do something with the symbol\nreturn 0;\n}\n}\n@endcode"]
+    #[doc = "Call the specified function for every item in the linklist.\nThe iteration through the list will halt if the function returns a non-zero value.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe linklist_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by linklist_funall().\n\n```c\nlong myFun(t_symbol *myListItemSymbol, void *myArg)\n{\n// this function is called by a linklist that contains symbols for its items\nif(myListItemSymbol == gensym(\"\")){\nerror(\"empty symbol -- aborting linklist traversal\")\nreturn 1;\n}\nelse{\n// do something with the symbol\nreturn 0;\n}\n}\n```\n"]
     pub fn linklist_funall_break(
         x: *mut t_linklist,
         fun: method,
@@ -3020,7 +3020,7 @@ unsafe extern "C" {
     ) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "Call the specified function for an item specified by index.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\ti\t\tThe index of the item to which to send the message.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe linklist_funindex() method will call your function for an item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by linklist_funindex().\n@code\nvoid myFun(t_object *myObj, void *myArg)\n{\n// do something with myObj and myArg here\n// myObj is the item in the linklist\n}\n@endcode"]
+    #[doc = "Call the specified function for an item specified by index.\n\n@ingroup linklist\n@param\tx\t\tThe linklist instance.\n@param\ti\t\tThe index of the item to which to send the message.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe linklist_funindex() method will call your function for an item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by linklist_funindex().\n\n```c\nvoid myFun(t_object *myObj, void *myArg)\n{\n// do something with myObj and myArg here\n// myObj is the item in the linklist\n}\n```\n"]
     pub fn linklist_funindex(
         x: *mut t_linklist,
         i: ::std::os::raw::c_long,
@@ -3078,7 +3078,7 @@ unsafe extern "C" {
         b: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_long;
 }
-#[doc = " A hashtab entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
+#[doc = "A hashtab entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _hashtab_entry {
@@ -3101,9 +3101,9 @@ const _: () = {
     ["Offset of field: _hashtab_entry::parent"]
         [::std::mem::offset_of!(_hashtab_entry, parent) - 56usize];
 };
-#[doc = " A hashtab entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
+#[doc = "A hashtab entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
 pub type t_hashtab_entry = _hashtab_entry;
-#[doc = " The hashtab object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
+#[doc = "The hashtab object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _hashtab {
@@ -3125,7 +3125,7 @@ const _: () = {
     ["Offset of field: _hashtab::flags"][::std::mem::offset_of!(_hashtab, flags) - 56usize];
     ["Offset of field: _hashtab::reserved"][::std::mem::offset_of!(_hashtab, reserved) - 64usize];
 };
-#[doc = " The hashtab object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
+#[doc = "The hashtab object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup hashtab\n@see t_hashtab"]
 pub type t_hashtab = _hashtab;
 unsafe extern "C" {
     #[doc = "Create a new hashtab object.\nYou can free the hashtab by calling object_free() on the hashtab's pointer,\nor by using hashtab_chuck().\n\n@ingroup hashtab\n@param\tslotcount\tThe number of slots in the hash table.  Prime numbers typically work well.\nPass 0 to get the default size.\n@return\t\t\t\tPointer to the new hashtab object.\n\n@see\t\t\t\tHASH_DEFSLOTS\n@see\t\t\t\tobject_free()\n@see\t\t\t\thashtab_chuck()"]
@@ -3145,7 +3145,7 @@ unsafe extern "C" {
     -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tStore an item in a hashtab with an associated key.\nThe difference between hashtab_store_safe() and hashtab_store() is what happens in the event of a collision in the hash table.\nThe normal hashtab_store() function will free the existing value at the collision location with sysmem_freeptr() and then replaces it.\nThis version doesn't try to free the existing value at the collision location, but instead just over-writes it.\n\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab with which to associate the value.\n@param\tval\t\tThe value to store.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_store()"]
+    #[doc = "Store an item in a hashtab with an associated key.\nThe difference between hashtab_store_safe() and hashtab_store() is what happens in the event of a collision in the hash table.\nThe normal hashtab_store() function will free the existing value at the collision location with sysmem_freeptr() and then replaces it.\nThis version doesn't try to free the existing value at the collision location, but instead just over-writes it.\n\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab with which to associate the value.\n@param\tval\t\tThe value to store.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_store()"]
     pub fn hashtab_store_safe(
         x: *mut t_hashtab,
         key: *mut t_symbol,
@@ -3153,7 +3153,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tStore an item in a hashtab with an associated key and also flags that define the behavior of the item.\nThe hashtab_store() method is the same as calling this method with the default (0) flags.\n\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab with which to associate the value.\n@param\tval\t\tThe value to store.\n@param\tflags\tOne of the values listed in #e_max_datastore_flags.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_store()"]
+    #[doc = "Store an item in a hashtab with an associated key and also flags that define the behavior of the item.\nThe hashtab_store() method is the same as calling this method with the default (0) flags.\n\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab with which to associate the value.\n@param\tval\t\tThe value to store.\n@param\tflags\tOne of the values listed in #e_max_datastore_flags.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_store()"]
     pub fn hashtab_storeflags(
         x: *mut t_hashtab,
         key: *mut t_symbol,
@@ -3193,7 +3193,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn an item stored in a hashtab with the specified key, also returning the items flags.\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab to fetch.\n@param\tval\t\tThe address of a pointer to which the fetched value will be assigned.\n@param\tflags\tThe address of a value to which the fetched flags will be assigned.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_lookup()\n@see\t\t\thashtab_store_flags()"]
+    #[doc = "Return an item stored in a hashtab with the specified key, also returning the items flags.\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab to fetch.\n@param\tval\t\tThe address of a pointer to which the fetched value will be assigned.\n@param\tflags\tThe address of a value to which the fetched flags will be assigned.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_lookup()\n@see\t\t\thashtab_store_flags()"]
     pub fn hashtab_lookupflags(
         x: *mut t_hashtab,
         key: *mut t_symbol,
@@ -3250,7 +3250,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Call the specified function for every item in the hashtab.\n\n@ingroup hashtab\n@param\tx\t\tThe hashtab instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n@return\t\t\tA max error code.\n\n@remark\t\t\tThe hashtab_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by hashtab_funall().\n@code\nvoid myFun(t_hashtab_entry *e, void *myArg)\n{\nif (e->key && e->value) {\n// do something with e->key, e->value, and myArg here as appropriate\n}\n}\n@endcode"]
+    #[doc = "Call the specified function for every item in the hashtab.\n\n@ingroup hashtab\n@param\tx\t\tThe hashtab instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n@return\t\t\tA max error code.\n\n@remark\t\t\tThe hashtab_funall() method will call your function for every item in the list.\nIt will pass both a pointer to the item in the list, and any argument that you\nprovide.  The following example shows a function that could be called by hashtab_funall().\n\n```c\nvoid myFun(t_hashtab_entry *e, void *myArg)\n{\nif (e->key && e->value) {\n// do something with e->key, e->value, and myArg here as appropriate\n}\n}\n```\n"]
     pub fn hashtab_funall(
         x: *mut t_hashtab,
         fun: method,
@@ -3285,7 +3285,7 @@ unsafe extern "C" {
     pub fn hashtab_getflags(x: *mut t_hashtab) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "\tChange the flags for an item stored in the hashtab with a given key.\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab whose flags will be changed.\n@param\tflags\tOne of the values listed in #e_max_datastore_flags.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_store_flags()"]
+    #[doc = "Change the flags for an item stored in the hashtab with a given key.\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab whose flags will be changed.\n@param\tflags\tOne of the values listed in #e_max_datastore_flags.\n@return\t\t\tA Max error code.\n@see\t\t\thashtab_store_flags()"]
     pub fn hashtab_keyflags(
         x: *mut t_hashtab,
         key: *mut t_symbol,
@@ -3293,18 +3293,18 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the flags for an item stored in the hashtab with a given key.\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab whose flags will be returned.\n@return\t\t\tThe flags for the given key.\n@see\t\t\thashtab_store_flags()"]
+    #[doc = "Retrieve the flags for an item stored in the hashtab with a given key.\n@ingroup\t\thashtab\n@param\tx\t\tThe hashtab instance.\n@param\tkey\t\tThe key in the hashtab whose flags will be returned.\n@return\t\t\tThe flags for the given key.\n@see\t\t\thashtab_store_flags()"]
     pub fn hashtab_getkeyflags(x: *mut t_hashtab, key: *mut t_symbol) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "Retrieve all of the keys stored in a hashtab.\n\nIf the kc and kv parameters are properly initialized to zero, then hashtab_getkeys() will allocate memory\nfor the keys it returns.  You are then responsible for freeing this memory using sysmem_freeptr().\n\n@ingroup hashtab\n@param\t\tx\tThe hashtab instance.\n@param\t\tkc\tThe address of a long where the number of keys retrieved will be set.\n@param\t\tkv\tThe address of the first of an array #t_symbol pointers where the retrieved keys will be set.\n@return\t\tA max error code.\n\n@remark\t\tThe following example demonstrates fetching all of the keys from a hashtab in order to iterate through\neach item stored in the hashtab.\n@code\nt_symbol\t**keys = NULL;\nlong\t\tnumKeys = 0;\nlong\t\ti;\nt_object\t*anItem;\n\nhashtab_getkeys(aHashtab, &numKeys, &keys);\nfor(i=0; i<numKeys; i++){\nhashtab_lookup(aHashtab, keys[i], &anItem);\n// Do something with anItem here...\n}\nif(keys)\nsysmem_freeptr(keys);\n@endcode"]
+    #[doc = "Retrieve all of the keys stored in a hashtab.\n\nIf the kc and kv parameters are properly initialized to zero, then hashtab_getkeys() will allocate memory\nfor the keys it returns.  You are then responsible for freeing this memory using sysmem_freeptr().\n\n@ingroup hashtab\n@param\t\tx\tThe hashtab instance.\n@param\t\tkc\tThe address of a long where the number of keys retrieved will be set.\n@param\t\tkv\tThe address of the first of an array #t_symbol pointers where the retrieved keys will be set.\n@return\t\tA max error code.\n\n@remark\t\tThe following example demonstrates fetching all of the keys from a hashtab in order to iterate through\neach item stored in the hashtab.\n\n```c\nt_symbol\t**keys = NULL;\nlong\t\tnumKeys = 0;\nlong\t\ti;\nt_object\t*anItem;\n\nhashtab_getkeys(aHashtab, &numKeys, &keys);\nfor(i=0; i<numKeys; i++){\nhashtab_lookup(aHashtab, keys[i], &anItem);\n// Do something with anItem here...\n}\nif(keys)\nsysmem_freeptr(keys);\n```\n"]
     pub fn hashtab_getkeys(
         x: *mut t_hashtab,
         kc: *mut ::std::os::raw::c_long,
         kv: *mut *mut *mut t_symbol,
     ) -> t_max_err;
 }
-#[doc = " A dictionary entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
+#[doc = "A dictionary entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct _dictionary_entry {
@@ -3326,9 +3326,9 @@ const _: () = {
     ["Offset of field: _dictionary_entry::e_flags"]
         [::std::mem::offset_of!(_dictionary_entry, e_flags) - 56usize];
 };
-#[doc = " A dictionary entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
+#[doc = "A dictionary entry. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
 pub type t_dictionary_entry = _dictionary_entry;
-#[doc = " The dictionary object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
+#[doc = "The dictionary object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _dictionary {
@@ -3352,7 +3352,7 @@ const _: () = {
     ["Offset of field: _dictionary::d_use_transaction"]
         [::std::mem::offset_of!(_dictionary, d_use_transaction) - 56usize];
 };
-#[doc = " The dictionary object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
+#[doc = "The dictionary object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup dictionary\n@see t_dictionary"]
 pub type t_dictionary = _dictionary;
 unsafe extern "C" {
     #[doc = "Create a new dictionary object.\nYou can free the dictionary by calling object_free().\nHowever, you should keep in mind the guidelines provided in @ref when_to_free_a_dictionary.\n\n@ingroup dictionary\n@return  Pointer to the new dictionary object.\n\n@see\t\t\t\tobject_free()"]
@@ -3606,7 +3606,7 @@ unsafe extern "C" {
     pub fn dictionary_getentrycount(d: *const t_dictionary) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "Retrieve all of the key names stored in a dictionary.\n\nThe numkeys and keys parameters should be initialized to zero.\nThe dictionary_getkeys() method will allocate memory for the keys it returns.\nYou are then responsible for freeing this memory using dictionary_freekeys().\n<em>You must use dictionary_freekeys(), not some other method for freeing the memory.</em>\n\n@ingroup \tdictionary\n@param\t\td\t\tThe dictionary instance.\n@param\t\tnumkeys\tThe address of a long where the number of keys retrieved will be set.\n@param\t\tkeys\tThe address of the first of an array #t_symbol pointers where the retrieved keys will be set.\n@return\t\t\t\tA max error code.\n\n@remark\t\tThe following example demonstrates fetching all of the keys from a dictionary named 'd'\nin order to iterate through each item stored in the dictionary.\n@code\nt_symbol\t**keys = NULL;\nlong\t\tnumkeys = 0;\nlong\t\ti;\nt_object\t*anItem;\n\ndictionary_getkeys(d, &numkeys, &keys);\nfor(i=0; i<numkeys; i++){\n// do something with the keys...\n}\nif(keys)\ndictionary_freekeys(d, numkeys, keys);\n@endcode\n\n@see \t\tdictionary_freekeys()"]
+    #[doc = "Retrieve all of the key names stored in a dictionary.\n\nThe numkeys and keys parameters should be initialized to zero.\nThe dictionary_getkeys() method will allocate memory for the keys it returns.\nYou are then responsible for freeing this memory using dictionary_freekeys().\n<em>You must use dictionary_freekeys(), not some other method for freeing the memory.</em>\n\n@ingroup \tdictionary\n@param\t\td\t\tThe dictionary instance.\n@param\t\tnumkeys\tThe address of a long where the number of keys retrieved will be set.\n@param\t\tkeys\tThe address of the first of an array #t_symbol pointers where the retrieved keys will be set.\n@return\t\t\t\tA max error code.\n\n@remark\t\tThe following example demonstrates fetching all of the keys from a dictionary named 'd'\nin order to iterate through each item stored in the dictionary.\n\n```c\nt_symbol\t**keys = NULL;\nlong\t\tnumkeys = 0;\nlong\t\ti;\nt_object\t*anItem;\n\ndictionary_getkeys(d, &numkeys, &keys);\nfor(i=0; i<numkeys; i++){\n// do something with the keys...\n}\nif(keys)\ndictionary_freekeys(d, numkeys, keys);\n```\n\n\n@see \t\tdictionary_freekeys()"]
     pub fn dictionary_getkeys(
         d: *const t_dictionary,
         numkeys: *mut ::std::os::raw::c_long,
@@ -3658,7 +3658,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Call the specified function for every entry in the dictionary.\n\n@ingroup\t\tdictionary\n@param\td\t\tThe dictionary instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe dictionary_funall() method will call your function for every entry in the dictionary.\nIt will pass both a pointer to the #t_dictionary_entry, and any argument that you provide.\nThe following example shows a function that could be called by dictionary_funall().\n@code\nvoid my_function(t_dictionary_entry *entry, void* my_arg)\n{\nt_symbol\t*key;\nt_atom\t\tvalue;\n\nkey = dictionary_entry_getkey(entry);\ndictionary_entry_getvalue(entry, &value);\n\n// do something with key, value, and my_arg...\n}\n@endcode\n@see dictionary_entry_getkey()\n@see dictionary_entry_getvalue()"]
+    #[doc = "Call the specified function for every entry in the dictionary.\n\n@ingroup\t\tdictionary\n@param\td\t\tThe dictionary instance.\n@param\tfun\t\tThe function to call, specified as function pointer cast to a Max #method.\n@param\targ\t\tAn argument that you would like to pass to the function being called.\n\n@remark\t\t\tThe dictionary_funall() method will call your function for every entry in the dictionary.\nIt will pass both a pointer to the #t_dictionary_entry, and any argument that you provide.\nThe following example shows a function that could be called by dictionary_funall().\n\n```c\nvoid my_function(t_dictionary_entry *entry, void* my_arg)\n{\nt_symbol\t*key;\nt_atom\t\tvalue;\n\nkey = dictionary_entry_getkey(entry);\ndictionary_entry_getvalue(entry, &value);\n\n// do something with key, value, and my_arg...\n}\n```\n\n@see dictionary_entry_getkey()\n@see dictionary_entry_getvalue()"]
     pub fn dictionary_funall(d: *mut t_dictionary, fun: method, arg: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
@@ -3763,7 +3763,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Create a new dictionary populated with values using a combination of attribute and sprintf syntax.\n\n@ingroup\t\tdictionary\n@param\tfmt\t\tAn sprintf-style format string specifying key-value pairs with attribute nomenclature.\n@param\t...\t\tOne or more arguments which are to be substituted into the format string.\n@return\t\t\tA new dictionary instance.\n\n@remark\t\t\tMax attribute syntax is used to define key-value pairs.  For example,\n@code\n\"@key1 value @key2 another_value\"\n@endcode\n\n@remark\t\t\tOne common use of this to create dictionary that represents an element of a patcher,\nor even an entire patcher itself.  The example below creates a dictionary that can\nbe passed to a function like newobject_fromdictionary() to create a new object.\n@code\nt_dictionary *d;\nchar text[4];\n\nstrncpy_zero(text, \"foo\", 4);\n\nd = dictionary_sprintf(\"@maxclass comment @varname _name \\\n@text \\\"%s\\\" @patching_rect %.2f %.2f %.2f %.2f \\\n@fontsize %f @textcolor %f %f %f 1.0 \\\n@fontname %s @bgcolor 0.001 0.001 0.001 0.\",\ntext, 20.0, 20.0, 200.0, 24.0,\n18, 0.9, 0.9, 0.9, \"Arial\");\n\n// do something with the dictionary here.\n\nobject_free(d);\n@endcode\n\n@see\t\t\tnewobject_sprintf()\n@see\t\t\tnewobject_fromdictionary()\n@see\t\t\tatom_setparse()"]
+    #[doc = "Create a new dictionary populated with values using a combination of attribute and sprintf syntax.\n\n@ingroup\t\tdictionary\n@param\tfmt\t\tAn sprintf-style format string specifying key-value pairs with attribute nomenclature.\n@param\t...\t\tOne or more arguments which are to be substituted into the format string.\n@return\t\t\tA new dictionary instance.\n\n@remark\t\t\tMax attribute syntax is used to define key-value pairs.  For example,\n\n```c\n\"@key1 value @key2 another_value\"\n```\n\n\n@remark\t\t\tOne common use of this to create dictionary that represents an element of a patcher,\nor even an entire patcher itself.  The example below creates a dictionary that can\nbe passed to a function like newobject_fromdictionary() to create a new object.\n\n```c\nt_dictionary *d;\nchar text[4];\n\nstrncpy_zero(text, \"foo\", 4);\n\nd = dictionary_sprintf(\"@maxclass comment @varname _name \\\n@text \\\"%s\\\" @patching_rect %.2f %.2f %.2f %.2f \\\n@fontsize %f @textcolor %f %f %f 1.0 \\\n@fontname %s @bgcolor 0.001 0.001 0.001 0.\",\ntext, 20.0, 20.0, 200.0, 24.0,\n18, 0.9, 0.9, 0.9, \"Arial\");\n\n// do something with the dictionary here.\n\nobject_free(d);\n```\n\n\n@see\t\t\tnewobject_sprintf()\n@see\t\t\tnewobject_fromdictionary()\n@see\t\t\tatom_setparse()"]
     pub fn dictionary_sprintf(fmt: *const ::std::os::raw::c_char, ...) -> *mut t_dictionary;
 }
 unsafe extern "C" {
@@ -3775,7 +3775,7 @@ unsafe extern "C" {
     pub fn dictionary_transaction_unlock(d: *mut t_dictionary) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tRead the specified JSON file and return a #t_dictionary object.\nYou are responsible for freeing the dictionary with object_free(),\nsubject to the caveats explained in @ref when_to_free_a_dictionary.\n@ingroup\t\t\tdictionary\n@param\tfilename\tThe name of the file.\n@param\tpath\t\tThe path of the file.\n@param\td\t\t\tThe address of a #t_dictionary pointer that will be set to the newly created dictionary.\n@return\t\t\t\tA Max error code"]
+    #[doc = "Read the specified JSON file and return a #t_dictionary object.\nYou are responsible for freeing the dictionary with object_free(),\nsubject to the caveats explained in @ref when_to_free_a_dictionary.\n@ingroup\t\t\tdictionary\n@param\tfilename\tThe name of the file.\n@param\tpath\t\tThe path of the file.\n@param\td\t\t\tThe address of a #t_dictionary pointer that will be set to the newly created dictionary.\n@return\t\t\t\tA Max error code"]
     pub fn dictionary_read(
         filename: *const ::std::os::raw::c_char,
         path: ::std::os::raw::c_short,
@@ -3783,7 +3783,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSerialize the specified #t_dictionary object to a JSON file.\n@ingroup\t\t\tdictionary\n@param\td\t\t\tThe dictionary to serialize into JSON format and write to disk.\n@param\tfilename\tThe name of the file to write.\n@param\tpath\t\tThe path to which the file should be written.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Serialize the specified #t_dictionary object to a JSON file.\n@ingroup\t\t\tdictionary\n@param\td\t\t\tThe dictionary to serialize into JSON format and write to disk.\n@param\tfilename\tThe name of the file to write.\n@param\tpath\t\tThe path to which the file should be written.\n@return\t\t\t\tA Max error code."]
     pub fn dictionary_write(
         d: *mut t_dictionary,
         filename: *const ::std::os::raw::c_char,
@@ -3880,7 +3880,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Parse a C-string into an array of atoms.\nThis function allocates memory for the atoms if the ac and av parameters are NULL.\nOtherwise it will attempt to use any memory already allocated to av.\nAny allocated memory should be freed with sysmem_freeptr().\n\n@ingroup\tatom\n@param\t\tac\t\t\tThe address of a variable to hold the number of returned atoms.\n@param\t\tav\t\t\tThe address of a #t_atom pointer to which memory may be allocated and atoms copied.\n@param\t\tparsestr\tThe C-string to parse.\n@return\t\t\t\t\tA Max error code.\n\n@remark\t\tThe following example will parse the string \"foo bar 1 2 3.0\" into an array of 5 atoms.\nThe atom types will be determined automatically as 2 #A_SYM atoms, 2 #A_LONG atoms, and 1 #A_FLOAT atom.\n@code\nt_atom *av =  NULL;\nlong ac = 0;\nt_max_err err = MAX_ERR_NONE;\n\nerr = atom_setparse(&ac, &av, \"foo bar 1 2 3.0\");\n@endcode"]
+    #[doc = "Parse a C-string into an array of atoms.\nThis function allocates memory for the atoms if the ac and av parameters are NULL.\nOtherwise it will attempt to use any memory already allocated to av.\nAny allocated memory should be freed with sysmem_freeptr().\n\n@ingroup\tatom\n@param\t\tac\t\t\tThe address of a variable to hold the number of returned atoms.\n@param\t\tav\t\t\tThe address of a #t_atom pointer to which memory may be allocated and atoms copied.\n@param\t\tparsestr\tThe C-string to parse.\n@return\t\t\t\t\tA Max error code.\n\n@remark\t\tThe following example will parse the string \"foo bar 1 2 3.0\" into an array of 5 atoms.\nThe atom types will be determined automatically as 2 #A_SYM atoms, 2 #A_LONG atoms, and 1 #A_FLOAT atom.\n\n```c\nt_atom *av =  NULL;\nlong ac = 0;\nt_max_err err = MAX_ERR_NONE;\n\nerr = atom_setparse(&ac, &av, \"foo bar 1 2 3.0\");\n```\n"]
     pub fn atom_setparse(
         ac: *mut ::std::os::raw::c_long,
         av: *mut *mut t_atom,
@@ -9159,7 +9159,7 @@ unsafe extern "C" {
     pub fn common_symbols_gettable() -> *mut t_common_symbols_table;
 }
 unsafe extern "C" {
-    #[doc = "\tCopy the contents of one string to another, in a manner safer than the standard strcpy() or strncpy().\nThis is the prefered function to use for this operation in Max.\n@ingroup misc\n@param\tdst\t\tThe destination string (already allocated) for the copy.\n@param\tsrc\t\tThe source string that will be copied.\n@param\tsize\tThe number of chars allocated to the dst string."]
+    #[doc = "Copy the contents of one string to another, in a manner safer than the standard strcpy() or strncpy().\nThis is the prefered function to use for this operation in Max.\n@ingroup misc\n@param\tdst\t\tThe destination string (already allocated) for the copy.\n@param\tsrc\t\tThe source string that will be copied.\n@param\tsize\tThe number of chars allocated to the dst string."]
     pub fn strncpy_zero(
         dst: *mut ::std::os::raw::c_char,
         src: *const ::std::os::raw::c_char,
@@ -9167,7 +9167,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tConcatenate the contents of one string onto the end of another,\nin a manner safer than the standard strcat() or strncat().\nThis is the prefered function to use for this operation in Max.\n@ingroup misc\n@param\tdst\t\tThe destination string onto whose end the src string will be appended.\n@param\tsrc\t\tThe source string that will be copied.\n@param\tsize\tThe number of chars allocated to the dst string."]
+    #[doc = "Concatenate the contents of one string onto the end of another,\nin a manner safer than the standard strcat() or strncat().\nThis is the prefered function to use for this operation in Max.\n@ingroup misc\n@param\tdst\t\tThe destination string onto whose end the src string will be appended.\n@param\tsrc\t\tThe source string that will be copied.\n@param\tsize\tThe number of chars allocated to the dst string."]
     pub fn strncat_zero(
         dst: *mut ::std::os::raw::c_char,
         src: *const ::std::os::raw::c_char,
@@ -9175,7 +9175,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tCopy the contents of a string together with value substitutions,\nin a manner safer than the standard sprintf() or snprintf().\nThis is the prefered function to use for this operation in Max.\n@ingroup misc\n@param\tbuffer\tThe destination string (already allocated) for the copy.\n@param\tcount\tThe number of chars allocated to the buffer string.\n@param\tformat\tThe source string that will be copied, which may include sprintf() formatting codes for substitutions.\n@param\t...\t\tAn array of arguments to be substituted into the format string."]
+    #[doc = "Copy the contents of a string together with value substitutions,\nin a manner safer than the standard sprintf() or snprintf().\nThis is the prefered function to use for this operation in Max.\n@ingroup misc\n@param\tbuffer\tThe destination string (already allocated) for the copy.\n@param\tcount\tThe number of chars allocated to the buffer string.\n@param\tformat\tThe source string that will be copied, which may include sprintf() formatting codes for substitutions.\n@param\t...\t\tAn array of arguments to be substituted into the format string."]
     pub fn snprintf_zero(
         buffer: *mut ::std::os::raw::c_char,
         count: usize,
@@ -9195,7 +9195,7 @@ unsafe extern "C" {
 pub mod e_max_attrflags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Attribute flags\n@ingroup attr\n\n@remark \tTo create a readonly attribute, for example,\nyou should pass ATTR_SET_OPAQUE or ATTR_SET_OPAQUE_USER as a flag when you create your attribute."]
+    #[doc = "Attribute flags\n@ingroup attr\n\n@remark \tTo create a readonly attribute, for example,\nyou should pass ATTR_SET_OPAQUE or ATTR_SET_OPAQUE_USER as a flag when you create your attribute."]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< No flags"]
     pub const ATTR_FLAGS_NONE: Type = 0;
@@ -9221,7 +9221,7 @@ pub mod e_max_attrflags {
 pub mod e_max_datastore_flags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Flags used in linklist and hashtab objects\n@ingroup datastore"]
+    #[doc = "Flags used in linklist and hashtab objects\n@ingroup datastore"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< free using object_free()"]
     pub const OBJ_FLAG_OBJ: Type = 0;
@@ -9277,7 +9277,7 @@ unsafe extern "C" {
     pub fn class_alias(c: *mut t_class, aliasname: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Duplicates a previously registered object class, and registers a copy of this class.\n\n @ingroup classmod\n\n @param \tsrc_name_space\tThe source class's name space.\n @param \tsrc_classname\tThe source class's class name.\n @param \tdst_name_space\tThe copied class's name space.\n @param \tdst_classname\tThe copied class's class name.\n\n @return \tThis function returns the error code <tt>MAX_ERR_NONE</tt> if successful,\n \t\t\tor one of the other error codes defined in \"ext_obex.h\" if unsuccessful.\n"]
+    #[doc = "Duplicates a previously registered object class, and registers a copy of this class.\n\n @ingroup classmod\n\n @param \tsrc_name_space\tThe source class's name space.\n @param \tsrc_classname\tThe source class's class name.\n @param \tdst_name_space\tThe copied class's name space.\n @param \tdst_classname\tThe copied class's class name.\n\n @return \tThis function returns the error code <tt>MAX_ERR_NONE</tt> if successful,\n \t\t\tor one of the other error codes defined in \"ext_obex.h\" if unsuccessful."]
     pub fn class_copy(
         src_name_space: *mut t_symbol,
         src_classname: *mut t_symbol,
@@ -9336,7 +9336,7 @@ unsafe extern "C" {
     ) -> *mut t_class;
 }
 unsafe extern "C" {
-    #[doc = "Determines if a particular object is an instance of a given class.\n\n@ingroup obj\n\n@param \tx\t\tThe object to test\n@param \tname\tThe name of the class to test this object against\n@return \t\tThis function returns 1 if the object is an instance of the named class. Otherwise, 0 is returned.\n@remark \t\tFor instance, to determine whether an unknown object pointer is a pointer to a print object, one would call:\n\n@code\nlong isprint = object_classname_compare(x, gensym(\"print\"));\n@endcode"]
+    #[doc = "Determines if a particular object is an instance of a given class.\n\n@ingroup obj\n\n@param \tx\t\tThe object to test\n@param \tname\tThe name of the class to test this object against\n@return \t\tThis function returns 1 if the object is an instance of the named class. Otherwise, 0 is returned.\n@remark \t\tFor instance, to determine whether an unknown object pointer is a pointer to a print object, one would call:\n\n\n```c\nlong isprint = object_classname_compare(x, gensym(\"print\"));\n```\n"]
     pub fn object_classname_compare(
         x: *mut ::std::os::raw::c_void,
         name: *mut t_symbol,
@@ -9449,7 +9449,7 @@ unsafe extern "C" {
     pub fn object_free(x: *mut ::std::os::raw::c_void) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Sends an untyped message to an object.\nThere are some caveats to its use, however, particularly for 64-bit architectures.\nobject_method_direct() should be used in cases where floating-point or other non-integer types are being passed on the stack or in return values.\n\n@ingroup obj\n\n@param \tx\t\tThe object that will receive the message\n@param \ts\t\tThe message selector\n@param \t...\t\tAny arguments to the message\n\n@return \t\tIf the receiver object can respond to the message, object_method() returns the result. Otherwise, the function will return 0.\n\n@remark \t\tExample: To send the message <tt>bang</tt> to the object <tt>bang_me</tt>:\n@code\nvoid *bang_result;\nbang_result = object_method(bang_me, gensym(\"bang\"));\n@endcode"]
+    #[doc = "Sends an untyped message to an object.\nThere are some caveats to its use, however, particularly for 64-bit architectures.\nobject_method_direct() should be used in cases where floating-point or other non-integer types are being passed on the stack or in return values.\n\n@ingroup obj\n\n@param \tx\t\tThe object that will receive the message\n@param \ts\t\tThe message selector\n@param \t...\t\tAny arguments to the message\n\n@return \t\tIf the receiver object can respond to the message, object_method() returns the result. Otherwise, the function will return 0.\n\n@remark \t\tExample: To send the message <tt>bang</tt> to the object <tt>bang_me</tt>:\n\n```c\nvoid *bang_result;\nbang_result = object_method(bang_me, gensym(\"bang\"));\n```\n"]
     pub fn object_method(
         x: *mut ::std::os::raw::c_void,
         s: *mut t_symbol,
@@ -9591,7 +9591,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Subscribes a client to wait for an object to register. Upon registration, the object will attach. Once attached, the object will receive notifications sent from the registered object (via the <tt>object_notify</tt> function), if it has a <tt>notify</tt> method defined and implemented. See below for more information, in the reference for <tt>object_notify</tt>.\n\n @ingroup obj\n\n @param \tname_space\tThe namespace of the registered object. This should be the\n\t\t\t\t\t\tsame value used in <tt>object_register</tt> to register the\n\t\t\t\t\t\tobject. If you don't know the registered object's namespace,\n\t\t\t\t\t\tthe <tt>object_findregisteredbyptr</tt> function can be\n\t\t\t\t\t\tused to determine it.\n @param \ts\t\t\tThe name of the registered object in the namespace. If you\n\t\t\t\t\t\tdon't know the name of the registered object, the\n\t\t\t\t\t\t<tt>object_findregisteredbyptr</tt> function can be used to\n\t\t\t\t\t\tdetermine it.\n @param \tclassname\tThe classname of the registered object in the namespace to\n\t\t\t\t\t\tuse as a filter. If NULL, then it will attach to any class\n\t\t\t\t\t\tof object.\n @param \tx\t\t\tThe client object to attach. Generally, this is the pointer to your Max object.\n\n @return \tThis function returns a pointer to the object if registered (to the object\n\t\t\treferred to by the combination of <tt>name_space</tt> and <tt>s</tt>\n\t\t\targuments) if successful, or NULL if the object is not yet registered.\n"]
+    #[doc = "Subscribes a client to wait for an object to register. Upon registration, the object will attach. Once attached, the object will receive notifications sent from the registered object (via the <tt>object_notify</tt> function), if it has a <tt>notify</tt> method defined and implemented. See below for more information, in the reference for <tt>object_notify</tt>.\n\n @ingroup obj\n\n @param \tname_space\tThe namespace of the registered object. This should be the\n\t\t\t\t\t\tsame value used in <tt>object_register</tt> to register the\n\t\t\t\t\t\tobject. If you don't know the registered object's namespace,\n\t\t\t\t\t\tthe <tt>object_findregisteredbyptr</tt> function can be\n\t\t\t\t\t\tused to determine it.\n @param \ts\t\t\tThe name of the registered object in the namespace. If you\n\t\t\t\t\t\tdon't know the name of the registered object, the\n\t\t\t\t\t\t<tt>object_findregisteredbyptr</tt> function can be used to\n\t\t\t\t\t\tdetermine it.\n @param \tclassname\tThe classname of the registered object in the namespace to\n\t\t\t\t\t\tuse as a filter. If NULL, then it will attach to any class\n\t\t\t\t\t\tof object.\n @param \tx\t\t\tThe client object to attach. Generally, this is the pointer to your Max object.\n\n @return \tThis function returns a pointer to the object if registered (to the object\n\t\t\treferred to by the combination of <tt>name_space</tt> and <tt>s</tt>\n\t\t\targuments) if successful, or NULL if the object is not yet registered."]
     pub fn object_subscribe(
         name_space: *mut t_symbol,
         s: *mut t_symbol,
@@ -9600,7 +9600,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Unsubscribe a client from a registered object, detaching if the object is registered.\n\n @ingroup obj\n\n @param \tname_space\tThe namespace of the registered object. This should be the\n\t\t\t\t\t\tsame value used in <tt>object_register</tt> to register the\n\t\t\t\t\t\tobject. If you don't know the registered object's namespace,\n\t\t\t\t\t\tthe <tt>object_findregisteredbyptr</tt> function can be\n\t\t\t\t\t\tused to determine it.\n @param \ts\t\t\tThe name of the registered object in the namespace. If you\n\t\t\t\t\t\tdon't know the name of the registered object, the\n\t\t\t\t\t\t<tt>object_findregisteredbyptr</tt> function can be used to\n\t\t\t\t\t\tdetermine it.\n @param \tclassname\tThe classname of the registered object in the namespace to\n\t\t\t\t\t\tuse as a filter. Currently unused for unsubscribe.\n @param \tx\t\t\tThe client object to detach. Generally, this is the pointer to your Max object.\n\n @return \tThis function returns the error code <tt>MAX_ERR_NONE</tt> if successful,\n\t\t\tor one of the other error codes defined in \"ext_obex.h\" if unsuccessful.\n"]
+    #[doc = "Unsubscribe a client from a registered object, detaching if the object is registered.\n\n @ingroup obj\n\n @param \tname_space\tThe namespace of the registered object. This should be the\n\t\t\t\t\t\tsame value used in <tt>object_register</tt> to register the\n\t\t\t\t\t\tobject. If you don't know the registered object's namespace,\n\t\t\t\t\t\tthe <tt>object_findregisteredbyptr</tt> function can be\n\t\t\t\t\t\tused to determine it.\n @param \ts\t\t\tThe name of the registered object in the namespace. If you\n\t\t\t\t\t\tdon't know the name of the registered object, the\n\t\t\t\t\t\t<tt>object_findregisteredbyptr</tt> function can be used to\n\t\t\t\t\t\tdetermine it.\n @param \tclassname\tThe classname of the registered object in the namespace to\n\t\t\t\t\t\tuse as a filter. Currently unused for unsubscribe.\n @param \tx\t\t\tThe client object to detach. Generally, this is the pointer to your Max object.\n\n @return \tThis function returns the error code <tt>MAX_ERR_NONE</tt> if successful,\n\t\t\tor one of the other error codes defined in \"ext_obex.h\" if unsuccessful."]
     pub fn object_unsubscribe(
         name_space: *mut t_symbol,
         s: *mut t_symbol,
@@ -9613,7 +9613,7 @@ unsafe extern "C" {
     pub fn object_unregister(x: *mut ::std::os::raw::c_void) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Broadcast a message (with an optional argument) from a registered object to any attached client objects.\n\n@ingroup obj\n\n@param \tx\t\tPointer to the registered object\n@param \ts\t\tThe message to send\n@param \tdata\tAn optional argument which will be passed with the message.\nSets this argument to NULL if it will be unused.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tIn order for client objects to receive notifications, they must define and implement a special method, <tt>notify</tt>, like so:\n@code\nclass_addmethod(c, (method)myobject_notify, \"notify\", A_CANT, 0);\n@endcode\n\n@remark \t\tThe <tt>notify</tt> method should be prototyped as:\n@code\nvoid myobject_notify(t_myobject *x, t_symbol *s, t_symbol *msg, void *sender, void *data);\n@endcode\nwhere\n<tt>x</tt> is the pointer to the receiving object,\n<tt>s</tt> is the name of the sending (registered) object in its namespace,\n<tt>msg</tt> is the sent message,\n<tt>sender</tt> is the pointer to the sending object, and\n<tt>data</tt> is an optional argument sent with the message.\nThis value corresponds to the data argument in the object_notify() method."]
+    #[doc = "Broadcast a message (with an optional argument) from a registered object to any attached client objects.\n\n@ingroup obj\n\n@param \tx\t\tPointer to the registered object\n@param \ts\t\tThe message to send\n@param \tdata\tAn optional argument which will be passed with the message.\nSets this argument to NULL if it will be unused.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tIn order for client objects to receive notifications, they must define and implement a special method, <tt>notify</tt>, like so:\n\n```c\nclass_addmethod(c, (method)myobject_notify, \"notify\", A_CANT, 0);\n```\n\n\n@remark \t\tThe <tt>notify</tt> method should be prototyped as:\n\n```c\nvoid myobject_notify(t_myobject *x, t_symbol *s, t_symbol *msg, void *sender, void *data);\n```\n\nwhere\n<tt>x</tt> is the pointer to the receiving object,\n<tt>s</tt> is the name of the sending (registered) object in its namespace,\n<tt>msg</tt> is the sent message,\n<tt>sender</tt> is the pointer to the sending object, and\n<tt>data</tt> is an optional argument sent with the message.\nThis value corresponds to the data argument in the object_notify() method."]
     pub fn object_notify(
         x: *mut ::std::os::raw::c_void,
         s: *mut t_symbol,
@@ -9625,7 +9625,7 @@ unsafe extern "C" {
     pub fn object_class(x: *mut ::std::os::raw::c_void) -> *mut t_class;
 }
 unsafe extern "C" {
-    #[doc = "Retrieves the value of an object which supports the <tt>getvalueof/setvalueof</tt> interface. See part 2 of the pattr SDK for more information on this interface.\n\n@ingroup obj\n\n@param \tx\t\tThe object whose value is of interest\n@param \tac\t\tPointer to a long variable to receive the count of arguments in <tt>av</tt>. The long variable itself should be set to 0 previous to calling this function.\n@param \tav\t\tPointer to a t_atom *, to receive object data. The t_atom * itself should be set to NULL previous to calling this function.\n\n@return\t\t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tCalling the object_getvalueof() function allocates memory for any data it returns.\nIt is the developer's responsibility to free it, using the freebytes() function.\n\n@remark \t\tDevelopers wishing to design objects which will support this function being called on them must define and implement a special method, <tt>getvalueof</tt>, like so:\n@code\nclass_addmethod(c, (method)myobject_getvalueof, \"getvalueof\", A_CANT, 0);\n@endcode\n\n@remark \t\tThe <tt>getvalueof</tt> method should be prototyped as:\n@code\nt_max_err myobject_getvalueof(t_myobject *x, long *ac, t_atom **av);\n@endcode\n\n@remark \t\tAnd implemented, generally, as:\n@code\nt_max_err myobj_getvalueof(t_myobj *x, long *ac, t_atom **av)\n{\nif (ac && av) {\nif (*ac && *av) {\n// memory has been passed in; use it.\n} else {\n// allocate enough memory for your data\nav = (t_atom *)getbytes(sizeof(t_atom));\n}\nac = 1; // our data is a single floating point value\natom_setfloat(*av, x->objvalue);\n}\nreturn MAX_ERR_NONE;\n}\n\n@remark \t\tBy convention, and to permit the interoperability of objects using the obex API,\ndevelopers should allocate memory in their <tt>getvalueof</tt> methods using the getbytes() function.\n@endcode"]
+    #[doc = "Retrieves the value of an object which supports the <tt>getvalueof/setvalueof</tt> interface. See part 2 of the pattr SDK for more information on this interface.\n\n@ingroup obj\n\n@param \tx\t\tThe object whose value is of interest\n@param \tac\t\tPointer to a long variable to receive the count of arguments in <tt>av</tt>. The long variable itself should be set to 0 previous to calling this function.\n@param \tav\t\tPointer to a t_atom *, to receive object data. The t_atom * itself should be set to NULL previous to calling this function.\n\n@return\t\t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tCalling the object_getvalueof() function allocates memory for any data it returns.\nIt is the developer's responsibility to free it, using the freebytes() function.\n\n@remark \t\tDevelopers wishing to design objects which will support this function being called on them must define and implement a special method, <tt>getvalueof</tt>, like so:\n\n```c\nclass_addmethod(c, (method)myobject_getvalueof, \"getvalueof\", A_CANT, 0);\n```\n\n\n@remark \t\tThe <tt>getvalueof</tt> method should be prototyped as:\n\n```c\nt_max_err myobject_getvalueof(t_myobject *x, long *ac, t_atom **av);\n```\n\n\n@remark \t\tAnd implemented, generally, as:\n\n```c\nt_max_err myobj_getvalueof(t_myobj *x, long *ac, t_atom **av)\n{\nif (ac && av) {\nif (*ac && *av) {\n// memory has been passed in; use it.\n} else {\n// allocate enough memory for your data\nav = (t_atom *)getbytes(sizeof(t_atom));\n}\nac = 1; // our data is a single floating point value\natom_setfloat(*av, x->objvalue);\n}\nreturn MAX_ERR_NONE;\n}\n\n@remark \t\tBy convention, and to permit the interoperability of objects using the obex API,\ndevelopers should allocate memory in their <tt>getvalueof</tt> methods using the getbytes() function.\n```\n"]
     pub fn object_getvalueof(
         x: *mut ::std::os::raw::c_void,
         ac: *mut ::std::os::raw::c_long,
@@ -9633,7 +9633,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Sets the value of an object which supports the <tt>getvalueof/setvalueof</tt> interface.\n\n@ingroup obj\n\n@param \tx\t\tThe object whose value is of interest\n@param \tac\t\tThe count of arguments in <tt>av</tt>\n@param \tav\t\tArray of t_atoms; the new desired data for the object\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tDevelopers wishing to design objects which will support this function being called on them must define and implement a special method, <tt>setvalueof</tt>, like so:\n@code\nclass_addmethod(c, (method)myobject_setvalueof, \"setvalueof\", A_CANT, 0);\n@endcode\n\n@remark \t\tThe <tt>setvalueof</tt> method should be prototyped as:\n@code\nt_max_err myobject_setvalueof(t_myobject *x, long *ac, t_atom **av);\n@endcode\n\n@remark \t\tAnd implemented, generally, as:\n@code\nt_max_err myobject_setvalueof(t_myobject *x, long ac, t_atom *av)\n{\nif (ac && av) {\n// simulate receipt of a float value\nmyobject_float(x, atom_getfloat(av));\n}\nreturn MAX_ERR_NONE;\n}\n@endcode"]
+    #[doc = "Sets the value of an object which supports the <tt>getvalueof/setvalueof</tt> interface.\n\n@ingroup obj\n\n@param \tx\t\tThe object whose value is of interest\n@param \tac\t\tThe count of arguments in <tt>av</tt>\n@param \tav\t\tArray of t_atoms; the new desired data for the object\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tDevelopers wishing to design objects which will support this function being called on them must define and implement a special method, <tt>setvalueof</tt>, like so:\n\n```c\nclass_addmethod(c, (method)myobject_setvalueof, \"setvalueof\", A_CANT, 0);\n```\n\n\n@remark \t\tThe <tt>setvalueof</tt> method should be prototyped as:\n\n```c\nt_max_err myobject_setvalueof(t_myobject *x, long *ac, t_atom **av);\n```\n\n\n@remark \t\tAnd implemented, generally, as:\n\n```c\nt_max_err myobject_setvalueof(t_myobject *x, long ac, t_atom *av)\n{\nif (ac && av) {\n// simulate receipt of a float value\nmyobject_float(x, atom_getfloat(av));\n}\nreturn MAX_ERR_NONE;\n}\n```\n"]
     pub fn object_setvalueof(
         x: *mut ::std::os::raw::c_void,
         ac: ::std::os::raw::c_long,
@@ -9723,7 +9723,7 @@ unsafe extern "C" {
     pub fn class_obexoffset_get(c: *mut t_class) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "Retrieves the value of a data stored in the obex.\n\n@ingroup obj\n\n@param \tx\t\tThe object pointer. This function should only be called on instantiated objects (i.e. in the <tt>new</tt> method or later), not directly on classes (i.e. in <tt>main()</tt>).\n@param \tkey\t\tThe symbolic name for the data to be retrieved\n@param \tval\t\tA pointer to a #t_object *, to be filled with the data retrieved from the obex.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tBy default, pointers to the object's containing patcher and box objects are stored in the obex, under the keys '#P' and '#B', respectively.\nTo retrieve them, the developer could do something like the following:\n@code\nvoid post_containers(t_obexobj *x)\n{\nt_patcher *p;\nt_box *b;\nt_max_err err;\n\nerr = object_obex_lookup(x, gensym(\"#P\"), (t_object **)&p);\nerr = object_obex_lookup(x, gensym(\"#B\"), (t_object **)&b);\n\npost(\"my patcher is located at 0x%X\", p);\npost(\"my box is located at 0x%X\", b);\n}\n@endcode"]
+    #[doc = "Retrieves the value of a data stored in the obex.\n\n@ingroup obj\n\n@param \tx\t\tThe object pointer. This function should only be called on instantiated objects (i.e. in the <tt>new</tt> method or later), not directly on classes (i.e. in <tt>main()</tt>).\n@param \tkey\t\tThe symbolic name for the data to be retrieved\n@param \tval\t\tA pointer to a #t_object *, to be filled with the data retrieved from the obex.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tBy default, pointers to the object's containing patcher and box objects are stored in the obex, under the keys '#P' and '#B', respectively.\nTo retrieve them, the developer could do something like the following:\n\n```c\nvoid post_containers(t_obexobj *x)\n{\nt_patcher *p;\nt_box *b;\nt_max_err err;\n\nerr = object_obex_lookup(x, gensym(\"#P\"), (t_object **)&p);\nerr = object_obex_lookup(x, gensym(\"#B\"), (t_object **)&b);\n\npost(\"my patcher is located at 0x%X\", p);\npost(\"my box is located at 0x%X\", b);\n}\n```\n"]
     pub fn object_obex_lookup(
         x: *mut ::std::os::raw::c_void,
         key: *mut t_symbol,
@@ -9745,7 +9745,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Stores data in the object's obex.\n\n@ingroup obj\n\n@param \tx\t\tThe object pointer. This function should only be called on instantiated objects (i.e. in the <tt>new</tt> method or later), not directly on classes (i.e. in <tt>main()</tt>).\n@param \tkey\t\tA symbolic name for the data to be stored\n@param \tval\t\tA #t_object *, to be stored in the obex, referenced under the <tt>key</tt>.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tMost developers will need to use this function for the specific purpose of storing the dumpout outlet in the obex\n(the dumpout outlet is used by attributes to report data in response to 'get' queries).\nFor this, the developer should use something like the following in the object's <tt>new</tt> method:\n@code\nobject_obex_store(x, _sym_dumpout, outlet_new(x, NULL));\n@endcode"]
+    #[doc = "Stores data in the object's obex.\n\n@ingroup obj\n\n@param \tx\t\tThe object pointer. This function should only be called on instantiated objects (i.e. in the <tt>new</tt> method or later), not directly on classes (i.e. in <tt>main()</tt>).\n@param \tkey\t\tA symbolic name for the data to be stored\n@param \tval\t\tA #t_object *, to be stored in the obex, referenced under the <tt>key</tt>.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tMost developers will need to use this function for the specific purpose of storing the dumpout outlet in the obex\n(the dumpout outlet is used by attributes to report data in response to 'get' queries).\nFor this, the developer should use something like the following in the object's <tt>new</tt> method:\n\n```c\nobject_obex_store(x, _sym_dumpout, outlet_new(x, NULL));\n```\n"]
     pub fn object_obex_store(
         x: *mut ::std::os::raw::c_void,
         key: *mut t_symbol,
@@ -9836,7 +9836,7 @@ unsafe extern "C" {
     pub fn atom_gettype(a: *const t_atom) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "Retrieves the integer value of a particular t_atom from an atom list, if the atom exists.\n\n@ingroup atom\n\n@param \tc\t\tPointer to a long variable to receive the atom's data if the function is successful.\n@param \tidx\t\tOffset into the atom list of the atom of interest, starting from 0.\nFor instance, if you want data from the 3rd atom in the atom list, <tt>idx</tt> should be set to 2.\n@param \tac\t\tCount of av.\n@param \tav\t\tPointer to the first t_atom of an atom list.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tThe atom_arg_getlong() function only changes the value of <tt>c</tt> if the function is successful.\nFor instance, the following code snippet illustrates a simple, but typical use:\n@code\nvoid myobject_mymessage(t_myobject *x, t_symbol *s, long ac, t_atom *av)\n{\nt_atom_long var = -1;\n\n// here, we are expecting a value of 0 or greater\natom_arg_getlong(&var, 0, ac, av);\nif (val == -1) // i.e. unchanged\npost(\"it is likely that the user did not provide a valid argument\");\nelse {\n...\n}\n}\n@endcode"]
+    #[doc = "Retrieves the integer value of a particular t_atom from an atom list, if the atom exists.\n\n@ingroup atom\n\n@param \tc\t\tPointer to a long variable to receive the atom's data if the function is successful.\n@param \tidx\t\tOffset into the atom list of the atom of interest, starting from 0.\nFor instance, if you want data from the 3rd atom in the atom list, <tt>idx</tt> should be set to 2.\n@param \tac\t\tCount of av.\n@param \tav\t\tPointer to the first t_atom of an atom list.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tThe atom_arg_getlong() function only changes the value of <tt>c</tt> if the function is successful.\nFor instance, the following code snippet illustrates a simple, but typical use:\n\n```c\nvoid myobject_mymessage(t_myobject *x, t_symbol *s, long ac, t_atom *av)\n{\nt_atom_long var = -1;\n\n// here, we are expecting a value of 0 or greater\natom_arg_getlong(&var, 0, ac, av);\nif (val == -1) // i.e. unchanged\npost(\"it is likely that the user did not provide a valid argument\");\nelse {\n...\n}\n}\n```\n"]
     pub fn atom_arg_getlong(
         c: *mut t_atom_long,
         idx: ::std::os::raw::c_long,
@@ -9863,7 +9863,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "Retrieves the t_symbol * value of a particular t_atom from an atom list, if the atom exists.\n\n@ingroup atom\n\n@param \tc\t\tPointer to a t_symbol * variable to receive the atom's data if the function is successful. Otherwise, the value is left unchanged.\n@param \tidx\t\tOffset into the atom list of the atom of interest, starting from 0.\nFor instance, if you want data from the 3rd atom in the atom list, <tt>idx</tt> should be set to 2.\n@param \tac\t\tCount of av.\n@param \tav\t\tPointer to the first t_atom of an atom list.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tThe atom_arg_getsym() function only changes the value of <tt>c</tt> if the function is successful.\nFor instance, the following code snippet illustrates a simple, but typical use:\n@code\nvoid myobject_open(t_myobject *x, t_symbol *s, long ac, t_atom *av)\n{\nt_symbol *filename = _sym_nothing;\n\n// here, we are expecting a file name.\n// if we don't get it, open a dialog box\natom_arg_getsym(&filename, 0, ac, av);\nif (filename == _sym_nothing) { // i.e. unchanged\n// open the file dialog box,\n// get a value for filename\n}\n// do something with the filename\n}\n@endcode"]
+    #[doc = "Retrieves the t_symbol * value of a particular t_atom from an atom list, if the atom exists.\n\n@ingroup atom\n\n@param \tc\t\tPointer to a t_symbol * variable to receive the atom's data if the function is successful. Otherwise, the value is left unchanged.\n@param \tidx\t\tOffset into the atom list of the atom of interest, starting from 0.\nFor instance, if you want data from the 3rd atom in the atom list, <tt>idx</tt> should be set to 2.\n@param \tac\t\tCount of av.\n@param \tav\t\tPointer to the first t_atom of an atom list.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tThe atom_arg_getsym() function only changes the value of <tt>c</tt> if the function is successful.\nFor instance, the following code snippet illustrates a simple, but typical use:\n\n```c\nvoid myobject_open(t_myobject *x, t_symbol *s, long ac, t_atom *av)\n{\nt_symbol *filename = _sym_nothing;\n\n// here, we are expecting a file name.\n// if we don't get it, open a dialog box\natom_arg_getsym(&filename, 0, ac, av);\nif (filename == _sym_nothing) { // i.e. unchanged\n// open the file dialog box,\n// get a value for filename\n}\n// do something with the filename\n}\n```\n"]
     pub fn atom_arg_getsym(
         c: *mut *mut t_symbol,
         idx: ::std::os::raw::c_long,
@@ -9877,7 +9877,7 @@ unsafe extern "C" {
     -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "Takes an atom list and properly set any attributes described within. This function is typically used in an object's <tt>new</tt> method to conveniently process attribute arguments.\n\n@ingroup attr\n\n@param \tx\t\tThe object whose attributes will be processed\n@param \tac\t\tThe count of t_atoms in <tt>av</tt>\n@param \tav\t\tAn atom list\n\n@remark \t\tHere is a typical example of usage:\n@code\nvoid *myobject_new(t_symbol *s, long ac, t_atom *av)\n{\nt_myobject *x = NULL;\n\nif (x=(t_myobject *)object_alloc(myobject_class))\n{\n// initialize any data before processing\n// attributes to avoid overwriting\n// attribute argument-set values\nx->data = 0;\n\n// process attr args, if any\nattr_args_process(x, ac, av);\n}\nreturn x;\n}\n@endcode"]
+    #[doc = "Takes an atom list and properly set any attributes described within. This function is typically used in an object's <tt>new</tt> method to conveniently process attribute arguments.\n\n@ingroup attr\n\n@param \tx\t\tThe object whose attributes will be processed\n@param \tac\t\tThe count of t_atoms in <tt>av</tt>\n@param \tav\t\tAn atom list\n\n@remark \t\tHere is a typical example of usage:\n\n```c\nvoid *myobject_new(t_symbol *s, long ac, t_atom *av)\n{\nt_myobject *x = NULL;\n\nif (x=(t_myobject *)object_alloc(myobject_class))\n{\n// initialize any data before processing\n// attributes to avoid overwriting\n// attribute argument-set values\nx->data = 0;\n\n// process attr args, if any\nattr_args_process(x, ac, av);\n}\nreturn x;\n}\n```\n"]
     pub fn attr_args_process(
         x: *mut ::std::os::raw::c_void,
         ac: ::std::os::raw::c_short,
@@ -9885,7 +9885,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "Create a new attribute. The attribute will allocate memory and store its own data. Attributes created using attribute_new() can be assigned either to classes (using the class_addattr() function) or to objects (using the object_addattr() function).\n\n@ingroup attr\n\n@param \tname\tA name for the attribute, as a C-string\n@param \ttype\tA t_symbol * representing a valid attribute type.\nAt the time of this writing, the valid type-symbols are:\n<tt>_sym_char</tt> (char),\n<tt>_sym_long</tt> (long),\n<tt>_sym_float32</tt> (32-bit float),\n<tt>_sym_float64</tt> (64-bit float),\n<tt>_sym_atom</tt> (Max #t_atom pointer),\n<tt>_sym_symbol</tt> (Max #t_symbol pointer),\n<tt>_sym_pointer</tt> (generic pointer) and\n<tt>_sym_object</tt> (Max #t_object pointer).\n@param \tflags\tAny attribute flags, expressed as a bitfield.\nAttribute flags are used to determine if an attribute is accessible for setting or querying.\nThe available accessor flags are defined in #e_max_attrflags.\n@param \tmget\tThe method to use for the attribute's <tt>get</tt> functionality. If <tt>mget</tt> is NULL, the default method is used.\n@param \tmset\tThe method to use for the attribute's <tt>set</tt> functionality. If <tt>mset</tt> is NULL, the default method is used.\n\n@return \t\tThis function returns the new attribute's object pointer if successful, or NULL if unsuccessful.\n\n@remark \t\tDevelopers wishing to define custom methods for <tt>get</tt> or <tt>set</tt> functionality need to prototype them as:\n@code\nt_max_err myobject_myattr_get(t_myobject *x, void *attr, long *ac, t_atom **av);\n@endcode\n@code\nt_max_err myobject_myattr_set(t_myobject *x, void *attr, long ac, t_atom *av);\n@endcode\n\n@remark \t\tImplementation will vary, of course, but need to follow the following basic models.\nNote that, as with custom <tt>getvalueof</tt> and <tt>setvalueof</tt> methods for the object,\nassumptions are made throughout Max that getbytes() has been used for memory allocation.\nDevelopers are strongly urged to do the same:\n@code\nt_max_err myobject_myattr_get(t_myobject *x, void *attr, long *ac, t_atom **av)\n{\nif (*ac && *av)\n// memory passed in; use it\nelse {\nac = 1; // size of attr data\nav = (t_atom *)getbytes(sizeof(t_atom) * (*ac));\nif (!(*av)) {\nac = 0;\nreturn MAX_ERR_OUT_OF_MEM;\n}\n}\natom_setlong(*av, x->some_value);\nreturn MAX_ERR_NONE;\n}\n\nt_max_err myobject_myattr_set(t_myobject *x, void *attr, long ac, t_atom *av)\n{\nif (ac && av) {\nx->some_value = atom_getlong(av);\n}\nreturn MAX_ERR_NONE;\n}\n@endcode"]
+    #[doc = "Create a new attribute. The attribute will allocate memory and store its own data. Attributes created using attribute_new() can be assigned either to classes (using the class_addattr() function) or to objects (using the object_addattr() function).\n\n@ingroup attr\n\n@param \tname\tA name for the attribute, as a C-string\n@param \ttype\tA t_symbol * representing a valid attribute type.\nAt the time of this writing, the valid type-symbols are:\n<tt>_sym_char</tt> (char),\n<tt>_sym_long</tt> (long),\n<tt>_sym_float32</tt> (32-bit float),\n<tt>_sym_float64</tt> (64-bit float),\n<tt>_sym_atom</tt> (Max #t_atom pointer),\n<tt>_sym_symbol</tt> (Max #t_symbol pointer),\n<tt>_sym_pointer</tt> (generic pointer) and\n<tt>_sym_object</tt> (Max #t_object pointer).\n@param \tflags\tAny attribute flags, expressed as a bitfield.\nAttribute flags are used to determine if an attribute is accessible for setting or querying.\nThe available accessor flags are defined in #e_max_attrflags.\n@param \tmget\tThe method to use for the attribute's <tt>get</tt> functionality. If <tt>mget</tt> is NULL, the default method is used.\n@param \tmset\tThe method to use for the attribute's <tt>set</tt> functionality. If <tt>mset</tt> is NULL, the default method is used.\n\n@return \t\tThis function returns the new attribute's object pointer if successful, or NULL if unsuccessful.\n\n@remark \t\tDevelopers wishing to define custom methods for <tt>get</tt> or <tt>set</tt> functionality need to prototype them as:\n\n```c\nt_max_err myobject_myattr_get(t_myobject *x, void *attr, long *ac, t_atom **av);\n```\n\n\n```c\nt_max_err myobject_myattr_set(t_myobject *x, void *attr, long ac, t_atom *av);\n```\n\n\n@remark \t\tImplementation will vary, of course, but need to follow the following basic models.\nNote that, as with custom <tt>getvalueof</tt> and <tt>setvalueof</tt> methods for the object,\nassumptions are made throughout Max that getbytes() has been used for memory allocation.\nDevelopers are strongly urged to do the same:\n\n```c\nt_max_err myobject_myattr_get(t_myobject *x, void *attr, long *ac, t_atom **av)\n{\nif (*ac && *av)\n// memory passed in; use it\nelse {\nac = 1; // size of attr data\nav = (t_atom *)getbytes(sizeof(t_atom) * (*ac));\nif (!(*av)) {\nac = 0;\nreturn MAX_ERR_OUT_OF_MEM;\n}\n}\natom_setlong(*av, x->some_value);\nreturn MAX_ERR_NONE;\n}\n\nt_max_err myobject_myattr_set(t_myobject *x, void *attr, long ac, t_atom *av)\n{\nif (ac && av) {\nx->some_value = atom_getlong(av);\n}\nreturn MAX_ERR_NONE;\n}\n```\n"]
     pub fn attribute_new(
         name: *const ::std::os::raw::c_char,
         type_: *mut t_symbol,
@@ -9895,7 +9895,7 @@ unsafe extern "C" {
     ) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "Create a new attribute. The attribute references memory stored outside of itself, in the object's data structure. Attributes created using attr_offset_new() can be assigned either to classes (using the class_addattr() function) or to objects (using the object_addattr() function).\n\n@ingroup attr\n\n@param \tname\tA name for the attribute, as a C-string\n@param \ttype\tA t_symbol * representing a valid attribute type.\nAt the time of this writing, the valid type-symbols are:\n<tt>_sym_char</tt> (char),\n<tt>_sym_long</tt> (long),\n<tt>_sym_float32</tt> (32-bit float),\n<tt>_sym_float64</tt> (64-bit float),\n<tt>_sym_atom</tt> (Max #t_atom pointer),\n<tt>_sym_symbol</tt> (Max #t_symbol pointer),\n<tt>_sym_pointer</tt> (generic pointer) and\n<tt>_sym_object</tt> (Max #t_object pointer).\n@param \tflags\tAny attribute flags, expressed as a bitfield.\nAttribute flags are used to determine if an attribute is accessible for setting or querying.\nThe available accessor flags are defined in #e_max_attrflags.\n@param \tmget\tThe method to use for the attribute's <tt>get</tt> functionality.\nIf <tt>mget</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \tmset\tThe method to use for the attribute's <tt>set</tt> functionality.\nIf <tt>mset</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \toffset\tByte offset into the class data structure of the object which will \"own\" the attribute.\nThe offset should point to the data to be referenced by the attribute.\nTypically, the #calcoffset macro (described above) is used to calculate this offset.\n\n@return \t\tThis function returns the new attribute's object pointer if successful, or NULL if unsuccessful.\n\n@remark \t\tFor instance, to create a new attribute which references the value of a double variable (<tt>val</tt>) in an object class's data structure:\n@code\nt_object *attr = attr_offset_new(\"myattr\", _sym_float64 / * matches data size * /, 0 / * no flags * /, (method)0L, (method)0L, calcoffset(t_myobject, val));\n@endcode"]
+    #[doc = "Create a new attribute. The attribute references memory stored outside of itself, in the object's data structure. Attributes created using attr_offset_new() can be assigned either to classes (using the class_addattr() function) or to objects (using the object_addattr() function).\n\n@ingroup attr\n\n@param \tname\tA name for the attribute, as a C-string\n@param \ttype\tA t_symbol * representing a valid attribute type.\nAt the time of this writing, the valid type-symbols are:\n<tt>_sym_char</tt> (char),\n<tt>_sym_long</tt> (long),\n<tt>_sym_float32</tt> (32-bit float),\n<tt>_sym_float64</tt> (64-bit float),\n<tt>_sym_atom</tt> (Max #t_atom pointer),\n<tt>_sym_symbol</tt> (Max #t_symbol pointer),\n<tt>_sym_pointer</tt> (generic pointer) and\n<tt>_sym_object</tt> (Max #t_object pointer).\n@param \tflags\tAny attribute flags, expressed as a bitfield.\nAttribute flags are used to determine if an attribute is accessible for setting or querying.\nThe available accessor flags are defined in #e_max_attrflags.\n@param \tmget\tThe method to use for the attribute's <tt>get</tt> functionality.\nIf <tt>mget</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \tmset\tThe method to use for the attribute's <tt>set</tt> functionality.\nIf <tt>mset</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \toffset\tByte offset into the class data structure of the object which will \"own\" the attribute.\nThe offset should point to the data to be referenced by the attribute.\nTypically, the #calcoffset macro (described above) is used to calculate this offset.\n\n@return \t\tThis function returns the new attribute's object pointer if successful, or NULL if unsuccessful.\n\n@remark \t\tFor instance, to create a new attribute which references the value of a double variable (<tt>val</tt>) in an object class's data structure:\n\n```c\nt_object *attr = attr_offset_new(\"myattr\", _sym_float64 / * matches data size * /, 0 / * no flags * /, (method)0L, (method)0L, calcoffset(t_myobject, val));\n```\n"]
     pub fn attr_offset_new(
         name: *const ::std::os::raw::c_char,
         type_: *const t_symbol,
@@ -9906,7 +9906,7 @@ unsafe extern "C" {
     ) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "Create a new attribute. The attribute references an array of memory stored outside of itself, in the object's data structure. Attributes created using attr_offset_array_new() can be assigned either to classes (using the class_addattr() function) or to objects (using the object_addattr() function).\n\n@ingroup attr\n\n@param \tname\t\tA name for the attribute, as a C-string\n@param \ttype\t\tA t_symbol * representing a valid attribute type.\nAt the time of this writing, the valid type-symbols are:\n<tt>_sym_char</tt> (char),\n<tt>_sym_long</tt> (long),\n<tt>_sym_float32</tt> (32-bit float),\n<tt>_sym_float64</tt> (64-bit float),\n<tt>_sym_atom</tt> (Max #t_atom pointer),\n<tt>_sym_symbol</tt> (Max #t_symbol pointer),\n<tt>_sym_pointer</tt> (generic pointer) and\n<tt>_sym_object</tt> (Max #t_object pointer).\n@param\tsize\t\tMaximum number of items that may be in the array.\n@param \tflags\t\tAny attribute flags, expressed as a bitfield.\nAttribute flags are used to determine if an attribute is accessible for setting or querying.\nThe available accessor flags are defined in #e_max_attrflags.\n@param \tmget\t\tThe method to use for the attribute's <tt>get</tt> functionality.\nIf <tt>mget</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \tmset\t\tThe method to use for the attribute's <tt>set</tt> functionality.\nIf <tt>mset</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \toffsetcount\tByte offset into the object class's data structure of a long variable describing how many array elements\n(up to <tt>size</tt>) comprise the data to be referenced by the attribute.\nTypically, the #calcoffset macro is used to calculate this offset.\n@param \toffset\t\tByte offset into the class data structure of the object which will \"own\" the attribute.\nThe offset should point to the data to be referenced by the attribute.\nTypically, the #calcoffset macro is used to calculate this offset.\n\n@return \t\t\tThis function returns the new attribute's object pointer if successful, or NULL if unsuccessful.\n\n@remark \t\t\tFor instance, to create a new attribute which references an array of 10 t_atoms (<tt>atm</tt>;\nthe current number of \"active\" elements in the array is held in the variable <tt>atmcount</tt>) in an object class's data structure:\n@code\nt_object *attr = attr_offset_array_new(\"myattrarray\", _sym_atom / * matches data size * /, 10 / * max * /, 0 / * no flags * /, (method)0L, (method)0L, calcoffset(t_myobject, atmcount) / * count * /, calcoffset(t_myobject, atm) / * data * /);\n@endcode"]
+    #[doc = "Create a new attribute. The attribute references an array of memory stored outside of itself, in the object's data structure. Attributes created using attr_offset_array_new() can be assigned either to classes (using the class_addattr() function) or to objects (using the object_addattr() function).\n\n@ingroup attr\n\n@param \tname\t\tA name for the attribute, as a C-string\n@param \ttype\t\tA t_symbol * representing a valid attribute type.\nAt the time of this writing, the valid type-symbols are:\n<tt>_sym_char</tt> (char),\n<tt>_sym_long</tt> (long),\n<tt>_sym_float32</tt> (32-bit float),\n<tt>_sym_float64</tt> (64-bit float),\n<tt>_sym_atom</tt> (Max #t_atom pointer),\n<tt>_sym_symbol</tt> (Max #t_symbol pointer),\n<tt>_sym_pointer</tt> (generic pointer) and\n<tt>_sym_object</tt> (Max #t_object pointer).\n@param\tsize\t\tMaximum number of items that may be in the array.\n@param \tflags\t\tAny attribute flags, expressed as a bitfield.\nAttribute flags are used to determine if an attribute is accessible for setting or querying.\nThe available accessor flags are defined in #e_max_attrflags.\n@param \tmget\t\tThe method to use for the attribute's <tt>get</tt> functionality.\nIf <tt>mget</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \tmset\t\tThe method to use for the attribute's <tt>set</tt> functionality.\nIf <tt>mset</tt> is NULL, the default method is used. See the discussion under attribute_new(), for more information.\n@param \toffsetcount\tByte offset into the object class's data structure of a long variable describing how many array elements\n(up to <tt>size</tt>) comprise the data to be referenced by the attribute.\nTypically, the #calcoffset macro is used to calculate this offset.\n@param \toffset\t\tByte offset into the class data structure of the object which will \"own\" the attribute.\nThe offset should point to the data to be referenced by the attribute.\nTypically, the #calcoffset macro is used to calculate this offset.\n\n@return \t\t\tThis function returns the new attribute's object pointer if successful, or NULL if unsuccessful.\n\n@remark \t\t\tFor instance, to create a new attribute which references an array of 10 t_atoms (<tt>atm</tt>;\nthe current number of \"active\" elements in the array is held in the variable <tt>atmcount</tt>) in an object class's data structure:\n\n```c\nt_object *attr = attr_offset_array_new(\"myattrarray\", _sym_atom / * matches data size * /, 10 / * max * /, 0 / * no flags * /, (method)0L, (method)0L, calcoffset(t_myobject, atmcount) / * count * /, calcoffset(t_myobject, atm) / * data * /);\n```\n"]
     pub fn attr_offset_array_new(
         name: *const ::std::os::raw::c_char,
         type_: *mut t_symbol,
@@ -10137,7 +10137,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "Attaches a custom filter method to an attribute.\nThe filter will <em>only</em> be called for values retrieved from the attribute using the attribute's <tt>set</tt> function.\n\n@ingroup attr\n\n@param \tx\t\tPointer to the attribute to receive the filter\n@param \tproc\tA filter method\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tThe filter method should be prototyped and implemented as follows:\n@code\nt_max_err myfiltermethod(void *parent, void *attr, long ac, t_atom *av);\n\nt_max_err myfiltermethod(void *parent, void *attr, long ac, t_atom *av)\n{\nlong i;\nfloat temp,\n\n// this filter rounds off all values\n// assumes that the data is float\nfor (i = 0; i < ac; i++) {\ntemp = atom_getfloat(av + i);\ntemp = (float)((long)(temp + 0.5));\natom_setfloat(av + i, temp);\n}\nreturn MAX_ERR_NONE;\n}\n@endcode"]
+    #[doc = "Attaches a custom filter method to an attribute.\nThe filter will <em>only</em> be called for values retrieved from the attribute using the attribute's <tt>set</tt> function.\n\n@ingroup attr\n\n@param \tx\t\tPointer to the attribute to receive the filter\n@param \tproc\tA filter method\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful.\n\n@remark \t\tThe filter method should be prototyped and implemented as follows:\n\n```c\nt_max_err myfiltermethod(void *parent, void *attr, long ac, t_atom *av);\n\nt_max_err myfiltermethod(void *parent, void *attr, long ac, t_atom *av)\n{\nlong i;\nfloat temp,\n\n// this filter rounds off all values\n// assumes that the data is float\nfor (i = 0; i < ac; i++) {\ntemp = atom_getfloat(av + i);\ntemp = (float)((long)(temp + 0.5));\natom_setfloat(av + i, temp);\n}\nreturn MAX_ERR_NONE;\n}\n```\n"]
     pub fn attr_addfilterset_proc(x: *mut ::std::os::raw::c_void, proc_: method) -> t_max_err;
 }
 unsafe extern "C" {
@@ -10184,7 +10184,7 @@ unsafe extern "C" {
     pub fn class_cloneprototype(x: *mut t_class) -> *mut t_dictionary;
 }
 unsafe extern "C" {
-    #[doc = "Create a dictionary of attribute-name, attribute-value pairs\nfrom an array of atoms containing an attribute definition list.\n\n@ingroup attr\n@param\tx\tA dictionary instance pointer.\n@param\tac\tThe number of atoms to parse in av.\n@param\tav\tA pointer to the first of the array of atoms containing the attribute values.\n\n@remark\t\tThe code example below shows the creation of a list of atoms using atom_setparse(),\nand then uses that list of atoms to fill the dictionary with attr_args_dictionary().\n@code\nlong ac = 0;\nt_atom *av = NULL;\nchar parsebuf[4096];\nt_dictionary *d = dictionary_new();\nt_atom a;\n\nsprintf(parsebuf,\"@defrect %.6f %.6f %.6f %.6f @title Untitled @presentation 0 \", r->x, r->y, r->width, r->height);\natom_setparse(&ac, &av, parsebuf);\nattr_args_dictionary(d, ac, av);\natom_setobj(&a, d);\n@endcode"]
+    #[doc = "Create a dictionary of attribute-name, attribute-value pairs\nfrom an array of atoms containing an attribute definition list.\n\n@ingroup attr\n@param\tx\tA dictionary instance pointer.\n@param\tac\tThe number of atoms to parse in av.\n@param\tav\tA pointer to the first of the array of atoms containing the attribute values.\n\n@remark\t\tThe code example below shows the creation of a list of atoms using atom_setparse(),\nand then uses that list of atoms to fill the dictionary with attr_args_dictionary().\n\n```c\nlong ac = 0;\nt_atom *av = NULL;\nchar parsebuf[4096];\nt_dictionary *d = dictionary_new();\nt_atom a;\n\nsprintf(parsebuf,\"@defrect %.6f %.6f %.6f %.6f @title Untitled @presentation 0 \", r->x, r->y, r->width, r->height);\natom_setparse(&ac, &av, parsebuf);\nattr_args_dictionary(d, ac, av);\natom_setobj(&a, d);\n```\n"]
     pub fn attr_args_dictionary(x: *mut t_dictionary, ac: ::std::os::raw::c_short, av: *mut t_atom);
 }
 unsafe extern "C" {
@@ -10442,18 +10442,18 @@ unsafe extern "C" {
         attrname: *mut t_symbol,
     ) -> ::std::os::raw::c_long;
 }
-#[doc = " An opaque thread instance pointer.\n@ingroup threading"]
+#[doc = "An opaque thread instance pointer.\n@ingroup threading"]
 pub type t_systhread = *mut ::std::os::raw::c_void;
-#[doc = " An opaque mutex handle.\n@ingroup threading"]
+#[doc = "An opaque mutex handle.\n@ingroup threading"]
 pub type t_systhread_mutex = *mut ::std::os::raw::c_void;
-#[doc = " An opaque cond handle.\n@ingroup threading"]
+#[doc = "An opaque cond handle.\n@ingroup threading"]
 pub type t_systhread_cond = *mut ::std::os::raw::c_void;
 pub type t_systhread_rwlock = *mut ::std::os::raw::c_void;
 pub type t_systhread_key = *mut ::std::os::raw::c_void;
 pub mod e_max_systhread_mutex_flags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " systhread_mutex_new() flags\n@ingroup threading"]
+    #[doc = "systhread_mutex_new() flags\n@ingroup threading"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Normal"]
     pub const SYSTHREAD_MUTEX_NORMAL: Type = 0;
@@ -10528,15 +10528,15 @@ unsafe extern "C" {
     pub fn systhread_getpriority(thread: t_systhread) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = " Check to see if the function currently being executed is in the main thread.\n@ingroup\tthreading\n@return\t\tReturns true if the function is being executed in the main thread, otherwise false."]
+    #[doc = "Check to see if the function currently being executed is in the main thread.\n@ingroup\tthreading\n@return\t\tReturns true if the function is being executed in the main thread, otherwise false."]
     pub fn systhread_ismainthread() -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = " Check to see if the function currently being executed is in a scheduler thread.\n@ingroup\tthreading\n@return\t\tReturns true if the function is being executed in a scheduler thread, otherwise false."]
+    #[doc = "Check to see if the function currently being executed is in a scheduler thread.\n@ingroup\tthreading\n@return\t\tReturns true if the function is being executed in a scheduler thread, otherwise false."]
     pub fn systhread_istimerthread() -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = " Check to see if the function currently being executed is in an audio thread.\n@ingroup\tthreading\n@return\t\tReturns true if the function is being executed in an audio thread, otherwise false."]
+    #[doc = "Check to see if the function currently being executed is in an audio thread.\n@ingroup\tthreading\n@return\t\tReturns true if the function is being executed in an audio thread, otherwise false."]
     pub fn systhread_isaudiothread() -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
@@ -10739,7 +10739,7 @@ unsafe extern "C" {
 pub mod _modifiers {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tBit mask values for various meta-key presses on the keyboard.\n@ingroup\tjmouse"]
+    #[doc = "Bit mask values for various meta-key presses on the keyboard.\n@ingroup\tjmouse"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Command Key"]
     pub const eCommandKey: Type = 1;
@@ -10762,7 +10762,7 @@ pub mod _modifiers {
     #[doc = "< Key is generated by key press auto-repeat"]
     pub const eAutoRepeat: Type = 512;
 }
-#[doc = "\tBit mask values for various meta-key presses on the keyboard.\n@ingroup\tjmouse"]
+#[doc = "Bit mask values for various meta-key presses on the keyboard.\n@ingroup\tjmouse"]
 pub use self::_modifiers::Type as t_modifiers;
 unsafe extern "C" {
     pub fn fontmap_getmapping(
@@ -10839,16 +10839,16 @@ const _: () = {
 };
 #[doc = "Coordinates for specifying the size of a region.\n@ingroup \tdatatypes\n@see\t\tt_rect\n@see\t\tt_pt"]
 pub type t_size = _size;
-#[doc = "\tA color composed of red, green, blue, and alpha components.\n@ingroup color"]
+#[doc = "A color composed of red, green, blue, and alpha components.\n@ingroup color"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jrgba {
-    #[doc = "< Red component in the range [0.0, 1.0]"]
+    #[doc = "< Red component in the range \\[0.0, 1.0\\]"]
     pub red: f64,
-    #[doc = "< Green component in the range [0.0, 1.0]"]
+    #[doc = "< Green component in the range \\[0.0, 1.0\\]"]
     pub green: f64,
     pub blue: f64,
-    #[doc = "< Alpha (transparency) component in the range [0.0, 1.0]"]
+    #[doc = "< Alpha (transparency) component in the range \\[0.0, 1.0\\]"]
     pub alpha: f64,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
@@ -10860,9 +10860,9 @@ const _: () = {
     ["Offset of field: _jrgba::blue"][::std::mem::offset_of!(_jrgba, blue) - 16usize];
     ["Offset of field: _jrgba::alpha"][::std::mem::offset_of!(_jrgba, alpha) - 24usize];
 };
-#[doc = "\tA color composed of red, green, blue, and alpha components.\n@ingroup color"]
+#[doc = "A color composed of red, green, blue, and alpha components.\n@ingroup color"]
 pub type t_jrgba = _jrgba;
-#[doc = " The t_jbox struct provides the header for a Max user-interface object.\nThis struct should be considered opaque and is subject to change without notice.\nDo not access it's members directly any code.\n\n@ingroup patcher"]
+#[doc = "The t_jbox struct provides the header for a Max user-interface object.\nThis struct should be considered opaque and is subject to change without notice.\nDo not access it's members directly any code.\n\n@ingroup patcher"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jbox {
@@ -10985,10 +10985,10 @@ const _: () = {
     ["Offset of field: _jbox::b_reserved3"][::std::mem::offset_of!(_jbox, b_reserved3) - 275usize];
     ["Offset of field: _jbox::b_ptemp"][::std::mem::offset_of!(_jbox, b_ptemp) - 280usize];
 };
-#[doc = " The t_jbox struct provides the header for a Max user-interface object.\nThis struct should be considered opaque and is subject to change without notice.\nDo not access it's members directly any code.\n\n@ingroup patcher"]
+#[doc = "The t_jbox struct provides the header for a Max user-interface object.\nThis struct should be considered opaque and is subject to change without notice.\nDo not access it's members directly any code.\n\n@ingroup patcher"]
 pub type t_jbox = _jbox;
 unsafe extern "C" {
-    #[doc = "\tGets the value of a #t_rect attribute, given its parent object and name.\nDo not use this on a jbox object -- use jbox_get_rect_for_view() instead!\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \trect\tThe address of a valid #t_rect whose values will be filled-in from the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Gets the value of a #t_rect attribute, given its parent object and name.\nDo not use this on a jbox object -- use jbox_get_rect_for_view() instead!\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \trect\tThe address of a valid #t_rect whose values will be filled-in from the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_get_rect(
         o: *mut t_object,
         name: *mut t_symbol,
@@ -10996,7 +10996,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSets the value of a #t_rect attribute, given its parent object and name.\nDo not use this on a jbox object -- use jbox_get_rect_for_view() instead!\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \trect\tThe address of a valid #t_rect whose values will be used to set the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Sets the value of a #t_rect attribute, given its parent object and name.\nDo not use this on a jbox object -- use jbox_get_rect_for_view() instead!\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \trect\tThe address of a valid #t_rect whose values will be used to set the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_set_rect(
         o: *mut t_object,
         name: *mut t_symbol,
@@ -11004,15 +11004,15 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGets the value of a #t_pt attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tpt\t\tThe address of a valid #t_pt whose values will be filled-in from the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Gets the value of a #t_pt attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tpt\t\tThe address of a valid #t_pt whose values will be filled-in from the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_getpt(o: *mut t_object, name: *mut t_symbol, pt: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSets the value of a #t_pt attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tpt\t\tThe address of a valid #t_pt whose values will be used to set the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Sets the value of a #t_pt attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tpt\t\tThe address of a valid #t_pt whose values will be used to set the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_setpt(o: *mut t_object, name: *mut t_symbol, pt: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGets the value of a #t_size attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tsize\tThe address of a valid #t_size whose values will be filled-in from the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Gets the value of a #t_size attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tsize\tThe address of a valid #t_size whose values will be filled-in from the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_getsize(
         o: *mut t_object,
         name: *mut t_symbol,
@@ -11020,7 +11020,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSets the value of a #t_size attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tsize\tThe address of a valid #t_size whose values will be used to set the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Sets the value of a #t_size attribute, given its parent object and name.\n\n@ingroup attr\n@param \to\t\tThe attribute's parent object\n@param \tname\tThe attribute's name\n@param \tsize\tThe address of a valid #t_size whose values will be used to set the attribute.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_setsize(
         o: *mut t_object,
         name: *mut t_symbol,
@@ -11028,7 +11028,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGets the value of a #t_jrgba attribute, given its parent object and name.\n\n@ingroup attr\n@param \tb\t\t\tThe attribute's parent object\n@param \tattrname\tThe attribute's name\n@param \tprgba\t\tThe address of a valid #t_jrgba whose values will be filled-in from the attribute.\n\n@return \t\t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Gets the value of a #t_jrgba attribute, given its parent object and name.\n\n@ingroup attr\n@param \tb\t\t\tThe attribute's parent object\n@param \tattrname\tThe attribute's name\n@param \tprgba\t\tThe address of a valid #t_jrgba whose values will be filled-in from the attribute.\n\n@return \t\t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_getcolor(
         b: *mut t_object,
         attrname: *mut t_symbol,
@@ -11036,7 +11036,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSets the value of a #t_jrgba attribute, given its parent object and name.\n\n@ingroup attr\n@param \tb\t\t\tThe attribute's parent object\n@param \tattrname\tThe attribute's name\n@param \tprgba\t\tThe address of a valid #t_jrgba whose values will be used to set the attribute.\n\n@return \t\t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Sets the value of a #t_jrgba attribute, given its parent object and name.\n\n@ingroup attr\n@param \tb\t\t\tThe attribute's parent object\n@param \tattrname\tThe attribute's name\n@param \tprgba\t\tThe address of a valid #t_jrgba whose values will be used to set the attribute.\n\n@return \t\t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn object_attr_setcolor(
         b: *mut t_object,
         attrname: *mut t_symbol,
@@ -11044,7 +11044,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the value of a #t_jrgba struct, given an array of atoms with the values to use.\n\n@ingroup color\n@param \tjrgba\tThe color struct whose color will be set.\n@param \targc\tThe number of atoms in the array.  This must be 4.\n@param \targv\tThe address of the first of the atoms in the array.\nThere must be 4 atoms, representing alpha, red, green, and blue components.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
+    #[doc = "Set the value of a #t_jrgba struct, given an array of atoms with the values to use.\n\n@ingroup color\n@param \tjrgba\tThe color struct whose color will be set.\n@param \targc\tThe number of atoms in the array.  This must be 4.\n@param \targv\tThe address of the first of the atoms in the array.\nThere must be 4 atoms, representing alpha, red, green, and blue components.\n\n@return \t\tThis function returns the error code #MAX_ERR_NONE if successful,\nor one of the other error codes defined in #e_max_errorcodes if unsuccessful."]
     pub fn jrgba_attr_set(
         jrgba: *mut t_jrgba,
         argc: ::std::os::raw::c_long,
@@ -11064,102 +11064,102 @@ unsafe extern "C" {
     pub fn jgraphics_clip_rgba(rgba: *mut t_jrgba);
 }
 unsafe extern "C" {
-    #[doc = "\tOpen the help patcher for a given object class name.\n@ingroup\t\t\tobj\n@param\tclassname\tThe class name for which to open the help patcher."]
+    #[doc = "Open the help patcher for a given object class name.\n@ingroup\t\t\tobj\n@param\tclassname\tThe class name for which to open the help patcher."]
     pub fn classname_openhelp(classname: *mut ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "\tOpen the reference page for a given object class name.\n@ingroup\t\t\tobj\n@param\tclassname\tThe class name for which to open the reference page."]
+    #[doc = "Open the reference page for a given object class name.\n@ingroup\t\t\tobj\n@param\tclassname\tThe class name for which to open the reference page."]
     pub fn classname_openrefpage(classname: *mut ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "\tOpen a search in the file browser for files with the name of the given class.\n@ingroup\t\t\tobj\n@param\tclassname\tThe class name for which to query."]
+    #[doc = "Open a search in the file browser for files with the name of the given class.\n@ingroup\t\t\tobj\n@param\tclassname\tThe class name for which to query."]
     pub fn classname_openquery(classname: *mut ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "\tFind a patcherview at the given screen coords.\n@ingroup\tjpatcherview\n@param\tx\tThe horizontal coordinate at which to find a patcherview.\n@param\ty\tThe vertical coordinate at which to find a patcherview.\n@return\t\tA pointer to the patcherview at the specified location,\nor NULL if no patcherview exists at that location."]
+    #[doc = "Find a patcherview at the given screen coords.\n@ingroup\tjpatcherview\n@param\tx\tThe horizontal coordinate at which to find a patcherview.\n@param\ty\tThe vertical coordinate at which to find a patcherview.\n@return\t\tA pointer to the patcherview at the specified location,\nor NULL if no patcherview exists at that location."]
     pub fn patcherview_findpatcherview(
         x: ::std::os::raw::c_int,
         y: ::std::os::raw::c_int,
     ) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine of a #t_object* is a patcher object.\n@ingroup\tjpatcher\n@param\tp\tThe object pointer to test.\n@return\t\tReturns true if the object is a patcher, otherwise returns non-zero."]
+    #[doc = "Determine of a #t_object* is a patcher object.\n@ingroup\tjpatcher\n@param\tp\tThe object pointer to test.\n@return\t\tReturns true if the object is a patcher, otherwise returns non-zero."]
     pub fn jpatcher_is_patcher(p: *mut t_object) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tIf a patcher is inside a box, return its box.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tA pointer to the box containing the patcher, otherwise NULL."]
+    #[doc = "If a patcher is inside a box, return its box.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tA pointer to the box containing the patcher, otherwise NULL."]
     pub fn jpatcher_get_box(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine the number of boxes in a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe number of boxes in the patcher."]
+    #[doc = "Determine the number of boxes in a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe number of boxes in the patcher."]
     pub fn jpatcher_get_count(p: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tLock or unlock a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher whose locked state will be changed.\n@param\tc\tPass true to lock a patcher, otherwise pass false.\n@return\t\tA Max error code."]
+    #[doc = "Lock or unlock a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher whose locked state will be changed.\n@param\tc\tPass true to lock a patcher, otherwise pass false.\n@return\t\tA Max error code."]
     pub fn jpatcher_set_locked(p: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine whether a patcher is currently in presentation mode.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tTrue if the patcher is in presentation mode, otherwise false."]
+    #[doc = "Determine whether a patcher is currently in presentation mode.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tTrue if the patcher is in presentation mode, otherwise false."]
     pub fn jpatcher_get_presentation(p: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the first box in a patcher.\nAll boxes in a patcher are maintained internally in a #t_linklist.\nUse this function together with jbox_get_nextobject() to traverse a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe first box in a patcher.\n@see\t\tjbox_get_prevobject()\njbox_get_nextobject()\njpatcher_get_lastobject()"]
+    #[doc = "Get the first box in a patcher.\nAll boxes in a patcher are maintained internally in a #t_linklist.\nUse this function together with jbox_get_nextobject() to traverse a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe first box in a patcher.\n@see\t\tjbox_get_prevobject()\njbox_get_nextobject()\njpatcher_get_lastobject()"]
     pub fn jpatcher_get_firstobject(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the last box in a patcher.\nAll boxes in a patcher are maintained internally in a #t_linklist.\nUse this function together with jbox_get_prevobject() to traverse a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe last box in a patcher.\n@see\t\tjbox_get_prevobject()\njbox_get_nextobject()\njpatcher_get_firstobject()"]
+    #[doc = "Get the last box in a patcher.\nAll boxes in a patcher are maintained internally in a #t_linklist.\nUse this function together with jbox_get_prevobject() to traverse a patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe last box in a patcher.\n@see\t\tjbox_get_prevobject()\njbox_get_nextobject()\njpatcher_get_firstobject()"]
     pub fn jpatcher_get_lastobject(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the first line (patch-cord) in a patcher.\nAll lines in a patcher are maintained internally in a #t_linklist.\nUse this function to begin traversing a patcher's lines.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe first jpatchline in a patcher."]
+    #[doc = "Get the first line (patch-cord) in a patcher.\nAll lines in a patcher are maintained internally in a #t_linklist.\nUse this function to begin traversing a patcher's lines.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe first jpatchline in a patcher."]
     pub fn jpatcher_get_firstline(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the first view (jpatcherview) for a given patcher.\nAll views of a patcher are maintained internally as a #t_linklist.\nUse this function to begin traversing a patcher's views.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe first view of a patcher."]
+    #[doc = "Get the first view (jpatcherview) for a given patcher.\nAll views of a patcher are maintained internally as a #t_linklist.\nUse this function to begin traversing a patcher's views.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe first view of a patcher."]
     pub fn jpatcher_get_firstview(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patcher's title.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's title."]
+    #[doc = "Retrieve a patcher's title.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's title."]
     pub fn jpatcher_get_title(p: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a patcher's title.\n@ingroup\tjpatcher\n@param\tp\tThe patcher whose locked state will be changed.\n@param\tps\tThe new title for the patcher.\n@return\t\tA Max error code."]
+    #[doc = "Set a patcher's title.\n@ingroup\tjpatcher\n@param\tp\tThe patcher whose locked state will be changed.\n@param\tps\tThe new title for the patcher.\n@return\t\tA Max error code."]
     pub fn jpatcher_set_title(p: *mut t_object, ps: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patcher's name.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's name."]
+    #[doc = "Retrieve a patcher's name.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's name."]
     pub fn jpatcher_get_name(p: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patcher's file path.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's file path."]
+    #[doc = "Retrieve a patcher's file path.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's file path."]
     pub fn jpatcher_get_filepath(p: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patcher's file name.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's file name."]
+    #[doc = "Retrieve a patcher's file name.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's file name."]
     pub fn jpatcher_get_filename(p: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine whether a patcher's dirty bit has been set.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tTrue if the patcher is dirty, otherwise false."]
+    #[doc = "Determine whether a patcher's dirty bit has been set.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tTrue if the patcher is dirty, otherwise false."]
     pub fn jpatcher_get_dirty(p: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a patcher's dirty bit.\n@ingroup\tjpatcher\n@param\tp\tThe patcher whose dirty bit will be set.\n@param\tc\tThe new value for the patcher's dirty bit (pass true or false).\n@return\t\tA Max error code."]
+    #[doc = "Set a patcher's dirty bit.\n@ingroup\tjpatcher\n@param\tp\tThe patcher whose dirty bit will be set.\n@param\tc\tThe new value for the patcher's dirty bit (pass true or false).\n@return\t\tA Max error code."]
     pub fn jpatcher_set_dirty(p: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine whether a patcher's background layer is locked.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tTrue if the background layer is locked, otherwise false."]
+    #[doc = "Determine whether a patcher's background layer is locked.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tTrue if the background layer is locked, otherwise false."]
     pub fn jpatcher_get_bglocked(p: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patcher's unlocked background color.\n@ingroup\t\tjpatcher\n@param\tp\t\tThe patcher to be queried.\n@param\tprgba\tThe address of a valid #t_jrgba struct that will be filled-in with the current patcher color values.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve a patcher's unlocked background color.\n@ingroup\t\tjpatcher\n@param\tp\t\tThe patcher to be queried.\n@param\tprgba\tThe address of a valid #t_jrgba struct that will be filled-in with the current patcher color values.\n@return\t\t\tA Max error code."]
     pub fn jpatcher_get_bgcolor(p: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a patcher's unlocked background color.\n@ingroup\t\tjpatcher\n@param\tp\t\tThe patcher to be queried.\n@param\tprgba\tThe address of a #t_jrgba struct containing the new color to use.\n@return\t\t\tA Max error code."]
+    #[doc = "Set a patcher's unlocked background color.\n@ingroup\t\tjpatcher\n@param\tp\t\tThe patcher to be queried.\n@param\tprgba\tThe address of a #t_jrgba struct containing the new color to use.\n@return\t\t\tA Max error code."]
     pub fn jpatcher_set_bgcolor(p: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patcher's grid size.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tThe patcher to be queried.\n@param\tgridsizeX\tThe address of a double that will be set to the current horizontal grid spacing for the patcher.\n@param\tgridsizeY\tThe address of a double that will be set to the current vertical grid spacing for the patcher.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Retrieve a patcher's grid size.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tThe patcher to be queried.\n@param\tgridsizeX\tThe address of a double that will be set to the current horizontal grid spacing for the patcher.\n@param\tgridsizeY\tThe address of a double that will be set to the current vertical grid spacing for the patcher.\n@return\t\t\t\tA Max error code."]
     pub fn jpatcher_get_gridsize(
         p: *mut t_object,
         gridsizeX: *mut f64,
@@ -11167,26 +11167,26 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a patcher's grid size.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tThe patcher to be queried.\n@param\tgridsizeX\tThe new horizontal grid spacing for the patcher.\n@param\tgridsizeY\tThe new vertical grid spacing for the patcher.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Set a patcher's grid size.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tThe patcher to be queried.\n@param\tgridsizeX\tThe new horizontal grid spacing for the patcher.\n@param\tgridsizeY\tThe new vertical grid spacing for the patcher.\n@return\t\t\t\tA Max error code."]
     pub fn jpatcher_set_gridsize(p: *mut t_object, gridsizeX: f64, gridsizeY: f64) -> t_max_err;
 }
 unsafe extern "C" {
     pub fn jpatcher_get_controller(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tDelete an object that is in a patcher.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tThe patcher.\n@param\tb\t\t\tThe object box to delete."]
+    #[doc = "Delete an object that is in a patcher.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tThe patcher.\n@param\tb\t\t\tThe object box to delete."]
     pub fn jpatcher_deleteobj(p: *mut t_object, b: *mut t_jbox);
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patcher, return its parent patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's parent patcher, if there is one.\nIf there is no parent patcher (this is a top-level patcher) then NULL is returned."]
+    #[doc = "Given a patcher, return its parent patcher.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's parent patcher, if there is one.\nIf there is no parent patcher (this is a top-level patcher) then NULL is returned."]
     pub fn jpatcher_get_parentpatcher(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patcher, return the top-level patcher for the tree in which it exists.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's top-level parent patcher."]
+    #[doc = "Given a patcher, return the top-level patcher for the tree in which it exists.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\t\tThe patcher's top-level parent patcher."]
     pub fn jpatcher_get_toppatcher(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patcher, return the patcher that will be responsible for holding the parameter hub.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\tThe patcher's parameter hub holder."]
+    #[doc = "Given a patcher, return the patcher that will be responsible for holding the parameter hub.\n@ingroup\tjpatcher\n@param\tp\tThe patcher to be queried.\n@return\tThe patcher's parameter hub holder."]
     pub fn jpatcher_get_hubholder(p: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
@@ -11196,18 +11196,18 @@ unsafe extern "C" {
     pub fn jpatcher_get_parentclass(p: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a patcher to determine its location and size.\n@ingroup\tjpatcher\n@param\tp\tA pointer to a patcher instance.\n@param\tpr\tThe address of valid #t_rect whose values will be filled-in upon return.\n@return\t\tA Max error code."]
+    #[doc = "Query a patcher to determine its location and size.\n@ingroup\tjpatcher\n@param\tp\tA pointer to a patcher instance.\n@param\tpr\tThe address of valid #t_rect whose values will be filled-in upon return.\n@return\t\tA Max error code."]
     pub fn jpatcher_get_rect(p: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a patcher's location and size.\n@ingroup\tjpatcher\n@param\tp\tA pointer to a patcher instance.\n@param\tpr\tThe address of a #t_rect with the new position and size.\n@return\t\tA Max error code."]
+    #[doc = "Set a patcher's location and size.\n@ingroup\tjpatcher\n@param\tp\tA pointer to a patcher instance.\n@param\tpr\tThe address of a #t_rect with the new position and size.\n@return\t\tA Max error code."]
     pub fn jpatcher_set_rect(p: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
     pub fn jpatcher_get_noedit(p: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tGenerate a unique name for a box in patcher.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tA pointer to a patcher instance.\n@param\tclassname\tThe name of an object's class.\n@return\t\t\t\tThe newly-generated unique name.\n@remark\t\t\t\tThis is the function used by pattr to assign names to objects in a patcher."]
+    #[doc = "Generate a unique name for a box in patcher.\n@ingroup\t\t\tjpatcher\n@param\tp\t\t\tA pointer to a patcher instance.\n@param\tclassname\tThe name of an object's class.\n@return\t\t\t\tThe newly-generated unique name.\n@remark\t\t\t\tThis is the function used by pattr to assign names to objects in a patcher."]
     pub fn jpatcher_uniqueboxname(p: *mut t_object, classname: *mut t_symbol) -> *mut t_symbol;
 }
 unsafe extern "C" {
@@ -11225,15 +11225,15 @@ unsafe extern "C" {
     pub fn jpatcher_removeboxlistener(p: *mut t_object, listener: *mut t_object);
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the file version of the patcher.\n@ingroup\tjpatcher\n@param\tp\tA pointer to the patcher whose version number is desired.\n@return\t\tThe file version number."]
+    #[doc = "Return the file version of the patcher.\n@ingroup\tjpatcher\n@param\tp\tA pointer to the patcher whose version number is desired.\n@return\t\tThe file version number."]
     pub fn jpatcher_get_fileversion(p: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the file version for any new patchers, e.g. the current version created by Max.\n@ingroup\tjpatcher\n@return\t\tThe file version number."]
+    #[doc = "Return the file version for any new patchers, e.g. the current version created by Max.\n@ingroup\tjpatcher\n@return\t\tThe file version number."]
     pub fn jpatcher_get_currentfileversion() -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tFind the rect for a box in a given patcherview.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be fetched.\n@param\tpatcherview\tA patcherview in which the box exists.\n@param\trect\t\tThe address of a valid #t_rect whose members will be filled in by this function.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Find the rect for a box in a given patcherview.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be fetched.\n@param\tpatcherview\tA patcherview in which the box exists.\n@param\trect\t\tThe address of a valid #t_rect whose members will be filled in by this function.\n@return\t\t\t\tA Max error code."]
     pub fn jbox_get_rect_for_view(
         box_: *mut t_object,
         patcherview: *mut t_object,
@@ -11241,7 +11241,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tChange the rect for a box in a given patcherview.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be changed.\n@param\tpatcherview\tA patcherview in which the box exists.\n@param\trect\t\tThe address of a valid #t_rect that will replace the current values used by the box in the given view.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Change the rect for a box in a given patcherview.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be changed.\n@param\tpatcherview\tA patcherview in which the box exists.\n@param\trect\t\tThe address of a valid #t_rect that will replace the current values used by the box in the given view.\n@return\t\t\t\tA Max error code."]
     pub fn jbox_set_rect_for_view(
         box_: *mut t_object,
         patcherview: *mut t_object,
@@ -11249,7 +11249,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFind the rect for a box with a given attribute name.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be fetched.\n@param\twhich\t\tThe name of the rect attribute to be fetched, for example <tt>_sym_presentation_rect</tt> or <tt>_sym_patching_rect</tt>.\n@param\tpr\t\t\tThe address of a valid #t_rect whose members will be filled in by this function.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Find the rect for a box with a given attribute name.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be fetched.\n@param\twhich\t\tThe name of the rect attribute to be fetched, for example <tt>_sym_presentation_rect</tt> or <tt>_sym_patching_rect</tt>.\n@param\tpr\t\t\tThe address of a valid #t_rect whose members will be filled in by this function.\n@return\t\t\t\tA Max error code."]
     pub fn jbox_get_rect_for_sym(
         box_: *mut t_object,
         which: *mut t_symbol,
@@ -11257,7 +11257,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tChange the rect for a box with a given attribute name.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be changed.\n@param\twhich\t\tThe name of the rect attribute to be changed, for example <tt>_sym_presentation_rect</tt> or <tt>_sym_patching_rect</tt>.\n@param\tpr\t\t\tThe address of a valid #t_rect that will replace the current values used by the box.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Change the rect for a box with a given attribute name.\n@ingroup\t\t\tjbox\n@param\tbox\t\t\tThe box whose rect will be changed.\n@param\twhich\t\tThe name of the rect attribute to be changed, for example <tt>_sym_presentation_rect</tt> or <tt>_sym_patching_rect</tt>.\n@param\tpr\t\t\tThe address of a valid #t_rect that will replace the current values used by the box.\n@return\t\t\t\tA Max error code."]
     pub fn jbox_set_rect_for_sym(
         box_: *mut t_object,
         which: *mut t_symbol,
@@ -11265,111 +11265,111 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet both the presentation rect and the patching rect.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpr\t\tThe address of a #t_rect with the new rect values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set both the presentation rect and the patching rect.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpr\t\tThe address of a #t_rect with the new rect values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_rect(box_: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the patching rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect values will be retrieved.\n@param\tpr\t\tThe address of a valid #t_rect whose values will be filled in.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the patching rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect values will be retrieved.\n@param\tpr\t\tThe address of a valid #t_rect whose values will be filled in.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_patching_rect(box_: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tChange the patching rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpr\t\tThe address of a #t_rect with the new rect values.\n@return\t\t\tA Max error code."]
+    #[doc = "Change the patching rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpr\t\tThe address of a #t_rect with the new rect values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_patching_rect(box_: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the presentation rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect values will be retrieved.\n@param\tpr\t\tThe address of a valid #t_rect whose values will be filled in.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the presentation rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect values will be retrieved.\n@param\tpr\t\tThe address of a valid #t_rect whose values will be filled in.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_presentation_rect(box_: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tChange the presentation rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpr\t\tThe address of a #t_rect with the new rect values.\n@return\t\t\tA Max error code."]
+    #[doc = "Change the presentation rect of a box.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpr\t\tThe address of a #t_rect with the new rect values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_presentation_rect(box_: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the position of a box for both the presentation and patching views.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose position will be changed.\n@param\tpos\t\tThe address of a #t_pt with the new x and y values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the position of a box for both the presentation and patching views.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose position will be changed.\n@param\tpos\t\tThe address of a #t_pt with the new x and y values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_position(box_: *mut t_object, pos: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFetch the position of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose position will be retrieved.\n@param\tpos\t\tThe address of a valid #t_pt whose x and y values will be filled in.\n@return\t\t\tA Max error code."]
+    #[doc = "Fetch the position of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose position will be retrieved.\n@param\tpos\t\tThe address of a valid #t_pt whose x and y values will be filled in.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_patching_position(box_: *mut t_object, pos: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the position of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose positon will be changed.\n@param\tpos\t\tThe address of a #t_pt with the new x and y values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the position of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose positon will be changed.\n@param\tpos\t\tThe address of a #t_pt with the new x and y values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_patching_position(box_: *mut t_object, pos: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFetch the position of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose position will be retrieved.\n@param\tpos\t\tThe address of a valid #t_pt whose x and y values will be filled in.\n@return\t\t\tA Max error code."]
+    #[doc = "Fetch the position of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose position will be retrieved.\n@param\tpos\t\tThe address of a valid #t_pt whose x and y values will be filled in.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_presentation_position(box_: *mut t_object, pos: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the position of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpos\t\tThe address of a #t_pt with the new x and y values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the position of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose rect will be changed.\n@param\tpos\t\tThe address of a #t_pt with the new x and y values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_presentation_position(box_: *mut t_object, pos: *mut t_pt) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the size of a box for both the presentation and patching views.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be changed.\n@param\tsize\tThe address of a #t_size with the new size values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the size of a box for both the presentation and patching views.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be changed.\n@param\tsize\tThe address of a #t_size with the new size values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_size(box_: *mut t_object, size: *mut t_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFetch the size of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be retrieved.\n@param\tsize\tThe address of a valid #t_size whose width and height values will be filled in.\n@return\t\t\tA Max error code."]
+    #[doc = "Fetch the size of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be retrieved.\n@param\tsize\tThe address of a valid #t_size whose width and height values will be filled in.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_patching_size(box_: *mut t_object, size: *mut t_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the size of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be changed.\n@param\tsize\tThe address of a #t_size with the new width and height values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the size of a box for the patching view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be changed.\n@param\tsize\tThe address of a #t_size with the new width and height values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_patching_size(box_: *mut t_object, size: *mut t_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFetch the size of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be retrieved.\n@param\tsize\tThe address of a valid #t_size whose width and height values will be filled in.\n@return\t\t\tA Max error code."]
+    #[doc = "Fetch the size of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be retrieved.\n@param\tsize\tThe address of a valid #t_size whose width and height values will be filled in.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_presentation_size(box_: *mut t_object, size: *mut t_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the size of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be changed.\n@param\tsize\tThe address of a #t_size with the new width and height values.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the size of a box for the presentation view.\n@ingroup\t\tjbox\n@param\tbox\t\tThe box whose size will be changed.\n@param\tsize\tThe address of a #t_size with the new width and height values.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_presentation_size(box_: *mut t_object, size: *mut t_size) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve the name of the class of the box's object.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tThe name of the class of the box's object."]
+    #[doc = "Retrieve the name of the class of the box's object.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tThe name of the class of the box's object."]
     pub fn jbox_get_maxclass(b: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a pointer to the box's object.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tA pointer to the box's object."]
+    #[doc = "Retrieve a pointer to the box's object.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tA pointer to the box's object."]
     pub fn jbox_get_object(b: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box's patcher.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tIf the box has a patcher, the patcher's pointer is returned.\nOtherwise NULL is returned."]
+    #[doc = "Retrieve a box's patcher.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tIf the box has a patcher, the patcher's pointer is returned.\nOtherwise NULL is returned."]
     pub fn jbox_get_patcher(b: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box's 'hidden' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tTrue if the box is hidden, otherwise false."]
+    #[doc = "Retrieve a box's 'hidden' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tTrue if the box is hidden, otherwise false."]
     pub fn jbox_get_hidden(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Set a box's 'hidden' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tc\t\tSet to true to hide the box, otherwise false.\n@return\t\t\tA Max error code."]
+    #[doc = "Set a box's 'hidden' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tc\t\tSet to true to hide the box, otherwise false.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_hidden(b: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box's 'fontname' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tThe font name."]
+    #[doc = "Retrieve a box's 'fontname' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tThe font name."]
     pub fn jbox_get_fontname(b: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = " Set a box's 'fontname' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tps\t\tThe font name.  Note that the font name may be case-sensitive.\n@return\t\t\tA Max error code."]
+    #[doc = "Set a box's 'fontname' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tps\t\tThe font name.  Note that the font name may be case-sensitive.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_fontname(b: *mut t_object, ps: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box's 'fontsize' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tThe font size in points."]
+    #[doc = "Retrieve a box's 'fontsize' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@return\t\t\tThe font size in points."]
     pub fn jbox_get_fontsize(b: *mut t_object) -> f64;
 }
 unsafe extern "C" {
-    #[doc = " Set a box's 'fontsize' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\td\t\tThe fontsize in points.\n@return\t\t\tA Max error code."]
+    #[doc = "Set a box's 'fontsize' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\td\t\tThe fontsize in points.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_fontsize(b: *mut t_object, d: f64) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box's 'color' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tprgba\tThe address of a valid #t_rect whose values will be filled-in upon return.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve a box's 'color' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tprgba\tThe address of a valid #t_rect whose values will be filled-in upon return.\n@return\t\t\tA Max error code."]
     pub fn jbox_get_color(b: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Set a box's 'color' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tprgba\tThe address of a #t_rect containing the desired color for the box/object.\n@return\t\t\tA Max error code."]
+    #[doc = "Set a box's 'color' attribute.\n@ingroup\t\tjbox\n@param\tb\t\tThe box to query.\n@param\tprgba\tThe address of a #t_rect containing the desired color for the box/object.\n@return\t\t\tA Max error code."]
     pub fn jbox_set_color(b: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a box's hint text using a C-string.\n@ingroup\tjbox\n@param\tbb\tThe box to query.\n@param\ts\tThe new text to use for the box's hint.\n@return\t\tA Max error code."]
+    #[doc = "Set a box's hint text using a C-string.\n@ingroup\tjbox\n@param\tbb\tThe box to query.\n@param\ts\tThe new text to use for the box's hint.\n@return\t\tA Max error code."]
     pub fn jbox_set_hintstring(bb: *mut t_object, s: *mut ::std::os::raw::c_char);
 }
 unsafe extern "C" {
@@ -11379,71 +11379,71 @@ unsafe extern "C" {
     pub fn jbox_set_hinttrack(b: *mut t_object, h: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " The next box in the patcher's (linked) list of boxes.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe next box in the list."]
+    #[doc = "The next box in the patcher's (linked) list of boxes.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe next box in the list."]
     pub fn jbox_get_nextobject(b: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = " The previous box in the patcher's (linked) list of boxes.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe next box in the list."]
+    #[doc = "The previous box in the patcher's (linked) list of boxes.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe next box in the list."]
     pub fn jbox_get_prevobject(b: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box's scripting name.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe box's scripting name."]
+    #[doc = "Retrieve a box's scripting name.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe box's scripting name."]
     pub fn jbox_get_varname(b: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = " Set a box's scripting name.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tps\tThe new scripting name for the box.\n@return\t\tA Max error code."]
+    #[doc = "Set a box's scripting name.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tps\tThe new scripting name for the box.\n@return\t\tA Max error code."]
     pub fn jbox_set_varname(b: *mut t_object, ps: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a boxes unique id.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe unique id of the object.  This is a symbol that is referenced, for example, by patchlines."]
+    #[doc = "Retrieve a boxes unique id.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe unique id of the object.  This is a symbol that is referenced, for example, by patchlines."]
     pub fn jbox_get_id(b: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the canhilite bit in the box's flags."]
+    #[doc = "Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the canhilite bit in the box's flags."]
     pub fn jbox_get_canhilite(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Determine whether a box is located in the patcher's background layer.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the object is in the foreground, otherwise non-zero."]
+    #[doc = "Determine whether a box is located in the patcher's background layer.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the object is in the foreground, otherwise non-zero."]
     pub fn jbox_get_background(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Set whether a box should be in the background or foreground layer of a patcher.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tc\tPass zero to tell the box to appear in the foreground, or non-zero to indicate that the box should be in the background layer.\n@return\t\tA Max error code."]
+    #[doc = "Set whether a box should be in the background or foreground layer of a patcher.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tc\tPass zero to tell the box to appear in the foreground, or non-zero to indicate that the box should be in the background layer.\n@return\t\tA Max error code."]
     pub fn jbox_set_background(b: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Determine whether a box ignores clicks.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the object responds to clicks, otherwise non-zero."]
+    #[doc = "Determine whether a box ignores clicks.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the object responds to clicks, otherwise non-zero."]
     pub fn jbox_get_ignoreclick(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Set whether a box ignores clicks.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tc\tPass zero to tell the box to respond to clicks, or non-zero to indicate that the box should ignore clicks.\n@return\t\tA Max error code."]
+    #[doc = "Set whether a box ignores clicks.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tc\tPass zero to tell the box to respond to clicks, or non-zero to indicate that the box should ignore clicks.\n@return\t\tA Max error code."]
     pub fn jbox_set_ignoreclick(b: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Determine whether a box draws its first inlet.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the inlet is not drawn, otherwise non-zero."]
+    #[doc = "Determine whether a box draws its first inlet.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the inlet is not drawn, otherwise non-zero."]
     pub fn jbox_get_drawfirstin(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Determine whether a box draws an outline.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the outline is not drawn, otherwise non-zero."]
+    #[doc = "Determine whether a box draws an outline.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tZero if the outline is not drawn, otherwise non-zero."]
     pub fn jbox_get_outline(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Set whether a box draws an outline.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tc\tPass zero to hide the outline, or non-zero to indicate that the box should draw the outline.\n@return\t\tA Max error code."]
+    #[doc = "Set whether a box draws an outline.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@param\tc\tPass zero to hide the outline, or non-zero to indicate that the box should draw the outline.\n@return\t\tA Max error code."]
     pub fn jbox_set_outline(b: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the growy bit in the box's flags."]
+    #[doc = "Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the growy bit in the box's flags."]
     pub fn jbox_get_growy(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the growboth bit in the box's flags."]
+    #[doc = "Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the growboth bit in the box's flags."]
     pub fn jbox_get_growboth(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the nogrow bit in the box's flags."]
+    #[doc = "Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the nogrow bit in the box's flags."]
     pub fn jbox_get_nogrow(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the drawinlast bit in the box's flags."]
+    #[doc = "Retrieve a box flag value from a box.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe value of the drawinlast bit in the box's flags."]
     pub fn jbox_get_drawinlast(b: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
@@ -11453,41 +11453,41 @@ unsafe extern "C" {
     pub fn jbox_set_mousedragdelta(b: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a pointer to a box's textfield.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe textfield for the box, assuming it has one.\nIf the box does not own a textfield then NULL is returned."]
+    #[doc = "Retrieve a pointer to a box's textfield.\n@ingroup\tjbox\n@param\tb\tThe box to query.\n@return\t\tThe textfield for the box, assuming it has one.\nIf the box does not own a textfield then NULL is returned."]
     pub fn jbox_get_textfield(b: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
     pub fn jbox_validaterects(b: *mut t_jbox);
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patchline's starting point.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@param\tx\tThe address of a variable to hold the x-coordinate of the starting point's position upon return.\n@param\ty\tThe address of a variable to hold the y-coordinate of the starting point's position upon return.\n@return\t\tA Max error code."]
+    #[doc = "Retrieve a patchline's starting point.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@param\tx\tThe address of a variable to hold the x-coordinate of the starting point's position upon return.\n@param\ty\tThe address of a variable to hold the y-coordinate of the starting point's position upon return.\n@return\t\tA Max error code."]
     pub fn jpatchline_get_startpoint(l: *mut t_object, x: *mut f64, y: *mut f64) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve a patchline's ending point.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@param\tx\tThe address of a variable to hold the x-coordinate of the ending point's position upon return.\n@param\ty\tThe address of a variable to hold the y-coordinate of the ending point's position upon return.\n@return\t\tA Max error code."]
+    #[doc = "Retrieve a patchline's ending point.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@param\tx\tThe address of a variable to hold the x-coordinate of the ending point's position upon return.\n@param\ty\tThe address of a variable to hold the y-coordinate of the ending point's position upon return.\n@return\t\tA Max error code."]
     pub fn jpatchline_get_endpoint(l: *mut t_object, x: *mut f64, y: *mut f64) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine the number of midpoints (segments) in a patchline.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe number of midpoints in the patchline."]
+    #[doc = "Determine the number of midpoints (segments) in a patchline.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe number of midpoints in the patchline."]
     pub fn jpatchline_get_nummidpoints(l: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
     pub fn jpatchline_get_pending(l: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the object box from which a patchline originates.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe object box from which the patchline originates."]
+    #[doc = "Return the object box from which a patchline originates.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe object box from which the patchline originates."]
     pub fn jpatchline_get_box1(l: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the outlet number of the originating object box from which a patchline begins.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe outlet number."]
+    #[doc = "Return the outlet number of the originating object box from which a patchline begins.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe outlet number."]
     pub fn jpatchline_get_outletnum(l: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the destination object box for a patchline.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe destination object box for a patchline."]
+    #[doc = "Return the destination object box for a patchline.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe destination object box for a patchline."]
     pub fn jpatchline_get_box2(l: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the inlet number of the destination object box to which a patchline is connected.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe inlet number."]
+    #[doc = "Return the inlet number of the destination object box to which a patchline is connected.\n@ingroup\tjpatchline\n@param\tl\tA pointer to the patchline's instance.\n@return\t\tThe inlet number."]
     pub fn jpatchline_get_inletnum(l: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
@@ -11509,43 +11509,43 @@ unsafe extern "C" {
     pub fn jpatchline_set_straightend(l: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patchline, traverse to the next patchline in the (linked) list.\n@ingroup\t\tjpatchline\n@param\tb\t\tA patchline instance.\n@return\t\t\tThe next patchline.\nIf the current patchline is at the end (tail) of the list, then NULL is returned."]
+    #[doc = "Given a patchline, traverse to the next patchline in the (linked) list.\n@ingroup\t\tjpatchline\n@param\tb\t\tA patchline instance.\n@return\t\t\tThe next patchline.\nIf the current patchline is at the end (tail) of the list, then NULL is returned."]
     pub fn jpatchline_get_nextline(b: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine if a patch line is hidden.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@return\t\t\tZero if the patchline is visible, non-zero if it is hidden."]
+    #[doc = "Determine if a patch line is hidden.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@return\t\t\tZero if the patchline is visible, non-zero if it is hidden."]
     pub fn jpatchline_get_hidden(l: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet a patchline's visibility.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@param\tc\t\tPass 0 to make a patchline visible, or non-zero to hide it.\n@return\t\t\tAn error code."]
+    #[doc = "Set a patchline's visibility.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@param\tc\t\tPass 0 to make a patchline visible, or non-zero to hide it.\n@return\t\t\tAn error code."]
     pub fn jpatchline_set_hidden(l: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the color of a patch line.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@param\tprgba\tThe address of a valid #t_jrgba struct that will be filled with the color values of the patch line.\n@return\t\t\tAn error code."]
+    #[doc = "Get the color of a patch line.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@param\tprgba\tThe address of a valid #t_jrgba struct that will be filled with the color values of the patch line.\n@return\t\t\tAn error code."]
     pub fn jpatchline_get_color(l: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the color of a patch line.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@param\tprgba\tThe address of a valid #t_jrgba struct containing the color to use.\n@return\t\t\tAn error code."]
+    #[doc = "Set the color of a patch line.\n@ingroup\t\tjpatchline\n@param\tl\t\tA patchline instance.\n@param\tprgba\tThe address of a valid #t_jrgba struct containing the color to use.\n@return\t\t\tAn error code."]
     pub fn jpatchline_set_color(l: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a patcherview to determine whether it is visible.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance to query.\n@return\t\tReturns zero if the patcherview is invisible, otherwise returns non-zero."]
+    #[doc = "Query a patcherview to determine whether it is visible.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance to query.\n@return\t\tReturns zero if the patcherview is invisible, otherwise returns non-zero."]
     pub fn patcherview_get_visible(pv: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'visible' attribute of a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute will be set.\n@param\tc\tWhether or not the patcherview should be made visible.\n@return\t\tAn error code."]
+    #[doc = "Set the 'visible' attribute of a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute will be set.\n@param\tc\tWhether or not the patcherview should be made visible.\n@return\t\tAn error code."]
     pub fn patcherview_set_visible(pv: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the value of the rect attribute for a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be fetched.\n@param\tpr\tThe address of a valid #t_rect struct, whose contents will be filled upon return.\n@return\t\tAn error code."]
+    #[doc = "Get the value of the rect attribute for a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be fetched.\n@param\tpr\tThe address of a valid #t_rect struct, whose contents will be filled upon return.\n@return\t\tAn error code."]
     pub fn patcherview_get_rect(pv: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the value of the rect attribute for a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be set.\n@param\tpr\tThe address of a valid #t_rect struct.\n@return\t\tAn error code."]
+    #[doc = "Set the value of the rect attribute for a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be set.\n@param\tpr\tThe address of a valid #t_rect struct.\n@return\t\tAn error code."]
     pub fn patcherview_set_rect(pv: *mut t_object, pr: *mut t_rect) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Convert the point cx, cy in canvas coordinates to screen coordinates.\n@ingroup\tjpatcherview\n@param\tpv  The patcherview instance the canvas coords are relative to.\n@param\tcx\tThe x dimension of the canvas coordinate relative to the patcherview.\n@param\tcy  The y dimension of the canvas coordinate relative to the patcherview.\n@param\tsx\tA pointer to a long to receive the screen coordinate x dimension.\n@param\tsy\tA pointer to a long to receive the screen coordinate y dimension."]
+    #[doc = "Convert the point cx, cy in canvas coordinates to screen coordinates.\n@ingroup\tjpatcherview\n@param\tpv  The patcherview instance the canvas coords are relative to.\n@param\tcx\tThe x dimension of the canvas coordinate relative to the patcherview.\n@param\tcy  The y dimension of the canvas coordinate relative to the patcherview.\n@param\tsx\tA pointer to a long to receive the screen coordinate x dimension.\n@param\tsy\tA pointer to a long to receive the screen coordinate y dimension."]
     pub fn patcherview_canvas_to_screen(
         pv: *mut t_object,
         cx: f64,
@@ -11555,7 +11555,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Convert the point cx, cy in canvas coordinates to screen coordinates.\n@ingroup\tjpatcherview\n@param\tpv  The patcherview instance the canvas coords are relative to.\n@param\tsx\tThe screen position x coordinate.\n@param\tsy\tThe screen position y coordinate\n@param\tcx\tA pointer to a double to receive the canvas coordinate for the given screen x position.\n@param\tcy  A pointer to a double to receive the canvas coordinate for the given screen y position."]
+    #[doc = "Convert the point cx, cy in canvas coordinates to screen coordinates.\n@ingroup\tjpatcherview\n@param\tpv  The patcherview instance the canvas coords are relative to.\n@param\tsx\tThe screen position x coordinate.\n@param\tsy\tThe screen position y coordinate\n@param\tcx\tA pointer to a double to receive the canvas coordinate for the given screen x position.\n@param\tcy  A pointer to a double to receive the canvas coordinate for the given screen y position."]
     pub fn patcherview_screen_to_canvas(
         pv: *mut t_object,
         sx: ::std::os::raw::c_long,
@@ -11565,66 +11565,66 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tFind out if a patcherview is locked.\n@ingroup\tjpatcherview\n@param\tp\tThe patcherview instance whose attribute value will be fetched.\n@return\t\tReturns 0 if unlocked, otherwise returns non-zero."]
+    #[doc = "Find out if a patcherview is locked.\n@ingroup\tjpatcherview\n@param\tp\tThe patcherview instance whose attribute value will be fetched.\n@return\t\tReturns 0 if unlocked, otherwise returns non-zero."]
     pub fn patcherview_get_locked(p: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tLock or unlock a patcherview.\n@ingroup\tjpatcherview\n@param\tp\tThe patcherview instance whose attribute value will be set.\n@param\tc\tSet this value to zero to unlock the patcherview, otherwise pass a non-zero value.\n@return\t\tAn error code."]
+    #[doc = "Lock or unlock a patcherview.\n@ingroup\tjpatcherview\n@param\tp\tThe patcherview instance whose attribute value will be set.\n@param\tc\tSet this value to zero to unlock the patcherview, otherwise pass a non-zero value.\n@return\t\tAn error code."]
     pub fn patcherview_set_locked(p: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFind out if a patcherview is a presentation view.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be fetched.\n@return\t\tReturns 0 if the view is not a presentation view, otherwise returns non-zero."]
+    #[doc = "Find out if a patcherview is a presentation view.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be fetched.\n@return\t\tReturns 0 if the view is not a presentation view, otherwise returns non-zero."]
     pub fn patcherview_get_presentation(pv: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tFetch the zoom-factor of a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be fetched.\n@return\t\tThe factor by which the view is zoomed."]
+    #[doc = "Fetch the zoom-factor of a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be fetched.\n@return\t\tThe factor by which the view is zoomed."]
     pub fn patcherview_get_zoomfactor(pv: *mut t_object) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the zoom-factor of a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be set.\n@param\td\tThe zoom-factor at which the patcherview should display the patcher.\n@return\t\tAn error code."]
+    #[doc = "Set the zoom-factor of a patcherview.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance whose attribute value will be set.\n@param\td\tThe zoom-factor at which the patcherview should display the patcher.\n@return\t\tAn error code."]
     pub fn patcherview_set_zoomfactor(pv: *mut t_object, d: f64) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patcherview, find the next patcherview.\nThe views of a patcher are maintained internally as a #t_linklist,\nand so the views can be traversed should you need to perform operations on all of a patcher's patcherviews.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance from which to find the next patcherview.\n@return\t\tThe next patcherview in the list, or NULL if the patcherview passed in pv is the tail."]
+    #[doc = "Given a patcherview, find the next patcherview.\nThe views of a patcher are maintained internally as a #t_linklist,\nand so the views can be traversed should you need to perform operations on all of a patcher's patcherviews.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance from which to find the next patcherview.\n@return\t\tThe next patcherview in the list, or NULL if the patcherview passed in pv is the tail."]
     pub fn patcherview_get_nextview(pv: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patcherview, return the #t_jgraphics context for that view.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance.\n@return\t\tThe #t_jgraphics context for the view."]
+    #[doc = "Given a patcherview, return the #t_jgraphics context for that view.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance.\n@return\t\tThe #t_jgraphics context for the view."]
     pub fn patcherview_get_jgraphics(pv: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
     pub fn patcherview_set_jgraphics(pv: *mut t_object, po: *mut t_object) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a patcherview, return its patcher.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance for which to fetch the patcher.\n@return\t\tThe patcher."]
+    #[doc = "Given a patcherview, return its patcher.\n@ingroup\tjpatcherview\n@param\tpv\tThe patcherview instance for which to fetch the patcher.\n@return\t\tThe patcher."]
     pub fn patcherview_get_patcher(pv: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = " Given a patcherview, return the top patcherview (possibly itself).\nIf the patcherview is inside a bpatcher which is in a patcher then\nthis will give you the view the bpatcher view is inside of.\n@ingroup\tjpatcherview\n@param  pv\tThe patcherview instance whose top view you want to get.\n@return\t\tThe top patcherview."]
+    #[doc = "Given a patcherview, return the top patcherview (possibly itself).\nIf the patcherview is inside a bpatcher which is in a patcher then\nthis will give you the view the bpatcher view is inside of.\n@ingroup\tjpatcherview\n@param  pv\tThe patcherview instance whose top view you want to get.\n@return\t\tThe top patcherview."]
     pub fn patcherview_get_topview(pv: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the object that owns a particular textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA pointer to the owning object."]
+    #[doc = "Return the object that owns a particular textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA pointer to the owning object."]
     pub fn textfield_get_owner(tf: *mut t_object) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the color of the text in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a valid #t_jrgba whose values will be filled-in upon return.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the color of the text in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a valid #t_jrgba whose values will be filled-in upon return.\n@return\t\t\tA Max error code."]
     pub fn textfield_get_textcolor(tf: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the color of the text in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a #t_jrgba containing the new color to use.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the color of the text in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a #t_jrgba containing the new color to use.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_textcolor(tf: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the background color of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a valid #t_jrgba whose values will be filled-in upon return.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the background color of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a valid #t_jrgba whose values will be filled-in upon return.\n@return\t\t\tA Max error code."]
     pub fn textfield_get_bgcolor(tf: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the background color of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a #t_jrgba containing the new color to use.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the background color of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tprgba\tThe address of a #t_jrgba containing the new color to use.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_bgcolor(tf: *mut t_object, prgba: *mut t_jrgba) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the margins from the edge of the textfield to the text itself in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tpleft\tThe address of a variable to hold the value of the left margin upon return.\n@param\tptop\tThe address of a variable to hold the value of the top margin upon return.\n@param\tpright\tThe address of a variable to hold the value of the right margin upon return.\n@param\tpbottom\tThe address of a variable to hold the value of the bottom margin upon return.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the margins from the edge of the textfield to the text itself in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tpleft\tThe address of a variable to hold the value of the left margin upon return.\n@param\tptop\tThe address of a variable to hold the value of the top margin upon return.\n@param\tpright\tThe address of a variable to hold the value of the right margin upon return.\n@param\tpbottom\tThe address of a variable to hold the value of the bottom margin upon return.\n@return\t\t\tA Max error code."]
     pub fn textfield_get_textmargins(
         tf: *mut t_object,
         pleft: *mut f64,
@@ -11634,7 +11634,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the margins from the edge of the textfield to the text itself in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tleft\tThe new value for the left margin.\n@param\ttop\t\tThe new value for the top margin.\n@param\tright\tThe new value for the right margin.\n@param\tbottom\tThe new value for the bottom margin.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the margins from the edge of the textfield to the text itself in a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tleft\tThe new value for the left margin.\n@param\ttop\t\tThe new value for the top margin.\n@param\tright\tThe new value for the right margin.\n@param\tbottom\tThe new value for the bottom margin.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_textmargins(
         tf: *mut t_object,
         left: f64,
@@ -11644,84 +11644,84 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'editonclick' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'editonclick' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_editonclick(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'editonclick' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'editonclick' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_editonclick(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'selectallonedit' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'selectallonedit' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_selectallonedit(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'selectallonedit' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'selectallonedit' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_selectallonedit(tf: *mut t_object, c: ::std::os::raw::c_char)
     -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'noactivate' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'noactivate' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_noactivate(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'noactivate' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'noactivate' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_noactivate(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'readonly' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'readonly' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_readonly(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'readonly' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'readonly' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_readonly(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'wordwrap' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'wordwrap' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_wordwrap(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'wordwrap' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'wordwrap' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_wordwrap(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'useellipsis' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'useellipsis' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_useellipsis(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'useellipsis' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'useellipsis' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_useellipsis(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'autoscroll' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'autoscroll' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_autoscroll(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'autoscroll' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'autoscroll' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_autoscroll(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'wantsreturn' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'wantsreturn' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_wantsreturn(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'wantsreturn' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'wantsreturn' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_wantsreturn(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'wantstab' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'wantstab' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_wantstab(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'wantstab' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'wantstab' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_wantstab(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the value of the 'underline' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
+    #[doc = "Return the value of the 'underline' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tA value of the attribute."]
     pub fn textfield_get_underline(tf: *mut t_object) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'underline' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'underline' attribute of a textfield.\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\tc\t\tThe new value for the attribute.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_underline(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
@@ -11737,18 +11737,18 @@ unsafe extern "C" {
     pub fn textfield_set_autofixwidth(tf: *mut t_object, c: ::std::os::raw::c_char) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the 'empty' text of a textfield.\nThe empty text is the text that is displayed in the textfield when no text is present.\nBy default this is gensym(\"\").\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\ttxt\t\tA symbol containing the new text to display when the textfield has no content.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the 'empty' text of a textfield.\nThe empty text is the text that is displayed in the textfield when no text is present.\nBy default this is gensym(\"\").\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@param\ttxt\t\tA symbol containing the new text to display when the textfield has no content.\n@return\t\t\tA Max error code."]
     pub fn textfield_set_emptytext(tf: *mut t_object, txt: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the 'empty' text of a textfield.\nThe empty text is the text that is displayed in the textfield when no text is present.\nBy default this is gensym(\"\").\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tThe current text used as the empty text."]
+    #[doc = "Retrieve the 'empty' text of a textfield.\nThe empty text is the text that is displayed in the textfield when no text is present.\nBy default this is gensym(\"\").\n@ingroup\t\ttextfield\n@param\ttf\t\tThe textfield instance pointer.\n@return\t\t\tThe current text used as the empty text."]
     pub fn textfield_get_emptytext(tf: *mut t_object) -> *mut t_symbol;
 }
 unsafe extern "C" {
     pub fn jbox_initclass(c: *mut t_class, flags: ::std::os::raw::c_long);
 }
 unsafe extern "C" {
-    #[doc = "\tSet up your UI object's #t_jbox member.\nThis should be called from your UI object's free method.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your UI object's #t_jbox member (which should be the first member of the object's struct).\n@param\tflags\tFlags to set the box's behavior, such as #JBOX_NODRAWBOX.\n@param\targc\tThe count of atoms in the argv parameter.\n@param\targv\tThe address of the first in an array of atoms to be passed to the box constructor.\nTypically these are simply the argument passed to your object when it is created.\n@return\t\t\tA Max error code."]
+    #[doc = "Set up your UI object's #t_jbox member.\nThis should be called from your UI object's free method.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your UI object's #t_jbox member (which should be the first member of the object's struct).\n@param\tflags\tFlags to set the box's behavior, such as #JBOX_NODRAWBOX.\n@param\targc\tThe count of atoms in the argv parameter.\n@param\targv\tThe address of the first in an array of atoms to be passed to the box constructor.\nTypically these are simply the argument passed to your object when it is created.\n@return\t\t\tA Max error code."]
     pub fn jbox_new(
         b: *mut t_jbox,
         flags: ::std::os::raw::c_long,
@@ -11757,15 +11757,15 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tTear down your UI object's #t_jbox member.\nThis should be called from your UI object's free method.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member (which should be the first member of the object's struct)."]
+    #[doc = "Tear down your UI object's #t_jbox member.\nThis should be called from your UI object's free method.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member (which should be the first member of the object's struct)."]
     pub fn jbox_free(b: *mut t_jbox);
 }
 unsafe extern "C" {
-    #[doc = "\tMark the box ready to be accessed and drawn by Max.\nThis should typically be called at the end of your UI object's new method.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member."]
+    #[doc = "Mark the box ready to be accessed and drawn by Max.\nThis should typically be called at the end of your UI object's new method.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member."]
     pub fn jbox_ready(b: *mut t_jbox);
 }
 unsafe extern "C" {
-    #[doc = "\tRequest that your object/box be re-drawn by Max.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member."]
+    #[doc = "Request that your object/box be re-drawn by Max.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member."]
     pub fn jbox_redraw(b: *mut t_jbox);
 }
 unsafe extern "C" {
@@ -11794,7 +11794,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tSend a notification to a box.  This is the same as calling object_notify() for a box.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member.\n@param\ts\t\tThe name of the send object.\n@param\tmsg\t\tThe notification name.\n@param\tsender\tThe sending object's address.\n@param\tdata\tA pointer to some data passed to the box's notify method.\n@return\t\t\tA Max error code."]
+    #[doc = "Send a notification to a box.  This is the same as calling object_notify() for a box.\n@ingroup\t\tjbox\n@param\tb\t\tThe address of your object's #t_jbox member.\n@param\ts\t\tThe name of the send object.\n@param\tmsg\t\tThe notification name.\n@param\tsender\tThe sending object's address.\n@param\tdata\tA pointer to some data passed to the box's notify method.\n@return\t\t\tA Max error code."]
     pub fn jbox_notify(
         b: *mut t_jbox,
         s: *mut t_symbol,
@@ -11804,7 +11804,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGrab the keyboard focus for your box.\nCalling this method should be considered exceptional, and its use is discouraged.\n@param\tb\t\tThe address of your object's #t_jbox member."]
+    #[doc = "Grab the keyboard focus for your box.\nCalling this method should be considered exceptional, and its use is discouraged.\n@param\tb\t\tThe address of your object's #t_jbox member."]
     pub fn jbox_grabfocus(b: *mut t_jbox);
 }
 unsafe extern "C" {
@@ -11865,7 +11865,7 @@ unsafe extern "C" {
     pub fn dictionary_prototypefromclass(c: *mut t_class) -> *mut t_dictionary;
 }
 unsafe extern "C" {
-    #[doc = "Create a new object in a specified patcher with values using a combination of attribute and sprintf syntax.\n\n@ingroup\t\tobj\n@param\tpatcher\tAn instance of a patcher object.\n@param\tfmt\t\tAn sprintf-style format string specifying key-value pairs with attribute nomenclature.\n@param\t...\t\tOne or more arguments which are to be substituted into the format string.\n@return\t\t\tA pointer to the newly created object instance, or NULL if creation of the object fails.\n\n@remark\t\t\tMax attribute syntax is used to define key-value pairs.  For example,\n@code\n\"@key1 value @key2 another_value\"\n@endcode\n\n@remark\t\t\tThe example below creates a new object that in a patcher whose\nobject pointer is stored in a variable called \"aPatcher\".\n@code\nt_object *my_comment;\nchar text[4];\n\nstrncpy_zero(text, \"foo\", 4);\n\nmy_comment = newobject_sprintf(aPatcher, \"@maxclass comment @varname _name \\\n@text \\\"%s\\\" @patching_rect %.2f %.2f %.2f %.2f \\\n@fontsize %f @textcolor %f %f %f 1.0 \\\n@fontname %s @bgcolor 0.001 0.001 0.001 0.\",\ntext, 20.0, 20.0, 200.0, 24.0,\n18, 0.9, 0.9, 0.9, \"Arial\");\n@endcode\n\n@see\t\t\tdictionary_sprintf()\n@see\t\t\tnewobject_fromdictionary()\n@see\t\t\tatom_setparse()"]
+    #[doc = "Create a new object in a specified patcher with values using a combination of attribute and sprintf syntax.\n\n@ingroup\t\tobj\n@param\tpatcher\tAn instance of a patcher object.\n@param\tfmt\t\tAn sprintf-style format string specifying key-value pairs with attribute nomenclature.\n@param\t...\t\tOne or more arguments which are to be substituted into the format string.\n@return\t\t\tA pointer to the newly created object instance, or NULL if creation of the object fails.\n\n@remark\t\t\tMax attribute syntax is used to define key-value pairs.  For example,\n\n```c\n\"@key1 value @key2 another_value\"\n```\n\n\n@remark\t\t\tThe example below creates a new object that in a patcher whose\nobject pointer is stored in a variable called \"aPatcher\".\n\n```c\nt_object *my_comment;\nchar text[4];\n\nstrncpy_zero(text, \"foo\", 4);\n\nmy_comment = newobject_sprintf(aPatcher, \"@maxclass comment @varname _name \\\n@text \\\"%s\\\" @patching_rect %.2f %.2f %.2f %.2f \\\n@fontsize %f @textcolor %f %f %f 1.0 \\\n@fontname %s @bgcolor 0.001 0.001 0.001 0.\",\ntext, 20.0, 20.0, 200.0, 24.0,\n18, 0.9, 0.9, 0.9, \"Arial\");\n```\n\n\n@see\t\t\tdictionary_sprintf()\n@see\t\t\tnewobject_fromdictionary()\n@see\t\t\tatom_setparse()"]
     pub fn newobject_sprintf(
         patcher: *mut t_object,
         fmt: *const ::std::os::raw::c_char,
@@ -11880,27 +11880,27 @@ unsafe extern "C" {
     ) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "Place a new object into a patcher.  The new object will be created based on a specification\ncontained in a @ref dictionary.\n\nCreate a new dictionary populated with values using a combination of attribute and sprintf syntax.\n\n@ingroup\t\tobj\n@param\tpatcher\tAn instance of a patcher object.\n@param\td\t\tA dictionary containing an object specification.\n@return\t\t\tA pointer to the newly created object instance, or NULL if creation of the object fails.\n\n@remark\t\t\tMax attribute syntax is used to define key-value pairs.  For example,\n@code\n\"@key1 value @key2 another_value\"\n@endcode\n\n@remark\t\t\tThe example below creates a new object that in a patcher whose\nobject pointer is stored in a variable called \"aPatcher\".\n@code\nt_dictionary *d;\nt_object *o;\nchar text[4];\n\nstrncpy_zero(text, \"foo\", 4);\n\nd = dictionary_sprintf(\"@maxclass comment @varname _name \\\n@text \\\"%s\\\" @patching_rect %.2f %.2f %.2f %.2f \\\n@fontsize %f @textcolor %f %f %f 1.0 \\\n@fontname %s @bgcolor 0.001 0.001 0.001 0.\",\ntext, 20.0, 20.0, 200.0, 24.0,\n18, 0.9, 0.9, 0.9, \"Arial\");\n\no = newobject_fromdictionary(aPatcher, d);\n@endcode\n\n@see\t\t\tnewobject_sprintf()\n@see\t\t\tnewobject_fromdictionary()\n@see\t\t\tatom_setparse()"]
+    #[doc = "Place a new object into a patcher.  The new object will be created based on a specification\ncontained in a @ref dictionary.\n\nCreate a new dictionary populated with values using a combination of attribute and sprintf syntax.\n\n@ingroup\t\tobj\n@param\tpatcher\tAn instance of a patcher object.\n@param\td\t\tA dictionary containing an object specification.\n@return\t\t\tA pointer to the newly created object instance, or NULL if creation of the object fails.\n\n@remark\t\t\tMax attribute syntax is used to define key-value pairs.  For example,\n\n```c\n\"@key1 value @key2 another_value\"\n```\n\n\n@remark\t\t\tThe example below creates a new object that in a patcher whose\nobject pointer is stored in a variable called \"aPatcher\".\n\n```c\nt_dictionary *d;\nt_object *o;\nchar text[4];\n\nstrncpy_zero(text, \"foo\", 4);\n\nd = dictionary_sprintf(\"@maxclass comment @varname _name \\\n@text \\\"%s\\\" @patching_rect %.2f %.2f %.2f %.2f \\\n@fontsize %f @textcolor %f %f %f 1.0 \\\n@fontname %s @bgcolor 0.001 0.001 0.001 0.\",\ntext, 20.0, 20.0, 200.0, 24.0,\n18, 0.9, 0.9, 0.9, \"Arial\");\n\no = newobject_fromdictionary(aPatcher, d);\n```\n\n\n@see\t\t\tnewobject_sprintf()\n@see\t\t\tnewobject_fromdictionary()\n@see\t\t\tatom_setparse()"]
     pub fn newobject_fromdictionary(patcher: *mut t_object, d: *mut t_dictionary) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the last known combination of modifier keys being held by the user.\n@ingroup\tjmouse\n@return\t\tThe current modifier keys that are activated."]
+    #[doc = "Return the last known combination of modifier keys being held by the user.\n@ingroup\tjmouse\n@return\t\tThe current modifier keys that are activated."]
     pub fn jkeyboard_getcurrentmodifiers() -> t_modifiers;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the position of the mouse cursor in screen coordinates.\n@ingroup\t\t\tjmouse\n@param\tx\t\t\tThe address of a variable to hold the x-coordinate upon return.\n@param\ty\t\t\tThe address of a variable to hold the y-coordinate upon return."]
+    #[doc = "Get the position of the mouse cursor in screen coordinates.\n@ingroup\t\t\tjmouse\n@param\tx\t\t\tThe address of a variable to hold the x-coordinate upon return.\n@param\ty\t\t\tThe address of a variable to hold the y-coordinate upon return."]
     pub fn jmouse_getposition_global(x: *mut ::std::os::raw::c_int, y: *mut ::std::os::raw::c_int);
 }
 unsafe extern "C" {
-    #[doc = "\tSet the position of the mouse cursor in screen coordinates.\n@ingroup\t\t\tjmouse\n@param\tx\t\t\tThe new x-coordinate of the mouse cursor position.\n@param\ty\t\t\tThe new y-coordinate of the mouse cursor position."]
+    #[doc = "Set the position of the mouse cursor in screen coordinates.\n@ingroup\t\t\tjmouse\n@param\tx\t\t\tThe new x-coordinate of the mouse cursor position.\n@param\ty\t\t\tThe new y-coordinate of the mouse cursor position."]
     pub fn jmouse_setposition_global(x: ::std::os::raw::c_int, y: ::std::os::raw::c_int);
 }
 unsafe extern "C" {
-    #[doc = "\tSet the position of the mouse cursor relative to the patcher canvas coordinates.\n@ingroup\t\t\tjmouse\n@param\tpatcherview\tThe patcherview upon which the mouse coordinates are based.\n@param\tcx\t\t\tThe new x-coordinate of the mouse cursor position.\n@param\tcy\t\t\tThe new y-coordinate of the mouse cursor position."]
+    #[doc = "Set the position of the mouse cursor relative to the patcher canvas coordinates.\n@ingroup\t\t\tjmouse\n@param\tpatcherview\tThe patcherview upon which the mouse coordinates are based.\n@param\tcx\t\t\tThe new x-coordinate of the mouse cursor position.\n@param\tcy\t\t\tThe new y-coordinate of the mouse cursor position."]
     pub fn jmouse_setposition_view(patcherview: *mut t_object, cx: f64, cy: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tSet the position of the mouse cursor relative to a box within the patcher canvas coordinates.\n@ingroup\t\t\tjmouse\n@param\tpatcherview\tThe patcherview containing the box upon which the mouse coordinates are based.\n@param\tbox\t\t\tThe box upon which the mouse coordinates are based.\n@param\tbx\t\t\tThe new x-coordinate of the mouse cursor position.\n@param\tby\t\t\tThe new y-coordinate of the mouse cursor position."]
+    #[doc = "Set the position of the mouse cursor relative to a box within the patcher canvas coordinates.\n@ingroup\t\t\tjmouse\n@param\tpatcherview\tThe patcherview containing the box upon which the mouse coordinates are based.\n@param\tbox\t\t\tThe box upon which the mouse coordinates are based.\n@param\tbx\t\t\tThe new x-coordinate of the mouse cursor position.\n@param\tby\t\t\tThe new y-coordinate of the mouse cursor position."]
     pub fn jmouse_setposition_box(
         patcherview: *mut t_object,
         box_: *mut t_object,
@@ -11911,7 +11911,7 @@ unsafe extern "C" {
 pub mod _jmouse_cursortype {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tMouse cursor types.\n@ingroup jmouse"]
+    #[doc = "Mouse cursor types.\n@ingroup jmouse"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< None"]
     pub const JMOUSE_CURSOR_NONE: Type = 0;
@@ -11952,10 +11952,10 @@ pub mod _jmouse_cursortype {
     #[doc = "< Bottom-Right Corner"]
     pub const JMOUSE_CURSOR_RESIZE_BOTTOMRIGHTCORNER: Type = 18;
 }
-#[doc = "\tMouse cursor types.\n@ingroup jmouse"]
+#[doc = "Mouse cursor types.\n@ingroup jmouse"]
 pub use self::_jmouse_cursortype::Type as t_jmouse_cursortype;
 unsafe extern "C" {
-    #[doc = "\tSet the mouse cursor.\n@ingroup\t\t\tjmouse\n@param\tpatcherview\tThe patcherview for which the cursor should be applied.\n@param\tbox\t\t\tThe box for which the cursor should be applied.\n@param\ttype\t\tThe type of cursor for the mouse to use."]
+    #[doc = "Set the mouse cursor.\n@ingroup\t\t\tjmouse\n@param\tpatcherview\tThe patcherview for which the cursor should be applied.\n@param\tbox\t\t\tThe box for which the cursor should be applied.\n@param\ttype\t\tThe type of cursor for the mouse to use."]
     pub fn jmouse_setcursor(
         patcherview: *mut t_object,
         box_: *mut t_object,
@@ -11963,23 +11963,23 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tGet the current window, if any.\n@ingroup\tjwind\n@return\t\tA pointer to the current window, if there is one.  Otherwise returns NULL."]
+    #[doc = "Get the current window, if any.\n@ingroup\tjwind\n@return\t\tA pointer to the current window, if there is one.  Otherwise returns NULL."]
     pub fn jwind_getactive() -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine how many windows exist.\n@ingroup\tjwind\n@return\t\tThe number of windows."]
+    #[doc = "Determine how many windows exist.\n@ingroup\tjwind\n@return\t\tThe number of windows."]
     pub fn jwind_getcount() -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a pointer to the window with a given index.\n@ingroup\t\tjwind\n@param\tindex\tGet window at index (0 to count-1).\n@return\t\t\tA pointer to a window object."]
+    #[doc = "Return a pointer to the window with a given index.\n@ingroup\t\tjwind\n@param\tindex\tGet window at index (0 to count-1).\n@return\t\t\tA pointer to a window object."]
     pub fn jwind_getat(index: ::std::os::raw::c_long) -> *mut t_object;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the number of monitors on which can be displayed.\n@ingroup\tjmonitor\n@return\t\tThe number of monitors."]
+    #[doc = "Return the number of monitors on which can be displayed.\n@ingroup\tjmonitor\n@return\t\tThe number of monitors."]
     pub fn jmonitor_getnumdisplays() -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the #t_rect for a given display.\n@ingroup\t\t\t\tjmonitor\n@param\tworkarea\t\tSet workarea non-zero to clip out things like dock / task bar.\n@param\tdisplayindex\tThe index number for a monitor.  The primary monitor has an index of 0.\n@param\trect\t\t\tThe address of a valid #t_rect whose values will be filled-in upon return."]
+    #[doc = "Return the #t_rect for a given display.\n@ingroup\t\t\t\tjmonitor\n@param\tworkarea\t\tSet workarea non-zero to clip out things like dock / task bar.\n@param\tdisplayindex\tThe index number for a monitor.  The primary monitor has an index of 0.\n@param\trect\t\t\tThe address of a valid #t_rect whose values will be filled-in upon return."]
     pub fn jmonitor_getdisplayrect(
         workarea: ::std::os::raw::c_long,
         displayindex: ::std::os::raw::c_long,
@@ -11987,14 +11987,14 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a union of all display rects.\n@ingroup\t\t\t\tjmonitor\n@param\tworkarea\t\tSet workarea non-zero to clip out things like dock / task bar.\n@param\trect\t\t\tThe address of a valid #t_rect whose values will be filled-in upon return."]
+    #[doc = "Return a union of all display rects.\n@ingroup\t\t\t\tjmonitor\n@param\tworkarea\t\tSet workarea non-zero to clip out things like dock / task bar.\n@param\trect\t\t\tThe address of a valid #t_rect whose values will be filled-in upon return."]
     pub fn jmonitor_getdisplayrect_foralldisplays(
         workarea: ::std::os::raw::c_long,
         rect: *mut t_rect,
     );
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the #t_rect for the display on which a point exists.\n@ingroup\t\t\t\tjmonitor\n@param\tworkarea\t\tSet workarea non-zero to clip out things like dock / task bar.\n@param\tpt\t\t\t\tA point, for which the monitor will be determined and the rect recturned.\n@param\trect\t\t\tThe address of a valid #t_rect whose values will be filled-in upon return."]
+    #[doc = "Return the #t_rect for the display on which a point exists.\n@ingroup\t\t\t\tjmonitor\n@param\tworkarea\t\tSet workarea non-zero to clip out things like dock / task bar.\n@param\tpt\t\t\t\tA point, for which the monitor will be determined and the rect recturned.\n@param\trect\t\t\tThe address of a valid #t_rect whose values will be filled-in upon return."]
     pub fn jmonitor_getdisplayrect_forpoint(
         workarea: ::std::os::raw::c_long,
         pt: t_pt,
@@ -12002,19 +12002,19 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the scale factor for the display on which a point exists.\n@ingroup\t\t\t\tjmonitor\n@param\tdisplayindex\tIndex of the monitor whose scale factor will be returned."]
+    #[doc = "Return the scale factor for the display on which a point exists.\n@ingroup\t\t\t\tjmonitor\n@param\tdisplayindex\tIndex of the monitor whose scale factor will be returned."]
     pub fn jmonitor_getdisplayscalefactor(displayindex: ::std::os::raw::c_long) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the scale factor for the display on which a point exists.\n@ingroup\t\t\t\tjmonitor\n@param\tpt\t\t\t\tA point, for which the monitor will be determined and the scale factor recturned."]
+    #[doc = "Return the scale factor for the display on which a point exists.\n@ingroup\t\t\t\tjmonitor\n@param\tpt\t\t\t\tA point, for which the monitor will be determined and the scale factor recturned."]
     pub fn jmonitor_getdisplayscalefactor_forpoint(pt: t_pt) -> f64;
 }
 unsafe extern "C" {
-    #[doc = " take an unscaled point and convert it to a scaled point\nnote --  most APIs take scaled coordinates so drawing doesn't need to consider scale factor for each monitor\n@ingroup\t\t\t\tjmonitor\n@param unscaled_pt\t\tthe point to be scaled, should be in pixels on the global \"virtual\" screen consisting of all monitors\n@return\t\t\t\t\tpointer to receive the scaled point, scaled to normalize based on various scale factors and monitor arrangement"]
+    #[doc = "take an unscaled point and convert it to a scaled point\nnote --  most APIs take scaled coordinates so drawing doesn't need to consider scale factor for each monitor\n@ingroup\t\t\t\tjmonitor\n@param unscaled_pt\t\tthe point to be scaled, should be in pixels on the global \"virtual\" screen consisting of all monitors\n@return\t\t\t\t\tpointer to receive the scaled point, scaled to normalize based on various scale factors and monitor arrangement"]
     pub fn jmonitor_scale_pt(unscaled_pt: t_pt) -> t_pt;
 }
 unsafe extern "C" {
-    #[doc = " take an unscaled point and convert it to a scaled point\nnote --  most APIs take scaled coordinates so drawing doesn't need to consider scale factor for each monitor\n@ingroup\t\t\t\tjmonitor\n@param scaled_pt\t\tthe point to be unscaled, should be in normalized coordinates, scaled based on scale factors and monitor arrangement\n@return\t\t\t\t\tpointer to receive the unscaled point, which will be pixel-based coordinates relative to the main monitor origin"]
+    #[doc = "take an unscaled point and convert it to a scaled point\nnote --  most APIs take scaled coordinates so drawing doesn't need to consider scale factor for each monitor\n@ingroup\t\t\t\tjmonitor\n@param scaled_pt\t\tthe point to be unscaled, should be in normalized coordinates, scaled based on scale factors and monitor arrangement\n@return\t\t\t\t\tpointer to receive the unscaled point, which will be pixel-based coordinates relative to the main monitor origin"]
     pub fn jmonitor_unscale_pt(scaled_pt: t_pt) -> t_pt;
 }
 unsafe extern "C" {
@@ -12099,15 +12099,15 @@ unsafe extern "C" {
     pub fn jwind_canfullscreen() -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the name of Max's system font.\n@ingroup\tjfont\n@return\t\tThe name of Max's system font."]
+    #[doc = "Retrieve the name of Max's system font.\n@ingroup\tjfont\n@return\t\tThe name of Max's system font."]
     pub fn systemfontname() -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the name of Max's system font as a symbol.\n@ingroup\tjfont\n@return\t\tThe name of Max's system font."]
+    #[doc = "Retrieve the name of Max's system font as a symbol.\n@ingroup\tjfont\n@return\t\tThe name of Max's system font."]
     pub fn systemfontsym() -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tA convenience function that simplifies usage by wrapping the other charset functions.\n@ingroup unicode\n\n@param\tsrc_encoding\tThe name encoding of the input.\n@param\tin\t\t\t\tThe input string.\n@param\tinbytes\t\t\tThe number of bytes in the input string.\n@param\tdest_encoding\tThe name of the encoding to use for the output.\n@param\tout\t\t\t\tThe address of a char*, which will be allocated and filled with the string in the new encoding.\n@param\toutbytes\t\tThe address of a value that will hold the number of bytes long the output is upon return.\n@return\t\t\t\t\tA Max error code.\n@remark\t\t\t\t\tRemember to call sysmem_freeptr(*out) to free any allocated memory."]
+    #[doc = "A convenience function that simplifies usage by wrapping the other charset functions.\n@ingroup unicode\n\n@param\tsrc_encoding\tThe name encoding of the input.\n@param\tin\t\t\t\tThe input string.\n@param\tinbytes\t\t\tThe number of bytes in the input string.\n@param\tdest_encoding\tThe name of the encoding to use for the output.\n@param\tout\t\t\t\tThe address of a char*, which will be allocated and filled with the string in the new encoding.\n@param\toutbytes\t\tThe address of a value that will hold the number of bytes long the output is upon return.\n@return\t\t\t\t\tA Max error code.\n@remark\t\t\t\t\tRemember to call sysmem_freeptr(*out) to free any allocated memory."]
     pub fn charset_convert(
         src_encoding: *mut t_symbol,
         in_: *const ::std::os::raw::c_char,
@@ -12118,14 +12118,14 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a UTF8 C-String into a 16-bit-wide-character array.\n@ingroup unicode\n@param\ts\t\tThe string to be converted to unicode.\n@param\toutlen\tThe address of a variable to hold the size of the number of chars\nbut does not include the NULL terminator in the count.\n@return\t\t\tA pointer to the buffer of unicode (wide) characters."]
+    #[doc = "Convert a UTF8 C-String into a 16-bit-wide-character array.\n@ingroup unicode\n@param\ts\t\tThe string to be converted to unicode.\n@param\toutlen\tThe address of a variable to hold the size of the number of chars\nbut does not include the NULL terminator in the count.\n@return\t\t\tA pointer to the buffer of unicode (wide) characters."]
     pub fn charset_utf8tounicode(
         s: *mut ::std::os::raw::c_char,
         outlen: *mut ::std::os::raw::c_long,
     ) -> *mut ::std::os::raw::c_ushort;
 }
 unsafe extern "C" {
-    #[doc = " Convert a 16-bit-wide-character array into a UTF C-string.\nAccepts either null termination, or not (len is zero in the latter case).\n@ingroup unicode\n@param\ts\t\tAn array of wide (16-bit) unicode characters.\n@param\tlen\t\tThe length of s.\n@param\toutlen\tThe address of a variable to hold the size of the number of chars\nbut does not include the NULL terminator in the count.\n@return\t\t\tA UTF8-encoded C-string."]
+    #[doc = "Convert a 16-bit-wide-character array into a UTF C-string.\nAccepts either null termination, or not (len is zero in the latter case).\n@ingroup unicode\n@param\ts\t\tAn array of wide (16-bit) unicode characters.\n@param\tlen\t\tThe length of s.\n@param\toutlen\tThe address of a variable to hold the size of the number of chars\nbut does not include the NULL terminator in the count.\n@return\t\t\tA UTF8-encoded C-string."]
     pub fn charset_unicodetoutf8(
         s: *mut ::std::os::raw::c_ushort,
         len: ::std::os::raw::c_long,
@@ -12133,14 +12133,14 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tReturns utf8 character count, and optionally bytecount.\n@ingroup unicode\n@param\tutf8\t\tThe UTF-8 encoded string whose characters are to be counted.\n@param\tbytecount\tThe address of a variable to hold the byte count on return.\nPass NULL if you don't require the byte count.\n@return\t\t\t\tThe number of characters in the UTF8 string."]
+    #[doc = "Returns utf8 character count, and optionally bytecount.\n@ingroup unicode\n@param\tutf8\t\tThe UTF-8 encoded string whose characters are to be counted.\n@param\tbytecount\tThe address of a variable to hold the byte count on return.\nPass NULL if you don't require the byte count.\n@return\t\t\t\tThe number of characters in the UTF8 string."]
     pub fn charset_utf8_count(
         utf8: *mut ::std::os::raw::c_char,
         bytecount: *mut ::std::os::raw::c_long,
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturns utf8 character offset (positive or negative), and optionally byte offset.\n@ingroup unicode\n@param\tutf8\t\tA UTF-8 encoded string.\n@param\tcharoffset\tThe char offset into the string at which to find the byte offset.\n@param\tbyteoffset\tThe address of a variable to hold the byte offset on return.\nPass NULL if you don't require the byte offset.\n@return\t\t\t\tThe character offset."]
+    #[doc = "Returns utf8 character offset (positive or negative), and optionally byte offset.\n@ingroup unicode\n@param\tutf8\t\tA UTF-8 encoded string.\n@param\tcharoffset\tThe char offset into the string at which to find the byte offset.\n@param\tbyteoffset\tThe address of a variable to hold the byte offset on return.\nPass NULL if you don't require the byte offset.\n@return\t\t\t\tThe character offset."]
     pub fn charset_utf8_offset(
         utf8: *mut ::std::os::raw::c_char,
         charoffset: ::std::os::raw::c_long,
@@ -12155,7 +12155,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "Print text to the Max window.\nMax 5 introduced object_post(), which provides several enhancements to post()\nwhere a valid #t_object pointer is available.\n\npost() is a printf() for the Max window. It even works from non-main threads,\nqueuing up multiple lines of text to be printed when the main thread processing resumes.\npost() can be quite useful in debugging your external object.\n\n@ingroup console\n@param\tfmt\t\tA C-string containing text and printf-like codes\nspecifying the sizes and formatting of the additional arguments.\n@param\t...\t\tArguments of any type that correspond to the format codes in fmtString.\n\n@remark\t\tNote that post only passes 16 bytes of arguments to sprintf, so if\nyou want additional formatted items on a single line, use postatom().\n\nExample:\n@code\nshort whatIsIt;\n\nwhatIsIt = 999;\npost (\"the variable is %ld\",(long)whatIsIt);\n@endcode\n\n@remark\t\tThe Max Window output when this code is executed.\n@code\nthe variable is 999\n@endcode\n\n@see object_post()\n@see error()\n@see cpost()"]
+    #[doc = "Print text to the Max window.\nMax 5 introduced object_post(), which provides several enhancements to post()\nwhere a valid #t_object pointer is available.\n\npost() is a printf() for the Max window. It even works from non-main threads,\nqueuing up multiple lines of text to be printed when the main thread processing resumes.\npost() can be quite useful in debugging your external object.\n\n@ingroup console\n@param\tfmt\t\tA C-string containing text and printf-like codes\nspecifying the sizes and formatting of the additional arguments.\n@param\t...\t\tArguments of any type that correspond to the format codes in fmtString.\n\n@remark\t\tNote that post only passes 16 bytes of arguments to sprintf, so if\nyou want additional formatted items on a single line, use postatom().\n\nExample:\n\n```c\nshort whatIsIt;\n\nwhatIsIt = 999;\npost (\"the variable is %ld\",(long)whatIsIt);\n```\n\n\n@remark\t\tThe Max Window output when this code is executed.\n\n```c\nthe variable is 999\n```\n\n\n@see object_post()\n@see error()\n@see cpost()"]
     pub fn post(fmt: *const ::std::os::raw::c_char, ...);
 }
 unsafe extern "C" {
@@ -12178,11 +12178,11 @@ unsafe extern "C" {
     pub fn debug_printf(arg1: *const ::std::os::raw::c_char, ...);
 }
 unsafe extern "C" {
-    #[doc = "\tReceive messages from the error handler.\n@ingroup misc\n@param\tx\tThe object to be subscribed to the error handler.\n\n@remark\t\terror_subscribe() enables your object to receive a message (error),\nfollowed by the list of atoms in the error message posted to the Max\nwindow.\n\nPrior to calling error_subscribe(), you should bind the error\nmessage to an internal error handling routine:\n@code\naddmess((method)myobject_error, \"error\", A_GIMME, 0);\n@endcode\nYour error handling routine should be declared as follows:\n@code\nvoid myobject_error(t_myobject *x, t_symbol *s, short argc, t_atom *argv);\n@endcode"]
+    #[doc = "Receive messages from the error handler.\n@ingroup misc\n@param\tx\tThe object to be subscribed to the error handler.\n\n@remark\t\terror_subscribe() enables your object to receive a message (error),\nfollowed by the list of atoms in the error message posted to the Max\nwindow.\n\nPrior to calling error_subscribe(), you should bind the error\nmessage to an internal error handling routine:\n\n```c\naddmess((method)myobject_error, \"error\", A_GIMME, 0);\n```\n\nYour error handling routine should be declared as follows:\n\n```c\nvoid myobject_error(t_myobject *x, t_symbol *s, short argc, t_atom *argv);\n```\n"]
     pub fn error_subscribe(x: *mut t_object);
 }
 unsafe extern "C" {
-    #[doc = " Remove an object as an error message recipient.\n@ingroup misc\n@param\tx\tThe object to unsubscribe."]
+    #[doc = "Remove an object as an error message recipient.\n@ingroup misc\n@param\tx\tThe object to unsubscribe."]
     pub fn error_unsubscribe(x: *mut t_object);
 }
 unsafe extern "C" {
@@ -12192,7 +12192,7 @@ unsafe extern "C" {
     pub fn poststring(s: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "Print text to the Max window, linked to an instance of your object.\n\nMax window rows which are generated using object_post() or object_error() can be\ndouble-clicked by the user to have Max assist with locating the object in a patcher.\nRows created with object_post() and object_error() will also automatically provide\nthe name of the object's class in the correct column in the Max window.\n\n@ingroup console\n@param\tx\t\tA pointer to your object.\n@param\ts\t\tA C-string containing text and printf-like codes\nspecifying the sizes and formatting of the additional arguments.\n@param\t...\t\tArguments of any type that correspond to the format codes in fmtString.\n\n@remark\t\t\tExample:\n@code\nvoid myMethod(myObject *x, long someArgument)\n{\nobject_post((t_object*)x, \"This is my argument: %ld\", someArgument);\n}\n@endcode\n\n@see object_error()"]
+    #[doc = "Print text to the Max window, linked to an instance of your object.\n\nMax window rows which are generated using object_post() or object_error() can be\ndouble-clicked by the user to have Max assist with locating the object in a patcher.\nRows created with object_post() and object_error() will also automatically provide\nthe name of the object's class in the correct column in the Max window.\n\n@ingroup console\n@param\tx\t\tA pointer to your object.\n@param\ts\t\tA C-string containing text and printf-like codes\nspecifying the sizes and formatting of the additional arguments.\n@param\t...\t\tArguments of any type that correspond to the format codes in fmtString.\n\n@remark\t\t\tExample:\n\n```c\nvoid myMethod(myObject *x, long someArgument)\n{\nobject_post((t_object*)x, \"This is my argument: %ld\", someArgument);\n}\n```\n\n\n@see object_error()"]
     pub fn object_post(x: *mut t_object, s: *const ::std::os::raw::c_char, ...);
 }
 unsafe extern "C" {
@@ -12314,13 +12314,13 @@ pub mod _jgraphics_path_elemtype {
 }
 pub use self::_jgraphics_path_elemtype::Type as t_jgraphics_path_type;
 unsafe extern "C" {
-    #[doc = " Utility for rounding a double to an int.\n@ingroup jgraphics\n@param\td\tfloating-point input.\n@return\t\trounded int output."]
+    #[doc = "Utility for rounding a double to an int.\n@ingroup jgraphics\n@param\td\tfloating-point input.\n@return\t\trounded int output."]
     pub fn jgraphics_round(d: f64) -> ::std::os::raw::c_int;
 }
 pub mod _jgraphics_format {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tEnumeration of color formats used by jgraphics surfaces.\n@ingroup\tjgraphics"]
+    #[doc = "Enumeration of color formats used by jgraphics surfaces.\n@ingroup\tjgraphics"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Color is represented using 32 bits, 8 bits each for the components, and including an alpha component."]
     pub const JGRAPHICS_FORMAT_ARGB32: Type = 0;
@@ -12329,12 +12329,12 @@ pub mod _jgraphics_format {
     #[doc = "< The color is represented only as an 8-bit alpha mask."]
     pub const JGRAPHICS_FORMAT_A8: Type = 2;
 }
-#[doc = "\tEnumeration of color formats used by jgraphics surfaces.\n@ingroup\tjgraphics"]
+#[doc = "Enumeration of color formats used by jgraphics surfaces.\n@ingroup\tjgraphics"]
 pub use self::_jgraphics_format::Type as t_jgraphics_format;
 pub mod _jgraphics_fileformat {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tEnumeration of file formats usable for jgraphics surfaces.\n@ingroup\tjgraphics"]
+    #[doc = "Enumeration of file formats usable for jgraphics surfaces.\n@ingroup\tjgraphics"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Portable Network Graphics (PNG) format"]
     pub const JGRAPHICS_FILEFORMAT_PNG: Type = 0;
@@ -12342,7 +12342,7 @@ pub mod _jgraphics_fileformat {
     pub const JGRAPHICS_FILEFORMAT_JPEG: Type = 1;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate an image surface.\nUse jgraphics_surface_destroy() to free it when you are done.\n@ingroup\t\tjsurface\n@param\tformat\tDefines the color format for the new surface.\n@param\twidth\tDefines the width of the new surface.\n@param\theight\tDefines the height of the new surface.\n@return\t\t\tA pointer to the new surface."]
+    #[doc = "Create an image surface.\nUse jgraphics_surface_destroy() to free it when you are done.\n@ingroup\t\tjsurface\n@param\tformat\tDefines the color format for the new surface.\n@param\twidth\tDefines the width of the new surface.\n@param\theight\tDefines the height of the new surface.\n@return\t\t\tA pointer to the new surface."]
     pub fn jgraphics_image_surface_create(
         format: t_jgraphics_format,
         width: ::std::os::raw::c_int,
@@ -12350,21 +12350,21 @@ unsafe extern "C" {
     ) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate an image surface, filling it with the contents of a file, and get a reference to the surface.\nUse jgraphics_surface_destroy() to release your reference to the surface when you are done.\n@ingroup\t\t\tjsurface\n@param\tfilename\tThe name of the file.\n@param\tpath\t\tThe path id of the file.\n@return\t\t\t\tA pointer to the new surface."]
+    #[doc = "Create an image surface, filling it with the contents of a file, and get a reference to the surface.\nUse jgraphics_surface_destroy() to release your reference to the surface when you are done.\n@ingroup\t\t\tjsurface\n@param\tfilename\tThe name of the file.\n@param\tpath\t\tThe path id of the file.\n@return\t\t\t\tA pointer to the new surface."]
     pub fn jgraphics_image_surface_create_referenced(
         filename: *const ::std::os::raw::c_char,
         path: ::std::os::raw::c_short,
     ) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate an image surface, filling it with the contents of a file.\nUse jgraphics_surface_destroy() to free it when you are done.\n@ingroup\t\t\tjsurface\n@param\tfilename\tThe name of the file.\n@param\tpath\t\tThe path id of the file.\n@return\t\t\t\tA pointer to the new surface."]
+    #[doc = "Create an image surface, filling it with the contents of a file.\nUse jgraphics_surface_destroy() to free it when you are done.\n@ingroup\t\t\tjsurface\n@param\tfilename\tThe name of the file.\n@param\tpath\t\tThe path id of the file.\n@return\t\t\t\tA pointer to the new surface."]
     pub fn jgraphics_image_surface_create_from_file(
         filename: *const ::std::os::raw::c_char,
         path: ::std::os::raw::c_short,
     ) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate an image surface from given pixel data.\nData should point to start of top line of bitmap, stride tells how to get to next line.\nFor upside down windows bitmaps, data = (pBits-(height-1)*stride) and stride is a negative number.\n@ingroup\t\t\tjsurface\n@param\tdata\t\tThe data.  For example, an RGBA image loaded in memory.\n@param\tformat\t\tThe format of the data.\n@param\twidth\t\tThe width of the new surface.\n@param\theight\t\tThe height of the new surface.\n@param\tstride\t\tThe number of bytes between the start of rows in the dat buffer.\n@param\tfreefun\t\tIf not NULL, freefun will be called when the surface is destroyed\n@param\tfreearg\t\tThis will be passed to freefun if/when freefun is called.\n@return\t\t\t\tA pointer to the new surface."]
+    #[doc = "Create an image surface from given pixel data.\nData should point to start of top line of bitmap, stride tells how to get to next line.\nFor upside down windows bitmaps, data = (pBits-(height-1)*stride) and stride is a negative number.\n@ingroup\t\t\tjsurface\n@param\tdata\t\tThe data.  For example, an RGBA image loaded in memory.\n@param\tformat\t\tThe format of the data.\n@param\twidth\t\tThe width of the new surface.\n@param\theight\t\tThe height of the new surface.\n@param\tstride\t\tThe number of bytes between the start of rows in the dat buffer.\n@param\tfreefun\t\tIf not NULL, freefun will be called when the surface is destroyed\n@param\tfreearg\t\tThis will be passed to freefun if/when freefun is called.\n@return\t\t\t\tA pointer to the new surface."]
     pub fn jgraphics_image_surface_create_for_data(
         data: *mut ::std::os::raw::c_uchar,
         format: t_jgraphics_format,
@@ -12387,21 +12387,21 @@ unsafe extern "C" {
     ) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new surface from file data.\n@ingroup\t\tjsurface\n@param\tdata\tA pointer to the raw PNG or JPG bits.\n@param\tdatalen\tThe number of bytes in data.\n@return\t\t\tThe new surface.\n@see\t\t\tjgraphics_write_image_surface_to_filedata()"]
+    #[doc = "Create a new surface from file data.\n@ingroup\t\tjsurface\n@param\tdata\tA pointer to the raw PNG or JPG bits.\n@param\tdatalen\tThe number of bytes in data.\n@return\t\t\tThe new surface.\n@see\t\t\tjgraphics_write_image_surface_to_filedata()"]
     pub fn jgraphics_image_surface_create_from_filedata(
         data: *const ::std::os::raw::c_void,
         datalen: ::std::os::raw::c_ulong,
     ) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new surface from a resource in your external.\n@ingroup\t\t\tjsurface\n@param\tmoduleRef\tA pointer to your external's module,\nwhich is passed to your external's main() function when the class is loaded.\n@param\tresname\t\tThe name of the resource in the external.\n@remark\t\t\t\tThe following example shows an example of how this might be used in an external.\n@code\nstatic s_my_surface = NULL;\n\nint main(void *moduleRef)\n{\n// (Do typical class initialization here)\n\n// now create the surface from a resource that we added to the Xcode/VisualStudio project\ns_my_surface = jgraphics_image_surface_create_from_resource(moduleRef, \"myCoolImage\");\n\nreturn 0;\n}\n@endcode"]
+    #[doc = "Create a new surface from a resource in your external.\n@ingroup\t\t\tjsurface\n@param\tmoduleRef\tA pointer to your external's module,\nwhich is passed to your external's main() function when the class is loaded.\n@param\tresname\t\tThe name of the resource in the external.\n@remark\t\t\t\tThe following example shows an example of how this might be used in an external.\n\n```c\nstatic s_my_surface = NULL;\n\nint main(void *moduleRef)\n{\n// (Do typical class initialization here)\n\n// now create the surface from a resource that we added to the Xcode/VisualStudio project\ns_my_surface = jgraphics_image_surface_create_from_resource(moduleRef, \"myCoolImage\");\n\nreturn 0;\n}\n```\n"]
     pub fn jgraphics_image_surface_create_from_resource(
         moduleRef: *const ::std::os::raw::c_void,
         resname: *const ::std::os::raw::c_char,
     ) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tLow-level routine to access an object's resource data.\n@ingroup\tjsurface\n@param\tmoduleRef\tA pointer to your external's module, which is passed to your external's main() function when the class is loaded.\n@param\tresname\t\tBase name of the resource data (without an extension)\n@param\textcount\tCount of possible extensions (ignored on Windows)\n@param\texts\t\tArray of symbol atoms containing possible filename extensions (ignored on Windows)\n@param\tdata\t\tReturned resource data assigned to a pointer you supply\n@param\tdatasize\tSize of the data returned\n@remark\t\t\t\tYou are responsible for freeing any data returned in the data pointer\n@return\t\tA Max error code."]
+    #[doc = "Low-level routine to access an object's resource data.\n@ingroup\tjsurface\n@param\tmoduleRef\tA pointer to your external's module, which is passed to your external's main() function when the class is loaded.\n@param\tresname\t\tBase name of the resource data (without an extension)\n@param\textcount\tCount of possible extensions (ignored on Windows)\n@param\texts\t\tArray of symbol atoms containing possible filename extensions (ignored on Windows)\n@param\tdata\t\tReturned resource data assigned to a pointer you supply\n@param\tdatasize\tSize of the data returned\n@remark\t\t\t\tYou are responsible for freeing any data returned in the data pointer\n@return\t\tA Max error code."]
     pub fn jgraphics_get_resource_data(
         moduleRef: *const ::std::os::raw::c_void,
         resname: *const ::std::os::raw::c_char,
@@ -12412,15 +12412,15 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a reference to an existing surface.\nUse jgraphics_surface_destroy() to release your reference to the surface when you are done.\n@ingroup\tjsurface\n@param\ts\tThe surface to reference.\n@return\t\tThe new reference to the surface."]
+    #[doc = "Create a reference to an existing surface.\nUse jgraphics_surface_destroy() to release your reference to the surface when you are done.\n@ingroup\tjsurface\n@param\ts\tThe surface to reference.\n@return\t\tThe new reference to the surface."]
     pub fn jgraphics_surface_reference(s: *mut t_jsurface) -> *mut t_jsurface;
 }
 unsafe extern "C" {
-    #[doc = "\tRelease or free a surface.\n@ingroup\tjsurface\n@param\ts\tThe surface to release."]
+    #[doc = "Release or free a surface.\n@ingroup\tjsurface\n@param\ts\tThe surface to release."]
     pub fn jgraphics_surface_destroy(s: *mut t_jsurface);
 }
 unsafe extern "C" {
-    #[doc = "\tExport a PNG file of the contents of a surface.\n@ingroup\t\t\tjsurface\n@param\tsurface\t\tThe surface to export.\n@param\tfilename\tSpecify the name of the file to create.\n@param\tpath\t\tSpecify the path id for where to create the file.\n@param\tdpi\t\t\tDefine the resolution of the image (e.g. 72).\n@return\t\t\t\tA Max error code."]
+    #[doc = "Export a PNG file of the contents of a surface.\n@ingroup\t\t\tjsurface\n@param\tsurface\t\tThe surface to export.\n@param\tfilename\tSpecify the name of the file to create.\n@param\tpath\t\tSpecify the path id for where to create the file.\n@param\tdpi\t\t\tDefine the resolution of the image (e.g. 72).\n@return\t\t\t\tA Max error code."]
     pub fn jgraphics_image_surface_writepng(
         surface: *mut t_jsurface,
         filename: *const ::std::os::raw::c_char,
@@ -12429,7 +12429,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tExport a JPEG file of the contents of a surface.\n@ingroup\t\t\tjsurface\n@param\tsurface\t\tThe surface to export.\n@param\tfilename\tSpecify the name of the file to create.\n@param\tpath\t\tSpecify the path id for where to create the file.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Export a JPEG file of the contents of a surface.\n@ingroup\t\t\tjsurface\n@param\tsurface\t\tThe surface to export.\n@param\tfilename\tSpecify the name of the file to create.\n@param\tpath\t\tSpecify the path id for where to create the file.\n@return\t\t\t\tA Max error code."]
     pub fn jgraphics_image_surface_writejpeg(
         surface: *mut t_jsurface,
         filename: *const ::std::os::raw::c_char,
@@ -12447,15 +12447,15 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the width of a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface to query.\n@return\t\t\tThe width of the surface."]
+    #[doc = "Retrieve the width of a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface to query.\n@return\t\t\tThe width of the surface."]
     pub fn jgraphics_image_surface_get_width(s: *mut t_jsurface) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the height of a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface to query.\n@return\t\t\tThe height of the surface."]
+    #[doc = "Retrieve the height of a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface to query.\n@return\t\t\tThe height of the surface."]
     pub fn jgraphics_image_surface_get_height(s: *mut t_jsurface) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the color of an individual pixel in a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface.\n@param\tx\t\tThe horizontal coordinate of the pixel.\n@param\ty\t\tThe vertical coordinate of the pixel.\n@param\tcolor\tThe color of the pixel."]
+    #[doc = "Set the color of an individual pixel in a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface.\n@param\tx\t\tThe horizontal coordinate of the pixel.\n@param\ty\t\tThe vertical coordinate of the pixel.\n@param\tcolor\tThe color of the pixel."]
     pub fn jgraphics_image_surface_set_pixel(
         s: *mut t_jsurface,
         x: ::std::os::raw::c_int,
@@ -12464,7 +12464,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the color of an individual pixel in a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface.\n@param\tx\t\tThe horizontal coordinate of the pixel.\n@param\ty\t\tThe vertical coordinate of the pixel.\n@param\tcolor\tThe address of a valid #t_jrgba struct\nwhose values will be filled in with the color of the pixel upon return."]
+    #[doc = "Retrieve the color of an individual pixel in a surface.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface.\n@param\tx\t\tThe horizontal coordinate of the pixel.\n@param\ty\t\tThe vertical coordinate of the pixel.\n@param\tcolor\tThe address of a valid #t_jrgba struct\nwhose values will be filled in with the color of the pixel upon return."]
     pub fn jgraphics_image_surface_get_pixel(
         s: *mut t_jsurface,
         x: ::std::os::raw::c_int,
@@ -12520,7 +12520,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tDraw an image surface.\nThis not in cairo, but, it seems silly to have to make a brush to just draw an image.\nThis doesn't support rotations, however.\n@ingroup\t\t\tjsurface\n@param\tg\t\t\tThe graphics context in which to draw the surface.\n@param\ts\t\t\tThe surface to draw.\n@param\tsrcRect\t\tThe rect within the surface that should be drawn.\n@param\tdestRect\tThe rect in the context to which to draw the srcRect.\n@see\t\t\t\tjgraphics_image_surface_draw_fast()"]
+    #[doc = "Draw an image surface.\nThis not in cairo, but, it seems silly to have to make a brush to just draw an image.\nThis doesn't support rotations, however.\n@ingroup\t\t\tjsurface\n@param\tg\t\t\tThe graphics context in which to draw the surface.\n@param\ts\t\t\tThe surface to draw.\n@param\tsrcRect\t\tThe rect within the surface that should be drawn.\n@param\tdestRect\tThe rect in the context to which to draw the srcRect.\n@see\t\t\t\tjgraphics_image_surface_draw_fast()"]
     pub fn jgraphics_image_surface_draw(
         g: *mut t_jgraphics,
         s: *mut t_jsurface,
@@ -12529,11 +12529,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tDraw an image surface quickly.\nThe draw_fast version won't scale based on zoom factor or user transforms so make sure that this is what you want!\nDraws entire image, origin *can* be shifted via zoom and user transforms\n(even though image is not scaled based on those same transforms)\n@ingroup\t\t\tjsurface\n@param\tg\t\t\tThe graphics context in which to draw the surface.\n@param\ts\t\t\tThe surface to draw.\n@see\tjgraphics_image_surface_draw"]
+    #[doc = "Draw an image surface quickly.\nThe draw_fast version won't scale based on zoom factor or user transforms so make sure that this is what you want!\nDraws entire image, origin *can* be shifted via zoom and user transforms\n(even though image is not scaled based on those same transforms)\n@ingroup\t\t\tjsurface\n@param\tg\t\t\tThe graphics context in which to draw the surface.\n@param\ts\t\t\tThe surface to draw.\n@see\tjgraphics_image_surface_draw"]
     pub fn jgraphics_image_surface_draw_fast(g: *mut t_jgraphics, s: *mut t_jsurface);
 }
 unsafe extern "C" {
-    #[doc = "\tGet surface data ready for manually writing to a file.\n@ingroup\t\tjsurface\n@param\tsurf\tThe surface whose data will be retrieved.\n@param\tfmt\t\tThe format for the data.  This should be a selection from #t_jgraphics_fileformat.\n@param\tdata\tThe address of a pointer that will be allocated and filled.\nWhen you are done with this data you should free it using sysmem_freeptr().\n@param\tsize\tThe address of a variable to hold the size of the data upon return.\n\n@remark\t\t\tA good example of this is to embed the surface as a PNG in a patcher file.\n@code\nlong size = 0;\nvoid *data = NULL;\n\njgraphics_write_image_surface_to_filedata(x->j_surface, JGRAPHICS_FILEFORMAT_PNG, &data, &size);\nif (size) {\nx->j_format = gensym(\"png\");\nbinarydata_appendtodictionary(data, size, gensym(\"data\"), x->j_format, d);\nx->j_imagedata = data;\nx->j_imagedatasize = size;\n}\n@endcode\n@see\t\t\tjgraphics_image_surface_create_from_filedata()"]
+    #[doc = "Get surface data ready for manually writing to a file.\n@ingroup\t\tjsurface\n@param\tsurf\tThe surface whose data will be retrieved.\n@param\tfmt\t\tThe format for the data.  This should be a selection from #t_jgraphics_fileformat.\n@param\tdata\tThe address of a pointer that will be allocated and filled.\nWhen you are done with this data you should free it using sysmem_freeptr().\n@param\tsize\tThe address of a variable to hold the size of the data upon return.\n\n@remark\t\t\tA good example of this is to embed the surface as a PNG in a patcher file.\n\n```c\nlong size = 0;\nvoid *data = NULL;\n\njgraphics_write_image_surface_to_filedata(x->j_surface, JGRAPHICS_FILEFORMAT_PNG, &data, &size);\nif (size) {\nx->j_format = gensym(\"png\");\nbinarydata_appendtodictionary(data, size, gensym(\"data\"), x->j_format, d);\nx->j_imagedata = data;\nx->j_imagedatasize = size;\n}\n```\n\n@see\t\t\tjgraphics_image_surface_create_from_filedata()"]
     pub fn jgraphics_write_image_surface_to_filedata(
         surf: *mut t_jsurface,
         fmt: ::std::os::raw::c_long,
@@ -12542,7 +12542,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Set all pixels in rect to 0.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface to clear.\n@param\tx\t\tThe horizontal origin of the rect to clear.\n@param\ty\t\tThe vertical origin of the rect to clear.\n@param\twidth\tThe width of the rect to clear.\n@param\theight\tThe height of the rect to clear."]
+    #[doc = "Set all pixels in rect to 0.\n@ingroup\t\tjsurface\n@param\ts\t\tThe surface to clear.\n@param\tx\t\tThe horizontal origin of the rect to clear.\n@param\ty\t\tThe vertical origin of the rect to clear.\n@param\twidth\tThe width of the rect to clear.\n@param\theight\tThe height of the rect to clear."]
     pub fn jgraphics_image_surface_clear(
         s: *mut t_jsurface,
         x: ::std::os::raw::c_int,
@@ -12552,33 +12552,33 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tRead an SVG file, return a #t_jsvg object.\n@ingroup\t\t\tjsvg\n@param\tfilename\tThe name of the file to read.\n@param\tpath\t\tThe path id of the file to read.\n@return\t\t\t\tA new SVG object."]
+    #[doc = "Read an SVG file, return a #t_jsvg object.\n@ingroup\t\t\tjsvg\n@param\tfilename\tThe name of the file to read.\n@param\tpath\t\tThe path id of the file to read.\n@return\t\t\t\tA new SVG object."]
     pub fn jsvg_create_from_file(
         filename: *const ::std::os::raw::c_char,
         path: ::std::os::raw::c_short,
     ) -> *mut t_jsvg;
 }
 unsafe extern "C" {
-    #[doc = "\tRead an SVG file from a resource.\n@ingroup\t\t\tjsvg\n@param\tmoduleRef\tThe external's moduleRef.\n@param\tresname\t\tThe name of the SVG resource.\n@return\t\t\t\tA new SVG object.\n@see\t\t\t\tjgraphics_image_surface_create_from_resource()"]
+    #[doc = "Read an SVG file from a resource.\n@ingroup\t\t\tjsvg\n@param\tmoduleRef\tThe external's moduleRef.\n@param\tresname\t\tThe name of the SVG resource.\n@return\t\t\t\tA new SVG object.\n@see\t\t\t\tjgraphics_image_surface_create_from_resource()"]
     pub fn jsvg_create_from_resource(
         moduleRef: *const ::std::os::raw::c_void,
         resname: *const ::std::os::raw::c_char,
     ) -> *mut t_jsvg;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate an SVG object from a string containing the SVG's XML.\n@ingroup\t\tjsvg\n@param\tsvgXML\tThe SVG source.\n@return\t\t\tA new SVG object."]
+    #[doc = "Create an SVG object from a string containing the SVG's XML.\n@ingroup\t\tjsvg\n@param\tsvgXML\tThe SVG source.\n@return\t\t\tA new SVG object."]
     pub fn jsvg_create_from_xmlstring(svgXML: *const ::std::os::raw::c_char) -> *mut t_jsvg;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the size of an SVG object.\n@ingroup\t\tjsvg\n@param\tsvg\t\tAn SVG object.\n@param\twidth\tThe address of a variable that will be set to the width upon return.\n@param\theight\tThe address of a variable that will be set to the width upon return."]
+    #[doc = "Retrieve the size of an SVG object.\n@ingroup\t\tjsvg\n@param\tsvg\t\tAn SVG object.\n@param\twidth\tThe address of a variable that will be set to the width upon return.\n@param\theight\tThe address of a variable that will be set to the width upon return."]
     pub fn jsvg_get_size(svg: *mut t_jsvg, width: *mut f64, height: *mut f64);
 }
 unsafe extern "C" {
-    #[doc = "\tFree a #t_jsvg object.\n@ingroup\t\tjsvg\n@param\tsvg\t\tThe object to free."]
+    #[doc = "Free a #t_jsvg object.\n@ingroup\t\tjsvg\n@param\tsvg\t\tThe object to free."]
     pub fn jsvg_destroy(svg: *mut t_jsvg);
 }
 unsafe extern "C" {
-    #[doc = "\tRender an SVG into a graphics context.\n@ingroup\t\tjsvg\n@param\tsvg\t\tThe SVG object to render.\n@param\tg\t\tThe graphics context in which to render."]
+    #[doc = "Render an SVG into a graphics context.\n@ingroup\t\tjsvg\n@param\tsvg\t\tThe SVG object to render.\n@param\tg\t\tThe graphics context in which to render."]
     pub fn jsvg_render(svg: *mut t_jsvg, g: *mut t_jgraphics);
 }
 unsafe extern "C" {
@@ -12609,15 +12609,15 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a context to draw on a particular surface.\nWhen you are done, call jgraphics_destroy().\n@ingroup\t\tjsurface\n@param\ttarget\tThe surface to which to draw.\n@return\t\t\tThe new graphics context."]
+    #[doc = "Create a context to draw on a particular surface.\nWhen you are done, call jgraphics_destroy().\n@ingroup\t\tjsurface\n@param\ttarget\tThe surface to which to draw.\n@return\t\t\tThe new graphics context."]
     pub fn jgraphics_create(target: *mut t_jsurface) -> *mut t_jgraphics;
 }
 unsafe extern "C" {
-    #[doc = "\tGet a reference to a graphics context.\nWhen you are done you should release your reference with jgraphics_destroy().\n@ingroup\tjgraphics\n@param\tg\tThe context you wish to reference.\n@return\t\tA new reference to the context."]
+    #[doc = "Get a reference to a graphics context.\nWhen you are done you should release your reference with jgraphics_destroy().\n@ingroup\tjgraphics\n@param\tg\tThe context you wish to reference.\n@return\t\tA new reference to the context."]
     pub fn jgraphics_reference(g: *mut t_jgraphics) -> *mut t_jgraphics;
 }
 unsafe extern "C" {
-    #[doc = "\tRelease or free a graphics context.\n@ingroup\tjgraphics\n@param\tg\tThe context to release."]
+    #[doc = "Release or free a graphics context.\n@ingroup\tjgraphics\n@param\tg\tThe context to release."]
     pub fn jgraphics_destroy(g: *mut t_jgraphics);
 }
 #[repr(C)]
@@ -12652,31 +12652,31 @@ const _: () = {
 };
 pub type t_jgraphics_path_elem = _jgraphics_path_elem;
 unsafe extern "C" {
-    #[doc = "\tBegin a new path.\nThis action clears any current path in the context.\n@ingroup\tjgraphics\n@param\tg\tThe graphics context."]
+    #[doc = "Begin a new path.\nThis action clears any current path in the context.\n@ingroup\tjgraphics\n@param\tg\tThe graphics context."]
     pub fn jgraphics_new_path(g: *mut t_jgraphics);
 }
 unsafe extern "C" {
-    #[doc = "\tGet a copy of the current path from a context.\n@ingroup\tjgraphics\n@param g\tthe graphics context containing the current path\n@return\t\tA copy of the current path."]
+    #[doc = "Get a copy of the current path from a context.\n@ingroup\tjgraphics\n@param g\tthe graphics context containing the current path\n@return\t\tA copy of the current path."]
     pub fn jgraphics_copy_path(g: *mut t_jgraphics) -> *mut t_jpath;
 }
 unsafe extern "C" {
-    #[doc = "\tRelease/free a path.\n@ingroup\t\tjgraphics\n@param\tpath\tThe path to release."]
+    #[doc = "Release/free a path.\n@ingroup\t\tjgraphics\n@param\tpath\tThe path to release."]
     pub fn jgraphics_path_destroy(path: *mut t_jpath);
 }
 unsafe extern "C" {
-    #[doc = " Add a path to a graphics context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tpath\tThe path to add."]
+    #[doc = "Add a path to a graphics context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tpath\tThe path to add."]
     pub fn jgraphics_append_path(g: *mut t_jgraphics, path: *mut t_jpath);
 }
 unsafe extern "C" {
-    #[doc = "\tClose the current path in a context.\nThis will add a line segment to close current subpath.\n@ingroup\tjgraphics\n@param\tg\tThe graphics context."]
+    #[doc = "Close the current path in a context.\nThis will add a line segment to close current subpath.\n@ingroup\tjgraphics\n@param\tg\tThe graphics context."]
     pub fn jgraphics_close_path(g: *mut t_jgraphics);
 }
 unsafe extern "C" {
-    #[doc = "\tRound out any corners in a path.\nThis action clears any current path in the context.\n@ingroup\t\t\t\tjgraphics\n@param\tg\t\t\t\tThe graphics context.\n@param\tcornerRadius\tThe amount by which to round corners."]
+    #[doc = "Round out any corners in a path.\nThis action clears any current path in the context.\n@ingroup\t\t\t\tjgraphics\n@param\tg\t\t\t\tThe graphics context.\n@param\tcornerRadius\tThe amount by which to round corners."]
     pub fn jgraphics_path_roundcorners(g: *mut t_jgraphics, cornerRadius: f64);
 }
 unsafe extern "C" {
-    #[doc = " Return a point that lies a given distance from the start of the path\n@ingroup\t\t\t\t\tjgraphics\n@param path\t\t\t\t\tthe path\n@param distancefromstart\tdistance from the start point\n@param x\t\t\t\t\tpointer to double to receive the x position of the point\n@param y\t\t\t\t\tpointer to double to receive the y position of the point"]
+    #[doc = "Return a point that lies a given distance from the start of the path\n@ingroup\t\t\t\t\tjgraphics\n@param path\t\t\t\t\tthe path\n@param distancefromstart\tdistance from the start point\n@param x\t\t\t\t\tpointer to double to receive the x position of the point\n@param y\t\t\t\t\tpointer to double to receive the y position of the point"]
     pub fn jgraphics_path_getpointalongpath(
         path: *mut t_jpath,
         distancefromstart: f64,
@@ -12685,18 +12685,18 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Get the path elements and return number of path elements\n@ingroup\t\t\t\tjgraphics\n@param path\t\t\t\tthe path\n@param elems\t\t\tpointer to array of path elements\n@return\t\t\t\t\tthe number of path elements"]
+    #[doc = "Get the path elements and return number of path elements\n@ingroup\t\t\t\tjgraphics\n@param path\t\t\t\tthe path\n@param elems\t\t\tpointer to array of path elements\n@return\t\t\t\t\tthe number of path elements"]
     pub fn jgraphics_path_getpathelems(
         path: *mut t_jpath,
         elems: *mut *mut t_jgraphics_path_elem,
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the current location of the cursor in a graphics context.\n@ingroup\tjgraphics\n@param\tg\tThe graphics context.\n@param\tx\tThe address of a variable that will be set to the horizontal cursor location upon return.\n@param\ty\tThe address of a variable that will be set to the vertical cursor location upon return."]
+    #[doc = "Get the current location of the cursor in a graphics context.\n@ingroup\tjgraphics\n@param\tg\tThe graphics context.\n@param\tx\tThe address of a variable that will be set to the horizontal cursor location upon return.\n@param\ty\tThe address of a variable that will be set to the vertical cursor location upon return."]
     pub fn jgraphics_get_current_point(g: *mut t_jgraphics, x: *mut f64, y: *mut f64);
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a circular, clockwise, arc to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\txc\t\tThe horizontal coordinate of the arc's center.\n@param\tyc\t\tThe vertical coordinate of the arc's center.\n@param\tradius\tThe radius of the arc.\n@param\tangle1\tThe starting angle of the arc in radians.\nZero radians is center right (positive x axis).\n@param\tangle2\tThe terminal angle of the arc in radians.\nZero radians is center right (positive x axis)."]
+    #[doc = "Add a circular, clockwise, arc to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\txc\t\tThe horizontal coordinate of the arc's center.\n@param\tyc\t\tThe vertical coordinate of the arc's center.\n@param\tradius\tThe radius of the arc.\n@param\tangle1\tThe starting angle of the arc in radians.\nZero radians is center right (positive x axis).\n@param\tangle2\tThe terminal angle of the arc in radians.\nZero radians is center right (positive x axis)."]
     pub fn jgraphics_arc(
         g: *mut t_jgraphics,
         xc: f64,
@@ -12718,7 +12718,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a non-circular arc to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\txc\t\tThe horizontal coordinate of the arc's center.\n@param\tyc\t\tThe vertical coordinate of the arc's center.\n@param\tradiusx\tThe horizontal radius of the arc.\n@param\tradiusy\tThe vertical radius of the arc.\n@param\tangle1\tThe starting angle of the arc in radians.\nZero radians is center right (positive x axis).\n@param\tangle2\tThe terminal angle of the arc in radians.\nZero radians is center right (positive x axis)."]
+    #[doc = "Add a non-circular arc to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\txc\t\tThe horizontal coordinate of the arc's center.\n@param\tyc\t\tThe vertical coordinate of the arc's center.\n@param\tradiusx\tThe horizontal radius of the arc.\n@param\tradiusy\tThe vertical radius of the arc.\n@param\tangle1\tThe starting angle of the arc in radians.\nZero radians is center right (positive x axis).\n@param\tangle2\tThe terminal angle of the arc in radians.\nZero radians is center right (positive x axis)."]
     pub fn jgraphics_ovalarc(
         g: *mut t_jgraphics,
         xc: f64,
@@ -12730,7 +12730,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a circular, counter-clockwise, arc to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\txc\t\tThe horizontal coordinate of the arc's center.\n@param\tyc\t\tThe vertical coordinate of the arc's center.\n@param\tradius\tThe radius of the arc.\n@param\tangle1\tThe starting angle of the arc in radians.\nZero radians is center right (positive x axis).\n@param\tangle2\tThe terminal angle of the arc in radians.\nZero radians is center right (positive x axis)."]
+    #[doc = "Add a circular, counter-clockwise, arc to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\txc\t\tThe horizontal coordinate of the arc's center.\n@param\tyc\t\tThe vertical coordinate of the arc's center.\n@param\tradius\tThe radius of the arc.\n@param\tangle1\tThe starting angle of the arc in radians.\nZero radians is center right (positive x axis).\n@param\tangle2\tThe terminal angle of the arc in radians.\nZero radians is center right (positive x axis)."]
     pub fn jgraphics_arc_negative(
         g: *mut t_jgraphics,
         xc: f64,
@@ -12741,7 +12741,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a cubic Bezier spline to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx1\t\tThe first control point.\n@param\ty1\t\tThe first control point.\n@param\tx2\t\tThe second control point.\n@param\ty2\t\tThe second control point.\n@param\tx3\t\tThe destination point.\n@param\ty3\t\tThe destination point."]
+    #[doc = "Add a cubic Bezier spline to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx1\t\tThe first control point.\n@param\ty1\t\tThe first control point.\n@param\tx2\t\tThe second control point.\n@param\ty2\t\tThe second control point.\n@param\tx3\t\tThe destination point.\n@param\ty3\t\tThe destination point."]
     pub fn jgraphics_curve_to(
         g: *mut t_jgraphics,
         x1: f64,
@@ -12753,7 +12753,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a cubic Bezier spline to the current path, using coordinates relative to the current point.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx1\t\tThe first control point.\n@param\ty1\t\tThe first control point.\n@param\tx2\t\tThe second control point.\n@param\ty2\t\tThe second control point.\n@param\tx3\t\tThe destination point.\n@param\ty3\t\tThe destination point."]
+    #[doc = "Add a cubic Bezier spline to the current path, using coordinates relative to the current point.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx1\t\tThe first control point.\n@param\ty1\t\tThe first control point.\n@param\tx2\t\tThe second control point.\n@param\ty2\t\tThe second control point.\n@param\tx3\t\tThe destination point.\n@param\ty3\t\tThe destination point."]
     pub fn jgraphics_rel_curve_to(
         g: *mut t_jgraphics,
         x1: f64,
@@ -12765,31 +12765,31 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a line segment to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe destination point.\n@param\ty\t\tThe destination point."]
+    #[doc = "Add a line segment to the current path.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe destination point.\n@param\ty\t\tThe destination point."]
     pub fn jgraphics_line_to(g: *mut t_jgraphics, x: f64, y: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a line segment to the current path, using coordinates relative to the current point.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe destination point.\n@param\ty\t\tThe destination point."]
+    #[doc = "Add a line segment to the current path, using coordinates relative to the current point.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe destination point.\n@param\ty\t\tThe destination point."]
     pub fn jgraphics_rel_line_to(g: *mut t_jgraphics, x: f64, y: f64);
 }
 unsafe extern "C" {
-    #[doc = " Move the cursor to a new point and begin a new subpath.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe new location.\n@param\ty\t\tThe new location."]
+    #[doc = "Move the cursor to a new point and begin a new subpath.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe new location.\n@param\ty\t\tThe new location."]
     pub fn jgraphics_move_to(g: *mut t_jgraphics, x: f64, y: f64);
 }
 unsafe extern "C" {
-    #[doc = " Move the cursor to a new point and begin a new subpath, using coordinates relative to the current point.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe new location.\n@param\ty\t\tThe new location."]
+    #[doc = "Move the cursor to a new point and begin a new subpath, using coordinates relative to the current point.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe new location.\n@param\ty\t\tThe new location."]
     pub fn jgraphics_rel_move_to(g: *mut t_jgraphics, x: f64, y: f64);
 }
 unsafe extern "C" {
-    #[doc = " Add a closed rectangle path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe horizontal origin.\n@param\ty\t\tThe vertical origin.\n@param\twidth\tThe width of the rect.\n@param\theight\tThe height of the rect."]
+    #[doc = "Add a closed rectangle path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe horizontal origin.\n@param\ty\t\tThe vertical origin.\n@param\twidth\tThe width of the rect.\n@param\theight\tThe height of the rect."]
     pub fn jgraphics_rectangle(g: *mut t_jgraphics, x: f64, y: f64, width: f64, height: f64);
 }
 unsafe extern "C" {
-    #[doc = " Deprecated -- do not use.  Adds a closed oval path in the context, however, it does not scale appropriately.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe horizontal origin.\n@param\ty\t\tThe vertical origin.\n@param\twidth\tThe width of the oval.\n@param\theight\tThe height of the oval."]
+    #[doc = "Deprecated -- do not use.  Adds a closed oval path in the context, however, it does not scale appropriately.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe horizontal origin.\n@param\ty\t\tThe vertical origin.\n@param\twidth\tThe width of the oval.\n@param\theight\tThe height of the oval."]
     pub fn jgraphics_oval(g: *mut t_jgraphics, x: f64, y: f64, width: f64, height: f64);
 }
 unsafe extern "C" {
-    #[doc = " Add a closed rounded-rectangle path in the context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tx\t\t\tThe horizontal origin.\n@param\ty\t\t\tThe vertical origin.\n@param\twidth\t\tThe width of the rect.\n@param\theight\t\tThe height of the rect.\n@param\tovalwidth\tThe width of the oval used for the round corners.\n@param\tovalheight\tThe height of the oval used for the round corners."]
+    #[doc = "Add a closed rounded-rectangle path in the context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tx\t\t\tThe horizontal origin.\n@param\ty\t\t\tThe vertical origin.\n@param\twidth\t\tThe width of the rect.\n@param\theight\t\tThe height of the rect.\n@param\tovalwidth\tThe width of the oval used for the round corners.\n@param\tovalheight\tThe height of the oval used for the round corners."]
     pub fn jgraphics_rectangle_rounded(
         g: *mut t_jgraphics,
         x: f64,
@@ -12801,11 +12801,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Add a closed elliptical path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe horizontal origin.\n@param\ty\t\tThe vertical origin.\n@param\twidth\tThe width of the rect.\n@param\theight\tThe height of the rect."]
+    #[doc = "Add a closed elliptical path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx\t\tThe horizontal origin.\n@param\ty\t\tThe vertical origin.\n@param\twidth\tThe width of the rect.\n@param\theight\tThe height of the rect."]
     pub fn jgraphics_ellipse(g: *mut t_jgraphics, x: f64, y: f64, width: f64, height: f64);
 }
 unsafe extern "C" {
-    #[doc = " Add a closed bubble path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tbodyx\tHorizontal body origin.\n@param\tbodyy\tThe vertical origin.\n@param\tbodywidth\tThe width of the rect.\n@param\tbodyheight\tThe height of the rect.\n@param cornersize\tBody rounded corners\n@param arrowtipx\tX position of arrow tip\n@param arrowtipy\tY position of arrow tip\n@param whichside\tside to connect arrow, see above definition of t_jgraphics_bubble_side enum,\n@param arrowedgeprop\tArrow proportion along edge (0-1)\n@param arrowwidth\tArrow base width"]
+    #[doc = "Add a closed bubble path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tbodyx\tHorizontal body origin.\n@param\tbodyy\tThe vertical origin.\n@param\tbodywidth\tThe width of the rect.\n@param\tbodyheight\tThe height of the rect.\n@param cornersize\tBody rounded corners\n@param arrowtipx\tX position of arrow tip\n@param arrowtipy\tY position of arrow tip\n@param whichside\tside to connect arrow, see above definition of t_jgraphics_bubble_side enum,\n@param arrowedgeprop\tArrow proportion along edge (0-1)\n@param arrowwidth\tArrow base width"]
     pub fn jgraphics_bubble(
         g: *mut t_jgraphics,
         bodyx: f64,
@@ -12821,7 +12821,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Add a closed triangular path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx1\t\tCoordinate for the first point.\n@param\ty1\t\tCoordinate for the first point.\n@param\tx2\t\tCoordinate for the second point.\n@param\ty2\t\tCoordinate for the second point.\n@param\tx3\t\tCoordinate for the third point.\n@param\ty3\t\tCoordinate for the third point."]
+    #[doc = "Add a closed triangular path in the context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tx1\t\tCoordinate for the first point.\n@param\ty1\t\tCoordinate for the first point.\n@param\tx2\t\tCoordinate for the second point.\n@param\ty2\t\tCoordinate for the second point.\n@param\tx3\t\tCoordinate for the third point.\n@param\ty3\t\tCoordinate for the third point."]
     pub fn jgraphics_triangle(
         g: *mut t_jgraphics,
         x1: f64,
@@ -12845,29 +12845,29 @@ unsafe extern "C" {
 pub mod _jgraphics_font_slant {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tEnumeration of slanting options for font display.\n@ingroup\tjfont"]
+    #[doc = "Enumeration of slanting options for font display.\n@ingroup\tjfont"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Normal slanting (typically this means no slanting)"]
     pub const JGRAPHICS_FONT_SLANT_NORMAL: Type = 0;
     #[doc = "< Italic slanting"]
     pub const JGRAPHICS_FONT_SLANT_ITALIC: Type = 1;
 }
-#[doc = "\tEnumeration of slanting options for font display.\n@ingroup\tjfont"]
+#[doc = "Enumeration of slanting options for font display.\n@ingroup\tjfont"]
 pub use self::_jgraphics_font_slant::Type as t_jgraphics_font_slant;
 pub mod _jgraphics_font_weight {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tEnumeration of font weight options for font display.\n@ingroup\tjfont"]
+    #[doc = "Enumeration of font weight options for font display.\n@ingroup\tjfont"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Normal font weight"]
     pub const JGRAPHICS_FONT_WEIGHT_NORMAL: Type = 0;
     #[doc = "< Bold font weight"]
     pub const JGRAPHICS_FONT_WEIGHT_BOLD: Type = 1;
 }
-#[doc = "\tEnumeration of font weight options for font display.\n@ingroup\tjfont"]
+#[doc = "Enumeration of font weight options for font display.\n@ingroup\tjfont"]
 pub use self::_jgraphics_font_weight::Type as t_jgraphics_font_weight;
 unsafe extern "C" {
-    #[doc = "\tSpecify a font for a graphics context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tfamily\tThe name of the font family (e.g. \"Arial\").\n@param\tslant\tDefine the slant to use for the font.\n@param\tweight\tDefine the weight to use for the font."]
+    #[doc = "Specify a font for a graphics context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tfamily\tThe name of the font family (e.g. \"Arial\").\n@param\tslant\tDefine the slant to use for the font.\n@param\tweight\tDefine the weight to use for the font."]
     pub fn jgraphics_select_font_face(
         g: *mut t_jgraphics,
         family: *const ::std::os::raw::c_char,
@@ -12876,26 +12876,26 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tSpecify a font for a graphics context by passing a #t_jfont object.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tjfont\tA jfont object whose attributes will be copied to the context."]
+    #[doc = "Specify a font for a graphics context by passing a #t_jfont object.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tjfont\tA jfont object whose attributes will be copied to the context."]
     pub fn jgraphics_select_jfont(g: *mut t_jgraphics, jfont: *mut t_jfont);
 }
 unsafe extern "C" {
-    #[doc = "\tSpecify the font size for a context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tsize\tThe font size."]
+    #[doc = "Specify the font size for a context.\n@ingroup\t\tjgraphics\n@param\tg\t\tThe graphics context.\n@param\tsize\tThe font size."]
     pub fn jgraphics_set_font_size(g: *mut t_jgraphics, size: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tTurn underlining on/off for text in a context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tunderline\tPass true or false to set the appropriate behavior."]
+    #[doc = "Turn underlining on/off for text in a context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tunderline\tPass true or false to set the appropriate behavior."]
     pub fn jgraphics_set_underline(g: *mut t_jgraphics, underline: ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "\tDisplay text at the current position in a context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tutf8\t\tThe text to display."]
+    #[doc = "Display text at the current position in a context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tutf8\t\tThe text to display."]
     pub fn jgraphics_show_text(g: *mut t_jgraphics, utf8: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a path of text to the current path.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tutf8\t\tThe text to generate path for."]
+    #[doc = "Add a path of text to the current path.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tThe graphics context.\n@param\tutf8\t\tThe text to generate path for."]
     pub fn jgraphics_text_path(g: *mut t_jgraphics, utf8: *const ::std::os::raw::c_char);
 }
-#[doc = "\tA structure for holding information related to how much space the rendering of a given font will use.\nThe units for these measurements is in pixels.\n@ingroup\tjgraphics"]
+#[doc = "A structure for holding information related to how much space the rendering of a given font will use.\nThe units for these measurements is in pixels.\n@ingroup\tjgraphics"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jgraphics_font_extents {
@@ -12926,14 +12926,14 @@ const _: () = {
     ["Offset of field: _jgraphics_font_extents::max_y_advance"]
         [::std::mem::offset_of!(_jgraphics_font_extents, max_y_advance) - 32usize];
 };
-#[doc = "\tA structure for holding information related to how much space the rendering of a given font will use.\nThe units for these measurements is in pixels.\n@ingroup\tjgraphics"]
+#[doc = "A structure for holding information related to how much space the rendering of a given font will use.\nThe units for these measurements is in pixels.\n@ingroup\tjgraphics"]
 pub type t_jgraphics_font_extents = _jgraphics_font_extents;
 unsafe extern "C" {
-    #[doc = "\tReturn the extents of the currently selected font for a given graphics context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tPointer to a jgraphics context.\n@param\textents\t\tThe address of a #t_jgraphics_font_extents structure to be filled with the results."]
+    #[doc = "Return the extents of the currently selected font for a given graphics context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tPointer to a jgraphics context.\n@param\textents\t\tThe address of a #t_jgraphics_font_extents structure to be filled with the results."]
     pub fn jgraphics_font_extents(g: *mut t_jgraphics, extents: *mut t_jgraphics_font_extents);
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the height and width of a string given current graphics settings in a context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tPointer to a jgraphics context.\n@param\tutf8\t\tA string containing the text whose dimensions we wish to find.\n@param\twidth\t\tThe address of a variable to be filled with the width of the rendered text.\n@param\theight\t\tThe address of a variable to be filled with the height of the rendered text."]
+    #[doc = "Return the height and width of a string given current graphics settings in a context.\n@ingroup\t\t\tjgraphics\n@param\tg\t\t\tPointer to a jgraphics context.\n@param\tutf8\t\tA string containing the text whose dimensions we wish to find.\n@param\twidth\t\tThe address of a variable to be filled with the width of the rendered text.\n@param\theight\t\tThe address of a variable to be filled with the height of the rendered text."]
     pub fn jgraphics_text_measure(
         g: *mut t_jgraphics,
         utf8: *const ::std::os::raw::c_char,
@@ -12942,7 +12942,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the height, width, and number of lines that will be used to render a given string.\n@ingroup\t\t\t\t\tjgraphics\n@param\tg\t\t\t\t\tPointer to a jgraphics context.\n@param\tutf8\t\t\t\tA string containing the text whose dimensions we wish to find.\n@param\twrapwidth\t\t\tThe number of pixels in width at which the text should be wrapped if it is too long.\n@param\tincludewhitespace\tSet zero to not include white space in the calculation, otherwise set this parameter to 1.\n@param\twidth\t\t\t\tThe address of a variable to be filled with the width of the rendered text.\n@param\theight\t\t\t\tThe address of a variable to be filled with the height of the rendered text.\n@param\tnumlines\t\t\tThe address of a variable to be filled with the number of lines required to render the text."]
+    #[doc = "Return the height, width, and number of lines that will be used to render a given string.\n@ingroup\t\t\t\t\tjgraphics\n@param\tg\t\t\t\t\tPointer to a jgraphics context.\n@param\tutf8\t\t\t\tA string containing the text whose dimensions we wish to find.\n@param\twrapwidth\t\t\tThe number of pixels in width at which the text should be wrapped if it is too long.\n@param\tincludewhitespace\tSet zero to not include white space in the calculation, otherwise set this parameter to 1.\n@param\twidth\t\t\t\tThe address of a variable to be filled with the width of the rendered text.\n@param\theight\t\t\t\tThe address of a variable to be filled with the height of the rendered text.\n@param\tnumlines\t\t\tThe address of a variable to be filled with the number of lines required to render the text."]
     pub fn jgraphics_text_measuretext_wrapped(
         g: *mut t_jgraphics,
         utf8: *const ::std::os::raw::c_char,
@@ -12963,7 +12963,7 @@ unsafe extern "C" {
     ) -> *mut t_jfont;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new font object.\n@ingroup jfont\n@param\tfamily\tThe name of the font family (e.g. Arial).\n@param\tslant\tThe type of slant for the font.\n@param\tweight\tThe type of weight for the font.\n@param\tsize\tThe size of the font.\n@return\t\t\tThe new font object. Needs to be freed via jfont_destroy() when done."]
+    #[doc = "Create a new font object.\n@ingroup jfont\n@param\tfamily\tThe name of the font family (e.g. Arial).\n@param\tslant\tThe type of slant for the font.\n@param\tweight\tThe type of weight for the font.\n@param\tsize\tThe size of the font.\n@return\t\t\tThe new font object. Needs to be freed via jfont_destroy() when done."]
     pub fn jfont_create(
         family: *const ::std::os::raw::c_char,
         slant: t_jgraphics_font_slant,
@@ -12972,66 +12972,66 @@ unsafe extern "C" {
     ) -> *mut t_jfont;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate new reference to an existing font object.\n@ingroup jfont\n@param\tfont\tThe font object for which to obtain a reference.\n@return\t\t\tThe new font object reference."]
+    #[doc = "Create new reference to an existing font object.\n@ingroup jfont\n@param\tfont\tThe font object for which to obtain a reference.\n@return\t\t\tThe new font object reference."]
     pub fn jfont_reference(font: *mut t_jfont) -> *mut t_jfont;
 }
 unsafe extern "C" {
-    #[doc = "\tRelease or free a font object.\n@ingroup jfont\n@param\tfont\tThe font object to release."]
+    #[doc = "Release or free a font object.\n@ingroup jfont\n@param\tfont\tThe font object to release."]
     pub fn jfont_destroy(font: *mut t_jfont);
 }
 unsafe extern "C" {
-    #[doc = " Compare two fonts to see if they are equivalent.\n@ingroup jfont\n@param font\t\tThe first font object that is being compared.\n@param other\tThe second font object that is being compared.\n@return\t\t\tNonzero value if the two fonts are equivalent."]
+    #[doc = "Compare two fonts to see if they are equivalent.\n@ingroup jfont\n@param font\t\tThe first font object that is being compared.\n@param other\tThe second font object that is being compared.\n@return\t\t\tNonzero value if the two fonts are equivalent."]
     pub fn jfont_isequalto(font: *mut t_jfont, other: *mut t_jfont) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = " Set the name of the font family (e.g. Arial).\n@ingroup    jfont\n@param      font    The font object.\n@param      family  A t_symbol containing the name of the desired font family."]
+    #[doc = "Set the name of the font family (e.g. Arial).\n@ingroup    jfont\n@param      font    The font object.\n@param      family  A t_symbol containing the name of the desired font family."]
     pub fn jfont_set_family(font: *mut t_jfont, family: *mut t_symbol);
 }
 unsafe extern "C" {
-    #[doc = " Get the name of the font family (e.g. Arial).\n@ingroup    jfont\n@param      font    The font object.\n@return             A t_symbol representing the name of the font family."]
+    #[doc = "Get the name of the font family (e.g. Arial).\n@ingroup    jfont\n@param      font    The font object.\n@return             A t_symbol representing the name of the font family."]
     pub fn jfont_get_family(font: *mut t_jfont) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = " Set the slant of the font.\n@ingroup    jfont\n@param      font    The font object\n@param      slant   The desired slant."]
+    #[doc = "Set the slant of the font.\n@ingroup    jfont\n@param      font    The font object\n@param      slant   The desired slant."]
     pub fn jfont_set_slant(font: *mut t_jfont, slant: t_jgraphics_font_slant);
 }
 unsafe extern "C" {
-    #[doc = " Get the slant of the font.\n@ingroup    jfont\n@param      font    The font object.\n@return             The current slant setting for the font."]
+    #[doc = "Get the slant of the font.\n@ingroup    jfont\n@param      font    The font object.\n@return             The current slant setting for the font."]
     pub fn jfont_get_slant(font: *mut t_jfont) -> t_jgraphics_font_slant;
 }
 unsafe extern "C" {
-    #[doc = " Set the weight of the font.\n@ingroup    jfont\n@param      font    The font object\n@param      weight   The desired weight (e.g. bold)."]
+    #[doc = "Set the weight of the font.\n@ingroup    jfont\n@param      font    The font object\n@param      weight   The desired weight (e.g. bold)."]
     pub fn jfont_set_weight(font: *mut t_jfont, weight: t_jgraphics_font_weight);
 }
 unsafe extern "C" {
-    #[doc = " Get the weight of the font.\n@ingroup    jfont\n@param      font    The font object.\n@return             The current weight setting for the font."]
+    #[doc = "Get the weight of the font.\n@ingroup    jfont\n@param      font    The font object.\n@return             The current weight setting for the font."]
     pub fn jfont_get_weight(font: *mut t_jfont) -> t_jgraphics_font_weight;
 }
 unsafe extern "C" {
-    #[doc = " Set the size of a font object.\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\tsize\tThe new size for the font object."]
+    #[doc = "Set the size of a font object.\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\tsize\tThe new size for the font object."]
     pub fn jfont_set_font_size(font: *mut t_jfont, size: f64);
 }
 unsafe extern "C" {
-    #[doc = " Get the size of a font object.\n@ingroup        jfont\n@param  font    The font object.\n@return         The size of the font."]
+    #[doc = "Get the size of a font object.\n@ingroup        jfont\n@param  font    The font object.\n@return         The size of the font."]
     pub fn jfont_get_font_size(font: *mut t_jfont) -> f64;
 }
 unsafe extern "C" {
-    #[doc = " Set the underlining of a font object.\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\tul\t\tPass true to underline, or false for no underlining."]
+    #[doc = "Set the underlining of a font object.\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\tul\t\tPass true to underline, or false for no underlining."]
     pub fn jfont_set_underline(font: *mut t_jfont, ul: ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = " Get the underline state of a font object.\n@ingroup        jfont\n@param\tfont\tThe font object.\n@return         Nonzero value if the font will be underlined."]
+    #[doc = "Get the underline state of a font object.\n@ingroup        jfont\n@param\tfont\tThe font object.\n@return         Nonzero value if the font will be underlined."]
     pub fn jfont_get_underline(font: *mut t_jfont) -> ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn jfont_get_heighttocharheightratio(font: *mut t_jfont) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tGet extents of this font\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\textents\tThe font extents upon return/"]
+    #[doc = "Get extents of this font\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\textents\tThe font extents upon return/"]
     pub fn jfont_extents(font: *mut t_jfont, extents: *mut t_jgraphics_font_extents);
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a font, find out how much area is required to render a string of text.\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\tutf8\tThe text whose rendering will be measured.\n@param\twidth\tThe address of a variable to hold the width upon return.\n@param\theight\tThe address of a variable to hold the height upon return."]
+    #[doc = "Given a font, find out how much area is required to render a string of text.\n@ingroup\t\tjfont\n@param\tfont\tThe font object.\n@param\tutf8\tThe text whose rendering will be measured.\n@param\twidth\tThe address of a variable to hold the width upon return.\n@param\theight\tThe address of a variable to hold the height upon return."]
     pub fn jfont_text_measure(
         font: *mut t_jfont,
         utf8: *const ::std::os::raw::c_char,
@@ -13040,7 +13040,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a font, find out how much area is required to render a string of text,\nprovided a horizontal maximum limit at which the text is wrapped.\n@ingroup\t\t\t\t\tjfont\n@param\tfont\t\t\t\tThe font object.\n@param\tutf8\t\t\t\tThe text whose rendering will be measured.\n@param\twrapwidth\t\t\tThe maximum width, above which text should wrap onto a new line.\n@param\tincludewhitespace\tIf non-zero, include whitespace in the measurement.\n@param\twidth\t\t\t\tThe address of a variable to hold the width upon return.\n@param\theight\t\t\t\tThe address of a variable to hold the height upon return.\n@param\tnumlines\t\t\tThe address of a variable to hold the number of lines of text after wrapping upon return."]
+    #[doc = "Given a font, find out how much area is required to render a string of text,\nprovided a horizontal maximum limit at which the text is wrapped.\n@ingroup\t\t\t\t\tjfont\n@param\tfont\t\t\t\tThe font object.\n@param\tutf8\t\t\t\tThe text whose rendering will be measured.\n@param\twrapwidth\t\t\tThe maximum width, above which text should wrap onto a new line.\n@param\tincludewhitespace\tIf non-zero, include whitespace in the measurement.\n@param\twidth\t\t\t\tThe address of a variable to hold the width upon return.\n@param\theight\t\t\t\tThe address of a variable to hold the height upon return.\n@param\tnumlines\t\t\tThe address of a variable to hold the number of lines of text after wrapping upon return."]
     pub fn jfont_text_measuretext_wrapped(
         font: *mut t_jfont,
         utf8: *const ::std::os::raw::c_char,
@@ -13052,11 +13052,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Given a font, find out the width and height of the 'M' character.\nThis is equivalent to jfont_text_measure(font, \"M\", width, height) but is faster.\n@ingroup\t\t\t\t\tjfont\n@param\tfont\t\t\t\tThe font object.\n@param\twidth\tThe address of a variable to hold the width upon return.\n@param\theight\tThe address of a variable to hold the height upon return."]
+    #[doc = "Given a font, find out the width and height of the 'M' character.\nThis is equivalent to jfont_text_measure(font, \"M\", width, height) but is faster.\n@ingroup\t\t\t\t\tjfont\n@param\tfont\t\t\t\tThe font object.\n@param\twidth\tThe address of a variable to hold the width upon return.\n@param\theight\tThe address of a variable to hold the height upon return."]
     pub fn jfont_get_em_dimensions(font: *mut t_jfont, width: *mut f64, height: *mut f64);
 }
 unsafe extern "C" {
-    #[doc = "\tGet a list of font names. Note, this includes each font style in each font family.\n@ingroup\t\tjfont\n@param\tcount\tThe address of a variable to hold the count of font names in list upon return.\n@param\tlist\tThe address of a #t_symbol** initialized to NULL.\nUpon return this will be set to an array of count #t_symbol pointers.\nThis array should be freed using sysmem_freeptr() when you are done with it.\n@return\t\t\tA Max error code."]
+    #[doc = "Get a list of font names. Note, this includes each font style in each font family.\n@ingroup\t\tjfont\n@param\tcount\tThe address of a variable to hold the count of font names in list upon return.\n@param\tlist\tThe address of a #t_symbol** initialized to NULL.\nUpon return this will be set to an array of count #t_symbol pointers.\nThis array should be freed using sysmem_freeptr() when you are done with it.\n@return\t\t\tA Max error code."]
     pub fn jfont_getfontlist(
         count: *mut ::std::os::raw::c_long,
         list: *mut *mut *mut t_symbol,
@@ -13071,28 +13071,28 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine if you can anti-alias text to a transparent background.\nYou might want to call this and then disable \"useimagebuffer\" if false *and*\nyou are rendering text on a transparent background.\n@ingroup\tjgraphics\n@return\t\tNon-zero if you can anti-alias text to a transparent background."]
+    #[doc = "Determine if you can anti-alias text to a transparent background.\nYou might want to call this and then disable \"useimagebuffer\" if false *and*\nyou are rendering text on a transparent background.\n@ingroup\tjgraphics\n@return\t\tNon-zero if you can anti-alias text to a transparent background."]
     pub fn jgraphics_system_canantialiastexttotransparentbg() -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new textlayout object.\n@ingroup\ttextlayout\n@return\t\tThe new textlayout object."]
+    #[doc = "Create a new textlayout object.\n@ingroup\ttextlayout\n@return\t\tThe new textlayout object."]
     pub fn jtextlayout_create() -> *mut t_jtextlayout;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new textlayout object.\nThis gives a hint to the textlayout as to what the text bgcolor will be.\nIt won't actually paint the bg for you.\nBut, it does let it do a better job.\n@ingroup\t\ttextlayout\n@param\tg\t\tThe graphics context for the textlayout.\n@param\tbgcolor\tThe background color for the textlayout.\n@return\t\t\tThe new textlayout object."]
+    #[doc = "Create a new textlayout object.\nThis gives a hint to the textlayout as to what the text bgcolor will be.\nIt won't actually paint the bg for you.\nBut, it does let it do a better job.\n@ingroup\t\ttextlayout\n@param\tg\t\tThe graphics context for the textlayout.\n@param\tbgcolor\tThe background color for the textlayout.\n@return\t\t\tThe new textlayout object."]
     pub fn jtextlayout_withbgcolor(
         g: *mut t_jgraphics,
         bgcolor: *mut t_jrgba,
     ) -> *mut t_jtextlayout;
 }
 unsafe extern "C" {
-    #[doc = "\tRelease/free a textlayout object.\n@ingroup\t\t\ttextlayout\n@param\ttextlayout\tThe textlayout object to release."]
+    #[doc = "Release/free a textlayout object.\n@ingroup\t\t\ttextlayout\n@param\ttextlayout\tThe textlayout object to release."]
     pub fn jtextlayout_destroy(textlayout: *mut t_jtextlayout);
 }
 pub mod _jgraphics_text_justification {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tEnumeration of text justification options, which are specified as a bitmask.\n@ingroup\tjgraphics"]
+    #[doc = "Enumeration of text justification options, which are specified as a bitmask.\n@ingroup\tjgraphics"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< Justify left"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_LEFT: Type = 1;
@@ -13111,22 +13111,22 @@ pub mod _jgraphics_text_justification {
     #[doc = "< Shortcut for Centering both vertically and horizontally"]
     pub const JGRAPHICS_TEXT_JUSTIFICATION_CENTERED: Type = 36;
 }
-#[doc = "\tEnumeration of text justification options, which are specified as a bitmask.\n@ingroup\tjgraphics"]
+#[doc = "Enumeration of text justification options, which are specified as a bitmask.\n@ingroup\tjgraphics"]
 pub use self::_jgraphics_text_justification::Type as t_jgraphics_text_justification;
 pub mod _jgraphics_textlayout_flags {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = "\tFlags for setting text layout options.\n@ingroup\ttextlayout"]
+    #[doc = "Flags for setting text layout options.\n@ingroup\ttextlayout"]
     pub type Type = ::std::os::raw::c_uint;
     #[doc = "< disable word wrapping"]
     pub const JGRAPHICS_TEXTLAYOUT_NOWRAP: Type = 1;
     #[doc = "< show ... if a line doesn't fit (implies NOWRAP too)"]
     pub const JGRAPHICS_TEXTLAYOUT_USEELLIPSIS: Type = 3;
 }
-#[doc = "\tFlags for setting text layout options.\n@ingroup\ttextlayout"]
+#[doc = "Flags for setting text layout options.\n@ingroup\ttextlayout"]
 pub use self::_jgraphics_textlayout_flags::Type as t_jgraphics_textlayout_flags;
 unsafe extern "C" {
-    #[doc = "\tSet the text and attributes of a textlayout object.\n@ingroup\t\t\t\ttextlayout\n@param\ttextlayout\t\tThe textlayout object.\n@param\tutf8\t\t\tThe text to render.\n@param\tjfont\t\t\tThe font with which to render the text.\n@param\tx\t\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\ty\t\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\twidth\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\theight\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\tjustification\tHow to justify the text within the rect.\n@param\tflags\t\t\tAdditional flags to control behaviour."]
+    #[doc = "Set the text and attributes of a textlayout object.\n@ingroup\t\t\t\ttextlayout\n@param\ttextlayout\t\tThe textlayout object.\n@param\tutf8\t\t\tThe text to render.\n@param\tjfont\t\t\tThe font with which to render the text.\n@param\tx\t\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\ty\t\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\twidth\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\theight\t\t\tThe text is placed within rect specified by x, y, width, height.\n@param\tjustification\tHow to justify the text within the rect.\n@param\tflags\t\t\tAdditional flags to control behaviour."]
     pub fn jtextlayout_set(
         textlayout: *mut t_jtextlayout,
         utf8: *const ::std::os::raw::c_char,
@@ -13140,7 +13140,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tSet the text of a textlayout object.\n@ingroup\t\t\t\ttextlayout\n@param\ttextlayout\t\tThe textlayout object.\n@param\tutf8\t\t\tThe text to render.\n@param\tjfont\t\t\tThe font with which to render the text."]
+    #[doc = "Set the text of a textlayout object.\n@ingroup\t\t\t\ttextlayout\n@param\ttextlayout\t\tThe textlayout object.\n@param\tutf8\t\t\tThe text to render.\n@param\tjfont\t\t\tThe font with which to render the text."]
     pub fn jtextlayout_settext(
         textlayout: *mut t_jtextlayout,
         utf8: *const ::std::os::raw::c_char,
@@ -13148,11 +13148,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tSet the color to render text in a textlayout object.\n@ingroup\t\t\ttextlayout\n@param\ttextlayout\tThe textlayout object for which to set the color.\n@param\ttextcolor\tThe color for the text."]
+    #[doc = "Set the color to render text in a textlayout object.\n@ingroup\t\t\ttextlayout\n@param\ttextlayout\tThe textlayout object for which to set the color.\n@param\ttextcolor\tThe color for the text."]
     pub fn jtextlayout_settextcolor(textlayout: *mut t_jtextlayout, textcolor: *mut t_jrgba);
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a measurement of how much space will be required to draw the text of a textlayout.\n@ingroup\t\t\t\t\ttextlayout\n@param\ttextlayout\t\t\tThe textlayout object to query.\n@param\tstartindex\t\t\tYou can measure a subset of the characters.\nThis defines the character from which to start.\n@param\tnumchars\t\t\tPass -1 for all characters from startindex to end\n@param\tincludewhitespace\tDefine whether to measure with or without whitespace truncated from edges.\n@param\twidth\t\t\t\tReturns the width of text not including any margins.\n@param\theight\t\t\t\tReturns the height of text not including any margins.\n@param\tnumlines\t\t\tReturns the number of lines of text."]
+    #[doc = "Return a measurement of how much space will be required to draw the text of a textlayout.\n@ingroup\t\t\t\t\ttextlayout\n@param\ttextlayout\t\t\tThe textlayout object to query.\n@param\tstartindex\t\t\tYou can measure a subset of the characters.\nThis defines the character from which to start.\n@param\tnumchars\t\t\tPass -1 for all characters from startindex to end\n@param\tincludewhitespace\tDefine whether to measure with or without whitespace truncated from edges.\n@param\twidth\t\t\t\tReturns the width of text not including any margins.\n@param\theight\t\t\t\tReturns the height of text not including any margins.\n@param\tnumlines\t\t\tReturns the number of lines of text."]
     pub fn jtextlayout_measuretext(
         textlayout: *mut t_jtextlayout,
         startindex: ::std::os::raw::c_long,
@@ -13164,15 +13164,15 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tDraw a textlayout in a given graphics context.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@param\tg\t\tThe graphics context in which to draw the text."]
+    #[doc = "Draw a textlayout in a given graphics context.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@param\tg\t\tThe graphics context in which to draw the text."]
     pub fn jtextlayout_draw(tl: *mut t_jtextlayout, g: *mut t_jgraphics);
 }
 unsafe extern "C" {
-    #[doc = " Retrieve a count of the number of characters in a textlayout object.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@return\t\t\tThe number of characters."]
+    #[doc = "Retrieve a count of the number of characters in a textlayout object.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@return\t\t\tThe number of characters."]
     pub fn jtextlayout_getnumchars(tl: *mut t_jtextlayout) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the #t_rect containing a character at a given index.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@param\tindex\tThe index from which to fetch the unicode character.\n@param\trect\tThe address of a valid #t_rect which will be filled in upon return.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the #t_rect containing a character at a given index.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@param\tindex\tThe index from which to fetch the unicode character.\n@param\trect\tThe address of a valid #t_rect which will be filled in upon return.\n@return\t\t\tA Max error code."]
     pub fn jtextlayout_getcharbox(
         tl: *mut t_jtextlayout,
         index: ::std::os::raw::c_long,
@@ -13180,7 +13180,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRetrieve the unicode character at a given index.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@param\tindex\tThe index from which to fetch the unicode character.\n@param\tpch\t\tThe address of a variable to hold the unicode character value upon return.\n@return\t\t\tA Max error code."]
+    #[doc = "Retrieve the unicode character at a given index.\n@ingroup\t\ttextlayout\n@param\ttl\t\tThe textlayout object to query.\n@param\tindex\tThe index from which to fetch the unicode character.\n@param\tpch\t\tThe address of a variable to hold the unicode character value upon return.\n@return\t\t\tA Max error code."]
     pub fn jtextlayout_getchar(
         tl: *mut t_jtextlayout,
         index: ::std::os::raw::c_long,
@@ -13188,10 +13188,10 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Create a t_jpath object representing the text layout.\n@ingroup        textlayout\n@param  tl      The textlayout object to retrieve a path for.\n@return         A t_jpath. When finished with the path free it with jgraphics_path_destroy."]
+    #[doc = "Create a t_jpath object representing the text layout.\n@ingroup        textlayout\n@param  tl      The textlayout object to retrieve a path for.\n@return         A t_jpath. When finished with the path free it with jgraphics_path_destroy."]
     pub fn jtextlayout_createpath(tl: *mut t_jtextlayout) -> *mut t_jpath;
 }
-#[doc = " An affine transformation (such as scale, shear, etc).\n@ingroup jmatrix"]
+#[doc = "An affine transformation (such as scale, shear, etc).\n@ingroup jmatrix"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct t_jmatrix {
@@ -13220,7 +13220,7 @@ const _: () = {
     ["Offset of field: t_jmatrix::y0"][::std::mem::offset_of!(t_jmatrix, y0) - 40usize];
 };
 unsafe extern "C" {
-    #[doc = "\tSet a #t_jmatrix to an affine transformation.\n@ingroup\tjmatrix\n@param\tx\n@param\txx\n@param\tyx\n@param\txy\n@param\tyy\n@param\tx0\n@param\ty0\n@remark\t\tgiven x,y the matrix specifies the following transformation:\n@code\nxnew = xx * x + xy * y + x0;\nynew = yx * x + yy * y + y0;\n@endcode"]
+    #[doc = "Set a #t_jmatrix to an affine transformation.\n@ingroup\tjmatrix\n@param\tx\n@param\txx\n@param\tyx\n@param\txy\n@param\tyy\n@param\tx0\n@param\ty0\n@remark\t\tgiven x,y the matrix specifies the following transformation:\n\n```c\nxnew = xx * x + xy * y + x0;\nynew = yx * x + yy * y + y0;\n```\n"]
     pub fn jgraphics_matrix_init(
         x: *mut t_jmatrix,
         xx: f64,
@@ -13232,15 +13232,15 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Modify a matrix to be an identity transform.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix."]
+    #[doc = "Modify a matrix to be an identity transform.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix."]
     pub fn jgraphics_matrix_init_identity(x: *mut t_jmatrix);
 }
 unsafe extern "C" {
-    #[doc = "\tInitialize a #t_jmatrix to translate (offset) a point.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\ttx\tThe amount of x-axis translation.\n@param\tty\tThe amount of y-axis translation."]
+    #[doc = "Initialize a #t_jmatrix to translate (offset) a point.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\ttx\tThe amount of x-axis translation.\n@param\tty\tThe amount of y-axis translation."]
     pub fn jgraphics_matrix_init_translate(x: *mut t_jmatrix, tx: f64, ty: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tInitialize a #t_jmatrix to scale (offset) a point.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\tsx\tThe horizontal scale factor.\n@param\tsy\tThe vertical scale factor."]
+    #[doc = "Initialize a #t_jmatrix to scale (offset) a point.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\tsx\tThe horizontal scale factor.\n@param\tsy\tThe vertical scale factor."]
     pub fn jgraphics_matrix_init_scale(x: *mut t_jmatrix, sx: f64, sy: f64);
 }
 unsafe extern "C" {
@@ -13248,23 +13248,23 @@ unsafe extern "C" {
     pub fn jgraphics_matrix_init_rotate(x: *mut t_jmatrix, radians: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tApply a translation to an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\ttx\tThe amount of x-axis translation.\n@param\tty\tThe amount of y-axis translation."]
+    #[doc = "Apply a translation to an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\ttx\tThe amount of x-axis translation.\n@param\tty\tThe amount of y-axis translation."]
     pub fn jgraphics_matrix_translate(x: *mut t_jmatrix, tx: f64, ty: f64);
 }
 unsafe extern "C" {
-    #[doc = " Apply a scaling to an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\tsx\tThe horizontal scale factor.\n@param\tsy\tThe vertical scale factor."]
+    #[doc = "Apply a scaling to an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\tsx\tThe horizontal scale factor.\n@param\tsy\tThe vertical scale factor."]
     pub fn jgraphics_matrix_scale(x: *mut t_jmatrix, sx: f64, sy: f64);
 }
 unsafe extern "C" {
-    #[doc = " Apply a rotation to an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\tradians\tThe angle or rotation in radians."]
+    #[doc = "Apply a rotation to an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix.\n@param\tradians\tThe angle or rotation in radians."]
     pub fn jgraphics_matrix_rotate(x: *mut t_jmatrix, radians: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tInvert an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix."]
+    #[doc = "Invert an existing matrix.\n@ingroup\tjmatrix\n@param\tx\tThe #t_jmatrix."]
     pub fn jgraphics_matrix_invert(x: *mut t_jmatrix);
 }
 unsafe extern "C" {
-    #[doc = " Multiply two matrices: resulting matrix has effect of first applying a and then applying b.\n@ingroup\t\tjmatrix\n@param\tresult\tThe resulting product #t_jmatrix.\n@param\ta\t\tThe first operand.\n@param\tb\t\tThe second operand."]
+    #[doc = "Multiply two matrices: resulting matrix has effect of first applying a and then applying b.\n@ingroup\t\tjmatrix\n@param\tresult\tThe resulting product #t_jmatrix.\n@param\ta\t\tThe first operand.\n@param\tb\t\tThe second operand."]
     pub fn jgraphics_matrix_multiply(
         result: *mut t_jmatrix,
         a: *const t_jmatrix,
@@ -13272,7 +13272,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Transform a point using a #t_jmatrix transormation.\n@ingroup\t\tjmatrix\n@param\tmatrix\tThe #t_jmatrix.\n@param\tx\t\tThe address of the variable holding the x coordinate.\n@param\ty\t\tThe address of the variable holding the y coordinate."]
+    #[doc = "Transform a point using a #t_jmatrix transormation.\n@ingroup\t\tjmatrix\n@param\tmatrix\tThe #t_jmatrix.\n@param\tx\t\tThe address of the variable holding the x coordinate.\n@param\ty\t\tThe address of the variable holding the y coordinate."]
     pub fn jgraphics_matrix_transform_point(matrix: *const t_jmatrix, x: *mut f64, y: *mut f64);
 }
 unsafe extern "C" {
@@ -13384,11 +13384,11 @@ unsafe extern "C" {
     pub fn jgraphics_identity_matrix(g: *mut t_jgraphics);
 }
 unsafe extern "C" {
-    #[doc = "\tUser coordinates are those passed to drawing functions in a given #t_jgraphics context.\nDevice coordinates refer to patcher canvas coordinates, before any zooming.\n@ingroup jgraphics"]
+    #[doc = "User coordinates are those passed to drawing functions in a given #t_jgraphics context.\nDevice coordinates refer to patcher canvas coordinates, before any zooming.\n@ingroup jgraphics"]
     pub fn jgraphics_user_to_device(g: *mut t_jgraphics, x: *mut f64, y: *mut f64);
 }
 unsafe extern "C" {
-    #[doc = "\tUser coordinates are those passed to drawing functions in a given #t_jgraphics context.\nDevice coordinates refer to patcher canvas coordinates, before any zooming.\n@ingroup jgraphics"]
+    #[doc = "User coordinates are those passed to drawing functions in a given #t_jgraphics context.\nDevice coordinates refer to patcher canvas coordinates, before any zooming.\n@ingroup jgraphics"]
     pub fn jgraphics_device_to_user(g: *mut t_jgraphics, x: *mut f64, y: *mut f64);
 }
 unsafe extern "C" {
@@ -13693,15 +13693,15 @@ unsafe extern "C" {
     pub fn jcolor_linkcolor(x: *mut t_object, colorname: *mut t_symbol, attrname: *mut t_symbol);
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a pop-up menu.\nFree this pop-up menu using jpopupmenu_destroy().\n@ingroup\tjpopupmenu\n@return\t\tA pointer to the newly created jpopupmenu object."]
+    #[doc = "Create a pop-up menu.\nFree this pop-up menu using jpopupmenu_destroy().\n@ingroup\tjpopupmenu\n@return\t\tA pointer to the newly created jpopupmenu object."]
     pub fn jpopupmenu_create() -> *mut t_jpopupmenu;
 }
 unsafe extern "C" {
-    #[doc = "\tFree a pop-up menu created with jpopupmenu_create().\n@ingroup\t\tjpopupmenu\n@param\tmenu\tThe pop-up menu to be freed."]
+    #[doc = "Free a pop-up menu created with jpopupmenu_create().\n@ingroup\t\tjpopupmenu\n@param\tmenu\tThe pop-up menu to be freed."]
     pub fn jpopupmenu_destroy(menu: *mut t_jpopupmenu);
 }
 unsafe extern "C" {
-    #[doc = "\tClear the conents of a pop-up menu.\n@ingroup\t\tjpopupmenu\n@param\tmenu\tThe pop-up menu whose contents will be cleared."]
+    #[doc = "Clear the conents of a pop-up menu.\n@ingroup\t\tjpopupmenu\n@param\tmenu\tThe pop-up menu whose contents will be cleared."]
     pub fn jpopupmenu_clear(menu: *mut t_jpopupmenu);
 }
 #[repr(C)]
@@ -13724,7 +13724,7 @@ unsafe extern "C" {
     pub fn jpopupmenu_default_options() -> t_jpopupmenu_options;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the colors used by a pop-up menu.\n@ingroup\t\t\t\tjpopupmenu\n@param\tmenu\t\t\tThe pop-up menu to which the colors will be applied.\n@param\ttext\t\t\tThe text color for menu items.\n@param\tbg\t\t\t\tThe background color for menu items.\n@param\thighlightedtext\tThe text color for the highlighted menu item.\n@param\thighlightedbg\tThe background color the highlighted menu item."]
+    #[doc = "Set the colors used by a pop-up menu.\n@ingroup\t\t\t\tjpopupmenu\n@param\tmenu\t\t\tThe pop-up menu to which the colors will be applied.\n@param\ttext\t\t\tThe text color for menu items.\n@param\tbg\t\t\t\tThe background color for menu items.\n@param\thighlightedtext\tThe text color for the highlighted menu item.\n@param\thighlightedbg\tThe background color the highlighted menu item."]
     pub fn jpopupmenu_setcolors(
         menu: *mut t_jpopupmenu,
         text: t_jrgba,
@@ -13734,11 +13734,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tSet the font used by a pop-up menu.\n@ingroup\t\t\t\tjpopupmenu\n@param\tmenu\t\t\tThe pop-up menu whose font will be set.\n@param\tfont\t\t\tA pointer to a font object, whose font info will be copied to the pop-up menu."]
+    #[doc = "Set the font used by a pop-up menu.\n@ingroup\t\t\t\tjpopupmenu\n@param\tmenu\t\t\tThe pop-up menu whose font will be set.\n@param\tfont\t\t\tA pointer to a font object, whose font info will be copied to the pop-up menu."]
     pub fn jpopupmenu_setfont(menu: *mut t_jpopupmenu, font: *mut t_jfont);
 }
 unsafe extern "C" {
-    #[doc = "\tAdd an item to a pop-up menu.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to which the item will be added.\n@param\titemid\t\tEach menu item should be assigned a unique integer id using this parameter.\n@param\tutf8Text\tThe text to display in for the menu item.\n@param\ttextColor\tThe color to use for the menu item, or NULL to use the default color.\n@param\tchecked\t\tA non-zero value indicates that the item should have a check-mark next to it.\n@param\tdisabled\tA non-zero value indicates that the item should be disabled.\n@param\ticon\t\tA #t_jsurface will be used as an icon for the menu item if provided here.\nPass NULL for no icon."]
+    #[doc = "Add an item to a pop-up menu.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to which the item will be added.\n@param\titemid\t\tEach menu item should be assigned a unique integer id using this parameter.\n@param\tutf8Text\tThe text to display in for the menu item.\n@param\ttextColor\tThe color to use for the menu item, or NULL to use the default color.\n@param\tchecked\t\tA non-zero value indicates that the item should have a check-mark next to it.\n@param\tdisabled\tA non-zero value indicates that the item should be disabled.\n@param\ticon\t\tA #t_jsurface will be used as an icon for the menu item if provided here.\nPass NULL for no icon."]
     pub fn jpopupmenu_additem(
         menu: *mut t_jpopupmenu,
         itemid: ::std::os::raw::c_int,
@@ -13750,7 +13750,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a pop-menu to another pop-menu as a submenu.\nNote that the submenu contents are copied at the time of this call.\nSo, any changes to the submenu after this returns won't have an effect.\nAlso, it is safe to destroy the submenu after this function returns.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to which a menu will be added as a submenu.\n@param\tutf8Name\tThe name of the menu item.\n@param\tsubmenu\t\tThe pop-up menu which will be used as the submenu.\n@param\tdisabled\tPass a non-zero value to disable the menu item."]
+    #[doc = "Add a pop-menu to another pop-menu as a submenu.\nNote that the submenu contents are copied at the time of this call.\nSo, any changes to the submenu after this returns won't have an effect.\nAlso, it is safe to destroy the submenu after this function returns.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to which a menu will be added as a submenu.\n@param\tutf8Name\tThe name of the menu item.\n@param\tsubmenu\t\tThe pop-up menu which will be used as the submenu.\n@param\tdisabled\tPass a non-zero value to disable the menu item."]
     pub fn jpopupmenu_addsubmenu(
         menu: *mut t_jpopupmenu,
         utf8Name: *const ::std::os::raw::c_char,
@@ -13759,7 +13759,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a separator to a pop-menu.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to which the separator will be added."]
+    #[doc = "Add a separator to a pop-menu.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to which the separator will be added."]
     pub fn jpopupmenu_addseparator(menu: *mut t_jpopupmenu);
 }
 unsafe extern "C" {
@@ -13773,7 +13773,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tTell a menu to display at a specified location.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tscreen\t\tThe point at which to display in screen coordinates.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
+    #[doc = "Tell a menu to display at a specified location.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tscreen\t\tThe point at which to display in screen coordinates.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
     pub fn jpopupmenu_popup(
         menu: *mut t_jpopupmenu,
         screen: t_pt,
@@ -13781,7 +13781,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tTell a menu to display above a given box in a patcher.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tbox\t\t\tThe box above which to display the menu.\n@param\tview\t\tThe patcherview for the box in which to display the menu.\n@param\toffset\t\tAn offset from the box position at which to display the menu.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
+    #[doc = "Tell a menu to display above a given box in a patcher.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tbox\t\t\tThe box above which to display the menu.\n@param\tview\t\tThe patcherview for the box in which to display the menu.\n@param\toffset\t\tAn offset from the box position at which to display the menu.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
     pub fn jpopupmenu_popup_abovebox(
         menu: *mut t_jpopupmenu,
         box_: *mut t_object,
@@ -13791,7 +13791,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tTell a menu to display near a given box in a patcher.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tbox\t\t\tThe box above which to display the menu.\n@param\tview\t\tThe patcherview for the box in which to display the menu.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
+    #[doc = "Tell a menu to display near a given box in a patcher.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tbox\t\t\tThe box above which to display the menu.\n@param\tview\t\tThe patcherview for the box in which to display the menu.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
     pub fn jpopupmenu_popup_nearbox(
         menu: *mut t_jpopupmenu,
         box_: *mut t_object,
@@ -13800,7 +13800,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tTell a menu to display near a given box in a patcher with options.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tbox\t\t\tThe box above which to display the menu.\n@param\tview\t\tThe patcherview for the box in which to display the menu.\n@param\topts\t\tThe jpopupmenu options\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
+    #[doc = "Tell a menu to display near a given box in a patcher with options.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\tbox\t\t\tThe box above which to display the menu.\n@param\tview\t\tThe patcherview for the box in which to display the menu.\n@param\topts\t\tThe jpopupmenu options\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
     pub fn jpopupmenu_popup_nearbox_with_options(
         menu: *mut t_jpopupmenu,
         box_: *mut t_object,
@@ -13809,7 +13809,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tTell a menu to display below a given rectangle in a patcher.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\trect\t\tThe rectangle below which to display the menu.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
+    #[doc = "Tell a menu to display below a given rectangle in a patcher.\n@ingroup\t\t\tjpopupmenu\n@param\tmenu\t\tThe pop-up menu to display.\n@param\trect\t\tThe rectangle below which to display the menu.\n@param\tdefitemid\tThe initially choosen item id.\n@return\t\t\t\tThe item id for the item in the menu choosen by the user."]
     pub fn jpopupmenu_popup_belowrect(
         menu: *mut t_jpopupmenu,
         rect: t_rect,
@@ -13849,7 +13849,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = " Tell any open popup menus to go away."]
+    #[doc = "Tell any open popup menus to go away."]
     pub fn jpopupmenu_closeall();
 }
 unsafe extern "C" {
@@ -13869,11 +13869,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tGet the slant box's font.\n@ingroup\tjfont\n@param\tb\tAn object's box.\n@return\t\tA value from the #t_jgraphics_font_weight enum."]
+    #[doc = "Get the slant box's font.\n@ingroup\tjfont\n@param\tb\tAn object's box.\n@return\t\tA value from the #t_jgraphics_font_weight enum."]
     pub fn jbox_get_font_weight(b: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the slant box's font.\n@ingroup\tjfont\n@param\tb\tAn object's box.\n@return\t\tA value from the #t_jgraphics_font_slant enum."]
+    #[doc = "Get the slant box's font.\n@ingroup\tjfont\n@param\tb\tAn object's box.\n@return\t\tA value from the #t_jgraphics_font_slant enum."]
     pub fn jbox_get_font_slant(b: *mut t_object) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
@@ -13915,11 +13915,11 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGet the components of a color in an array of pre-allocated atoms.\n\n@ingroup color\n@param\targv\tThe address to the first of an array of atoms that will hold the result.\nAt least 4 atoms must be allocated, as 4 atoms will be set by this function\nfor the red, green, blue, and alpha components.\n@param\tc\t\tThe address of a #t_jrgba struct from which the color components will be fetched."]
+    #[doc = "Get the components of a color in an array of pre-allocated atoms.\n\n@ingroup color\n@param\targv\tThe address to the first of an array of atoms that will hold the result.\nAt least 4 atoms must be allocated, as 4 atoms will be set by this function\nfor the red, green, blue, and alpha components.\n@param\tc\t\tThe address of a #t_jrgba struct from which the color components will be fetched."]
     pub fn jrgba_to_atoms(c: *mut t_jrgba, argv: *mut t_atom);
 }
 unsafe extern "C" {
-    #[doc = "\tSet the components of a color by providing an array of atoms.\nIf it is an array of 3 atoms, then the atoms provided should define the\nred, green, and blue components (in this order) in a range of [0.0, 1.0].\nIf a 4th atom is provided, it will define the alpha channel.\nIf the alpha channel is not defined then it is assumed to be 1.0.\n\n@ingroup color\n@param\targc\tThe number of atoms in the array provided in argv.\nThis should be 3 or 4 depending on whether or not the alpha channel is being provided.\n@param\targv\tThe address to the first of an array of atoms that define the color.\n@param\tc\t\tThe address of a #t_jrgba struct for which the color will be defined.\n@return\t\t\tA Max error code."]
+    #[doc = "Set the components of a color by providing an array of atoms.\nIf it is an array of 3 atoms, then the atoms provided should define the\nred, green, and blue components (in this order) in a range of \\[0.0, 1.0\\].\nIf a 4th atom is provided, it will define the alpha channel.\nIf the alpha channel is not defined then it is assumed to be 1.0.\n\n@ingroup color\n@param\targc\tThe number of atoms in the array provided in argv.\nThis should be 3 or 4 depending on whether or not the alpha channel is being provided.\n@param\targv\tThe address to the first of an array of atoms that define the color.\n@param\tc\t\tThe address of a #t_jrgba struct for which the color will be defined.\n@return\t\t\tA Max error code."]
     pub fn atoms_to_jrgba(
         argc: ::std::os::raw::c_long,
         argv: *mut t_atom,
@@ -13927,19 +13927,19 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the components of a color.\n@ingroup color\n@param\tprgba\tThe address of a #t_jrgba struct for which the color will be defined.\n@param\tr\t\tThe value of the red component in a range of [0.0, 1.0].\n@param\tg\t\tThe value of the green component in a range of [0.0, 1.0].\n@param\tb\t\tThe value of the blue component in a range of [0.0, 1.0].\n@param\ta\t\tThe value of the alpha component in a range of [0.0, 1.0]."]
+    #[doc = "Set the components of a color.\n@ingroup color\n@param\tprgba\tThe address of a #t_jrgba struct for which the color will be defined.\n@param\tr\t\tThe value of the red component in a range of \\[0.0, 1.0\\].\n@param\tg\t\tThe value of the green component in a range of \\[0.0, 1.0\\].\n@param\tb\t\tThe value of the blue component in a range of \\[0.0, 1.0\\].\n@param\ta\t\tThe value of the alpha component in a range of \\[0.0, 1.0\\]."]
     pub fn jrgba_set(prgba: *mut t_jrgba, r: f64, g: f64, b: f64, a: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tCopy a color.\n@ingroup color\n@param\tdest\tThe address of a #t_jrgba struct to which the color will be copied.\n@param\tsrc\t\tThe address of a #t_jrgba struct from which the color will be copied."]
+    #[doc = "Copy a color.\n@ingroup color\n@param\tdest\tThe address of a #t_jrgba struct to which the color will be copied.\n@param\tsrc\t\tThe address of a #t_jrgba struct from which the color will be copied."]
     pub fn jrgba_copy(dest: *mut t_jrgba, src: *mut t_jrgba);
 }
 unsafe extern "C" {
-    #[doc = "\tCompare two colors for equality.\n@ingroup color\n@param\trgba1\tThe address of a #t_jrgba struct to compare.\n@param\trgba2\tThe address of another #t_jrgba struct to compare.\n@return \t\treturns 1 if rgba1 == rgba2."]
+    #[doc = "Compare two colors for equality.\n@ingroup color\n@param\trgba1\tThe address of a #t_jrgba struct to compare.\n@param\trgba2\tThe address of another #t_jrgba struct to compare.\n@return \t\treturns 1 if rgba1 == rgba2."]
     pub fn jrgba_compare(rgba1: *mut t_jrgba, rgba2: *mut t_jrgba) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tGet a list of of filetypes appropriate for use with jgraphics surfaces.\n@ingroup\t\t\tjgraphics\n@param\tdummy\t\tUnused.\n@param\tcount\t\tThe address of a variable to be set with the number of types in filetypes upon return.\n@param\tfiletypes\tThe address of a variable that will represent the array of file types upon return.\n@param\talloc\t\tThe address of a char that will be flagged with a 1 or a 0 depending on whether or not\nmemory was allocated for the filetypes member.\n\n@remark This example shows a common usage of jgraphics_getfiletypes().\n@code\nchar       filename[MAX_PATH_CHARS];\nt_fourcc   *type = NULL;\nlong       ntype;\nlong       outtype;\nt_max_err  err;\nchar       alloc;\nshort      path;\nt_jsurface *surface;\n\nif (want_to_show_dialog) {\njgraphics_getfiletypes(x, &ntype, &type, &alloc);\nerr = open_dialog(filename, &path,(void *)&outtype, (void *)type, ntype);\nif (err)\ngoto out;\n}\nelse {\nstrncpy_zero(filename, s->s_name, MAX_PATH_CHARS);\nerr = locatefile_extended(filename, &path, &outtype, type, ntype);\nif (err)\ngoto out;\n}\nsurface = jgraphics_image_surface_create_referenced(filename, path);\nout:\nif (alloc)\nsysmem_freeptr((char *)type);\n@endcode"]
+    #[doc = "Get a list of of filetypes appropriate for use with jgraphics surfaces.\n@ingroup\t\t\tjgraphics\n@param\tdummy\t\tUnused.\n@param\tcount\t\tThe address of a variable to be set with the number of types in filetypes upon return.\n@param\tfiletypes\tThe address of a variable that will represent the array of file types upon return.\n@param\talloc\t\tThe address of a char that will be flagged with a 1 or a 0 depending on whether or not\nmemory was allocated for the filetypes member.\n\n@remark This example shows a common usage of jgraphics_getfiletypes().\n\n```c\nchar       filename[MAX_PATH_CHARS];\nt_fourcc   *type = NULL;\nlong       ntype;\nlong       outtype;\nt_max_err  err;\nchar       alloc;\nshort      path;\nt_jsurface *surface;\n\nif (want_to_show_dialog) {\njgraphics_getfiletypes(x, &ntype, &type, &alloc);\nerr = open_dialog(filename, &path,(void *)&outtype, (void *)type, ntype);\nif (err)\ngoto out;\n}\nelse {\nstrncpy_zero(filename, s->s_name, MAX_PATH_CHARS);\nerr = locatefile_extended(filename, &path, &outtype, type, ntype);\nif (err)\ngoto out;\n}\nsurface = jgraphics_image_surface_create_referenced(filename, path);\nout:\nif (alloc)\nsysmem_freeptr((char *)type);\n```\n"]
     pub fn jgraphics_getfiletypes(
         dummy: *mut ::std::os::raw::c_void,
         count: *mut ::std::os::raw::c_long,
@@ -13948,7 +13948,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tInvalidate a layer, indicating that it needs to be re-drawn.\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box to invalidate.\n@param\tview\tThe patcherview for the object which should be invalidated, or NULL for all patcherviews.\n@param\tname\tThe name of the layer to invalidate.\n@return\t\t\tA Max error code."]
+    #[doc = "Invalidate a layer, indicating that it needs to be re-drawn.\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box to invalidate.\n@param\tview\tThe patcherview for the object which should be invalidated, or NULL for all patcherviews.\n@param\tname\tThe name of the layer to invalidate.\n@return\t\t\tA Max error code."]
     pub fn jbox_invalidate_layer(
         b: *mut t_object,
         view: *mut t_object,
@@ -13963,7 +13963,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a layer, and ready it for drawing commands.\nThe layer drawing commands must be wrapped with a matching call to jbox_end_layer()\nprior to calling jbox_paint_layer().\n\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box to which the layer is attached.\n@param\tview\tThe patcherview for the object to which the layer is attached.\n@param\tname\tA name for this layer.\n@param\twidth\tThe width of the layer.\n@param\theight\tThe height of the layer.\n@return\t\t\tA #t_jgraphics context for drawing into the layer."]
+    #[doc = "Create a layer, and ready it for drawing commands.\nThe layer drawing commands must be wrapped with a matching call to jbox_end_layer()\nprior to calling jbox_paint_layer().\n\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box to which the layer is attached.\n@param\tview\tThe patcherview for the object to which the layer is attached.\n@param\tname\tA name for this layer.\n@param\twidth\tThe width of the layer.\n@param\theight\tThe height of the layer.\n@return\t\t\tA #t_jgraphics context for drawing into the layer."]
     pub fn jbox_start_layer(
         b: *mut t_object,
         view: *mut t_object,
@@ -13973,11 +13973,11 @@ unsafe extern "C" {
     ) -> *mut t_jgraphics;
 }
 unsafe extern "C" {
-    #[doc = "\tConclude a layer, indicating that it is complete and ready for painting.\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box for the layer opened by jbox_start_layer().\n@param\tview\tThe patcherview for the object opened by jbox_start_layer().\n@param\tname\tThe name of the layer.\n@return\t\t\tA Max error code."]
+    #[doc = "Conclude a layer, indicating that it is complete and ready for painting.\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box for the layer opened by jbox_start_layer().\n@param\tview\tThe patcherview for the object opened by jbox_start_layer().\n@param\tname\tThe name of the layer.\n@return\t\t\tA Max error code."]
     pub fn jbox_end_layer(b: *mut t_object, view: *mut t_object, name: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tPaint a layer at a given position.\nNote that the current color alpha value is used when painting layers to allow you to blend layers.\nThe same is also true for jgraphics_image_surface_draw() and jgraphics_image_surface_draw_fast().\n\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box to be painted.\n@param\tview\tThe patcherview for the object which should be painted, or NULL for all patcherviews.\n@param\tname\tThe name of the layer to paint.\n@param\tx\t\tThe x-coordinate for the position at which to paint the layer.\n@param\ty\t\tThe y-coordinate for the position at which to paint the layer.\n@return\t\t\tA Max error code."]
+    #[doc = "Paint a layer at a given position.\nNote that the current color alpha value is used when painting layers to allow you to blend layers.\nThe same is also true for jgraphics_image_surface_draw() and jgraphics_image_surface_draw_fast().\n\n@ingroup\t\tboxlayer\n@param\tb\t\tThe object/box to be painted.\n@param\tview\tThe patcherview for the object which should be painted, or NULL for all patcherviews.\n@param\tname\tThe name of the layer to paint.\n@param\tx\t\tThe x-coordinate for the position at which to paint the layer.\n@param\ty\t\tThe y-coordinate for the position at which to paint the layer.\n@return\t\t\tA Max error code."]
     pub fn jbox_paint_layer(
         b: *mut t_object,
         view: *mut t_object,
@@ -13987,19 +13987,19 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Simple utility to test for rectangle intersection.\n@ingroup\t\tjgraphics\n@param\tr1\t\tThe address of the first rect for the test.\n@param\tr2\t\tThe address of the second rect for the test.\n@return\t\t\tReturns true if the rects intersect, otherwise false."]
+    #[doc = "Simple utility to test for rectangle intersection.\n@ingroup\t\tjgraphics\n@param\tr1\t\tThe address of the first rect for the test.\n@param\tr2\t\tThe address of the second rect for the test.\n@return\t\t\tReturns true if the rects intersect, otherwise false."]
     pub fn jgraphics_rectintersectsrect(r1: *mut t_rect, r2: *mut t_rect)
     -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = " Simple utility to test for rectangle containment.\n@ingroup\t\tjgraphics\n@param\touter\tThe address of the first rect for the test.\n@param\tinner\tThe address of the second rect for the test.\n@return\t\t\tReturns true if the inner rect is completely inside the outer rect,\notherwise false."]
+    #[doc = "Simple utility to test for rectangle containment.\n@ingroup\t\tjgraphics\n@param\touter\tThe address of the first rect for the test.\n@param\tinner\tThe address of the second rect for the test.\n@return\t\t\tReturns true if the inner rect is completely inside the outer rect,\notherwise false."]
     pub fn jgraphics_rectcontainsrect(
         outer: *mut t_rect,
         inner: *mut t_rect,
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = " Clip to a subset of the graphics context; once done, cannot be undone, only further reduced.\n@ingroup\t\tjgraphics\n\n@param\t\tg\t\tThe #t_jgraphics context to be clipped.\n@param\t\tx\t\tx origin of clip region.\n@param\t\ty\t\ty origin of clip region.\n@param\t\twidth\twidth of clip region.\n@param\t\theight\theight of clip region."]
+    #[doc = "Clip to a subset of the graphics context; once done, cannot be undone, only further reduced.\n@ingroup\t\tjgraphics\n\n@param\t\tg\t\tThe #t_jgraphics context to be clipped.\n@param\t\tx\t\tx origin of clip region.\n@param\t\ty\t\ty origin of clip region.\n@param\t\twidth\twidth of clip region.\n@param\t\theight\theight of clip region."]
     pub fn jgraphics_clip(g: *mut t_jgraphics, x: f64, y: f64, width: f64, height: f64);
 }
 pub mod _jgraphics_dpi_awareness {
@@ -14062,11 +14062,11 @@ unsafe extern "C" {
     pub fn backgroundtask_join(task: *mut t_backgroundtask) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tAdd an attribute to the current style.\n@ingroup styles\n\n@param\tc\tThe class whose attribute will be added to the style.\n@param\ts\tThe name of the attribute to be added to the style.\n@see The 'uitextfield' example project in the SDK."]
+    #[doc = "Add an attribute to the current style.\n@ingroup styles\n\n@param\tc\tThe class whose attribute will be added to the style.\n@param\ts\tThe name of the attribute to be added to the style.\n@see The 'uitextfield' example project in the SDK."]
     pub fn class_attr_setstyle(c: *mut t_class, s: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    #[doc = "\tAdd an alias to the current style.\nThis is used for backward compatibility where an attribute using an old name will want a style applied to it from a different name.\nTypically you will use one of the macros such as #CLASS_ATTR_STYLE_ALIAS_NOSAVE rather than using this function directly.\n@ingroup styles\n\n@param\tc\t\t\tThe class for whom the alias will be created.\n@param\tname\t\tThe name of the attribute of the style.\n@param\taliasname\tThe name of the alias.\n@param\tlegacy\t\tAlways pass 0 for this argument.\n@see\t#CLASS_ATTR_STYLE_ALIAS_NOSAVE\n@see \tThe 'jslider' project in the SDK."]
+    #[doc = "Add an alias to the current style.\nThis is used for backward compatibility where an attribute using an old name will want a style applied to it from a different name.\nTypically you will use one of the macros such as #CLASS_ATTR_STYLE_ALIAS_NOSAVE rather than using this function directly.\n@ingroup styles\n\n@param\tc\t\t\tThe class for whom the alias will be created.\n@param\tname\t\tThe name of the attribute of the style.\n@param\taliasname\tThe name of the alias.\n@param\tlegacy\t\tAlways pass 0 for this argument.\n@see\t#CLASS_ATTR_STYLE_ALIAS_NOSAVE\n@see \tThe 'jslider' project in the SDK."]
     pub fn class_attr_style_alias(
         c: *mut t_class,
         name: *const ::std::os::raw::c_char,
@@ -14075,7 +14075,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tSpecify that an attr requires a fill.\n@ingroup styles\n\n@param\tc\t\tThe class whose attribute is a fill.\n@param\tname\tThe name of the attribute.\n@param\tflags\t0 for none, or #FILL_ATTR_SAVE.\n@see The 'uitextfield' example project in the SDK."]
+    #[doc = "Specify that an attr requires a fill.\n@ingroup styles\n\n@param\tc\t\tThe class whose attribute is a fill.\n@param\tname\tThe name of the attribute.\n@param\tflags\t0 for none, or #FILL_ATTR_SAVE.\n@see The 'uitextfield' example project in the SDK."]
     pub fn class_attr_setfill(
         c: *mut t_class,
         name: *const ::std::os::raw::c_char,
@@ -14083,7 +14083,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tFill using the current value of a named style color that exists either in the object or the defined style.\nAbdridged example from the 'attrui' object:\n@code\nlong is_fill = object_attr_getfill(destination, x->j_attr);\n\nif (is_fill) {\njgraphics_attr_fillrect((t_object *)destination, g, x->j_attr, rect);\njgraphics_rectangle(g, rect->x, rect->y, rect->width, rect->height);\t// ready to be stroked\n}\nelse {\nobject_attr_getjrgba(destination, x->j_attr, &color);\njgraphics_set_source_jrgba(g, &color);\njgraphics_rectangle(g, rect->x, rect->y, rect->width, rect->height);\njgraphics_fill_preserve(g);\n}\n\njgraphics_set_source_jrgba(g, &bordercolor);\njgraphics_stroke(g);\n@endcode\n\n@ingroup styles\n\n@param\tb\t\t\tThe instance of your object.\n@param\tg\t\t\tThe jgraphics context.\n@param\tattrname\tThe name of the attribute whose fill style you want.\n@param\tarea\t\tThe rect area to be filled."]
+    #[doc = "Fill using the current value of a named style color that exists either in the object or the defined style.\nAbdridged example from the 'attrui' object:\n\n```c\nlong is_fill = object_attr_getfill(destination, x->j_attr);\n\nif (is_fill) {\njgraphics_attr_fillrect((t_object *)destination, g, x->j_attr, rect);\njgraphics_rectangle(g, rect->x, rect->y, rect->width, rect->height);\t// ready to be stroked\n}\nelse {\nobject_attr_getjrgba(destination, x->j_attr, &color);\njgraphics_set_source_jrgba(g, &color);\njgraphics_rectangle(g, rect->x, rect->y, rect->width, rect->height);\njgraphics_fill_preserve(g);\n}\n\njgraphics_set_source_jrgba(g, &bordercolor);\njgraphics_stroke(g);\n```\n\n\n@ingroup styles\n\n@param\tb\t\t\tThe instance of your object.\n@param\tg\t\t\tThe jgraphics context.\n@param\tattrname\tThe name of the attribute whose fill style you want.\n@param\tarea\t\tThe rect area to be filled."]
     pub fn jgraphics_attr_fillrect(
         b: *mut t_object,
         g: *mut t_jgraphics,
@@ -14092,7 +14092,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tFill using the current value of a named style color that exists either in the object or the defined style.\nExample from the 'panel' object:\n@code\nt_rect r;\n\nr.x = r.y = thick * 0.5;\nr.width = rect->width - thick;\nr.height = rect->height - thick;\n\npat = jgraphics_attr_setfill((t_object *)x, g, ps_bgfillcolor, &r);\njgraphics_rectangle_rounded(g, r.x, r.y, r.width, r.height, round, round);\njgraphics_fill_preserve(g);\njgraphics_pattern_destroy(pat);\n\nobject_attr_getjrgba(x, ps_bordercolor, &color);\njgraphics_set_source_jrgba(g, &color);\njgraphics_set_line_width(g, thick);\njgraphics_stroke(g);\n@endcode\n\n@ingroup styles\n\n@param\tb\t\t\tThe instance of your object.\n@param\tg\t\t\tThe jgraphics context.\n@param\tattrname\tThe name of the attribute whose fill style you want.\n@param\tarea\t\tThe rect area to be filled.\n@return\t\t\t\tThe pattern."]
+    #[doc = "Fill using the current value of a named style color that exists either in the object or the defined style.\nExample from the 'panel' object:\n\n```c\nt_rect r;\n\nr.x = r.y = thick * 0.5;\nr.width = rect->width - thick;\nr.height = rect->height - thick;\n\npat = jgraphics_attr_setfill((t_object *)x, g, ps_bgfillcolor, &r);\njgraphics_rectangle_rounded(g, r.x, r.y, r.width, r.height, round, round);\njgraphics_fill_preserve(g);\njgraphics_pattern_destroy(pat);\n\nobject_attr_getjrgba(x, ps_bordercolor, &color);\njgraphics_set_source_jrgba(g, &color);\njgraphics_set_line_width(g, thick);\njgraphics_stroke(g);\n```\n\n\n@ingroup styles\n\n@param\tb\t\t\tThe instance of your object.\n@param\tg\t\t\tThe jgraphics context.\n@param\tattrname\tThe name of the attribute whose fill style you want.\n@param\tarea\t\tThe rect area to be filled.\n@return\t\t\t\tThe pattern."]
     pub fn jgraphics_attr_setfill(
         b: *mut t_object,
         g: *mut t_jgraphics,
@@ -14101,7 +14101,7 @@ unsafe extern "C" {
     ) -> *mut t_jpattern;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine the color at a given position in a fill.\n@ingroup\tstyles\n@param\t\tb\t\t\tThe instance of your object.\n@param\t\tattrname\tThe name of the attribute to query.\n@param\t\tpos\t\t\tThe position in a range of [0.0, 1.0].\n@param\t\tc\t\t\tA valid #t_jrgba whose members will be filled-in upon return.\n@return \t\t\t\ttrue if the object is a fill, otherwise false."]
+    #[doc = "Determine the color at a given position in a fill.\n@ingroup\tstyles\n@param\t\tb\t\t\tThe instance of your object.\n@param\t\tattrname\tThe name of the attribute to query.\n@param\t\tpos\t\t\tThe position in a range of \\[0.0, 1.0\\].\n@param\t\tc\t\t\tA valid #t_jrgba whose members will be filled-in upon return.\n@return \t\t\t\ttrue if the object is a fill, otherwise false."]
     pub fn object_attr_getfillcolor_atposition(
         b: *mut t_object,
         attrname: *const ::std::os::raw::c_char,
@@ -14110,7 +14110,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine if an attribute is a fill.\n@ingroup\tstyles\n@param\t\tobj\t\t\tThe instance of your object.\n@param\t\tattrname\tThe name of the attribute to query.\n@return \t\t\t\ttrue if the object is a fill, otherwise false."]
+    #[doc = "Determine if an attribute is a fill.\n@ingroup\tstyles\n@param\t\tobj\t\t\tThe instance of your object.\n@param\t\tattrname\tThe name of the attribute to query.\n@return \t\t\t\ttrue if the object is a fill, otherwise false."]
     pub fn object_attr_getfill(
         obj: *mut t_object,
         attrname: *mut t_symbol,
@@ -14126,7 +14126,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tAssociate the name of an attribute of your class with the name of an attribute of a style.\n@ingroup\tstyles\n@param\t\tc\t\t\tThe class whose attribute will be added to the style.\n@param\t\tattrname\tThe name of the attribute of your class.\n@param\t\tmapname\t\tThe name of the attribute from the style.\n@see\t\t'jslider' example project in the SDK."]
+    #[doc = "Associate the name of an attribute of your class with the name of an attribute of a style.\n@ingroup\tstyles\n@param\t\tc\t\t\tThe class whose attribute will be added to the style.\n@param\t\tattrname\tThe name of the attribute of your class.\n@param\t\tmapname\t\tThe name of the attribute from the style.\n@see\t\t'jslider' example project in the SDK."]
     pub fn class_attr_stylemap(
         c: *mut t_class,
         attrname: *const ::std::os::raw::c_char,
@@ -14176,17 +14176,17 @@ unsafe extern "C" {
     pub fn critical_free(x: t_critical);
 }
 unsafe extern "C" {
-    #[doc = "\tTry to enter a critical region if it is not locked.\n@ingroup\tcritical\n@param\tx\tA pointer to a #t_critical struct, or zero to uses Max’s global critical region.\n@return\t\treturns non-zero if there was a problem entering\n@see\t\tcritical_enter()"]
+    #[doc = "Try to enter a critical region if it is not locked.\n@ingroup\tcritical\n@param\tx\tA pointer to a #t_critical struct, or zero to uses Max’s global critical region.\n@return\t\treturns non-zero if there was a problem entering\n@see\t\tcritical_enter()"]
     pub fn critical_tryenter(x: t_critical) -> ::std::os::raw::c_short;
 }
-#[doc = "\tA database object.\nUse db_open() and db_close() to create and free database objects.\n@ingroup\tdatabase"]
+#[doc = "A database object.\nUse db_open() and db_close() to create and free database objects.\n@ingroup\tdatabase"]
 pub type t_database = t_object;
-#[doc = "\tA database result object.\nThis is what the database object returns when a query is executed.\n@ingroup\tdatabase"]
+#[doc = "A database result object.\nThis is what the database object returns when a query is executed.\n@ingroup\tdatabase"]
 pub type t_db_result = t_object;
-#[doc = "\tA database view object.\nA database view wraps a query and a result for a given database, and is always updated and in-sync with the database.\n@ingroup\tdatabase"]
+#[doc = "A database view object.\nA database view wraps a query and a result for a given database, and is always updated and in-sync with the database.\n@ingroup\tdatabase"]
 pub type t_db_view = t_object;
 unsafe extern "C" {
-    #[doc = "\tCreate an instance of a database.\n@ingroup\tdatabase\n@param\t\tdbname\t\tThe name of the database.\n@param\t\tfullpath\tIf a database with this dbname is not already open,\nthis will specify a full path to the location where the database is stored on disk.\nIf NULL is passed for this argument, the database will reside in memory only.\nThe path should be formatted as a Max style path.\n@param\t\tdb\t\t\tThe address of a #t_database pointer that will be set to point to the new database instance.\nIf the pointer is not NULL, then it will be treated as a pre-existing database instance\nand thus will be freed.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Create an instance of a database.\n@ingroup\tdatabase\n@param\t\tdbname\t\tThe name of the database.\n@param\t\tfullpath\tIf a database with this dbname is not already open,\nthis will specify a full path to the location where the database is stored on disk.\nIf NULL is passed for this argument, the database will reside in memory only.\nThe path should be formatted as a Max style path.\n@param\t\tdb\t\t\tThe address of a #t_database pointer that will be set to point to the new database instance.\nIf the pointer is not NULL, then it will be treated as a pre-existing database instance\nand thus will be freed.\n@return\t\t\t\t\tAn error code."]
     pub fn db_open(
         dbname: *mut t_symbol,
         fullpath: *const ::std::os::raw::c_char,
@@ -14194,11 +14194,11 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tClose an open database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe address of the #t_database pointer for your database instance.\nThe pointer will be freed and set NULL upon return.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Close an open database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe address of the #t_database pointer for your database instance.\nThe pointer will be freed and set NULL upon return.\n@return\t\t\t\t\tAn error code."]
     pub fn db_close(db: *mut *mut t_database) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tExecute a SQL query on the database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tdbresult\tThe address of a #t_db_result pointer.\nIf the pointer is passed-in set to NULL then a new dbresult will be created.\nIf the pointer is not NULL then it is assumed to be a valid dbresult, which will be filled in with the query results.\nWhen you are done with the dbresult you should free it with object_free().\n@param\t\tsql\t\t\tA C-string containing a valid SQL query, possibly with sprintf() formatting codes.\n@param\t\t...\t\t\tIf an sprintf() formatting codes are used in the sql string, these values will be interpolated into the sql string.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Execute a SQL query on the database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tdbresult\tThe address of a #t_db_result pointer.\nIf the pointer is passed-in set to NULL then a new dbresult will be created.\nIf the pointer is not NULL then it is assumed to be a valid dbresult, which will be filled in with the query results.\nWhen you are done with the dbresult you should free it with object_free().\n@param\t\tsql\t\t\tA C-string containing a valid SQL query, possibly with sprintf() formatting codes.\n@param\t\t...\t\t\tIf an sprintf() formatting codes are used in the sql string, these values will be interpolated into the sql string.\n@return\t\t\t\t\tAn error code."]
     pub fn db_query(
         db: *mut t_database,
         dbresult: *mut *mut t_db_result,
@@ -14207,7 +14207,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tExecute a SQL query on the database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tdbresult\tThe address of a #t_db_result pointer.\nIf the pointer is passed-in set to NULL then a new dbresult will be created.\nIf the pointer is not NULL then it is assumed to be a valid dbresult, which will be filled in with the query results.\nWhen you are done with the dbresult you should free it with object_free().\n@param\t\tsql\t\t\tA C-string containing a valid SQL query.\n@return\t\t\t\tAn error code."]
+    #[doc = "Execute a SQL query on the database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tdbresult\tThe address of a #t_db_result pointer.\nIf the pointer is passed-in set to NULL then a new dbresult will be created.\nIf the pointer is not NULL then it is assumed to be a valid dbresult, which will be filled in with the query results.\nWhen you are done with the dbresult you should free it with object_free().\n@param\t\tsql\t\t\tA C-string containing a valid SQL query.\n@return\t\t\t\tAn error code."]
     pub fn db_query_direct(
         db: *mut t_database,
         dbresult: *mut *mut t_db_result,
@@ -14215,7 +14215,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tExecute a SQL query on the database, temporarily overriding the database's error logging attribute.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tdbresult\tThe address of a #t_db_result pointer.\nIf the pointer is passed-in set to NULL then a new dbresult will be created.\nIf the pointer is not NULL then it is assumed to be a valid dbresult, which will be filled in with the query results.\nWhen you are done with the dbresult you should free it with object_free().\n@param\t\tsql\t\t\tA C-string containing a valid SQL query, possibly with sprintf() formatting codes.\n@param\t\t...\t\t\tIf an sprintf() formatting codes are used in the sql string, these values will be interpolated into the sql string.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Execute a SQL query on the database, temporarily overriding the database's error logging attribute.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tdbresult\tThe address of a #t_db_result pointer.\nIf the pointer is passed-in set to NULL then a new dbresult will be created.\nIf the pointer is not NULL then it is assumed to be a valid dbresult, which will be filled in with the query results.\nWhen you are done with the dbresult you should free it with object_free().\n@param\t\tsql\t\t\tA C-string containing a valid SQL query, possibly with sprintf() formatting codes.\n@param\t\t...\t\t\tIf an sprintf() formatting codes are used in the sql string, these values will be interpolated into the sql string.\n@return\t\t\t\t\tAn error code."]
     pub fn db_query_silent(
         db: *mut t_database,
         dbresult: *mut *mut t_db_result,
@@ -14224,21 +14224,21 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tDetermine the id (key) number for the most recent INSERT query executed on the database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tid\t\t\tThe address of a variable to hold the result on return.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Determine the id (key) number for the most recent INSERT query executed on the database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tid\t\t\tThe address of a variable to hold the result on return.\n@return\t\t\t\t\tAn error code."]
     pub fn db_query_getlastinsertid(
         db: *mut t_database,
         id: *mut ::std::os::raw::c_long,
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new table in a database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\ttablename\tThe name to use for the new table.\nThe new table will be created with one column, which holds the primary key for the table,\nand is named according the form {tablename}_id.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Create a new table in a database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\ttablename\tThe name to use for the new table.\nThe new table will be created with one column, which holds the primary key for the table,\nand is named according the form {tablename}_id.\n@return\t\t\t\t\tAn error code."]
     pub fn db_query_table_new(
         db: *mut t_database,
         tablename: *const ::std::os::raw::c_char,
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tAdd a new column to an existing table in a database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\ttablename\tThe name of the table to which the column should be added.\n@param\t\tcolumnname\tThe name to use for the new column.\n@param\t\tcolumntype\tThe SQL type for the data that will be stored in the column.\nFor example: \"INTEGER\" or \"VARCHAR\"\n@param\t\tflags\t\tIf you wish to specify any additional information for the column, then pass that here.\nOtherwise pass NULL.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Add a new column to an existing table in a database.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\ttablename\tThe name of the table to which the column should be added.\n@param\t\tcolumnname\tThe name to use for the new column.\n@param\t\tcolumntype\tThe SQL type for the data that will be stored in the column.\nFor example: \"INTEGER\" or \"VARCHAR\"\n@param\t\tflags\t\tIf you wish to specify any additional information for the column, then pass that here.\nOtherwise pass NULL.\n@return\t\t\t\t\tAn error code."]
     pub fn db_query_table_addcolumn(
         db: *mut t_database,
         tablename: *const ::std::os::raw::c_char,
@@ -14248,19 +14248,19 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tBegin a database transaction.\nWhen you are working with a file-based database, then the database will not be flushed to disk until db_transacation_end() is called.\nThis means that you can _much_ more efficiently execute a sequence of queries in one transaction rather than independently.\n\nThat database object reference counts transactions, so it is possible nest calls to db_transacation_start() and db_transacation_end().\nIt is important to balance all calls with db_transacation_end() or the database contents will never be flushed to disk.\n\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Begin a database transaction.\nWhen you are working with a file-based database, then the database will not be flushed to disk until db_transacation_end() is called.\nThis means that you can _much_ more efficiently execute a sequence of queries in one transaction rather than independently.\n\nThat database object reference counts transactions, so it is possible nest calls to db_transacation_start() and db_transacation_end().\nIt is important to balance all calls with db_transacation_end() or the database contents will never be flushed to disk.\n\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@return\t\t\t\t\tAn error code."]
     pub fn db_transaction_start(db: *mut t_database) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFinalize a database transaction.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Finalize a database transaction.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@return\t\t\t\t\tAn error code."]
     pub fn db_transaction_end(db: *mut t_database) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tForce any open transactions to close.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Force any open transactions to close.\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@return\t\t\t\t\tAn error code."]
     pub fn db_transaction_flush(db: *mut t_database) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tA database view is a way of looking at a particular set of records in the database.\nThis particular set of records is defined with a standard SQL query,\nand the view maintains a copy of the results of the query internally.\nAny time the database is modified the internal result set is updated,\nand any objects listening to the view are notified via object_notify().\n\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tsql\t\t\tA SQL query that defines the set of results provided by the view.\n@param\t\tdbview\t\tThe address of a NULL #t_db_view pointer which will be set with the new view upon return.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "A database view is a way of looking at a particular set of records in the database.\nThis particular set of records is defined with a standard SQL query,\nand the view maintains a copy of the results of the query internally.\nAny time the database is modified the internal result set is updated,\nand any objects listening to the view are notified via object_notify().\n\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance.\n@param\t\tsql\t\t\tA SQL query that defines the set of results provided by the view.\n@param\t\tdbview\t\tThe address of a NULL #t_db_view pointer which will be set with the new view upon return.\n@return\t\t\t\t\tAn error code."]
     pub fn db_view_create(
         db: *mut t_database,
         sql: *const ::std::os::raw::c_char,
@@ -14268,49 +14268,49 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRemove a database view created using db_view_create().\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance for which this view was created.\n@param\t\tdbview\t\tThe address of the #t_db_view pointer for the view.\nThis pointer will be freed and set NULL upon return.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Remove a database view created using db_view_create().\n@ingroup\tdatabase\n@param\t\tdb\t\t\tThe #t_database pointer for your database instance for which this view was created.\n@param\t\tdbview\t\tThe address of the #t_db_view pointer for the view.\nThis pointer will be freed and set NULL upon return.\n@return\t\t\t\t\tAn error code."]
     pub fn db_view_remove(db: *mut t_database, dbview: *mut *mut t_db_view) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFetch the pointer for a #t_db_view's query result.\n@ingroup\tdatabase\n@param\t\tdbview\t\tThe #t_db_view pointer for your database view instance.\n@param\t\tresult\t\tThe address of a pointer to a #t_db_result object.\nThis pointer will be overwritten with the view's result pointer upon return.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Fetch the pointer for a #t_db_view's query result.\n@ingroup\tdatabase\n@param\t\tdbview\t\tThe #t_db_view pointer for your database view instance.\n@param\t\tresult\t\tThe address of a pointer to a #t_db_result object.\nThis pointer will be overwritten with the view's result pointer upon return.\n@return\t\t\t\t\tAn error code."]
     pub fn db_view_getresult(dbview: *mut t_db_view, result: *mut *mut t_db_result) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the query used by the view.\n@ingroup\tdatabase\n@param\t\tdbview\t\tThe #t_db_view pointer for your database view instance.\n@param\t\tnewquery\tThe SQL string to define a new query for the view, replacing the old query.\n@return\t\t\t\t\tAn error code."]
+    #[doc = "Set the query used by the view.\n@ingroup\tdatabase\n@param\t\tdbview\t\tThe #t_db_view pointer for your database view instance.\n@param\t\tnewquery\tThe SQL string to define a new query for the view, replacing the old query.\n@return\t\t\t\t\tAn error code."]
     pub fn db_view_setquery(
         dbview: *mut t_db_view,
         newquery: *mut ::std::os::raw::c_char,
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the next record from a set of results that you are walking.\nWhen you are returned a result from a query of the database,\nthe result is prepared for walking the results from the beginning.\nYou can also reset the result manually to the beginning of the record list\nby calling db_result_reset().\n\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@return\t\t\t\t\tAn array of C-Strings with the values for every requested column (field) of a database record.\nTo find out how many columns are represented in the array, use db_result_numfields()."]
+    #[doc = "Return the next record from a set of results that you are walking.\nWhen you are returned a result from a query of the database,\nthe result is prepared for walking the results from the beginning.\nYou can also reset the result manually to the beginning of the record list\nby calling db_result_reset().\n\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@return\t\t\t\t\tAn array of C-Strings with the values for every requested column (field) of a database record.\nTo find out how many columns are represented in the array, use db_result_numfields()."]
     pub fn db_result_nextrecord(result: *mut t_db_result) -> *mut *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tReset the interface for walking a result's record list to the first record.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results."]
+    #[doc = "Reset the interface for walking a result's record list to the first record.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results."]
     pub fn db_result_reset(result: *mut t_db_result);
 }
 unsafe extern "C" {
-    #[doc = "\tZero-out a database result.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results."]
+    #[doc = "Zero-out a database result.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results."]
     pub fn db_result_clear(result: *mut t_db_result);
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a count of all records in the query result.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@return\t\t\t\t\tThe count of records in the query result."]
+    #[doc = "Return a count of all records in the query result.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@return\t\t\t\t\tThe count of records in the query result."]
     pub fn db_result_numrecords(result: *mut t_db_result) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a count of all fields (columns) in the query result.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@return\t\t\t\t\tThe count of fields in the query result."]
+    #[doc = "Return a count of all fields (columns) in the query result.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@return\t\t\t\t\tThe count of fields in the query result."]
     pub fn db_result_numfields(result: *mut t_db_result) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn the name of a field specified by its index number.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@param\t\tfieldindex\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\tA C-String with the name of the field."]
+    #[doc = "Return the name of a field specified by its index number.\n@ingroup\tdatabase\n@param\t\tresult\t\tThe #t_db_result pointer for your query results.\n@param\t\tfieldindex\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\tA C-String with the name of the field."]
     pub fn db_result_fieldname(
         result: *mut t_db_result,
         fieldindex: ::std::os::raw::c_long,
     ) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a single value from a result according to its index and field coordinates.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tA C-String with the content of the specified cell in the result."]
+    #[doc = "Return a single value from a result according to its index and field coordinates.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tA C-String with the content of the specified cell in the result."]
     pub fn db_result_string(
         result: *mut t_db_result,
         recordindex: ::std::os::raw::c_long,
@@ -14318,7 +14318,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a single value from a result according to its index and field coordinates.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tThe content of the specified cell from the result scanned out to a long int."]
+    #[doc = "Return a single value from a result according to its index and field coordinates.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tThe content of the specified cell from the result scanned out to a long int."]
     pub fn db_result_long(
         result: *mut t_db_result,
         recordindex: ::std::os::raw::c_long,
@@ -14326,7 +14326,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a single value from a result according to its index and field coordinates.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tThe content of the specified cell from the result scanned out to a float."]
+    #[doc = "Return a single value from a result according to its index and field coordinates.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tThe content of the specified cell from the result scanned out to a float."]
     pub fn db_result_float(
         result: *mut t_db_result,
         recordindex: ::std::os::raw::c_long,
@@ -14334,7 +14334,7 @@ unsafe extern "C" {
     ) -> f32;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a single value from a result according to its index and field coordinates.\nThe value will be coerced from an expected datetime field into seconds.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tThe datetime represented in seconds."]
+    #[doc = "Return a single value from a result according to its index and field coordinates.\nThe value will be coerced from an expected datetime field into seconds.\n@ingroup\tdatabase\n@param\t\tresult\t\t\tThe #t_db_result pointer for your query results.\n@param\t\trecordindex\t\tThe zero-based index number of the record (row) in the result.\n@param\t\tfieldindex\t\tThe zero-based index number of the field (column) in the result.\n@return\t\t\t\t\t\tThe datetime represented in seconds."]
     pub fn db_result_datetimeinseconds(
         result: *mut t_db_result,
         recordindex: ::std::os::raw::c_long,
@@ -14342,11 +14342,11 @@ unsafe extern "C" {
     ) -> t_ptr_uint;
 }
 unsafe extern "C" {
-    #[doc = "\tA utility to convert from a sql datetime string into seconds.\n@ingroup\tdatabase\n@param\t\tstring\t\t\tA C-string containing a date and time in SQL format.\n@param\t\tdate\t\t\tThe datetime represented in seconds upon return."]
+    #[doc = "A utility to convert from a sql datetime string into seconds.\n@ingroup\tdatabase\n@param\t\tstring\t\t\tA C-string containing a date and time in SQL format.\n@param\t\tdate\t\t\tThe datetime represented in seconds upon return."]
     pub fn db_util_stringtodate(string: *const ::std::os::raw::c_char, date: *mut t_ptr_uint);
 }
 unsafe extern "C" {
-    #[doc = "\tA utility to convert from seconds into a sql-ready datetime string.\n@ingroup\tdatabase\n@param\t\tdate\t\t\tThe datetime represented in seconds.\n@param\t\tstring\t\t\tThe address of a valid C-string\nwhose contents will be set to a SQL-ready string format upon return."]
+    #[doc = "A utility to convert from seconds into a sql-ready datetime string.\n@ingroup\tdatabase\n@param\t\tdate\t\t\tThe datetime represented in seconds.\n@param\t\tstring\t\t\tThe address of a valid C-string\nwhose contents will be set to a SQL-ready string format upon return."]
     pub fn db_util_datetostring(date: t_ptr_uint, string: *mut ::std::os::raw::c_char);
 }
 unsafe extern "C" {
@@ -14369,31 +14369,31 @@ unsafe extern "C" {
     pub fn patcher_removedefault(patcher: *mut t_object, key: *mut t_symbol) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tRegister a #t_dictionary with the dictionary passing system and map it to a unique name.\n\n@ingroup dictobj\n@param\t\td\t\tA valid dictionary object.\n@param\t\tname\tThe address of a #t_symbol pointer to the name you would like mapped to this dictionary.\nIf the t_symbol pointer has a NULL value then a unique name will be generated and filled-in\nupon return.\n@return\t\t\t\tThe dictionary mapped to the specified name."]
+    #[doc = "Register a #t_dictionary with the dictionary passing system and map it to a unique name.\n\n@ingroup dictobj\n@param\t\td\t\tA valid dictionary object.\n@param\t\tname\tThe address of a #t_symbol pointer to the name you would like mapped to this dictionary.\nIf the t_symbol pointer has a NULL value then a unique name will be generated and filled-in\nupon return.\n@return\t\t\t\tThe dictionary mapped to the specified name."]
     pub fn dictobj_register(d: *mut t_dictionary, name: *mut *mut t_symbol) -> *mut t_dictionary;
 }
 unsafe extern "C" {
-    #[doc = "\tUnregister a #t_dictionary with the dictionary passing system.\nGenerally speaking you should not need to call this method.\nCalling object_free() on the #t_dictionary automatically unregisters it.\n\n@ingroup dictobj\n@param\t\td\t\tA valid dictionary object.\n@return\t\t\t\tA Max error code."]
+    #[doc = "Unregister a #t_dictionary with the dictionary passing system.\nGenerally speaking you should not need to call this method.\nCalling object_free() on the #t_dictionary automatically unregisters it.\n\n@ingroup dictobj\n@param\t\td\t\tA valid dictionary object.\n@return\t\t\t\tA Max error code."]
     pub fn dictobj_unregister(d: *mut t_dictionary) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFind the #t_dictionary for a given name, and return a <i>copy</i> of that dictionary\nWhen you are done, do <i>not</i> call dictobj_release() on the dictionary,\nbecause you are working on a copy rather than on a retained pointer.\n\n@ingroup dictobj\n@param\t\tname\tThe name associated with the dictionary for which you wish to obtain a copy.\n@return\t\t\t\tThe dictionary cloned from the existing dictionary.\nReturns NULL if no dictionary is associated with name.\n@see\t\t\t\t#dictobj_findregistered_retain()"]
+    #[doc = "Find the #t_dictionary for a given name, and return a <i>copy</i> of that dictionary\nWhen you are done, do <i>not</i> call dictobj_release() on the dictionary,\nbecause you are working on a copy rather than on a retained pointer.\n\n@ingroup dictobj\n@param\t\tname\tThe name associated with the dictionary for which you wish to obtain a copy.\n@return\t\t\t\tThe dictionary cloned from the existing dictionary.\nReturns NULL if no dictionary is associated with name.\n@see\t\t\t\t#dictobj_findregistered_retain()"]
     pub fn dictobj_findregistered_clone(name: *mut t_symbol) -> *mut t_dictionary;
 }
 unsafe extern "C" {
-    #[doc = "\tFind the #t_dictionary for a given name, return a pointer to that #t_dictionary, and increment its reference count.\nWhen you are done you should call dictobj_release() on the dictionary.\n\n@ingroup dictobj\n@param\t\tname\tThe name associated with the dictionary for which you wish to obtain a pointer.\n@return\t\t\t\tA pointer to the dictionary associated with name.\nReturns NULL if no dictionary is associated with name.\n@see\t\t\t\t#dictobj_release()\n@see\t\t\t\t#dictobj_findregistered_clone()"]
+    #[doc = "Find the #t_dictionary for a given name, return a pointer to that #t_dictionary, and increment its reference count.\nWhen you are done you should call dictobj_release() on the dictionary.\n\n@ingroup dictobj\n@param\t\tname\tThe name associated with the dictionary for which you wish to obtain a pointer.\n@return\t\t\t\tA pointer to the dictionary associated with name.\nReturns NULL if no dictionary is associated with name.\n@see\t\t\t\t#dictobj_release()\n@see\t\t\t\t#dictobj_findregistered_clone()"]
     pub fn dictobj_findregistered_retain(name: *mut t_symbol) -> *mut t_dictionary;
 }
 unsafe extern "C" {
-    #[doc = "\tFor a #t_dictionary/name that was previously retained with dictobj_findregistered_retain(),\nrelease it (decrement its reference count).\n\n@ingroup dictobj\n@param\t\td\t\tA valid dictionary object retained by dictobj_findregistered_retain().\n@return\t\t\t\tA Max error code.\n@see\t\t\t\t#dictobj_findregistered_retain()"]
+    #[doc = "For a #t_dictionary/name that was previously retained with dictobj_findregistered_retain(),\nrelease it (decrement its reference count).\n\n@ingroup dictobj\n@param\t\td\t\tA valid dictionary object retained by dictobj_findregistered_retain().\n@return\t\t\t\tA Max error code.\n@see\t\t\t\t#dictobj_findregistered_retain()"]
     pub fn dictobj_release(d: *mut t_dictionary) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tFind the name associated with a given #t_dictionary.\n\n@ingroup\tdictobj\n@param\t\td\t\tA dictionary, whose name you wish to determine.\n@return\t\t\t\tThe symbol associated with the dictionary, or NULL if the dictionary is not registered.\n@see\t\t\t\t#dictobj_register()"]
+    #[doc = "Find the name associated with a given #t_dictionary.\n\n@ingroup\tdictobj\n@param\t\td\t\tA dictionary, whose name you wish to determine.\n@return\t\t\t\tThe symbol associated with the dictionary, or NULL if the dictionary is not registered.\n@see\t\t\t\t#dictobj_register()"]
     pub fn dictobj_namefromptr(d: *mut t_dictionary) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tSend atoms to an outlet in your Max object, handling complex datatypes that may be present in those atoms.\nThis is particularly when sending the contents of a dictionary entry out of an outlet as in the following example code.\n\n@code\nlong\t\tac = 0;\nt_atom\t\t*av = NULL;\nt_max_err\terr;\n\nerr = dictionary_copyatoms(d, key, &ac, &av);\nif (!err && ac && av) {\n// handles singles, lists, symbols, atomarrays, dictionaries, etc.\ndictobj_outlet_atoms(x->outlets[i],ac,av);\n}\n\nif (av)\nsysmem_freeptr(av);\n@endcode\n\n@ingroup\tdictobj\n@param\t\tout\t\tThe outlet through which the atoms should be sent.\n@param\t\targc\tThe count of atoms in argv.\n@param\t\targv\tPointer to the first of an array of atoms to send to the outlet."]
+    #[doc = "Send atoms to an outlet in your Max object, handling complex datatypes that may be present in those atoms.\nThis is particularly when sending the contents of a dictionary entry out of an outlet as in the following example code.\n\n\n```c\nlong\t\tac = 0;\nt_atom\t\t*av = NULL;\nt_max_err\terr;\n\nerr = dictionary_copyatoms(d, key, &ac, &av);\nif (!err && ac && av) {\n// handles singles, lists, symbols, atomarrays, dictionaries, etc.\ndictobj_outlet_atoms(x->outlets[i],ac,av);\n}\n\nif (av)\nsysmem_freeptr(av);\n```\n\n\n@ingroup\tdictobj\n@param\t\tout\t\tThe outlet through which the atoms should be sent.\n@param\t\targc\tThe count of atoms in argv.\n@param\t\targv\tPointer to the first of an array of atoms to send to the outlet."]
     pub fn dictobj_outlet_atoms(
         out: *mut ::std::os::raw::c_void,
         argc: ::std::os::raw::c_long,
@@ -14401,11 +14401,11 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tEnsure that an atom is safe for passing.\nAtoms are allowed to be #A_LONG, #A_FLOAT, or #A_SYM, but not #A_OBJ.\nIf the atom is an #A_OBJ, it will be converted into something that will be safe to pass.\n\n@ingroup dictobj\n@param\t\ta\tAn atom to check, and potentially modify, to ensure safety in the dictionary-passing system.\n@return\t\t\tIf the atom was changed then 1 is returned.  Otherwise 0 is returned."]
+    #[doc = "Ensure that an atom is safe for passing.\nAtoms are allowed to be #A_LONG, #A_FLOAT, or #A_SYM, but not #A_OBJ.\nIf the atom is an #A_OBJ, it will be converted into something that will be safe to pass.\n\n@ingroup dictobj\n@param\t\ta\tAn atom to check, and potentially modify, to ensure safety in the dictionary-passing system.\n@return\t\t\tIf the atom was changed then 1 is returned.  Otherwise 0 is returned."]
     pub fn dictobj_atom_safety(a: *mut t_atom) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tEnsure that an atom is safe for passing.\nAtoms are allowed to be #A_LONG, #A_FLOAT, or #A_SYM, but not #A_OBJ.\nIf the atom is an #A_OBJ, it will be converted into something that will be safe to pass.\n\n@ingroup dictobj\n@param\t\ta\t\tAn atom to check, and potentially modify, to ensure safety in the dictionary-passing system.\n@param\t\tflags\tPass DICTOBJ_ATOM_FLAGS_REGISTER to have dictionary atoms registered/retained.\n@return\t\t\t\tIf the atom was changed then 1 is returned.  Otherwise 0 is returned."]
+    #[doc = "Ensure that an atom is safe for passing.\nAtoms are allowed to be #A_LONG, #A_FLOAT, or #A_SYM, but not #A_OBJ.\nIf the atom is an #A_OBJ, it will be converted into something that will be safe to pass.\n\n@ingroup dictobj\n@param\t\ta\t\tAn atom to check, and potentially modify, to ensure safety in the dictionary-passing system.\n@param\t\tflags\tPass DICTOBJ_ATOM_FLAGS_REGISTER to have dictionary atoms registered/retained.\n@return\t\t\t\tIf the atom was changed then 1 is returned.  Otherwise 0 is returned."]
     pub fn dictobj_atom_safety_flags(
         a: *mut t_atom,
         flags: ::std::os::raw::c_long,
@@ -14415,14 +14415,14 @@ unsafe extern "C" {
     pub fn dictobj_atom_release(a: *mut t_atom);
 }
 unsafe extern "C" {
-    #[doc = "\tValidate the contents of a #t_dictionary against a second #t_dictionary containing a schema.\n\nThe schema dictionary contains keys and values, like any dictionary.\ndictobj_validate() checks to make sure that all keys in the schema dictionary are present in the candidate dictionary.\nIf the keys are all present then the candidate passes and the function returns true.\nOtherwise the the candidate fails the validation and the function returns false.\n\nGenerally speaking, the schema dictionary with contain values with the symbol \"*\", indicating a wildcard,\nand thus only the key is used to validate the dictionary (all values match the wildcard).\nHowever, if the schema dictionary contains non-wildcard values for any of its keys, those keys in the\ncandidate dictionary must also contain matching values in order for the candidate to successfully validate.\n\nAn example of this in action is the dict.route object in Max, which simply wraps this function.\n\n@ingroup dictobj\n@param\t\tschema\t\tThe dictionary against which to validate candidate.\n@param\t\tcandidate\tA dictionary to test against the schema.\n@return\t\t\t\t\tReturns true if the candidate validates against the schema, otherwise returns false.\n@see\t\t\t\t\t#dictobj_dictionarytoatoms()"]
+    #[doc = "Validate the contents of a #t_dictionary against a second #t_dictionary containing a schema.\n\nThe schema dictionary contains keys and values, like any dictionary.\ndictobj_validate() checks to make sure that all keys in the schema dictionary are present in the candidate dictionary.\nIf the keys are all present then the candidate passes and the function returns true.\nOtherwise the the candidate fails the validation and the function returns false.\n\nGenerally speaking, the schema dictionary with contain values with the symbol \"*\", indicating a wildcard,\nand thus only the key is used to validate the dictionary (all values match the wildcard).\nHowever, if the schema dictionary contains non-wildcard values for any of its keys, those keys in the\ncandidate dictionary must also contain matching values in order for the candidate to successfully validate.\n\nAn example of this in action is the dict.route object in Max, which simply wraps this function.\n\n@ingroup dictobj\n@param\t\tschema\t\tThe dictionary against which to validate candidate.\n@param\t\tcandidate\tA dictionary to test against the schema.\n@return\t\t\t\t\tReturns true if the candidate validates against the schema, otherwise returns false.\n@see\t\t\t\t\t#dictobj_dictionarytoatoms()"]
     pub fn dictobj_validate(
         schema: *const t_dictionary,
         candidate: *const t_dictionary,
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a C-string of @ref using_dictobj_syntax into a C-string of JSON.\n\n@ingroup dictobj\n@param\t\tjsonsize\tThe address of a variable to be filled-in with the number of chars in json upon return.\n@param\t\tjson\t\tThe address of a char pointer to point to the JSON C-string upon return.\nShould be initialized to NULL.\nYou are responsible for freeing the string with sysmem_freeptr() when you are done with it.\n@param\t\tstr\t\t\tA NULL-terminated C-string containing @ref using_dictobj_syntax .\n@return\t\t\t\t\tA Max error code.\n@see\t\t\t\t\t#dictobj_dictionarytoatoms()"]
+    #[doc = "Convert a C-string of @ref using_dictobj_syntax into a C-string of JSON.\n\n@ingroup dictobj\n@param\t\tjsonsize\tThe address of a variable to be filled-in with the number of chars in json upon return.\n@param\t\tjson\t\tThe address of a char pointer to point to the JSON C-string upon return.\nShould be initialized to NULL.\nYou are responsible for freeing the string with sysmem_freeptr() when you are done with it.\n@param\t\tstr\t\t\tA NULL-terminated C-string containing @ref using_dictobj_syntax .\n@return\t\t\t\t\tA Max error code.\n@see\t\t\t\t\t#dictobj_dictionarytoatoms()"]
     pub fn dictobj_jsonfromstring(
         jsonsize: *mut ::std::os::raw::c_long,
         json: *mut *mut ::std::os::raw::c_char,
@@ -14430,7 +14430,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new #t_dictionary from @ref using_dictobj_syntax which is passed in as a C-string.\n\n@ingroup dictobj\n@param\t\td\t\tThe address of a dictionary variable, which will hold a pointer to\nthe new dictionary upon return.  Should be initialized to NULL.\n@param\t\tstr\t\tA NULL-terminated C-string containing @ref using_dictobj_syntax .\n@param\t\tstr_is_already_json\n@param\t\terrorstring\n@return\t\t\t\tA Max error code.\n@see\t\t\t\t#dictobj_dictionarytoatoms()"]
+    #[doc = "Create a new #t_dictionary from @ref using_dictobj_syntax which is passed in as a C-string.\n\n@ingroup dictobj\n@param\t\td\t\tThe address of a dictionary variable, which will hold a pointer to\nthe new dictionary upon return.  Should be initialized to NULL.\n@param\t\tstr\t\tA NULL-terminated C-string containing @ref using_dictobj_syntax .\n@param\t\tstr_is_already_json\n@param\t\terrorstring\n@return\t\t\t\tA Max error code.\n@see\t\t\t\t#dictobj_dictionarytoatoms()"]
     pub fn dictobj_dictionaryfromstring(
         d: *mut *mut t_dictionary,
         str_: *const ::std::os::raw::c_char,
@@ -14439,7 +14439,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new #t_dictionary from @ref using_dictobj_syntax which is passed in as an array of atoms.\nUnlike many #t_dictionary calls to create dictionaries, this function does not take over ownership of the atoms you pass in.\n\n@ingroup dictobj\n@param\t\td\t\tThe address of a dictionary variable, which will hold a pointer to\nthe new dictionary upon return.  Should be initialized to NULL.\n@param\t\targc\tThe number of atoms in argv.\n@param\t\targv\tPointer to the first of an array of atoms to be interpreted as\n@ref using_dictobj_syntax .\n@return\t\tA Max error code.\n@see\t\t#dictobj_dictionaryfromatoms_extended() #dictobj_dictionarytoatoms()"]
+    #[doc = "Create a new #t_dictionary from @ref using_dictobj_syntax which is passed in as an array of atoms.\nUnlike many #t_dictionary calls to create dictionaries, this function does not take over ownership of the atoms you pass in.\n\n@ingroup dictobj\n@param\t\td\t\tThe address of a dictionary variable, which will hold a pointer to\nthe new dictionary upon return.  Should be initialized to NULL.\n@param\t\targc\tThe number of atoms in argv.\n@param\t\targv\tPointer to the first of an array of atoms to be interpreted as\n@ref using_dictobj_syntax .\n@return\t\tA Max error code.\n@see\t\t#dictobj_dictionaryfromatoms_extended() #dictobj_dictionarytoatoms()"]
     pub fn dictobj_dictionaryfromatoms(
         d: *mut *mut t_dictionary,
         argc: ::std::os::raw::c_long,
@@ -14447,7 +14447,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tCreate a new #t_dictionary from from an array of atoms that use Max dictionary syntax, JSON, or compressed JSON.\nThis function is the C analog to the dict.deserialize object in Max.\nUnlike many #t_dictionary calls to create dictionaries, this function does not take over ownership of the atoms you pass in.\n\n@ingroup dictobj\n@param\t\td\t\tThe address of a dictionary variable, which will hold a pointer to\nthe new dictionary upon return.  Should be initialized to NULL.\n@param\t\tmsg\t\tIgnored.\n@param\t\targc\tThe number of atoms in argv.\n@param\t\targv\tPointer to the first of an array of atoms to be interpreted as @ref using_dictobj_syntax , JSON, or compressed JSON.\n@return\tA Max error code.\n@see\t\t#dictobj_dictionaryfromatoms() #dictobj_dictionaryfromstring()"]
+    #[doc = "Create a new #t_dictionary from from an array of atoms that use Max dictionary syntax, JSON, or compressed JSON.\nThis function is the C analog to the dict.deserialize object in Max.\nUnlike many #t_dictionary calls to create dictionaries, this function does not take over ownership of the atoms you pass in.\n\n@ingroup dictobj\n@param\t\td\t\tThe address of a dictionary variable, which will hold a pointer to\nthe new dictionary upon return.  Should be initialized to NULL.\n@param\t\tmsg\t\tIgnored.\n@param\t\targc\tThe number of atoms in argv.\n@param\t\targv\tPointer to the first of an array of atoms to be interpreted as @ref using_dictobj_syntax , JSON, or compressed JSON.\n@return\tA Max error code.\n@see\t\t#dictobj_dictionaryfromatoms() #dictobj_dictionaryfromstring()"]
     pub fn dictobj_dictionaryfromatoms_extended(
         d: *mut *mut t_dictionary,
         msg: *const t_symbol,
@@ -14456,7 +14456,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSerialize the contents of a #t_dictionary into @ref using_dictobj_syntax .\n\n@ingroup dictobj\n@param\t\td\t\tThe dictionary to serialize.\n@param\t\targc\tThe address of a variable to hold the number of atoms allocated upon return.\n@param\t\targv\tThe address of a t_atom pointer which will point to the first atom\n(of an array of argc atoms) upon return. You are responsible for freeing the pointer\nreturned with sysmem_freeptr() when you are done with it. If you pass in existing memory,\nit must be memory allocated using sysmem_newptr() and the pointer may be resized.\n\n@return\t\tA Max error code.\n@see\t\t#dictobj_dictionaryfromatoms()"]
+    #[doc = "Serialize the contents of a #t_dictionary into @ref using_dictobj_syntax .\n\n@ingroup dictobj\n@param\t\td\t\tThe dictionary to serialize.\n@param\t\targc\tThe address of a variable to hold the number of atoms allocated upon return.\n@param\t\targv\tThe address of a t_atom pointer which will point to the first atom\n(of an array of argc atoms) upon return. You are responsible for freeing the pointer\nreturned with sysmem_freeptr() when you are done with it. If you pass in existing memory,\nit must be memory allocated using sysmem_newptr() and the pointer may be resized.\n\n@return\t\tA Max error code.\n@see\t\t#dictobj_dictionaryfromatoms()"]
     pub fn dictobj_dictionarytoatoms(
         d: *const t_dictionary,
         argc: *mut ::std::os::raw::c_long,
@@ -14464,7 +14464,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven a complex key (one that includes potential heirarchy or array-member access),\nreturn the actual key and the dictionary in which the key should be referenced.\n\n@ingroup\tdictobj\n@param\t\tx\t\t\tYour calling object.  If there is an error this will be used by the internal call to object_error().\n@param\t\td\t\t\tThe dictionary you are querying.\n@param\t\takey\t\tThe complex key specifying the query.\n@param\t\tcreate\t\tIf true, create the intermediate dictionaries in the hierarchy specified in akey.\n@param\t\ttargetdict\tReturns the t_dictionary that for the (sub)dictionary specified by akey.\n@param\t\ttargetkey\tReturns the name of the key in targetdict that to which akey is referencing.\n@param\t\tindex\t\tReturns the index requested if array-member access is specified.  Pass NULL if you are not interested in this.\n\n@return\t\tA Max error code."]
+    #[doc = "Given a complex key (one that includes potential heirarchy or array-member access),\nreturn the actual key and the dictionary in which the key should be referenced.\n\n@ingroup\tdictobj\n@param\t\tx\t\t\tYour calling object.  If there is an error this will be used by the internal call to object_error().\n@param\t\td\t\t\tThe dictionary you are querying.\n@param\t\takey\t\tThe complex key specifying the query.\n@param\t\tcreate\t\tIf true, create the intermediate dictionaries in the hierarchy specified in akey.\n@param\t\ttargetdict\tReturns the t_dictionary that for the (sub)dictionary specified by akey.\n@param\t\ttargetkey\tReturns the name of the key in targetdict that to which akey is referencing.\n@param\t\tindex\t\tReturns the index requested if array-member access is specified.  Pass NULL if you are not interested in this.\n\n@return\t\tA Max error code."]
     pub fn dictobj_key_parse(
         x: *mut t_object,
         d: *mut t_dictionary,
@@ -14476,7 +14476,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tGet a reference to an object that is bound to a #t_symbol.\n@ingroup misc\n@param\tx\t\t\tThe object that is getting the reference to the symbol.\n@param\tname\t\tThe name of the symbol to reference.\n@param\tclassname\tThe name of the class of which the object we are referencing should be an instance.\n@return\t\t\t\tThe s_thing of the #t_symbol.\n\n@remark\t\t\t\tAn example of real-world use is to get the buffer~ object associated with a symbol.\n@code\n// the struct of our object\ntypedef struct _myobject {\nt_object\tobj;\nt_symbol\t*buffer_name;\nt_buffer\t*buffer_object;\n} t_myobject;\n\nvoid myobject_setbuffer(t_myobject *x, t_symbol *s, long argc, t_atom *argv)\n{\nif(s != x->buffer_name){\n// Reference the buffer associated with the incoming name\nx->buffer_object = (t_buffer *)globalsymbol_reference((t_object *)x, s->s_name, \"buffer~\");\n\n// If we were previously referencing another buffer, we should not longer reference it.\nglobalsymbol_dereference((t_object *)x, x->buffer_name->s_name, \"buffer~\");\n\nx->buffer_name = s;\n}\n}\n@endcode"]
+    #[doc = "Get a reference to an object that is bound to a #t_symbol.\n@ingroup misc\n@param\tx\t\t\tThe object that is getting the reference to the symbol.\n@param\tname\t\tThe name of the symbol to reference.\n@param\tclassname\tThe name of the class of which the object we are referencing should be an instance.\n@return\t\t\t\tThe s_thing of the #t_symbol.\n\n@remark\t\t\t\tAn example of real-world use is to get the buffer~ object associated with a symbol.\n\n```c\n// the struct of our object\ntypedef struct _myobject {\nt_object\tobj;\nt_symbol\t*buffer_name;\nt_buffer\t*buffer_object;\n} t_myobject;\n\nvoid myobject_setbuffer(t_myobject *x, t_symbol *s, long argc, t_atom *argv)\n{\nif(s != x->buffer_name){\n// Reference the buffer associated with the incoming name\nx->buffer_object = (t_buffer *)globalsymbol_reference((t_object *)x, s->s_name, \"buffer~\");\n\n// If we were previously referencing another buffer, we should not longer reference it.\nglobalsymbol_dereference((t_object *)x, x->buffer_name->s_name, \"buffer~\");\n\nx->buffer_name = s;\n}\n}\n```\n"]
     pub fn globalsymbol_reference(
         x: *mut t_object,
         name: *const ::std::os::raw::c_char,
@@ -14484,7 +14484,7 @@ unsafe extern "C" {
     ) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tStop referencing an object that is bound to a #t_symbol, previously referenced using globalsymbol_reference().\n@ingroup misc\n@param\tx\t\t\tThe object that is getting the reference to the symbol.\n@param\tname\t\tThe name of the symbol to reference.\n@param\tclassname\tThe name of the class of which the object we are referencing should be an instance.\n@see\tglobalsymbol_reference()"]
+    #[doc = "Stop referencing an object that is bound to a #t_symbol, previously referenced using globalsymbol_reference().\n@ingroup misc\n@param\tx\t\t\tThe object that is getting the reference to the symbol.\n@param\tname\t\tThe name of the symbol to reference.\n@param\tclassname\tThe name of the class of which the object we are referencing should be an instance.\n@see\tglobalsymbol_reference()"]
     pub fn globalsymbol_dereference(
         x: *mut t_object,
         name: *const ::std::os::raw::c_char,
@@ -14492,7 +14492,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tBind an object to a #t_symbol.\n@ingroup misc\n@param\tx\t\tThe object to bind to the #t_symbol.\n@param\tname\tThe name of the #t_symbol to which the object will be bound.\n@param\tflags\tPass 0.\n@return\t\tA Max error code."]
+    #[doc = "Bind an object to a #t_symbol.\n@ingroup misc\n@param\tx\t\tThe object to bind to the #t_symbol.\n@param\tname\tThe name of the #t_symbol to which the object will be bound.\n@param\tflags\tPass 0.\n@return\t\tA Max error code."]
     pub fn globalsymbol_bind(
         x: *mut t_object,
         name: *const ::std::os::raw::c_char,
@@ -14500,7 +14500,7 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Remove an object from being bound to a #t_symbol.\n@ingroup misc\n@param\tx\t\tThe object from which to unbind the #t_symbol.\n@param\tname\tThe name of the #t_symbol from which the object will be unbound.\n@param\tflags\tPass 0."]
+    #[doc = "Remove an object from being bound to a #t_symbol.\n@ingroup misc\n@param\tx\t\tThe object from which to unbind the #t_symbol.\n@param\tname\tThe name of the #t_symbol from which the object will be unbound.\n@param\tflags\tPass 0."]
     pub fn globalsymbol_unbind(
         x: *mut t_object,
         name: *const ::std::os::raw::c_char,
@@ -14520,7 +14520,7 @@ unsafe extern "C" {
 pub struct _itm {
     _unused: [u8; 0],
 }
-#[doc = "\tA low-level object for tempo-based scheduling.\n@ingroup\ttime\n@see\t\t#t_timeobject\n@see\t\t@ref chapter_itm"]
+#[doc = "A low-level object for tempo-based scheduling.\n@ingroup\ttime\n@see\t\t#t_timeobject\n@see\t\t@ref chapter_itm"]
 pub type t_itm = _itm;
 #[repr(C)]
 #[derive(Debug)]
@@ -14529,11 +14529,11 @@ pub struct _itmclock {
 }
 pub type t_itmclock = _itmclock;
 unsafe extern "C" {
-    #[doc = "\tReturn the global (default / unnamed) itm object.\n@ingroup\ttime\n@return\t\tThe global #t_itm object."]
+    #[doc = "Return the global (default / unnamed) itm object.\n@ingroup\ttime\n@return\t\tThe global #t_itm object."]
     pub fn itm_getglobal() -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a named itm object.\n@ingroup\t\ttime\n@param\ts\t\tThe name of the itm to return.\n@param\tscheduler\n@param\tdefaultclocksourcename\n@param\tcreate\tIf non-zero, then create this named itm should it not already exist.\n@return\t\t\tThe global #t_itm object."]
+    #[doc = "Return a named itm object.\n@ingroup\t\ttime\n@param\ts\t\tThe name of the itm to return.\n@param\tscheduler\n@param\tdefaultclocksourcename\n@param\tcreate\tIf non-zero, then create this named itm should it not already exist.\n@return\t\t\tThe global #t_itm object."]
     pub fn itm_getnamed(
         s: *mut t_symbol,
         scheduler: *mut ::std::os::raw::c_void,
@@ -14545,11 +14545,11 @@ unsafe extern "C" {
     pub fn itm_getfromarg(o: *mut t_object, s: *mut t_symbol) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tReference an itm object.\nWhen you are using an itm object, you must call this function to increment its reference count.\n@ingroup\ttime\n@param\tx\tThe itm object."]
+    #[doc = "Reference an itm object.\nWhen you are using an itm object, you must call this function to increment its reference count.\n@ingroup\ttime\n@param\tx\tThe itm object."]
     pub fn itm_reference(x: *mut t_itm);
 }
 unsafe extern "C" {
-    #[doc = "\tStop referencing an itm object.\nWhen you are done using an itm object, you must call this function to decrement its reference count.\n@ingroup\ttime\n@param\tx\tThe itm object."]
+    #[doc = "Stop referencing an itm object.\nWhen you are done using an itm object, you must call this function to decrement its reference count.\n@ingroup\ttime\n@param\tx\tThe itm object."]
     pub fn itm_dereference(x: *mut t_itm);
 }
 unsafe extern "C" {
@@ -14569,22 +14569,22 @@ unsafe extern "C" {
     pub fn itm_switcheventlist(x: *mut t_itm, eventlist: *mut t_symbol, offset: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tReport the current internal time.\nThis is the same as calling clock_getftime();\n@ingroup\ttime\n@param\tx\tThe itm object.\n@return\t\tThe current internal time."]
+    #[doc = "Report the current internal time.\nThis is the same as calling clock_getftime();\n@ingroup\ttime\n@param\tx\tThe itm object.\n@return\t\tThe current internal time."]
     pub fn itm_gettime(x: *mut t_itm) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tReport the current time of the itm in ticks.\nYou can use functions such as itm_tickstobarbeatunits() or itm_tickstoms() to convert to a different representation of the time.\n@ingroup\ttime\n@param\tx\tThe itm object.\n@return\t\tThe current time in ticks."]
+    #[doc = "Report the current time of the itm in ticks.\nYou can use functions such as itm_tickstobarbeatunits() or itm_tickstoms() to convert to a different representation of the time.\n@ingroup\ttime\n@param\tx\tThe itm object.\n@return\t\tThe current time in ticks."]
     pub fn itm_getticks(x: *mut t_itm) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tPrint diagnostic information about an itm object to the Max window.\n@ingroup\ttime\n@param\tx\tThe itm object."]
+    #[doc = "Print diagnostic information about an itm object to the Max window.\n@ingroup\ttime\n@param\tx\tThe itm object."]
     pub fn itm_dump(x: *mut t_itm);
 }
 unsafe extern "C" {
     pub fn itm_sync(x: *mut t_itm);
 }
 unsafe extern "C" {
-    #[doc = "\tSet an itm object's current time signature.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object.\n@param\tnum\t\tThe top number of the time signature.\n@param\tdenom\tThe bottom number of the time signature.\n@param\tflags\tCurrently unused -- pass zero."]
+    #[doc = "Set an itm object's current time signature.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object.\n@param\tnum\t\tThe top number of the time signature.\n@param\tdenom\tThe bottom number of the time signature.\n@param\tflags\tCurrently unused -- pass zero."]
     pub fn itm_settimesignature(
         x: *mut t_itm,
         num: ::std::os::raw::c_long,
@@ -14593,7 +14593,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tQuery an itm object for its current time signature.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object.\n@param\tnum\t\tThe address of a variable to hold the top number of the time signature upon return.\n@param\tdenom\tThe address of a variable to hold the bottom number of the time signature upon return."]
+    #[doc = "Query an itm object for its current time signature.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object.\n@param\tnum\t\tThe address of a variable to hold the top number of the time signature upon return.\n@param\tdenom\tThe address of a variable to hold the bottom number of the time signature upon return."]
     pub fn itm_gettimesignature(
         x: *mut t_itm,
         num: *mut ::std::os::raw::c_long,
@@ -14604,27 +14604,27 @@ unsafe extern "C" {
     pub fn itm_seek(x: *mut t_itm, oldticks: f64, newticks: f64, chase: ::std::os::raw::c_long);
 }
 unsafe extern "C" {
-    #[doc = "\tPause the passage of time for an itm object.\nThis is the equivalent to setting the state of a transport object to 0 with a toggle.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object."]
+    #[doc = "Pause the passage of time for an itm object.\nThis is the equivalent to setting the state of a transport object to 0 with a toggle.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object."]
     pub fn itm_pause(x: *mut t_itm);
 }
 unsafe extern "C" {
-    #[doc = "\tStart the passage of time for an itm object, from it's current location.\nThis is the equivalent to setting the state of a transport object to 0 with a toggle.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object."]
+    #[doc = "Start the passage of time for an itm object, from it's current location.\nThis is the equivalent to setting the state of a transport object to 0 with a toggle.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object."]
     pub fn itm_resume(x: *mut t_itm);
 }
 unsafe extern "C" {
-    #[doc = "\tFind out if time is currently progressing for a given itm object.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object.\n@return\t\t\tReturns non-zero if the time is running, or zero if it is paused.\n@see\t\t\titm_pause()\n@see\t\t\titm_resume()"]
+    #[doc = "Find out if time is currently progressing for a given itm object.\n@ingroup\t\ttime\n@param\tx\t\tThe itm object.\n@return\t\t\tReturns non-zero if the time is running, or zero if it is paused.\n@see\t\t\titm_pause()\n@see\t\t\titm_resume()"]
     pub fn itm_getstate(x: *mut t_itm) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the number of ticks-per-quarter-note globally for the itm system.\nThe default is 480.\n@ingroup\t\ttime\n@param\tres\t\tThe number of ticks-per-quarter-note.\n@see\t\t\titm_getresolution()"]
+    #[doc = "Set the number of ticks-per-quarter-note globally for the itm system.\nThe default is 480.\n@ingroup\t\ttime\n@param\tres\t\tThe number of ticks-per-quarter-note.\n@see\t\t\titm_getresolution()"]
     pub fn itm_setresolution(res: f64);
 }
 unsafe extern "C" {
-    #[doc = "\tGet the number of ticks-per-quarter-note globally from the itm system.\n@ingroup\t\ttime\n@return\t\t\tThe number of ticks-per-quarter-note.\n@see\t\t\titm_setresolution()"]
+    #[doc = "Get the number of ticks-per-quarter-note globally from the itm system.\n@ingroup\t\ttime\n@return\t\t\tThe number of ticks-per-quarter-note.\n@see\t\t\titm_setresolution()"]
     pub fn itm_getresolution() -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tGiven an itm object, return its name.\n@ingroup\ttime\n@param\tx\tThe itm object.\n@return\t\tThe name of the itm."]
+    #[doc = "Given an itm object, return its name.\n@ingroup\ttime\n@param\tx\tThe itm object.\n@return\t\tThe name of the itm."]
     pub fn itm_getname(x: *mut t_itm) -> *mut t_symbol;
 }
 unsafe extern "C" {
@@ -14641,23 +14641,23 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a time value in ticks to the equivalent value in milliseconds, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tticks\tA time specified in ticks.\n@return\t\t\tThe time specified in ms."]
+    #[doc = "Convert a time value in ticks to the equivalent value in milliseconds, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tticks\tA time specified in ticks.\n@return\t\t\tThe time specified in ms."]
     pub fn itm_tickstoms(x: *mut t_itm, ticks: f64) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a time value in milliseconds to the equivalent value in ticks, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tms\t\tA time specified in ms.\n@return\t\t\tThe time specified in ticks."]
+    #[doc = "Convert a time value in milliseconds to the equivalent value in ticks, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tms\t\tA time specified in ms.\n@return\t\t\tThe time specified in ticks."]
     pub fn itm_mstoticks(x: *mut t_itm, ms: f64) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a time value in milliseconds to the equivalent value in samples, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tms\t\tA time specified in ms.\n@return\t\t\tThe time specified in samples."]
+    #[doc = "Convert a time value in milliseconds to the equivalent value in samples, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tms\t\tA time specified in ms.\n@return\t\t\tThe time specified in samples."]
     pub fn itm_mstosamps(x: *mut t_itm, ms: f64) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a time value in samples to the equivalent value in milliseconds, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tsamps\tA time specified in samples.\n@return\t\t\tThe time specified in ms."]
+    #[doc = "Convert a time value in samples to the equivalent value in milliseconds, given the context of a specified itm object.\n@ingroup\t\ttime\n@param\tx\t\tAn itm object.\n@param\tsamps\tA time specified in samples.\n@return\t\t\tThe time specified in ms."]
     pub fn itm_sampstoms(x: *mut t_itm, samps: f64) -> f64;
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a time value in bbu to the equivalent value in ticks, given the context of a specified itm object.\n@ingroup\t\t\ttime\n@param\tx\t\t\tAn itm object.\n@param\tbars\t\tThe measure number of the location/position.\n@param\tbeats\t\tThe beat number of the location/position.\n@param\tunits\t\tThe number of ticks past the beat of the location/position.\n@param\tticks\t\tThe address of a variable to hold the number of ticks upon return.\n@param\tposition\tSet this parameter to #TIME_FLAGS_LOCATION or to zero (for position mode)."]
+    #[doc = "Convert a time value in bbu to the equivalent value in ticks, given the context of a specified itm object.\n@ingroup\t\t\ttime\n@param\tx\t\t\tAn itm object.\n@param\tbars\t\tThe measure number of the location/position.\n@param\tbeats\t\tThe beat number of the location/position.\n@param\tunits\t\tThe number of ticks past the beat of the location/position.\n@param\tticks\t\tThe address of a variable to hold the number of ticks upon return.\n@param\tposition\tSet this parameter to #TIME_FLAGS_LOCATION or to zero (for position mode)."]
     pub fn itm_barbeatunitstoticks(
         x: *mut t_itm,
         bars: ::std::os::raw::c_long,
@@ -14668,7 +14668,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tConvert a time value in bbu to the equivalent value in ticks, given the context of a specified itm object.\n@ingroup\t\t\ttime\n@param\tx\t\t\tAn itm object.\n@param\tticks\t\tThe number of ticks to translate into a time represented as bars, beats, and ticks.\n@param\tbars\t\tThe address of a variable to hold the measure number of the location/position upon return.\n@param\tbeats\t\tThe address of a variable to hold the beat number of the location/position upon return.\n@param\tunits\t\tThe address of a variable to hold the number of ticks past the beat of the location/position upon return.\n@param\tposition\tSet this parameter to #TIME_FLAGS_LOCATION or to zero (for position mode)."]
+    #[doc = "Convert a time value in bbu to the equivalent value in ticks, given the context of a specified itm object.\n@ingroup\t\t\ttime\n@param\tx\t\t\tAn itm object.\n@param\tticks\t\tThe number of ticks to translate into a time represented as bars, beats, and ticks.\n@param\tbars\t\tThe address of a variable to hold the measure number of the location/position upon return.\n@param\tbeats\t\tThe address of a variable to hold the beat number of the location/position upon return.\n@param\tunits\t\tThe address of a variable to hold the number of ticks past the beat of the location/position upon return.\n@param\tposition\tSet this parameter to #TIME_FLAGS_LOCATION or to zero (for position mode)."]
     pub fn itm_tickstobarbeatunits(
         x: *mut t_itm,
         ticks: f64,
@@ -14690,7 +14690,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tGiven the name of a time unit (e.g. 'ms', 'ticks', 'bbu', 'samples', etc.), determine whether the unit is fixed\n(doesn't change with tempo, time-signature, etc.) or whether it is flexible.\n@ingroup\t\ttime\n@param\tu\t\tThe name of the time unit.\n@return\t\t\tZero if the unit is fixed (milliseconds, for example) or non-zero if it is flexible (ticks, for example)."]
+    #[doc = "Given the name of a time unit (e.g. 'ms', 'ticks', 'bbu', 'samples', etc.), determine whether the unit is fixed\n(doesn't change with tempo, time-signature, etc.) or whether it is flexible.\n@ingroup\t\ttime\n@param\tu\t\tThe name of the time unit.\n@return\t\t\tZero if the unit is fixed (milliseconds, for example) or non-zero if it is flexible (ticks, for example)."]
     pub fn itm_isunitfixed(u: *mut t_symbol) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
@@ -14736,20 +14736,20 @@ unsafe extern "C" {
     pub fn itm_gettempo(x: *mut t_itm) -> f64;
 }
 unsafe extern "C" {
-    #[doc = " return the max path for a named package's folder\n\n@ingroup\tpackages\n@param\t\tpackagename\t\tthe name of the package\n@return\t\t\t\t\t\tthe max path id for the package's folder"]
+    #[doc = "return the max path for a named package's folder\n\n@ingroup\tpackages\n@param\t\tpackagename\t\tthe name of the package\n@return\t\t\t\t\t\tthe max path id for the package's folder"]
     pub fn packages_getpackagepath(
         packagename: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_short;
 }
 unsafe extern "C" {
-    #[doc = " return linklist of max path ids for a given subpath of a package\n\n@ingroup\tpackages\n@param\t\tsubfoldername\t\tthe name of the folder (e.g. templates, prototypes, extensions, etc)\n@param\t\tincludesysfolder\t1 if you want it to include the default max copy (e.g. stuff in the C74 folder),\na negative number will use the specified folder as the system folder\n0 will ignore the default location\n@return\t\t\t\t\t\t\tlinklist of max path ids -- you are responsible for freeing this linklist."]
+    #[doc = "return linklist of max path ids for a given subpath of a package\n\n@ingroup\tpackages\n@param\t\tsubfoldername\t\tthe name of the folder (e.g. templates, prototypes, extensions, etc)\n@param\t\tincludesysfolder\t1 if you want it to include the default max copy (e.g. stuff in the C74 folder),\na negative number will use the specified folder as the system folder\n0 will ignore the default location\n@return\t\t\t\t\t\t\tlinklist of max path ids -- you are responsible for freeing this linklist."]
     pub fn packages_createsubpathlist(
         subfoldername: *const ::std::os::raw::c_char,
         includesysfolder: ::std::os::raw::c_short,
     ) -> *mut t_linklist;
 }
 unsafe extern "C" {
-    #[doc = "\treturn a linklist of max path ids for a given subpath of a package\nand optionally a dictionary with all of the files contained therein.\n\n@ingroup\tpackages\n@param\t\tsubfoldername\t\t\tthe name of the folder (e.g. templates, prototypes, extensions, etc)\n@param\t\tsuffix_selector\t\t\ta file suffix used to filter only the specified files in the path (e.g., \".maxpat\")\n@param\t\tincludesysfolder\t\t1 if you want it to include the default max copy (e.g. stuff in the C74 folder),\na negative number will use the specified folder as the system folder\n0 will ignore the default location\n@param\t\tsubpathlist\t\t\t\tif not NULL, a linklist is alloc'd and returned here with all of the max path ids\n@param\t\tnames_to_packagefiles\tif not NULL, a dictionary is alloc'd and returned, keys are the names (suffix stripped) and the values are t_package_file instances\nthe linklist in the dictionary will have its keys sorted alphabetically\n@return\t\t\t\t\t\t\t\tthe usual max error code"]
+    #[doc = "return a linklist of max path ids for a given subpath of a package\nand optionally a dictionary with all of the files contained therein.\n\n@ingroup\tpackages\n@param\t\tsubfoldername\t\t\tthe name of the folder (e.g. templates, prototypes, extensions, etc)\n@param\t\tsuffix_selector\t\t\ta file suffix used to filter only the specified files in the path (e.g., \".maxpat\")\n@param\t\tincludesysfolder\t\t1 if you want it to include the default max copy (e.g. stuff in the C74 folder),\na negative number will use the specified folder as the system folder\n0 will ignore the default location\n@param\t\tsubpathlist\t\t\t\tif not NULL, a linklist is alloc'd and returned here with all of the max path ids\n@param\t\tnames_to_packagefiles\tif not NULL, a dictionary is alloc'd and returned, keys are the names (suffix stripped) and the values are t_package_file instances\nthe linklist in the dictionary will have its keys sorted alphabetically\n@return\t\t\t\t\t\t\t\tthe usual max error code"]
     pub fn packages_getsubpathcontents(
         subfoldername: *const ::std::os::raw::c_char,
         suffix_selector: *const ::std::os::raw::c_char,
@@ -15425,7 +15425,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn simpleprefs_dictionary() -> *mut t_dictionary;
 }
-#[doc = " The quickmap object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup quickmap"]
+#[doc = "The quickmap object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup quickmap"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _quickmap {
@@ -15441,7 +15441,7 @@ const _: () = {
     ["Offset of field: _quickmap::m_p1key"][::std::mem::offset_of!(_quickmap, m_p1key) - 32usize];
     ["Offset of field: _quickmap::m_p2key"][::std::mem::offset_of!(_quickmap, m_p2key) - 40usize];
 };
-#[doc = " The quickmap object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup quickmap"]
+#[doc = "The quickmap object. This struct is provided for debugging convenience,\nbut should be considered opaque and is subject to change without notice.\n\n@ingroup quickmap"]
 pub type t_quickmap = _quickmap;
 unsafe extern "C" {
     #[doc = "Create a new quickmap object.\n\n@ingroup\tquickmap\n@return\t\tPointer to the new quickmap object."]
@@ -15552,11 +15552,11 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_long;
 }
 unsafe extern "C" {
-    #[doc = " The symobject data structure.\n\n@ingroup\t\tsymobject\n@param\tsym\t\tA symbol with which to initialize the new symobject.\n@return\t\t\tPointer to the new symobject instance."]
+    #[doc = "The symobject data structure.\n\n@ingroup\t\tsymobject\n@param\tsym\t\tA symbol with which to initialize the new symobject.\n@return\t\t\tPointer to the new symobject instance."]
     pub fn symobject_new(sym: *mut t_symbol) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Utility for searching a linklist containing symobjects.\n\n@ingroup\t\tsymobject\n@param\ta\t\t(opaque)\n@param\tb\t\t(opaque)\n@return\t\t\tReturns true if a match is found, otherwise returns false.\n\n@remark\t\t\tThe following example shows one common use of the this method.\n@code\nt_symobject\t*item = NULL;\nlong\t\tindex;\nt_symbol\t*textsym;\n\ntextsym = gensym(\"something to look for\");\n\n// search for a symobject with the symbol 'something to look for'\nindex = linklist_findfirst(s_ll_history, (void **)&item, symobject_linklist_match, textsym);\nif(index == -1){\n// symobject not found.\n}\nelse{\ndo something with the symobject, or with the index of the symbobject in the linklist\n}\n@endcode"]
+    #[doc = "Utility for searching a linklist containing symobjects.\n\n@ingroup\t\tsymobject\n@param\ta\t\t(opaque)\n@param\tb\t\t(opaque)\n@return\t\t\tReturns true if a match is found, otherwise returns false.\n\n@remark\t\t\tThe following example shows one common use of the this method.\n\n```c\nt_symobject\t*item = NULL;\nlong\t\tindex;\nt_symbol\t*textsym;\n\ntextsym = gensym(\"something to look for\");\n\n// search for a symobject with the symbol 'something to look for'\nindex = linklist_findfirst(s_ll_history, (void **)&item, symobject_linklist_match, textsym);\nif(index == -1){\n// symobject not found.\n}\nelse{\ndo something with the symobject, or with the index of the symbobject in the linklist\n}\n```\n"]
     pub fn symobject_linklist_match(
         a: *mut ::std::os::raw::c_void,
         b: *mut ::std::os::raw::c_void,
@@ -16627,11 +16627,11 @@ unsafe extern "C" {
     pub fn xmltree_cdata_free(x: *mut t_xmltree_cdata);
 }
 unsafe extern "C" {
-    #[doc = " Create a dataview.\nYou should free it with object_free().\n@ingroup\tjdataview\n@return\t\tA pointer to the new instance."]
+    #[doc = "Create a dataview.\nYou should free it with object_free().\n@ingroup\tjdataview\n@return\t\tA pointer to the new instance."]
     pub fn jdataview_new() -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = " Set a dataview's client.\nThe client is the object to which the dataview will send messages to get data,\nnotify of changes to cells, etc.\nTypically this is the object in which you are creating the dataview.\n@ingroup\t\tjdataview\n@param\tdv\t\tThe dataview instance.\n@param\tclient\tThe object to be assigned as the dataview's client."]
+    #[doc = "Set a dataview's client.\nThe client is the object to which the dataview will send messages to get data,\nnotify of changes to cells, etc.\nTypically this is the object in which you are creating the dataview.\n@ingroup\t\tjdataview\n@param\tdv\t\tThe dataview instance.\n@param\tclient\tThe object to be assigned as the dataview's client."]
     pub fn jdataview_setclient(dv: *mut t_object, client: *mut t_object);
 }
 unsafe extern "C" {
@@ -17166,15 +17166,15 @@ unsafe extern "C" {
     pub fn jdataview_redrawrow(dv: *mut t_object, rr: t_rowref);
 }
 unsafe extern "C" {
-    #[doc = "\tCopy an array of atoms.\n@ingroup\t\tatom\n@param\targc1\tThe count of atoms in argv1.\n@param\targv1\tThe address to the first of an array of atoms that is the source for the copy.\n@param\targv2\tThe address to the first of an array of atoms that is the destination for the copy.\nNote that this array must already by allocated using sysmem_newptr() or atom_alloc()."]
+    #[doc = "Copy an array of atoms.\n@ingroup\t\tatom\n@param\targc1\tThe count of atoms in argv1.\n@param\targv1\tThe address to the first of an array of atoms that is the source for the copy.\n@param\targv2\tThe address to the first of an array of atoms that is the destination for the copy.\nNote that this array must already by allocated using sysmem_newptr() or atom_alloc()."]
     pub fn atom_copy(argc1: ::std::os::raw::c_long, argv1: *mut t_atom, argv2: *mut t_atom);
 }
 unsafe extern "C" {
-    #[doc = "\tPrint the contents of a dictionary to the Max window.\n@ingroup\t\tdictionary\n@param\td\t\tA pointer to a dictionary object."]
+    #[doc = "Print the contents of a dictionary to the Max window.\n@ingroup\t\tdictionary\n@param\td\t\tA pointer to a dictionary object."]
     pub fn postdictionary(d: *mut t_object);
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a pointer to an object contained in an atom if it is of the specified class.\n@ingroup\t\tatom\n@param\tx\t\tThe address of a pointer to the object contained in av if it is of the specified class upon return.\nOtherwise NULL upon return.\n@param\tidx\t\tThe index of the atom in the array from which to get the object pointer.\n@param\targc\tThe count of atoms in argv.\n@param\targv\tThe address to the first of an array of atoms.\n@param\tcls\t\tA symbol containing the class name of which the object should be an instance.\n@return\t\t\tA Max error code."]
+    #[doc = "Return a pointer to an object contained in an atom if it is of the specified class.\n@ingroup\t\tatom\n@param\tx\t\tThe address of a pointer to the object contained in av if it is of the specified class upon return.\nOtherwise NULL upon return.\n@param\tidx\t\tThe index of the atom in the array from which to get the object pointer.\n@param\targc\tThe count of atoms in argv.\n@param\targv\tThe address to the first of an array of atoms.\n@param\tcls\t\tA symbol containing the class name of which the object should be an instance.\n@return\t\t\tA Max error code."]
     pub fn atom_arg_getobjclass(
         x: *mut *mut t_object,
         idx: ::std::os::raw::c_long,
@@ -17184,15 +17184,15 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tReturn a pointer to an object contained in an atom if it is of the specified class.\n@ingroup\t\tatom\n@param\tav\t\tA pointer to the atom from which to get the #t_object.\n@param\tcls\t\tA symbol containing the class name of which the object should be an instance.\n@return\t\t\tA pointer to the object contained in av if it is of the specified class, otherwise NULL."]
+    #[doc = "Return a pointer to an object contained in an atom if it is of the specified class.\n@ingroup\t\tatom\n@param\tav\t\tA pointer to the atom from which to get the #t_object.\n@param\tcls\t\tA symbol containing the class name of which the object should be an instance.\n@return\t\t\tA pointer to the object contained in av if it is of the specified class, otherwise NULL."]
     pub fn atom_getobjclass(av: *mut t_atom, cls: *mut t_symbol) -> *mut ::std::os::raw::c_void;
 }
-#[doc = "\tA float -- always a 32 bit floating point number.\t\t@ingroup msp"]
+#[doc = "A float -- always a 32 bit floating point number.\t\t@ingroup msp"]
 pub type t_float = f32;
-#[doc = "\tA double -- always a 64 bit floating point number.\t\t@ingroup msp"]
+#[doc = "A double -- always a 64 bit floating point number.\t\t@ingroup msp"]
 pub type t_double = f64;
 pub type t_sample = f64;
-#[doc = "\tHeader for any non-ui signal processing object.\nFor ui objects use #t_pxjbox.\n@ingroup\tmsp"]
+#[doc = "Header for any non-ui signal processing object.\nFor ui objects use #t_pxjbox.\n@ingroup\tmsp"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct t_pxobject {
@@ -17219,7 +17219,7 @@ const _: () = {
     ["Offset of field: t_pxobject::z_count"][::std::mem::offset_of!(t_pxobject, z_count) - 56usize];
     ["Offset of field: t_pxobject::z_misc"][::std::mem::offset_of!(t_pxobject, z_misc) - 58usize];
 };
-#[doc = " The signal data structure.\n@ingroup\tmsp"]
+#[doc = "The signal data structure.\n@ingroup\tmsp"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _signal {
@@ -17248,7 +17248,7 @@ const _: () = {
     ["Offset of field: _signal::s_size"][::std::mem::offset_of!(_signal, s_size) - 42usize];
     ["Offset of field: _signal::s_ptr"][::std::mem::offset_of!(_signal, s_ptr) - 48usize];
 };
-#[doc = " The signal data structure.\n@ingroup\tmsp"]
+#[doc = "The signal data structure.\n@ingroup\tmsp"]
 pub type t_signal = _signal;
 #[repr(C)]
 #[derive(Debug)]
@@ -17377,7 +17377,7 @@ const _: () = {
         [::std::mem::offset_of!(_dspchain, c_chain64_extra_array) - 312usize];
 };
 pub type t_dspchain = _dspchain;
-#[doc = "\tA function pointer for the audio perform routine used by MSP objects to process blocks of samples. @ingroup msp"]
+#[doc = "A function pointer for the audio perform routine used by MSP objects to process blocks of samples. @ingroup msp"]
 pub type t_perfroutine =
     ::std::option::Option<unsafe extern "C" fn(args: *mut t_int) -> *mut t_int>;
 pub type t_perfroutine64 = ::std::option::Option<
@@ -17397,15 +17397,15 @@ unsafe extern "C" {
     pub fn dspmess(mess: *mut t_symbol) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery MSP for the maximum global vector (block) size.\n@ingroup\tmsp\n@return\t\tThe maximum global vector size for the MSP environment."]
+    #[doc = "Query MSP for the maximum global vector (block) size.\n@ingroup\tmsp\n@return\t\tThe maximum global vector size for the MSP environment."]
     pub fn sys_getmaxblksize() -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery MSP for the current global vector (block) size.\n@ingroup\tmsp\n@return\t\tThe current global vector size for the MSP environment."]
+    #[doc = "Query MSP for the current global vector (block) size.\n@ingroup\tmsp\n@return\t\tThe current global vector size for the MSP environment."]
     pub fn sys_getblksize() -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery MSP for the global sample rate.\n@ingroup\tmsp\n@return\t\tThe global sample rate of the MSP environment."]
+    #[doc = "Query MSP for the global sample rate.\n@ingroup\tmsp\n@return\t\tThe global sample rate of the MSP environment."]
     pub fn sys_getsr() -> f32;
 }
 unsafe extern "C" {
@@ -17418,11 +17418,11 @@ unsafe extern "C" {
     pub fn sys_altivec() -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery MSP to determine whether or not it is running.\n@ingroup\tmsp\n@return\t\tReturns true if the DSP is turned on, otherwise returns false."]
+    #[doc = "Query MSP to determine whether or not it is running.\n@ingroup\tmsp\n@return\t\tReturns true if the DSP is turned on, otherwise returns false."]
     pub fn sys_getdspstate() -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = " Query MSP to determine whether or not a given audio object is\nin a running dsp chain.  This is preferable over sys_getdspstate()\nsince global audio can be on but an object could be in a patcher that\nis not running.\n@ingroup\tmsp\n@return\t\tReturns true if the MSP object is in a patcher that has audio on, otherwise returns false."]
+    #[doc = "Query MSP to determine whether or not a given audio object is\nin a running dsp chain.  This is preferable over sys_getdspstate()\nsince global audio can be on but an object could be in a patcher that\nis not running.\n@ingroup\tmsp\n@return\t\tReturns true if the MSP object is in a patcher that has audio on, otherwise returns false."]
     pub fn sys_getdspobjdspstate(o: *mut t_object) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
@@ -17542,14 +17542,14 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    #[doc = "\tCall this routine after creating your object in the new instance routine\nwith object_alloc(). Cast your object to #t_pxobject as the first\nargument, then specify the number of signal inputs your object will\nhave. dsp_setup() initializes fields of the #t_pxobject header and\nallocates any proxies needed (if num_signal_inputs is greater than 1).\n\nSome signal objects have no inputs; you should pass 0 for\nnum_signal_inputs in this case. After calling dsp_setup(), you can\ncreate additional non-signal inlets using intin(), floatin(), or\ninlet_new().\n\n@ingroup\t\t\tmsp\n@param\tx\t\t\tYour object's pointer.\n@param\tnsignals\tThe number of signal/proxy inlets to create for the object.\n@see \t\t\t\t#dsp_setup"]
+    #[doc = "Call this routine after creating your object in the new instance routine\nwith object_alloc(). Cast your object to #t_pxobject as the first\nargument, then specify the number of signal inputs your object will\nhave. dsp_setup() initializes fields of the #t_pxobject header and\nallocates any proxies needed (if num_signal_inputs is greater than 1).\n\nSome signal objects have no inputs; you should pass 0 for\nnum_signal_inputs in this case. After calling dsp_setup(), you can\ncreate additional non-signal inlets using intin(), floatin(), or\ninlet_new().\n\n@ingroup\t\t\tmsp\n@param\tx\t\t\tYour object's pointer.\n@param\tnsignals\tThe number of signal/proxy inlets to create for the object.\n@see \t\t\t\t#dsp_setup"]
     pub fn z_dsp_setup(x: *mut t_pxobject, nsignals: ::std::os::raw::c_long);
 }
 unsafe extern "C" {
     pub fn dsp_resize(x: *mut t_pxobject, nsignals: ::std::os::raw::c_long);
 }
 unsafe extern "C" {
-    #[doc = "\tThis function disposes of any memory used by proxies allocated by\ndsp_setup(). It also notifies the signal compiler that the DSP call chain\nneeds to be rebuilt if signal processing is active. You should be sure to\ncall this before de-allocating any memory that might be in use by your\nobject’s perform routine, in the event that signal processing is on when\nyour object is freed.\n\n@ingroup\tmsp\n@param\tx\tThe object to free.\n@see\t\t#dsp_free"]
+    #[doc = "This function disposes of any memory used by proxies allocated by\ndsp_setup(). It also notifies the signal compiler that the DSP call chain\nneeds to be rebuilt if signal processing is active. You should be sure to\ncall this before de-allocating any memory that might be in use by your\nobject’s perform routine, in the event that signal processing is on when\nyour object is freed.\n\n@ingroup\tmsp\n@param\tx\tThe object to free.\n@see\t\t#dsp_free"]
     pub fn z_dsp_free(x: *mut t_pxobject);
 }
 unsafe extern "C" {
@@ -17630,14 +17630,14 @@ unsafe extern "C" {
     ) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = "\tThis routine must be called in your object's initialization routine. It\nadds a set of methods to your object's class that are called by MSP to\nbuild the DSP call chain. These methods function entirely\ntransparently to your object so you don't have to worry about them.\nHowever, you should avoid binding anything to their names: signal,\nuserconnect, nsiginlets, and enable.\n\nThis routine is for non-user-interface objects only\n(where the first item in your object's struct is a t_pxobject).\nIt must be called prior to calling class_register() for your class.\n\n@ingroup\tmsp\n@param\tc\tThe class to make dsp-ready.\n@see\t\tclass_dspinitjbox()"]
+    #[doc = "This routine must be called in your object's initialization routine. It\nadds a set of methods to your object's class that are called by MSP to\nbuild the DSP call chain. These methods function entirely\ntransparently to your object so you don't have to worry about them.\nHowever, you should avoid binding anything to their names: signal,\nuserconnect, nsiginlets, and enable.\n\nThis routine is for non-user-interface objects only\n(where the first item in your object's struct is a t_pxobject).\nIt must be called prior to calling class_register() for your class.\n\n@ingroup\tmsp\n@param\tc\tThe class to make dsp-ready.\n@see\t\tclass_dspinitjbox()"]
     pub fn class_dspinit(c: *mut t_class);
 }
 unsafe extern "C" {
-    #[doc = "\tThis routine must be called in your object's initialization routine. It\nadds a set of methods to your object's class that are called by MSP to\nbuild the DSP call chain. These methods function entirely\ntransparently to your object so you don't have to worry about them.\nHowever, you should avoid binding anything to their names: signal,\nuserconnect, nsiginlets, and enable.\n\nThis routine is for user-interface objects only\n(where the first item in your object's struct is a t_jbox).\n\n@ingroup\tmsp\n@param\tc\tThe class to make dsp-ready.\n@see\t\tclass_dspinit()"]
+    #[doc = "This routine must be called in your object's initialization routine. It\nadds a set of methods to your object's class that are called by MSP to\nbuild the DSP call chain. These methods function entirely\ntransparently to your object so you don't have to worry about them.\nHowever, you should avoid binding anything to their names: signal,\nuserconnect, nsiginlets, and enable.\n\nThis routine is for user-interface objects only\n(where the first item in your object's struct is a t_jbox).\n\n@ingroup\tmsp\n@param\tc\tThe class to make dsp-ready.\n@see\t\tclass_dspinit()"]
     pub fn class_dspinitjbox(c: *mut t_class);
 }
-#[doc = "\tHeader for any ui signal processing object.\nFor non-ui objects use #t_pxobject.\n@ingroup\tmsp"]
+#[doc = "Header for any ui signal processing object.\nFor non-ui objects use #t_pxobject.\n@ingroup\tmsp"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _pxjbox {
@@ -17664,7 +17664,7 @@ const _: () = {
     ["Offset of field: _pxjbox::z_count"][::std::mem::offset_of!(_pxjbox, z_count) - 312usize];
     ["Offset of field: _pxjbox::z_misc"][::std::mem::offset_of!(_pxjbox, z_misc) - 314usize];
 };
-#[doc = "\tHeader for any ui signal processing object.\nFor non-ui objects use #t_pxobject.\n@ingroup\tmsp"]
+#[doc = "Header for any ui signal processing object.\nFor non-ui objects use #t_pxobject.\n@ingroup\tmsp"]
 pub type t_pxjbox = _pxjbox;
 unsafe extern "C" {
     pub fn z_jbox_dsp_setup(x: *mut t_pxjbox, nsignals: ::std::os::raw::c_long);
@@ -17677,11 +17677,11 @@ unsafe extern "C" {
 pub struct _buffer_ref {
     _unused: [u8; 0],
 }
-#[doc = "\tA buffer~ reference.\nUse this struct to represent a reference to a buffer~ object in Max.\nUse the buffer_ref_getbuffer() call to return a pointer to the buffer.\nYou can then make calls on the buffer itself.\n\n@ingroup buffers"]
+#[doc = "A buffer~ reference.\nUse this struct to represent a reference to a buffer~ object in Max.\nUse the buffer_ref_getbuffer() call to return a pointer to the buffer.\nYou can then make calls on the buffer itself.\n\n@ingroup buffers"]
 pub type t_buffer_ref = _buffer_ref;
-#[doc = "\tA buffer~ object.\nThis represents the actual buffer~ object.\nYou can use this to send messages, query attributes, etc. of the actual buffer object\nreferenced by a #t_buffer_ref.\n\n@ingroup buffers"]
+#[doc = "A buffer~ object.\nThis represents the actual buffer~ object.\nYou can use this to send messages, query attributes, etc. of the actual buffer object\nreferenced by a #t_buffer_ref.\n\n@ingroup buffers"]
 pub type t_buffer_obj = t_object;
-#[doc = "\tCommon buffer~ data/metadata.\nThis info can be retreived from a buffer~ using the buffer_getinfo() call.\n\n@ingroup buffers"]
+#[doc = "Common buffer~ data/metadata.\nThis info can be retreived from a buffer~ using the buffer_getinfo() call.\n\n@ingroup buffers"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _buffer_info {
@@ -17721,26 +17721,26 @@ const _: () = {
         [::std::mem::offset_of!(_buffer_info, b_modtime) - 48usize];
     ["Offset of field: _buffer_info::b_rfu"][::std::mem::offset_of!(_buffer_info, b_rfu) - 56usize];
 };
-#[doc = "\tCommon buffer~ data/metadata.\nThis info can be retreived from a buffer~ using the buffer_getinfo() call.\n\n@ingroup buffers"]
+#[doc = "Common buffer~ data/metadata.\nThis info can be retreived from a buffer~ using the buffer_getinfo() call.\n\n@ingroup buffers"]
 pub type t_buffer_info = _buffer_info;
 unsafe extern "C" {
-    #[doc = "\tCreate a reference to a buffer~ object by name.\nYou must release the buffer reference using object_free() when you are finished using it.\n\n@ingroup buffers\n@param\tself\tpointer to your object\n@param\tname \tthe name of the buffer~\n@return\t\t\ta pointer to your new buffer reference"]
+    #[doc = "Create a reference to a buffer~ object by name.\nYou must release the buffer reference using object_free() when you are finished using it.\n\n@ingroup buffers\n@param\tself\tpointer to your object\n@param\tname \tthe name of the buffer~\n@return\t\t\ta pointer to your new buffer reference"]
     pub fn buffer_ref_new(self_: *mut t_object, name: *mut t_symbol) -> *mut t_buffer_ref;
 }
 unsafe extern "C" {
-    #[doc = "\tChange a buffer reference to refer to a different buffer~ object by name.\n\n@ingroup buffers\n@param\tx\t\tthe buffer reference\n@param\tname \tthe name of a different buffer~ to reference"]
+    #[doc = "Change a buffer reference to refer to a different buffer~ object by name.\n\n@ingroup buffers\n@param\tx\t\tthe buffer reference\n@param\tname \tthe name of a different buffer~ to reference"]
     pub fn buffer_ref_set(x: *mut t_buffer_ref, name: *mut t_symbol);
 }
 unsafe extern "C" {
-    #[doc = "\tQuery to find out if a buffer~ with the referenced name actually exists.\n\n@ingroup buffers\n@param\tx\t\tthe buffer reference\n@return\t\t\tnon-zero if the buffer~ exists, otherwise zero"]
+    #[doc = "Query to find out if a buffer~ with the referenced name actually exists.\n\n@ingroup buffers\n@param\tx\t\tthe buffer reference\n@return\t\t\tnon-zero if the buffer~ exists, otherwise zero"]
     pub fn buffer_ref_exists(x: *mut t_buffer_ref) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a buffer reference to get the actual buffer~ object being referenced, if it exists.\n\n@ingroup buffers\n@param\tx\t\t\tthe buffer reference\n@return\t\t\tthe buffer object if exists, otherwise NULL"]
+    #[doc = "Query a buffer reference to get the actual buffer~ object being referenced, if it exists.\n\n@ingroup buffers\n@param\tx\t\t\tthe buffer reference\n@return\t\t\tthe buffer object if exists, otherwise NULL"]
     pub fn buffer_ref_getobject(x: *mut t_buffer_ref) -> *mut t_buffer_obj;
 }
 unsafe extern "C" {
-    #[doc = "\tYour object needs to handle notifications issued by the buffer~ you reference.\nYou do this by defining a \"notify\" method.\nYour notify method should then call this notify method for the #t_buffer_ref.\n\n@ingroup buffers\n@param\tx\t\tthe buffer reference\n@param\ts \t\tthe registered name of the sending object\n@param\tmsg\t\tthen name of the notification/message sent\n@param\tsender\tthe pointer to the sending object\n@param\tdata\toptional argument sent with the notification/message\n@return\t\t\ta max error code"]
+    #[doc = "Your object needs to handle notifications issued by the buffer~ you reference.\nYou do this by defining a \"notify\" method.\nYour notify method should then call this notify method for the #t_buffer_ref.\n\n@ingroup buffers\n@param\tx\t\tthe buffer reference\n@param\ts \t\tthe registered name of the sending object\n@param\tmsg\t\tthen name of the notification/message sent\n@param\tsender\tthe pointer to the sending object\n@param\tdata\toptional argument sent with the notification/message\n@return\t\t\ta max error code"]
     pub fn buffer_ref_notify(
         x: *mut t_buffer_ref,
         s: *mut t_symbol,
@@ -17750,46 +17750,46 @@ unsafe extern "C" {
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tOpen a viewer window to display the contents of the buffer~.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object"]
+    #[doc = "Open a viewer window to display the contents of the buffer~.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object"]
     pub fn buffer_view(buffer_object: *mut t_buffer_obj);
 }
 unsafe extern "C" {
-    #[doc = "\tClaim the buffer~ and get a pointer to the first sample in memory.\nWhen you are done reading/writing to the buffer you must call buffer_unlocksamples().\nIf the attempt to claim the buffer~ fails the returned pointer will be NULL.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\ta pointer to the first sample in memory, or NULL if the buffer doesn't exist."]
+    #[doc = "Claim the buffer~ and get a pointer to the first sample in memory.\nWhen you are done reading/writing to the buffer you must call buffer_unlocksamples().\nIf the attempt to claim the buffer~ fails the returned pointer will be NULL.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\ta pointer to the first sample in memory, or NULL if the buffer doesn't exist."]
     pub fn buffer_locksamples(buffer_object: *mut t_buffer_obj) -> *mut f32;
 }
 unsafe extern "C" {
-    #[doc = "\tRelease your claim on the buffer~ contents so that other objects may read/write to the buffer~.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object"]
+    #[doc = "Release your claim on the buffer~ contents so that other objects may read/write to the buffer~.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object"]
     pub fn buffer_unlocksamples(buffer_object: *mut t_buffer_obj);
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a buffer~ to find out how many channels are present in the buffer content.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe number of channels in the buffer"]
+    #[doc = "Query a buffer~ to find out how many channels are present in the buffer content.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe number of channels in the buffer"]
     pub fn buffer_getchannelcount(buffer_object: *mut t_buffer_obj) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a buffer~ to find out how many frames long the buffer content is in samples.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe number of frames in the buffer"]
+    #[doc = "Query a buffer~ to find out how many frames long the buffer content is in samples.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe number of frames in the buffer"]
     pub fn buffer_getframecount(buffer_object: *mut t_buffer_obj) -> t_atom_long;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a buffer~ to find out its native sample rate in samples per second.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe sample rate in samples per second"]
+    #[doc = "Query a buffer~ to find out its native sample rate in samples per second.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe sample rate in samples per second"]
     pub fn buffer_getsamplerate(buffer_object: *mut t_buffer_obj) -> t_atom_float;
 }
 unsafe extern "C" {
-    #[doc = "\tQuery a buffer~ to find out its native sample rate in samples per millisecond.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe sample rate in samples per millisecond"]
+    #[doc = "Query a buffer~ to find out its native sample rate in samples per millisecond.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tthe sample rate in samples per millisecond"]
     pub fn buffer_getmillisamplerate(buffer_object: *mut t_buffer_obj) -> t_atom_float;
 }
 unsafe extern "C" {
-    #[doc = " Set the number of samples with which to zero-pad the buffer~'s contents.\nThe typical application for this need is to pad a buffer with enough room to allow for the reach of a FIR kernel in convolution.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@param\tsamplecount\t\tthe number of sample to pad the buffer with on each side of the contents\n@return\t\t\t\t\tan error code"]
+    #[doc = "Set the number of samples with which to zero-pad the buffer~'s contents.\nThe typical application for this need is to pad a buffer with enough room to allow for the reach of a FIR kernel in convolution.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@param\tsamplecount\t\tthe number of sample to pad the buffer with on each side of the contents\n@return\t\t\t\t\tan error code"]
     pub fn buffer_setpadding(
         buffer_object: *mut t_buffer_obj,
         samplecount: t_atom_long,
     ) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = "\tSet the buffer's dirty flag, indicating that changes have been made.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tan error code"]
+    #[doc = "Set the buffer's dirty flag, indicating that changes have been made.\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tan error code"]
     pub fn buffer_setdirty(buffer_object: *mut t_buffer_obj) -> t_max_err;
 }
 unsafe extern "C" {
-    #[doc = " Retrieve the name of the last file to be read by a buffer~.\n(Not the last file written).\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tThe name of the file last read, or gensym(\"\") if no files have been read.\n\n@version Introduced in Max 7.0.1"]
+    #[doc = "Retrieve the name of the last file to be read by a buffer~.\n(Not the last file written).\n\n@ingroup buffers\n@param\tbuffer_object\tthe buffer object\n@return\t\t\t\t\tThe name of the file last read, or gensym(\"\") if no files have been read.\n\n@version Introduced in Max 7.0.1"]
     pub fn buffer_getfilename(buffer_object: *mut t_buffer_obj) -> *mut t_symbol;
 }
 unsafe extern "C" {
@@ -17860,7 +17860,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn jit_object_error(x: *mut t_object, s: *mut ::std::os::raw::c_char, ...);
 }
-#[doc = " The structure for the head of any object which wants to have inlets or outlets,\nor support attributes.\n@ingroup obj"]
+#[doc = "The structure for the head of any object which wants to have inlets or outlets,\nor support attributes.\n@ingroup obj"]
 pub type t_jit_object = t_object;
 unsafe extern "C" {
     pub fn max_jit_obex_new(
@@ -19035,7 +19035,7 @@ pub mod t_matrix_conv_info_flags {
     pub const JIT_MATRIX_CONVERT_DSTDIM: Type = 8;
 }
 pub type uchar = ::std::os::raw::c_uchar;
-#[doc = " Provides base pointer and stride for vector operator functions"]
+#[doc = "Provides base pointer and stride for vector operator functions"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_op_info {
@@ -19052,7 +19052,7 @@ const _: () = {
     ["Offset of field: _jit_op_info::stride"]
         [::std::mem::offset_of!(_jit_op_info, stride) - 8usize];
 };
-#[doc = " Provides base pointer and stride for vector operator functions"]
+#[doc = "Provides base pointer and stride for vector operator functions"]
 pub type t_jit_op_info = _jit_op_info;
 pub type t_jit_op_fn = ::std::option::Option<unsafe extern "C" fn(arg1: ::std::os::raw::c_long)>;
 #[repr(C)]
@@ -21388,7 +21388,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn jit_linklist_init();
 }
-#[doc = " Matrix information struct.\n Used to get/set multiple matrix attributes at once.\n\n @ingroup matrixfun"]
+#[doc = "Matrix information struct.\n Used to get/set multiple matrix attributes at once.\n\n @ingroup matrixfun"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_matrix_info {
@@ -21426,7 +21426,7 @@ const _: () = {
     ["Offset of field: _jit_matrix_info::planecount"]
         [::std::mem::offset_of!(_jit_matrix_info, planecount) - 544usize];
 };
-#[doc = " Matrix information struct.\n Used to get/set multiple matrix attributes at once.\n\n @ingroup matrixfun"]
+#[doc = "Matrix information struct.\n Used to get/set multiple matrix attributes at once.\n\n @ingroup matrixfun"]
 pub type t_jit_matrix_info = _jit_matrix_info;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -22695,7 +22695,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn max_jit_ob3d_geterrorob() -> *mut ::std::os::raw::c_void;
 }
-#[doc = " t_wind_mouse_info_struct provided by jit.window and jit.pwindow mouse events\n"]
+#[doc = "t_wind_mouse_info_struct provided by jit.window and jit.pwindow mouse events"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct t_wind_mouse_info {
@@ -22763,7 +22763,7 @@ const _: () = {
     ["Offset of field: t_wind_key_info::keysymbol"]
         [::std::mem::offset_of!(t_wind_key_info, keysymbol) - 136usize];
 };
-#[doc = " 3D point (GLfloat)"]
+#[doc = "3D point (GLfloat)"]
 pub type t_point_3d = [f32; 3usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -24150,7 +24150,7 @@ unsafe extern "C" {
         geometry: *mut t_jit_object,
     ) -> t_jit_err;
 }
-#[doc = " Represents a view into a buffer, for use with glVertexAttribPointer etc."]
+#[doc = "Represents a view into a buffer, for use with glVertexAttribPointer etc."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_gl_buffer_view {
@@ -24184,7 +24184,7 @@ const _: () = {
     ["Offset of field: _jit_gl_buffer_view::ud"]
         [::std::mem::offset_of!(_jit_gl_buffer_view, ud) - 40usize];
 };
-#[doc = " Represents a view into a buffer, for use with glVertexAttribPointer etc."]
+#[doc = "Represents a view into a buffer, for use with glVertexAttribPointer etc."]
 pub type t_jit_gl_buffer_view = _jit_gl_buffer_view;
 pub mod e_buffer_data_flag {
     #[allow(unused_imports)]
@@ -24192,7 +24192,7 @@ pub mod e_buffer_data_flag {
     pub type Type = ::std::os::raw::c_uint;
     pub const BUFFER_DATA_PERSISTENT: Type = 1;
 }
-#[doc = " Represents data to be stored in a buffer"]
+#[doc = "Represents data to be stored in a buffer"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_gl_buffer_data {
@@ -24223,12 +24223,12 @@ const _: () = {
     ["Offset of field: _jit_gl_buffer_data::instance_div"]
         [::std::mem::offset_of!(_jit_gl_buffer_data, instance_div) - 48usize];
 };
-#[doc = " Represents data to be stored in a buffer"]
+#[doc = "Represents data to be stored in a buffer"]
 pub type t_jit_gl_buffer_data = _jit_gl_buffer_data;
 pub mod e_view_tag {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Create a buffer data object with a format specified by tags\nTag format: buffer kind, buffer type, ..., ..., VIEW_TAG_NULL\nNOTE: the list of tags must always be terminated by a VIEW_TAG_NULL tag.\n\nexamples:\n1) A buffer with vertices and normals:\ntags - {\nVIEW_TAG_VERTEX, VIEW_TAG_VEC3,\nVIEW_TAG_NORMAL, VIEW_TAG_VEC3,\nVIEW_TAG_NULL\n}\nbuffer layout - VVVNNN\n\n2) A buffer with only vertices:\ntags - {\nVIEW_TAG_VERTEX, VIEW_TAG_VEC3,\nVIEW_TAG_NULL\n}\nbuffer layout - VVV\n\n3) A buffer with vertices, texture coordinates, and colors:\ntags - {\nVIEW_TAG_VERTEX, VIEW_TAG_VEC3,\nVIEW_TAG_TEXCOORD, VIEW_TAG_VEC2,\nVIEW_TAG_COLOR, VIEW_TAG_VEC4,\nVIEW_TAG_NULL\n}\nbuffer layout - VVVTTCCCC"]
+    #[doc = "Create a buffer data object with a format specified by tags\nTag format: buffer kind, buffer type, ..., ..., VIEW_TAG_NULL\nNOTE: the list of tags must always be terminated by a VIEW_TAG_NULL tag.\n\nexamples:\n1) A buffer with vertices and normals:\ntags - {\nVIEW_TAG_VERTEX, VIEW_TAG_VEC3,\nVIEW_TAG_NORMAL, VIEW_TAG_VEC3,\nVIEW_TAG_NULL\n}\nbuffer layout - VVVNNN\n\n2) A buffer with only vertices:\ntags - {\nVIEW_TAG_VERTEX, VIEW_TAG_VEC3,\nVIEW_TAG_NULL\n}\nbuffer layout - VVV\n\n3) A buffer with vertices, texture coordinates, and colors:\ntags - {\nVIEW_TAG_VERTEX, VIEW_TAG_VEC3,\nVIEW_TAG_TEXCOORD, VIEW_TAG_VEC2,\nVIEW_TAG_COLOR, VIEW_TAG_VEC4,\nVIEW_TAG_NULL\n}\nbuffer layout - VVVTTCCCC"]
     pub type Type = ::std::os::raw::c_int;
     pub const VIEW_TAG_INVALID: Type = -1;
     pub const VIEW_TAG_NULL: Type = 0;
@@ -24304,7 +24304,7 @@ unsafe extern "C" {
     pub fn jit_gl_view_type_as_symbol(x: *mut t_jit_gl_buffer_view) -> *mut t_symbol;
 }
 unsafe extern "C" {
-    #[doc = " Enable transations with the rendering state"]
+    #[doc = "Enable transations with the rendering state"]
     pub fn jit_gl_state_begin(state: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
@@ -24313,7 +24313,7 @@ unsafe extern "C" {
 pub mod e_jit_state {
     #[allow(unused_imports)]
     use super::*;
-    #[doc = " Enums for manipulating rendering state"]
+    #[doc = "Enums for manipulating rendering state"]
     pub type Type = ::std::os::raw::c_uint;
     pub const JIT_STATE_FALSE: Type = 0;
     pub const JIT_STATE_TRUE: Type = 1;
@@ -24382,7 +24382,7 @@ pub mod e_jit_state {
     pub const JIT_STATE_COLOR_VAO: Type = 135;
 }
 unsafe extern "C" {
-    #[doc = " Apply updates on the rendering state"]
+    #[doc = "Apply updates on the rendering state"]
     pub fn jit_gl_materialf(face: e_jit_state::Type, pname: e_jit_state::Type, v: f64);
 }
 unsafe extern "C" {
@@ -24682,7 +24682,7 @@ unsafe extern "C" {
         unit: ::std::os::raw::c_long,
     ) -> t_jit_err;
 }
-#[doc = " t_jit_glchunk is a public structure to store one gl-command's-worth of data,\n in a format which can be passed easily to glDrawRangeElements, and matrixoutput.\n"]
+#[doc = "t_jit_glchunk is a public structure to store one gl-command's-worth of data,\n in a format which can be passed easily to glDrawRangeElements, and matrixoutput."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_glchunk {
@@ -24719,7 +24719,7 @@ const _: () = {
     ["Offset of field: _jit_glchunk::next_chunk"]
         [::std::mem::offset_of!(_jit_glchunk, next_chunk) - 48usize];
 };
-#[doc = " t_jit_glchunk is a public structure to store one gl-command's-worth of data,\n in a format which can be passed easily to glDrawRangeElements, and matrixoutput.\n"]
+#[doc = "t_jit_glchunk is a public structure to store one gl-command's-worth of data,\n in a format which can be passed easily to glDrawRangeElements, and matrixoutput."]
 pub type t_jit_glchunk = _jit_glchunk;
 unsafe extern "C" {
     pub fn jit_glchunk_new(
@@ -30792,7 +30792,7 @@ pub mod t_jit_gl_target_type {
     pub const JIT_GL_TARGET_TEXTURE: Type = 3;
     pub const JIT_GL_TARGET_ROOT_SHARED: Type = 4;
 }
-#[doc = " t_jit_gl_drawinfo struct used for tasks such as multi texture unit binding.\n"]
+#[doc = "t_jit_gl_drawinfo struct used for tasks such as multi texture unit binding."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _jit_gl_drawinfo {
@@ -30814,7 +30814,7 @@ const _: () = {
     ["Offset of field: _jit_gl_drawinfo::rfu"]
         [::std::mem::offset_of!(_jit_gl_drawinfo, rfu) - 16usize];
 };
-#[doc = " t_jit_gl_drawinfo struct used for tasks such as multi texture unit binding.\n"]
+#[doc = "t_jit_gl_drawinfo struct used for tasks such as multi texture unit binding."]
 pub type t_jit_gl_drawinfo = _jit_gl_drawinfo;
 unsafe extern "C" {
     pub fn jit_gl_drawinfo_setup(
@@ -31198,7 +31198,7 @@ const _: () = {
         [::std::mem::offset_of!(_jit_gl_context_view_cache, threaded) - 72usize];
 };
 pub type t_jit_gl_context_view_cache = _jit_gl_context_view_cache;
-#[doc = " t_jit_gl_context_view object struct.\n\n Manages an OpenGL context within a rectangle.  Objects that use a t_jit_gl_context_view\n to manage an OpenGL context should attach themselves to the object for its lifetime\n and implement an \"update\" method in order to handle modifications to the\n t_jit_gl_context_view that may require a rebuild or further response within the embedding\n object.\n\n @ingroup gl\n"]
+#[doc = "t_jit_gl_context_view object struct.\n\n Manages an OpenGL context within a rectangle.  Objects that use a t_jit_gl_context_view\n to manage an OpenGL context should attach themselves to the object for its lifetime\n and implement an \"update\" method in order to handle modifications to the\n t_jit_gl_context_view that may require a rebuild or further response within the embedding\n object.\n\n @ingroup gl"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct _jit_gl_context_view {
@@ -31338,7 +31338,7 @@ const _: () = {
     ["Offset of field: _jit_gl_context_view::ext_objects"]
         [::std::mem::offset_of!(_jit_gl_context_view, ext_objects) - 840usize];
 };
-#[doc = " t_jit_gl_context_view object struct.\n\n Manages an OpenGL context within a rectangle.  Objects that use a t_jit_gl_context_view\n to manage an OpenGL context should attach themselves to the object for its lifetime\n and implement an \"update\" method in order to handle modifications to the\n t_jit_gl_context_view that may require a rebuild or further response within the embedding\n object.\n\n @ingroup gl\n"]
+#[doc = "t_jit_gl_context_view object struct.\n\n Manages an OpenGL context within a rectangle.  Objects that use a t_jit_gl_context_view\n to manage an OpenGL context should attach themselves to the object for its lifetime\n and implement an \"update\" method in order to handle modifications to the\n t_jit_gl_context_view that may require a rebuild or further response within the embedding\n object.\n\n @ingroup gl"]
 pub type t_jit_gl_context_view = _jit_gl_context_view;
 unsafe extern "C" {
     pub fn jit_gl_context_view_are_shared(

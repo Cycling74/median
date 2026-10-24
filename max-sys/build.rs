@@ -1,5 +1,40 @@
 use std::env;
 
+/// Bindgen strips C comment delimiters but leaves the SDK's Doxygen code markers and the
+/// whitespace after an opening `/**`. Rustdoc otherwise treats C arrays as links and a
+/// leading tab in prose as an indented Rust example.
+#[cfg(feature = "build-bindings")]
+#[derive(Debug)]
+struct SdkComments;
+
+#[cfg(feature = "build-bindings")]
+impl bindgen::callbacks::ParseCallbacks for SdkComments {
+    fn process_comment(&self, comment: &str) -> Option<String> {
+        let mut code = false;
+        Some(
+            comment
+                .trim_start()
+                .lines()
+                .map(|line| match line.trim() {
+                    "@code" => {
+                        code = true;
+                        "\n```c".to_owned()
+                    }
+                    "@endcode" => {
+                        code = false;
+                        "```\n".to_owned()
+                    }
+                    // SDK prose also mentions C expressions such as argv[0]. They are
+                    // literal subscripts/ranges, not Rust intra-doc links.
+                    _ if !code => line.replace('[', "\\[").replace(']', "\\]"),
+                    _ => line.to_owned(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+    }
+}
+
 #[cfg(feature = "build-bindings")]
 fn build_bindings(support_dir: &str) {
     let target =
@@ -16,6 +51,7 @@ fn build_bindings(support_dir: &str) {
     );
     let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
+        .parse_callbacks(Box::new(SdkComments))
         .clang_arg(format!("--target={target}"))
         .clang_arg(format!("-I{support_dir}/max-includes"))
         .clang_arg(format!("-I{support_dir}/msp-includes"))

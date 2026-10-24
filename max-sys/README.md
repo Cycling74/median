@@ -8,6 +8,10 @@ do not need libclang or bindgen. Supported targets: macOS ARM64/x64 and Windows 
 All three targets use `max-sys/thirdparty/max-sdk-base`, pinned to
 `c03a2922a2a8ff149165a1e2ea134e9321d6e202`, with bindgen **0.73.2**, Rust target **1.85**,
 `generate_cstr` and `wrap_unsafe_ops`. Max, MSP and Jitter declarations are generated together.
+The `SdkComments` bindgen callback removes leading comment whitespace and converts Doxygen
+`@code`/`@endcode` blocks into fenced C examples, escaping literal brackets in prose.
+This keeps SDK prose and examples readable in rustdoc without interpreting them as Rust code
+or array subscripts as Rust documentation links.
 The old `max-sys/thirdparty/max-sdk` submodule is retained for the examples and design notes;
 it is not used to generate or link these bindings.
 
