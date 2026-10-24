@@ -8,6 +8,51 @@ use std::env;
 struct SdkComments;
 
 #[cfg(feature = "build-bindings")]
+fn sdk_prose(line: &str) -> String {
+    // Doxygen groups have no equivalent in rustdoc. They also occur after field prose.
+    let line = line
+        .split_once("@ingroup")
+        .map_or(line, |(text, _)| text.trim_end());
+    let mut out = String::new();
+    let mut chars = line.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '[' | ']' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            '#' => {
+                let mut name = String::new();
+                while chars
+                    .peek()
+                    .is_some_and(|c| c.is_ascii_alphanumeric() || *c == '_')
+                {
+                    name.push(chars.next().unwrap());
+                }
+                // Preserve Max's literal #N/#P/#B symbols and C preprocessor directives.
+                // Other SDK references may name declarations omitted from the bindings;
+                // code spans work on every target without introducing broken links.
+                if name.len() > 1
+                    && !matches!(
+                        name.as_str(),
+                        "define" | "include" | "ifdef" | "ifndef" | "endif"
+                    )
+                {
+                    out.push('`');
+                    out.push_str(&name);
+                    out.push('`');
+                } else {
+                    out.push('#');
+                    out.push_str(&name);
+                }
+            }
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+#[cfg(feature = "build-bindings")]
 impl bindgen::callbacks::ParseCallbacks for SdkComments {
     fn process_comment(&self, comment: &str) -> Option<String> {
         let comment = comment.trim_start();
@@ -33,7 +78,7 @@ impl bindgen::callbacks::ParseCallbacks for SdkComments {
                     }
                     // SDK prose also mentions C expressions such as argv[0]. They are
                     // literal subscripts/ranges, not Rust intra-doc links.
-                    _ if !code => line.replace('[', "\\[").replace(']', "\\]"),
+                    _ if !code => sdk_prose(line),
                     _ => line.to_owned(),
                 })
                 .collect::<Vec<_>>()

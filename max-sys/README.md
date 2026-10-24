@@ -10,7 +10,8 @@ All three targets use `max-sys/thirdparty/max-sdk-base`, pinned to
 `generate_cstr` and `wrap_unsafe_ops`. Max, MSP and Jitter declarations are generated together.
 The `SdkComments` bindgen callback removes leading comment whitespace and trailing-field
 comment markers (`///<`/`/**<`), and converts Doxygen `@code`/`@endcode` blocks into fenced C
-examples, escaping literal brackets in prose.
+examples, escaping literal brackets in prose. Doxygen `#symbol` references become inline
+code (some SDK symbols are absent from the bindings); `@ingroup` metadata is removed.
 This keeps SDK prose and examples readable in rustdoc without interpreting them as Rust code
 or array subscripts as Rust documentation links.
 The old `max-sys/thirdparty/max-sdk` submodule is retained for the examples and design notes;

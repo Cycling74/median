@@ -13,8 +13,10 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   Windows ARM64 remains deferred: this SDK supplies only x64 Windows import libraries.
   Linux remains excluded until its intended host is specified.
 - Documentation: bindgen normalizes SDK comment indentation, fences Doxygen examples as C,
-  and escapes literal brackets in prose. All three binding targets were regenerated with
-  documentation-only changes. CI builds workspace documentation with rustdoc warnings denied.
+  escapes literal brackets in prose, formats `#symbol` references as code, and removes
+  Doxygen group metadata and trailing-field comment markers. All three binding targets were
+  regenerated with documentation-only changes. CI builds workspace documentation with rustdoc
+  warnings denied.
 - Jitter: unflagged matrix metadata, guarded matrix views, validated shared/mutable iterators,
   and calc2/calc3 parallel adapters are implemented. Jitter `long` is i32; mutable views require
   an explicit unsafe exclusivity contract because a Jitter lock alone does not prove it.
