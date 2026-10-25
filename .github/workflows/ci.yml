@@ -8,6 +8,20 @@ permissions:
   contents: read
 
 jobs:
+  msrv:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Minimum Rust toolchain
+        run: rustup toolchain install 1.85.0 --profile minimal --no-self-update
+      # Diagnostic snapshots follow stable and are tested in the platform matrix below.
+      # Skip that UI runner here because its expected wording is compiler-specific.
+      - name: Tests on minimum Rust
+        run: cargo +1.85.0 test --workspace -- --skip macro_errors
+      - name: Binding generator on minimum Rust
+        run: cargo +1.85.0 check -p max-sys --features build-bindings
   test:
     strategy:
       fail-fast: false

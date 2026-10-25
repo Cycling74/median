@@ -36,7 +36,7 @@ fn round_trip_arrays_strings_and_safe_rejection() {
         );
         for _ in 0..2 {
             assert!(
-                matches!(d.get(sym!("text")).unwrap(), Some(DictValue::Str(v)) if v == c"plain %s text")
+                matches!(d.get(sym!("text")).unwrap(), Some(DictValue::Str(v)) if v.as_c_str() == c"plain %s text")
             );
         }
         // The mock models getatom's in-place string conversion; this proves reads avoided it.
@@ -82,7 +82,7 @@ fn round_trip_arrays_strings_and_safe_rejection() {
             ]
         );
         assert!(
-            matches!(d.remove(sym!("text")).unwrap(), Some(DictValue::Str(v)) if v == c"plain %s text")
+            matches!(d.remove(sym!("text")).unwrap(), Some(DictValue::Str(v)) if v.as_c_str() == c"plain %s text")
         );
         assert_eq!(d.len(), 5);
         assert!(!d.delete(sym!("absent")).unwrap());

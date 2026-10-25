@@ -43,8 +43,10 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   lazy_static/paste; parking_lot 0.12.5, syn 3.0.9. Workspace tests and strict Clippy passed
   locally. max-sys disables doctests because its generated SDK docs contain C examples;
   median's Rust doctests stay enabled. Intel macOS and Windows GNU workspace/all-targets
-  cross-checks pass; those are compilation checks, not native execution. The declared Rust 1.85
-  minimum still needs a run with that exact toolchain.
+  cross-checks pass; those are compilation checks, not native execution. Rust 1.85.0 now passes
+  workspace tests/doctests (UI snapshots stay on stable) and the optional binding-generator
+  check on Apple Silicon. CI has a separate minimum-version job. No minimum-version bump was
+  needed; two CString comparisons and a version-dependent Debug expectation in tests were fixed.
 - Containers: core ownership/locking, registry, atomarray builders and dictionary/save message
   support are implemented with mock tests; see the detailed status in `plan-containers.md`.
   JSON/atom parsing, file operations, name switching, notifications and raw helpers are now

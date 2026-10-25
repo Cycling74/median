@@ -217,7 +217,11 @@ mod tests {
         assert_eq!(s.name(), c"héllo");
         assert_eq!(s.to_str(), Ok("héllo"));
         assert_eq!(s.to_string(), "héllo");
-        assert_eq!(format!("{s:?}"), r#"SymbolRef("héllo")"#);
+        // CStr's Debug escaping of non-ASCII bytes varies between supported Rust versions.
+        assert_eq!(
+            format!("{:?}", crate::sym!("hello")),
+            r#"SymbolRef("hello")"#
+        );
         assert_eq!(format!("[{s:>7}]"), "[  héllo]");
         // invalid UTF-8: `to_str` fails, `Display` is lossy
         let bad = SymbolRef::from(c"a\xffb");
