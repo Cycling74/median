@@ -51,6 +51,12 @@ name switching, other-class registry collisions, notifications, weak entries, an
 List/anything outlets now reject object and unsupported atom types before delivery, returning
 `SendError`; dictionaries go through their registered name. The mock parser intentionally
 supports a subset of Max syntax, and cannot establish its coercions or file search behavior.
+The pre-Max validation pass adds one-shot allocation/clone/array-growth failures and
+post-store dictionary/atomarray append errors. Tests check error propagation, source-lock
+release, retry after pre-mutation failures, replacement cleanup, and retained-child lifetime
+after parent deletion. The mock's `dictionary_appendatoms` now reports a failed array
+allocation instead of storing a null child. These fault scenarios do not establish Max's
+rollback or partial-output guarantees; host verification remains necessary.
 Remaining: in-memory JSON serialization, host tests, and wider SDK failure/entry-flag coverage.
 `jsonwriter.getoutput` remains deliberately unimplemented until its contract is verified in Max.
 

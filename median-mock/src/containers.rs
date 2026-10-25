@@ -53,6 +53,37 @@ struct Store {
 static STORE: LazyLock<Mutex<Store>> = LazyLock::new(|| Mutex::new(Store::default()));
 const ERR: t_max_err = -1;
 
+/// One-shot SDK failure scenarios for ownership tests. These model selected failure points,
+/// not every allocation sequence or rollback guarantee of Max's container implementation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Failure {
+    DictionaryNew,
+    DictionaryClone,
+    AtomArrayNew,
+    /// Fail before changing the array.
+    AtomArraySetAtoms,
+    /// The dictionary owns the new child even though the append reports an error.
+    AppendDictionaryAfterStore,
+    /// The dictionary owns the new array even though the append reports an error.
+    AppendAtomArrayAfterStore,
+}
+static FAILURE: Mutex<Option<Failure>> = Mutex::new(None);
+
+/// Fail the next matching container operation. Hold the kernel test lock while using this.
+pub fn fail_next(failure: Failure) {
+    *FAILURE.lock() = Some(failure);
+}
+
+fn take_failure(expected: Failure) -> bool {
+    let mut failure = FAILURE.lock();
+    if *failure == Some(expected) {
+        *failure = None;
+        true
+    } else {
+        false
+    }
+}
+
 fn lookup(p: usize) -> Arc<Container> {
     STORE
         .lock()
@@ -125,6 +156,7 @@ pub(crate) fn release(p: usize) -> bool {
 }
 pub(crate) fn reset() {
     io::reset();
+    *FAILURE.lock() = None;
     let objects = {
         let mut s = STORE.lock();
         s.names.clear();
@@ -153,6 +185,9 @@ pub unsafe extern "C" fn object_retain(p: *mut t_object) -> t_max_err {
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn dictionary_new() -> *mut t_dictionary {
+    if take_failure(Failure::DictionaryNew) {
+        return std::ptr::null_mut();
+    }
     alloc(Body::Dict(Vec::new())) as _
 }
 #[unsafe(no_mangle)]
@@ -243,19 +278,28 @@ pub unsafe extern "C" fn dictionary_appendstring(
     )
 }
 macro_rules! append_object {
-    ($name:ident, $variant:ident) => {
+    ($name:ident, $variant:ident, $failure:ident) => {
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn $name(
             d: *mut t_dictionary,
             k: *mut t_symbol,
             v: *mut t_object,
         ) -> t_max_err {
-            append(d as usize, k as usize, Entry::$variant(v as usize))
+            let result = append(d as usize, k as usize, Entry::$variant(v as usize));
+            if take_failure(Failure::$failure) {
+                ERR
+            } else {
+                result
+            }
         }
     };
 }
-append_object!(dictionary_appenddictionary, Dict);
-append_object!(dictionary_appendatomarray, Array);
+append_object!(
+    dictionary_appenddictionary,
+    Dict,
+    AppendDictionaryAfterStore
+);
+append_object!(dictionary_appendatomarray, Array, AppendAtomArrayAfterStore);
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn dictionary_appendobject_flags(
     d: *mut t_dictionary,
@@ -273,6 +317,9 @@ pub unsafe extern "C" fn dictionary_appendatoms(
     atoms: *mut t_atom,
 ) -> t_max_err {
     let a = unsafe { atomarray_new(n, atoms) };
+    if a.is_null() {
+        return ERR;
+    }
     append(d as usize, k as usize, Entry::Array(a as usize))
 }
 macro_rules! predicate {
@@ -450,6 +497,9 @@ pub unsafe extern "C" fn dictionary_clear(d: *mut t_dictionary) -> t_max_err {
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn dictionary_clone(d: *mut t_dictionary) -> *mut t_dictionary {
+    if take_failure(Failure::DictionaryClone) {
+        return std::ptr::null_mut();
+    }
     let object = lookup(d as usize);
     let lock = object.body.lock();
     let body = lock.borrow();
@@ -478,6 +528,9 @@ pub unsafe extern "C" fn dictionary_clone(d: *mut t_dictionary) -> *mut t_dictio
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn atomarray_new(n: c_long, atoms: *mut t_atom) -> *mut t_atomarray {
+    if take_failure(Failure::AtomArrayNew) {
+        return std::ptr::null_mut();
+    }
     let copied = if n == 0 {
         Vec::new()
     } else {
@@ -519,6 +572,9 @@ pub unsafe extern "C" fn atomarray_setatoms(
     n: c_long,
     atoms: *mut t_atom,
 ) -> t_max_err {
+    if take_failure(Failure::AtomArraySetAtoms) {
+        return ERR;
+    }
     let copied = if n == 0 {
         Vec::new()
     } else {
@@ -629,6 +685,60 @@ pub unsafe extern "C" fn atomisatomarray(atom: *mut t_atom) -> c_long {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn injected_failures_are_one_shot_and_post_store_errors_transfer_ownership() {
+        let _kernel = crate::lock();
+        unsafe {
+            fail_next(Failure::DictionaryNew);
+            assert!(dictionary_new().is_null());
+            let d = dictionary_new();
+            assert!(!d.is_null());
+            fail_next(Failure::DictionaryClone);
+            assert!(dictionary_clone(d).is_null());
+            let copy = dictionary_clone(d);
+            assert!(!copy.is_null());
+            release(copy as usize);
+
+            fail_next(Failure::AtomArrayNew);
+            assert!(atomarray_new(0, std::ptr::null_mut()).is_null());
+            let array = atomarray_new(0, std::ptr::null_mut());
+            assert!(!array.is_null());
+            let mut value = Atom::Long(42).to_raw();
+            fail_next(Failure::AtomArraySetAtoms);
+            assert_eq!(atomarray_setatoms(array, 1, &mut value), ERR);
+            assert_eq!(atomarray_getsize(array), 0);
+            assert_eq!(atomarray_setatoms(array, 1, &mut value), 0);
+            assert_eq!(atomarray_getsize(array), 1);
+
+            fail_next(Failure::AtomArrayNew);
+            let key = intern(b"failed-array");
+            assert_eq!(dictionary_appendatoms(d, key, 1, &mut value), ERR);
+            assert_eq!(dictionary_hasentry(d, key), 0);
+            assert_eq!(live_count(), 2);
+
+            let child = dictionary_new();
+            fail_next(Failure::AppendDictionaryAfterStore);
+            assert_eq!(
+                dictionary_appenddictionary(d, intern(b"child"), child.cast()),
+                ERR
+            );
+            assert!(
+                matches!(entry(d as usize, intern(b"child") as usize), Some(Entry::Dict(p)) if p == child as usize)
+            );
+            fail_next(Failure::AppendAtomArrayAfterStore);
+            assert_eq!(
+                dictionary_appendatomarray(d, intern(b"array"), array.cast()),
+                ERR
+            );
+            assert!(
+                matches!(entry(d as usize, intern(b"array") as usize), Some(Entry::Array(p)) if p == array as usize)
+            );
+            assert_eq!(live_count(), 3);
+            release(d as usize);
+            assert_eq!(live_count(), 0);
+        }
+    }
+
     #[test]
     fn borrowed_entry_flags_suppress_release_even_with_memory_flag() {
         let _k = crate::lock();
