@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          for example in simplemax simp simp_explicit hello_dsp multi jit_scalebias jit_gl_simple; do
+          for example in simplemax simp simp_explicit hello_dsp multi jit_scalebias jit_gl_simple validation; do
             (cd "median/examples/$example" && cargo build)
           done
       - name: Install cargo-make
@@ -41,3 +41,6 @@ jobs:
       - name: Package simp
         working-directory: median/examples/simp
         run: cargo make package
+      - name: Package validation fixtures
+        working-directory: median/examples/validation
+        run: cargo make package-fixtures

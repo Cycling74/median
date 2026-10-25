@@ -8,6 +8,12 @@ Build an example from its directory with `cargo make package`; `cargo make insta
 into the Max 9 user Packages folder (`MAX_VERSION=8` selects Max 8). Restart Max after replacing
 an already loaded external.
 
+The [validation fixtures](../median/examples/validation/README.md) provide three runnable
+patches for message/thread diagnostics, mixed MSP inlets, and custom MOP/GL iolets.
+Build their complete package with `cargo make package-fixtures` from
+`median/examples/validation`. The same external code is exercised by `tests/validation.rs`;
+the expected values in the patches remain unverified in Max.
+
 ## Examples and messages
 
 - [ ] Create `simplemax 42 1.25 hello`. Expect its registration post once per load, a creation
@@ -17,16 +23,19 @@ an already loaded external.
   If `undocumented` does not hide them, implement API redesign §F(b).
 - [ ] Open `simp`'s inspector. Check the Value label/category, clipping to 0–100, and persistence
   after saving/reopening the patch. Check the getter/setter attribute too.
-- [ ] Check MSP inlet ordering with a proxy after signal inlets (a dedicated test external is
-  still needed; `hello_dsp~` alone does not establish this).
+- [ ] Check MSP inlet ordering with a proxy after signal inlets using `02-signals.maxpat`:
+  outputs must read 0.125 and 0.75, integer inlet is 2, proxy inlet is 3.
 - [ ] Check `loadbang`'s `A_CANT` callback signature and integer-to-float message fallback with
-  a dedicated test external. Float-to-int fallback was already checked and does not occur.
+  `01-messages.maxpat`. Float-to-int fallback was already checked and does not occur.
 
 ## Scheduling and teardown
 
 - [ ] Send `read test` to `simp` from a `metro`, with Overdrive enabled. Expect its deferred
   report on the main thread. Delete the object with a call pending; there should be no later
   callback or crash.
+- [ ] Use `01-messages.maxpat` to compare actual main/scheduler/audio flags for `direct`,
+  `low` and `front`, with Overdrive on/off. Preserve arguments and report main=true for both
+  deferred messages. Reopen the patch to exercise loadbang again.
 - [ ] Exercise deferred delivery while a modal dialog runs a nested event loop. Calls queued
   during delivery should not disappear or deadlock. A main-thread assertion/instrumented
   external is needed to establish thread identity; a console post alone cannot do that.
@@ -67,7 +76,8 @@ an already loaded external.
 - [ ] Check a fixed-count MOP and ob3d with extra numeric/proxy inlets and message outlets.
   Verify SDK iolets precede the custom ones (including dumpout), returned inlet positions,
   assistance text, hot/cold display and proxy message dispatch. Repeat creation/deletion and
-  constructor refusal. `tests/jitter_iolets.rs` supplies the fixture behavior to port to Max.
+  constructor refusal. `03-jitter-iolets.maxpat` supplies runnable fixtures; use
+  `jit.median.validate refuse` for intentional construction failure.
 - [ ] Run Jitter parallel callback tests in Max; current tests cover validated iteration
   and direct trampoline calls, not the host scheduler.
 

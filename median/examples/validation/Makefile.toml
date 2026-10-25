@@ -1,0 +1,26 @@
+extend = "../../utils/Makefile.toml"
+
+[env]
+MAX_EXT_NAME = "median.validate"
+MAX_PACKAGE_NAME = "median-validation"
+
+# Keep the diagnostic patches with the binary and the multi-class autoload mappings.
+[tasks.package-fixtures]
+dependencies = ["package"]
+script_runner = "@shell"
+script = ['''
+set -eu
+package_dir="${PROFILE_TARGET_DIR}/${MAX_PACKAGE_NAME}"
+cp -R patchers "$package_dir/"
+cp README.md "$package_dir/"
+''']
+
+[tasks.package-fixtures.windows]
+script_runner = "powershell"
+script_extension = "ps1"
+script = ['''
+$ErrorActionPreference = "Stop"
+$packageDir = Join-Path $env:PROFILE_TARGET_DIR $env:MAX_PACKAGE_NAME
+Copy-Item -LiteralPath patchers -Destination $packageDir -Recurse -Force
+Copy-Item -LiteralPath README.md -Destination $packageDir -Force
+''']
