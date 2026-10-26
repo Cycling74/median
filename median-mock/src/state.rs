@@ -144,6 +144,8 @@ pub(crate) struct Sub {
 }
 
 pub(crate) struct BufferData {
+    /// Fixture switch for testing diagnostics against the opposite of our host assumption.
+    pub edit_exclusion: bool,
     pub ptr: usize,
     pub name: String,
     pub channels: usize,

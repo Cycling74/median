@@ -1,6 +1,6 @@
 # Max validation fixtures
 
-Four diagnostic classes in one external, with three patches that exercise the same code
+Five diagnostic classes in one external, with four patches that exercise the same code
 as `median/tests/validation.rs`. Mock tests check the probes; only a run in Max establishes
 the host behavior. On 2026-10-26 the user verified patch 01 with DSP off and Overdrive on/off,
 plus patch 02's signal outputs and custom integer/proxy inlet positions;
@@ -24,7 +24,7 @@ The complete package is `target/<native-target>/debug/median-validation/`. On Ap
 `<native-target>` is `aarch64-apple-darwin`; on Intel Mac, `x86_64-apple-darwin`; on native
 Windows, `x86_64-pc-windows-msvc`. Copy the **whole** package into
 `Documents/Max 9/Packages/` (or Max 8's Packages folder), then restart Max. Keep `init/`:
-its objectfile mappings let Max discover all four classes in `median.validate`.
+its objectfile mappings let Max discover all five classes in `median.validate`.
 Open the patches in the installed package's `patchers/` directory.
 
 Alternatively, on macOS `cargo make install` installs the external and init mappings;
@@ -41,6 +41,7 @@ The patches include controls and expected results; start with all toggles off.
 | `01-messages.maxpat` | On opening/reopening, `messages: loadbang; main=true scheduler=false audio=false`. Clicking `17.5` reports `float 17.5`; `17` is rejected (no int-to-float fallback observed). With Overdrive on, direct reports main=false, scheduler=true; low/front report main=true, scheduler=false. With Overdrive off, direct/front report both main=true and scheduler=true; low reports main=true, scheduler=false. These results were observed with DSP off. Check argument preservation too. |
 | `02-signals.maxpat` | Enable DSP using ezdac~, then enable the sampling toggle. The two displays should read `0.125` and `0.75`. No signal is routed to speakers. The integer inlet reports position 2; `probe` at the proxy reports position 3. Hover to check assistance, then repeat with DSP and scheduler settings changed. |
 | `03-jitter-iolets.maxpat` | MOP custom inlets occupy 2–4; SDK matrix outlets and dumpout occupy 0–2, then integer echo 3 and bang 4. GL custom proxy is inlet 1 and its index appears at outlet 2. Check assistance/hotness and repeated creation/deletion. The GL fixture draws nothing. The MOP fixture does not process matrices. |
+| `04-buffer-exclusivity.maxpat` | Click `probe` with DSP off, then with DSP on using ezdac~. The dedicated buffer's pointers and lock results appear in four console lines. The signal output is silence. Each probe pauses the UI for about 450 ms; do not change the buffer during it. |
 
 Stop metros/rendering/DSP when finished. For constructor cleanup, manually create
 `jit.median.validate refuse`: it must report an intentional constructor error. Delete it and
@@ -53,9 +54,36 @@ nothing; an empty window is expected.
 
 The message patch supports a deletion smoke test while the metro is running. That does not
 prove every pending-call interleaving or either documented clock shutdown race is safe.
-These fixtures do not yet exercise nested modal event loops, buffer edit exclusivity,
+These fixtures do not yet exercise nested modal event loops,
 audio-thread qelem support, dictionary kernel ownership, JSON output, or GL upload ownership.
 The remaining host checks are in the repository's `doc/validation-max.md`.
+
+## Buffer probe (patch 04)
+
+`median.validate.buffer~ <buffer-name>` defers `probe` to the low-priority main thread.
+It observes three 150 ms windows: before the edit, during `buffer_edit_begin/end`, and after.
+The audio callback attempts shared claims and immediately releases successful ones; it only
+updates atomic counters and produces silence. All console output happens after the edit ends.
+The probe never reads/writes sample data or constructs sample slices, including if exclusion
+fails. It restores the buffer's old valid flag with `buffer_edit_end(buffer, -1)`.
+
+Expected results:
+
+- `edit_begin=0 getinfo=0 edit_end=0` (successful SDK calls).
+- `main_exclusion=PASS`: the main-thread claim during the edit returned null.
+- `pointer_identity=PASS`: `b_samples` during the edit matches the successful shared-claim
+  pointers before and after, with positive frame/channel counts.
+- DSP off: `audio_exclusion=INCONCLUSIVE (DSP off or insufficient callbacks)` is expected.
+- DSP on: `audio_exclusion=PASS` requires successful claims before/after, at least one refused
+  claim during the edit, and zero successful claims during it. Calls spanning phase boundaries
+  are discarded. `INCONCLUSIVE` is not a pass; check DSP and the connected snapshot~ path.
+
+First run with Scheduler in Audio Interrupt off. Repeat with Overdrive on/off and record the
+settings. Send all four console lines for each run. Stop and report a `FAIL` before continuing
+to sample-edit tests. These observations test the exclusion and pointer-identity assumptions;
+pointer equality alone does not establish permission for mutable slices, nor do finite runs
+prove every interleaving safe. The probe has mock coverage, including deliberately disabled
+exclusion, but has not yet been run in Max.
 
 ## Record results
 

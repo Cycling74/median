@@ -2,7 +2,9 @@
 #[path = "../examples/validation/src/lib.rs"]
 mod validation;
 
+use median::wrapper::{MSPObjWrapper, WrapperWrapped};
 use median_mock::{Atom, Kernel, Role};
+use validation::buffer_probe::BufferProbe;
 
 fn register() {
     // SAFETY: called as Max calls ext_main, while holding the mock kernel lock.
@@ -11,6 +13,80 @@ fn register() {
 
 fn posts(k: &Kernel) -> Vec<String> {
     k.take_console_log().into_iter().map(|e| e.text).collect()
+}
+
+#[test]
+fn buffer_probe_checks_exclusion_and_detects_a_counterexample_without_touching_samples() {
+    let k = median_mock::lock();
+    register();
+    k.create_buffer("probe", 2, 32, 44100.);
+    let samples: Vec<_> = (0..64).map(|i| i as f32 / 64.).collect();
+    k.set_buffer_samples("probe", &samples);
+    let obj = k.new_object("median.validate.buffer~", &["probe".into()]);
+    assert!(!obj.is_null());
+    let probe = unsafe { &*obj.cast::<MSPObjWrapper<BufferProbe>>() }.wrapped();
+    let dsp = k.dsp64(obj, 44100., 64).unwrap();
+    let mut outs = vec![vec![1.; 64]];
+    for exclusion in [true, false, true] {
+        assert!(median_mock::buffer::set_edit_exclusion("probe", exclusion));
+        probe.probe_with(|| dsp[0].run(&mut [], &mut outs)).unwrap();
+        let log = posts(&k);
+        assert_eq!(log.len(), 4, "{log:?}");
+        let expected = if exclusion { "PASS" } else { "FAIL" };
+        assert!(log[2].contains(&format!("main_exclusion={expected} pointer_identity=PASS")));
+        assert!(log[3].contains(&format!("audio_exclusion={expected}")));
+        assert_eq!(outs[0], vec![0.; 64]);
+        assert_eq!(k.buffer_samples("probe").unwrap(), samples);
+        assert_eq!(k.buffer_state("probe"), Some((0, false)));
+        assert_eq!(k.buffer_editing("probe"), Some(false));
+        assert_eq!(k.buffer_last_edit_valid("probe"), Some(Some(-1)));
+    }
+    assert_eq!(k.buffer_edits("probe"), Some((3, 3)));
+    assert!(k.free_object(obj));
+    assert!(posts(&k).is_empty());
+}
+
+#[test]
+fn buffer_probe_defers_to_main_reports_dsp_off_and_recovers_after_unwind() {
+    let k = median_mock::lock();
+    register();
+    k.create_buffer("probe", 1, 16, 44100.);
+    let obj = k.new_object("median.validate.buffer~", &["probe".into()]);
+    assert!(!obj.is_null());
+    let probe = unsafe { &*obj.cast::<MSPObjWrapper<BufferProbe>>() }.wrapped();
+    for role in [Role::Timer, Role::Audio, Role::MainTimer, Role::Other] {
+        assert!(k.with_role(role, || probe.probe_with(|| {})).is_err());
+    }
+    assert_eq!(k.buffer_edits("probe"), Some((0, 0)));
+    let mut window = 0;
+    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = probe.probe_with(|| {
+            window += 1;
+            if window == 2 {
+                panic!("inside edit observation");
+            }
+        });
+    }));
+    assert!(panic.is_err());
+    assert_eq!(k.buffer_editing("probe"), Some(false));
+    assert_eq!(k.buffer_edits("probe"), Some((1, 1)));
+    k.with_role(Role::Timer, || k.send(obj, "probe", &[]).unwrap());
+    assert!(posts(&k).is_empty());
+    k.run_main_queue();
+    let log = posts(&k);
+    assert_eq!(log.len(), 4, "{log:?}");
+    assert!(log[0].contains("main=true scheduler=false audio=false"));
+    assert!(log[3].contains("audio_exclusion=INCONCLUSIVE"));
+    assert_eq!(k.buffer_edits("probe"), Some((2, 2)));
+    k.destroy_buffer("probe");
+    assert!(
+        probe
+            .probe_with(|| {})
+            .unwrap_err()
+            .contains("does not exist")
+    );
+    assert!(k.free_object(obj));
+    assert!(posts(&k).is_empty());
 }
 
 #[test]

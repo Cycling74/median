@@ -1,5 +1,7 @@
 //! Diagnostic externals for the accompanying Max patches. No audio-thread logging or allocation.
 
+pub(crate) mod buffer_probe;
+
 use median::{
     jit::{
         DrawContext, JitBuilder, JitResult, MatrixOp, Ob3d,
@@ -230,4 +232,4 @@ impl Graphics {
     }
 }
 
-median::ext_main! { Messages, Signals, Matrices, Graphics }
+median::ext_main! { Messages, Signals, Matrices, Graphics, buffer_probe::BufferProbe }

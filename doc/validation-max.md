@@ -8,8 +8,9 @@ Build an example from its directory with `cargo make package`; `cargo make insta
 into the Max 9 user Packages folder (`MAX_VERSION=8` selects Max 8). Restart Max after replacing
 an already loaded external.
 
-The [validation fixtures](../median/examples/validation/README.md) provide three runnable
-patches for message/thread diagnostics, mixed MSP inlets, and custom MOP/GL iolets.
+The [validation fixtures](../median/examples/validation/README.md) provide four runnable
+patches for message/thread diagnostics, mixed MSP inlets, custom MOP/GL iolets, and buffer
+edit exclusion/pointer identity.
 Build their complete package with `cargo make package-fixtures` from
 `median/examples/validation`. The same external code is exercised by `tests/validation.rs`;
 host results and their limits are recorded below.
@@ -54,8 +55,11 @@ host results and their limits are recorded below.
 ## Buffer exclusivity
 
 - [ ] Verify `buffer_locksamples` returns null while `buffer_edit_begin` is active and that
-  `buffer_getinfo().b_samples` is the editable sample pointer. This needs an instrumented
-  external, with audio active and inactive; successful playback alone does not verify it.
+  `buffer_getinfo().b_samples` is the editable sample pointer. Patch 04 now supplies a
+  read-only instrumented probe with audio active/inactive windows. It compares pointer
+  identity and main/audio shared-claim results without creating sample slices or touching
+  sample data. A pointer match is evidence of identity, not proof of writable-slice safety.
+  Host results are pending; see the fixture README for expected output and instructions.
 
 ## Containers and Jitter
 

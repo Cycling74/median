@@ -39,6 +39,7 @@ pub(crate) fn create(name: &str, channels: usize, frames: usize, sample_rate: f6
     state().buffers.insert(
         name.to_string(),
         BufferData {
+            edit_exclusion: true,
             ptr,
             name: name.to_string(),
             channels,
@@ -168,13 +169,25 @@ pub(crate) fn total_locks() -> usize {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn buffer_locksamples(buffer_object: *mut t_buffer_obj) -> *mut f32 {
     with_buffer(buffer_object, |b| {
-        if b.editing > 0 {
+        if b.editing > 0 && b.edit_exclusion {
             return std::ptr::null_mut();
         }
         b.locks += 1;
         b.data.as_mut_ptr()
     })
     .unwrap_or(std::ptr::null_mut())
+}
+
+/// Override the mock's assumption that an edit excludes shared claims, for a named fixture.
+/// Returns false if the buffer does not exist. Newly created buffers default to exclusion.
+/// This is for read-only contract probes: do not use mutable sample views with exclusion off.
+pub fn set_edit_exclusion(name: &str, enabled: bool) -> bool {
+    let mut st = state();
+    let Some(buffer) = st.buffers.get_mut(name) else {
+        return false;
+    };
+    buffer.edit_exclusion = enabled;
+    true
 }
 
 /// # Safety

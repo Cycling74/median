@@ -32,9 +32,9 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   construction and uploads after ownership verification, and validation in Max.
   See API redesign §J for implementation decisions.
 - Examples: the SDK simplemax port and constructor/console mock coverage are implemented.
-  `validation` adds message/thread, mixed MSP inlet, and custom MOP/GL iolet probes with
-  three Max patches and a complete diagnostic package. Its exact source passes mock tests;
-  Apple Silicon packaging succeeds. CI builds/packages it on the existing platform matrix.
+  `validation` adds message/thread, mixed MSP inlet, custom MOP/GL iolet, and read-only buffer
+  exclusion probes with four Max patches and a complete diagnostic package. Its exact source
+  passes mock tests; Apple Silicon packaging succeeds. CI builds/packages it on the existing platform matrix.
   Host checks are tracked in [validation-max.md](validation-max.md).
 - Build: root workspace, standalone external projects, CI matrix (macos-15,
   macos-15-intel, windows-2025), and vendored template packaging tasks are implemented.

@@ -777,6 +777,12 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     headers). **Unverified in Max**: that `buffer_locksamples` returns null while an edit is in
     progress (the header says `buffer_edit_begin` clears the valid flag and waits for the in-use
     count; `BufferEdit`'s `&mut` relies on it), and that `b_samples` is right during an edit.
+    The 2026-10-26 validation package adds `04-buffer-exclusivity.maxpat`: a read-only SDK
+    probe compares the edit-info pointer with shared-claim pointers before/after an edit,
+    checks main-thread refusal during it, and counts audio-thread claims/refusals in three
+    observation windows. No sample references/writes are made. Mock tests cover both the
+    assumed exclusion and its counterexample, DSP-off reporting and unwind cleanup. Host
+    results remain pending; pointer equality alone does not prove writable-slice safety.
   - Messages: `BufferReference::view()` (`buffer_view`, as `index~`/`simpwave~` do on
     double-click), `Class::add_dblclick` (`A_CANT`), and `Class::add_buffer_messages(|s:
     &Self| &*s.buf)`, which registers `set <name>` and `dblclick` for one reference (call it in

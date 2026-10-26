@@ -1,3 +1,4 @@
 max objectfile median.validate~ median.validate;
 max objectfile jit.median.validate median.validate;
 max objectfile jit.gl.median.validate median.validate;
+max objectfile median.validate.buffer~ median.validate;
