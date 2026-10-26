@@ -24,7 +24,15 @@ fn messages_report_actual_threads_and_pending_calls_are_cancelled() {
         posts(&k),
         ["fixture: loadbang; main=true scheduler=false audio=false"]
     );
-    assert!(k.method(obj, "int").is_none()); // The real host must establish float fallback.
+    assert!(k.method(obj, "int").is_none());
+    // Observed in Max on 2026-10-26: a float method alone does not accept int messages.
+    assert_eq!(
+        k.send_int(obj, 17),
+        Err(median_mock::SendError::NoMethod("int".into()))
+    );
+    let errors = posts(&k);
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("doesn't understand") && errors[0].contains("int"));
     k.send_float(obj, 17.5).unwrap();
     assert_eq!(
         posts(&k),
@@ -52,6 +60,34 @@ fn messages_report_actual_threads_and_pending_calls_are_cancelled() {
     assert!(k.free_object(obj));
     k.run_main_queue();
     assert!(posts(&k).is_empty());
+    assert_eq!(k.live_object_count(), 0);
+}
+
+#[test]
+fn overdrive_off_front_runs_in_main_scheduler_context_but_low_waits() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("median.validate", &["fixture".into()]);
+    assert!(!obj.is_null());
+    k.with_role(Role::MainTimer, || {
+        k.send(obj, "direct", &[Atom::Long(32)]).unwrap();
+        k.send(obj, "low", &[Atom::Long(32)]).unwrap();
+        k.send(obj, "front", &[Atom::Long(32)]).unwrap();
+        assert_eq!(
+            posts(&k),
+            [
+                "fixture: direct 32; main=true scheduler=true audio=false",
+                "fixture: front 32; main=true scheduler=true audio=false",
+            ]
+        );
+    });
+    assert!(k.main_queue_len() > 0);
+    k.run_main_queue();
+    assert_eq!(
+        posts(&k),
+        ["fixture: low 32; main=true scheduler=false audio=false"]
+    );
+    assert!(k.free_object(obj));
     assert_eq!(k.live_object_count(), 0);
 }
 

@@ -46,7 +46,7 @@ impl Messages {
         report(&self.obj, &self.label, "loadbang");
     }
 
-    // Deliberately no #[int]: sending an integer probes Max's float fallback.
+    // Deliberately no #[int]: Max rejected integer messages in the DSP-off host test.
     #[float]
     fn number(&self, value: f64) {
         report(&self.obj, &self.label, &format!("float {value}"));

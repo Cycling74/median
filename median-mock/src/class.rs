@@ -697,18 +697,19 @@ fn convert_args(types: &[i32], atoms: &[Atom]) -> Result<Vec<Raw>, String> {
     Ok(out)
 }
 
-/// Pick the method for `sel`, with Max's fallbacks: `int` falls back to `float`, then `list`; a
+/// Pick the method for `sel`: `int` falls back to `list` (unverified); a
 /// one element `list` goes to `int` or `float` (a float element only to `float`); and any other
 /// selector not understood goes to an `anything` method. `float` has no fallback at all: checked in
 /// Max (2026-10-22), `simp` (methods `int`, `list` and `anything`, no `float`) posts
-/// `doesn't understand "float"`. The `int` fallbacks are not checked in Max. Returns the selector
+/// `doesn't understand "float"`. A float-only class rejects `int` in Max (2026-10-26);
+/// int-to-list/anything and list-to-number fallbacks remain unverified. Returns the selector
 /// to pass to an `A_GIMME` method.
 fn resolve(c: &ClassData, sel: &str, atoms: &[Atom]) -> Option<(String, MethodRec)> {
     if let Some(m) = c.methods.get(sel) {
         return Some((sel.to_string(), m.clone()));
     }
     let alts: &[&str] = match sel {
-        "int" => &["float", "list"],
+        "int" => &["list"],
         "float" => return None,
         "list" => match atoms {
             [Atom::Long(_)] => &["int", "float"],

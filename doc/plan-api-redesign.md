@@ -450,13 +450,16 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `dblclick` methods; `Class::add_buffer_messages` removed.
 - Checked in Max so far (by the user): `hello_dsp~` following a `buffer~` named in its
   arguments and playing it; an object with `int` but no `float` posts
-  `doesn't understand "float"` (no fallback to `int`, `list` or `anything`). Everything else in
+  `doesn't understand "float"` (no fallback to `int`, `list` or `anything`). On 2026-10-26,
+  `01-messages` also confirmed loadbang and float delivery, int-to-float rejection, and
+  deferred main-thread delivery with Overdrive on/off, all with DSP off. See
+  `validation-max.md` for the exact thread flags. Everything else in
   the "To check in Max" notes below is still unchecked; the main ones: whether `undocumented`
   hides `ft1`..`in9` from `simp`'s message menu (if not, do part (b) of section F), MSP inlet
   layout with a proxy after `hello_dsp~`'s signal inlets, `BufferEdit` excluding perform claims,
-  deferred calls from a `metro` and across a modal dialog, `qelem_set` inside its own function,
-  `qelem_set` from the audio thread, attribute options in the inspector, `loadbang`'s signature,
-  `int` falling back to `float`, and the two clock gaps from step 1.
+  deferred calls with DSP on and across a modal dialog, `qelem_set` inside its own function,
+  `qelem_set` from the audio thread, attribute options in the inspector,
+  and the two clock gaps from step 1.
 - Not done from this plan: the derive finding the `ObjRef` field (section A);
   `#[notify]`; `defer_delivery()`; maxref fields
   (`description`/`author`/`tags`). Out of scope by design: `dynlet`, several `#[methods]` blocks.

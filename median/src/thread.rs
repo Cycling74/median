@@ -1,4 +1,6 @@
 //! Which Max thread the code is running on.
+//! These queries are not mutually exclusive: with Overdrive off, a scheduler callback can
+//! report both main and scheduler (observed in Max with DSP off).
 //!
 //! To run a method on the main thread, mark it `#[defer]` or `#[defer_low]` (see
 //! [`crate::defer`]), or use a [`Queue`](crate::queue::Queue).

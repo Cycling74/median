@@ -158,7 +158,8 @@ impl Kernel {
     /// `(x, selector, argc, argv)` and a typed one with the converted arguments (an int atom
     /// converts to a float argument and a float atom to an int argument by truncation; a symbol for
     /// a number or a missing non-default argument is [`SendError::BadArgs`]; extra atoms are
-    /// ignored). If there is none: `int` falls back to `float` then `list` (not checked in Max);
+    /// ignored). If there is none: `int` does not fall back to `float` (checked in Max), but
+    /// falls back to `list`/`anything` in this mock (not checked in Max);
     /// `float` has no fallback, as in Max (not `int`, `list` or `anything`); a one element `list`
     /// falls back to `int` or `float` (a float element only to `float`); and any other message
     /// falls back to an

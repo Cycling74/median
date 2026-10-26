@@ -12,7 +12,7 @@ The [validation fixtures](../median/examples/validation/README.md) provide three
 patches for message/thread diagnostics, mixed MSP inlets, and custom MOP/GL iolets.
 Build their complete package with `cargo make package-fixtures` from
 `median/examples/validation`. The same external code is exercised by `tests/validation.rs`;
-the expected values in the patches remain unverified in Max.
+host results and their limits are recorded below.
 
 ## Examples and messages
 
@@ -25,17 +25,20 @@ the expected values in the patches remain unverified in Max.
   after saving/reopening the patch. Check the getter/setter attribute too.
 - [ ] Check MSP inlet ordering with a proxy after signal inlets using `02-signals.maxpat`:
   outputs must read 0.125 and 0.75, integer inlet is 2, proxy inlet is 3.
-- [ ] Check `loadbang`'s `A_CANT` callback signature and integer-to-float message fallback with
-  `01-messages.maxpat`. Float-to-int fallback was already checked and does not occur.
+- [x] `01-messages.maxpat` delivers loadbang on the main thread and float 17.5 correctly.
+  An integer 17 is rejected despite a registered float method: no integer-to-float fallback
+  in this fixture (2026-10-26, DSP off). Float-to-int rejection was checked previously.
 
 ## Scheduling and teardown
 
 - [ ] Send `read test` to `simp` from a `metro`, with Overdrive enabled. Expect its deferred
   report on the main thread. Delete the object with a call pending; there should be no later
   callback or crash.
-- [ ] Use `01-messages.maxpat` to compare actual main/scheduler/audio flags for `direct`,
-  `low` and `front`, with Overdrive on/off. Preserve arguments and report main=true for both
-  deferred messages. Reopen the patch to exercise loadbang again.
+- [x] `01-messages.maxpat`, DSP off, Overdrive on/off: integer counter values are preserved,
+  and both deferred methods report main=true. With Overdrive off, direct/front report both
+  main=true and scheduler=true; low reports main=true, scheduler=false (2026-10-26).
+- [ ] Repeat the thread checks with DSP on and record Scheduler in Audio Interrupt.
+  Also check manual `42 hello` arguments, reopen/loadbang, and pending-call deletion.
 - [ ] Exercise deferred delivery while a modal dialog runs a nested event loop. Calls queued
   during delivery should not disappear or deadlock. A main-thread assertion/instrumented
   external is needed to establish thread identity; a console post alone cannot do that.
@@ -84,5 +87,28 @@ the expected values in the patches remain unverified in Max.
 ## Recorded results
 
 From the previous handoff: the user verified `hello_dsp~` following and playing its named
-`buffer~`, and a class with `int` but no `float` rejecting float messages. No further runtime
-results have been recorded in this continuation.
+`buffer~`, and a class with `int` but no `float` rejecting float messages.
+
+### 2026-10-26 — 01-messages, DSP off
+
+User-supplied console output, first with Overdrive on, then switched off. DSP was off
+throughout (explicitly confirmed). Max version, OS/architecture, tested commit, and Scheduler
+in Audio Interrupt setting were not supplied.
+
+| Observation | main | scheduler | audio |
+| --- | --- | --- | --- |
+| loadbang; float 17.5 | true | false | false |
+| direct 0–31, Overdrive on | false | true | false |
+| front/low 0–31, Overdrive on | true | false | false |
+| direct/front 32–38, Overdrive off | true | true | false |
+| low 32–38, Overdrive off | true | false | false |
+
+Integer 17 produced `doesn't understand "int"`: the float-only class does not receive an
+integer through its float handler. The mock's int-to-float fallback was corrected accordingly;
+its other unverified int/list/anything fallback paths are not established by this fixture.
+
+Every logged counter value had direct, front, then low delivery, with matching arguments.
+The Overdrive-off result is consistent with `#[defer]` running immediately on the main
+thread and `#[defer_low]` waiting for the main queue. Main/scheduler flags are not exclusive.
+This does not validate DSP-on behavior, modal reentrancy, pending-call teardown, symbol
+arguments, or the assumed position of an already-set qelem after `qelem_front`.

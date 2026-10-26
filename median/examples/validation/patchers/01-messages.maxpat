@@ -167,7 +167,7 @@
             900.0,
             40.0
           ],
-          "text": "17 should report float 17 if Max supplies integer-to-float fallback. 17.5 must report float 17.5. low/front preserve 42 and hello; deferred callbacks must report main=true."
+          "text": "17 is rejected: no int-to-float fallback was observed in Max. 17.5 must report float 17.5. low/front preserve 42 and hello; deferred callbacks must report main=true."
         }
       },
       {
@@ -312,7 +312,7 @@
             900.0,
             55.0
           ],
-          "text": "Turn on Overdrive in Max, then enable the toggle. direct should report scheduler=true; low/front must report main=true. Stop the metro afterward. Repeat with Overdrive off; record both results."
+          "text": "With DSP off: Overdrive on gives direct main=false, scheduler=true; low/front main=true. Overdrive off gives direct/front main=true AND scheduler=true; low main=true, scheduler=false. Stop the metro afterward."
         }
       },
       {

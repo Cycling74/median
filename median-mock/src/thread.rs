@@ -1,7 +1,7 @@
 //! Thread roles: `systhread_ismainthread` and friends.
 //!
-//! Max has one main thread, one scheduler (timer) thread and the audio thread(s). In the mock
-//! each OS thread has a [`Role`]. A thread is the [`Role::Main`] thread unless told otherwise; the
+//! With Overdrive off, Max's scheduler callbacks can report both main and timer roles.
+//! In the mock each OS thread has a [`Role`]. A thread is [`Role::Main`] unless told otherwise; the
 //! kernel switches the role of the calling thread while it runs a clock callback
 //! ([`Role::Timer`]), a perform routine ([`Role::Audio`]) or the main queue ([`Role::Main`]).
 
@@ -12,6 +12,8 @@ use std::ffi::c_short;
 pub enum Role {
     Main,
     Timer,
+    /// A scheduler callback on the main thread (Overdrive off, observed with DSP off).
+    MainTimer,
     Audio,
     /// Any other thread, for tests that want to check behaviour off the three Max threads.
     Other,
@@ -42,14 +44,14 @@ pub fn with_role<R>(role: Role, f: impl FnOnce() -> R) -> R {
 /// No requirements; `unsafe` only because it is an exported Max function.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn systhread_ismainthread() -> c_short {
-    (current_role() == Role::Main) as c_short
+    matches!(current_role(), Role::Main | Role::MainTimer) as c_short
 }
 
 /// # Safety
 /// No requirements.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn systhread_istimerthread() -> c_short {
-    (current_role() == Role::Timer) as c_short
+    matches!(current_role(), Role::Timer | Role::MainTimer) as c_short
 }
 
 /// # Safety
