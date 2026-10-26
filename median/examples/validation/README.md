@@ -83,7 +83,11 @@ settings. Send all four console lines for each run. Stop and report a `FAIL` bef
 to sample-edit tests. These observations test the exclusion and pointer-identity assumptions;
 pointer equality alone does not establish permission for mutable slices, nor do finite runs
 prove every interleaving safe. The probe has mock coverage, including deliberately disabled
-exclusion, but has not yet been run in Max.
+exclusion. On 2026-10-26 the user's first Max run passed main exclusion and pointer identity
+with no audio callbacks (expected at the DSP-off step). The second passed all three checks:
+104 successful audio claims before/after and 104 refused claims during the edit, with no
+successful claims during it. See `doc/validation-max.md` in the repository for the environment
+and scope; scheduler-setting variations and actual sample editing remain untested.
 
 ## Record results
 

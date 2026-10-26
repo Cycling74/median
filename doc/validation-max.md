@@ -54,12 +54,13 @@ host results and their limits are recorded below.
 
 ## Buffer exclusivity
 
-- [ ] Verify `buffer_locksamples` returns null while `buffer_edit_begin` is active and that
-  `buffer_getinfo().b_samples` is the editable sample pointer. Patch 04 now supplies a
-  read-only instrumented probe with audio active/inactive windows. It compares pointer
-  identity and main/audio shared-claim results without creating sample slices or touching
-  sample data. A pointer match is evidence of identity, not proof of writable-slice safety.
-  Host results are pending; see the fixture README for expected output and instructions.
+- [x] Observe `buffer_locksamples` returning null while `buffer_edit_begin` is active,
+  and `buffer_getinfo().b_samples` matching the shared-claim pointers before/after the edit.
+  Patch 04 passed the main-thread and pointer checks in both supplied runs; the second run
+  also passed audio exclusion (104 refused claims during the edit). See the host record below.
+- [ ] Repeat under changed scheduler settings and validate actual sample editing separately.
+  The read-only probe creates no sample slices and touches no sample data: pointer equality
+  alone does not prove writable-slice safety or every possible interleaving.
 
 ## Containers and Jitter
 
@@ -214,3 +215,26 @@ This confirms delivery of the intentional refusal and the outer wrapper's failur
 The user subsequently confirmed that several refusal → delete → normal creation cycles
 work as expected. This passes the recovery smoke test; it does not measure leaks in Max.
 Mock tests separately cover resource cleanup on this path.
+
+### 2026-10-26 — 04-buffer-exclusivity
+
+User-supplied output after the DSP-off / DSP-on instructions for the probe added in
+`a467be2`. The environment snapshot above identifies Max 9.2.0 on native ARM64 macOS 14.6.1;
+the loaded build and Overdrive/Scheduler in Audio Interrupt settings were not independently
+reported with these runs.
+
+Both runs report main=true, scheduler=false, audio=false for the deferred probe, and
+`edit_begin=0 getinfo=0 edit_end=0`. The buffer has 44,100 frames and two channels.
+In both runs, before/edit-info/after pointers equal `0x130088050`, while the main-thread
+claim during the edit returns `0x0`: `main_exclusion=PASS pointer_identity=PASS`.
+
+| Run | Before claims/refused | During claims/refused | After claims/refused | Audio result |
+| --- | --- | --- | --- | --- |
+| First (DSP-off step) | 0/0 | 0/0 | 0/0 | INCONCLUSIVE, expected without callbacks |
+| Second (DSP-on step) | 104/0 | 0/104 | 104/0 | PASS |
+
+This establishes observed shared-claim exclusion on the main and audio threads, recovery
+after the edit, and sample-pointer identity in this configuration. The first run's counters
+alone cannot distinguish DSP off from insufficient callbacks. The probe never accesses
+sample data; actual mutable-slice use, scheduler-setting variations, and other host versions
+remain outside this result.

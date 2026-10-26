@@ -466,10 +466,12 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `doesn't understand "float"` (no fallback to `int`, `list` or `anything`). On 2026-10-26,
   `01-messages` also confirmed loadbang and float delivery, int-to-float rejection, and
   deferred main-thread delivery with Overdrive on/off, all with DSP off. `02-signals` confirmed
-  signal outputs 0.125/0.75 and integer/proxy dispatch at positions 2/3. See
+  signal outputs 0.125/0.75 and integer/proxy dispatch at positions 2/3. Patch 04 observed
+  main/audio shared-claim exclusion during an SDK edit and sample-pointer identity; actual
+  sample editing and scheduler-setting variations remain untested. See
   `validation-max.md` for the exact thread flags. Everything else in
   the "To check in Max" notes below is still unchecked; the main ones: whether `undocumented`
-  hides `ft1`..`in9` from `simp`'s message menu (if not, do part (b) of section F), `BufferEdit` excluding perform claims,
+  hides `ft1`..`in9` from `simp`'s message menu (if not, do part (b) of section F),
   deferred calls with DSP on and across a modal dialog, `qelem_set` inside its own function,
   `qelem_set` from the audio thread, attribute options in the inspector,
   and the two clock gaps from step 1.
@@ -774,15 +776,18 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `as_mut_slice`, `frame(_mut)`, `channel_iter(_mut)`, `set_dirty`; a mutable view marks it
     dirty, and drop calls `buffer_edit_end(b, 1)` then `buffer_setdirty`. **No `resize`**:
     `ext_buffer.h` declares no resize call (the `buffer~` messages that do it are not in the SDK
-    headers). **Unverified in Max**: that `buffer_locksamples` returns null while an edit is in
-    progress (the header says `buffer_edit_begin` clears the valid flag and waits for the in-use
-    count; `BufferEdit`'s `&mut` relies on it), and that `b_samples` is right during an edit.
+    headers). `BufferEdit`'s `&mut` relies on `buffer_locksamples` returning null during an
+    edit (the header says `buffer_edit_begin` clears the valid flag and waits for the in-use
+    count), and on `b_samples` identifying the sample memory during the edit.
     The 2026-10-26 validation package adds `04-buffer-exclusivity.maxpat`: a read-only SDK
     probe compares the edit-info pointer with shared-claim pointers before/after an edit,
     checks main-thread refusal during it, and counts audio-thread claims/refusals in three
     observation windows. No sample references/writes are made. Mock tests cover both the
-    assumed exclusion and its counterexample, DSP-off reporting and unwind cleanup. Host
-    results remain pending; pointer equality alone does not prove writable-slice safety.
+    assumed exclusion and its counterexample, DSP-off reporting and unwind cleanup. The
+    user's Max 9.2 ARM64 runs passed main exclusion/pointer identity, then audio exclusion
+    with 104 refused claims during the edit and successful claims before/after. See
+    `validation-max.md` for scope: pointer equality alone does not prove writable-slice safety,
+    and actual sample editing and scheduler-setting variations remain untested.
   - Messages: `BufferReference::view()` (`buffer_view`, as `index~`/`simpwave~` do on
     double-click), `Class::add_dblclick` (`A_CANT`), and `Class::add_buffer_messages(|s:
     &Self| &*s.buf)`, which registers `set <name>` and `dblclick` for one reference (call it in
