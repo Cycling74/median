@@ -83,8 +83,9 @@ host results and their limits are recorded below.
   Manual MOP creation twice and GL deletion/recreation produced no reported crashes.
 - [x] `jit.median.validate refuse` reports the intentional constructor failure and the
   wrapper's `unable to create Jitter object` error (2026-10-26).
+- [x] Several refusal → delete → normal creation cycles work as expected (2026-10-26).
 - [ ] Complete patch 03 checks: MOP integer echo 19 at outlet 3 and bang at outlet 4,
-  repeated refused/normal construction, and GL teardown with the context
+  and GL teardown with the context
   deleted first. Repeat the probe after recreating the GL object.
 - [ ] Run Jitter parallel callback tests in Max; current tests cover validated iteration
   and direct trampoline calls, not the host scheduler.
@@ -206,5 +207,6 @@ jit.median.validate: unable to create Jitter object
 ```
 
 This confirms delivery of the intentional refusal and the outer wrapper's failure report.
-It does not establish leak-free cleanup in Max; repeated refused/normal construction remains
-to be checked. Mock tests separately cover resource cleanup on this path.
+The user subsequently confirmed that several refusal → delete → normal creation cycles
+work as expected. This passes the recovery smoke test; it does not measure leaks in Max.
+Mock tests separately cover resource cleanup on this path.
