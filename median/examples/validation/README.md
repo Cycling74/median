@@ -2,7 +2,8 @@
 
 Four diagnostic classes in one external, with three patches that exercise the same code
 as `median/tests/validation.rs`. Mock tests check the probes; only a run in Max establishes
-the host behavior. The user verified patch 01 with DSP off and Overdrive on/off on 2026-10-26;
+the host behavior. On 2026-10-26 the user verified patch 01 with DSP off and Overdrive on/off,
+plus patch 02's signal outputs and custom integer/proxy inlet positions;
 see `doc/validation-max.md` in the source checkout for the observations and remaining checks.
 
 ## Build and load

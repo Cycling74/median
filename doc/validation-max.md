@@ -23,8 +23,10 @@ host results and their limits are recorded below.
   If `undocumented` does not hide them, implement API redesign §F(b).
 - [ ] Open `simp`'s inspector. Check the Value label/category, clipping to 0–100, and persistence
   after saving/reopening the patch. Check the getter/setter attribute too.
-- [ ] Check MSP inlet ordering with a proxy after signal inlets using `02-signals.maxpat`:
-  outputs must read 0.125 and 0.75, integer inlet is 2, proxy inlet is 3.
+- [x] `02-signals.maxpat`: signal outputs read 0.125 and 0.75; the integer callback
+  receives 17 at inlet 2 and the proxy reports inlet 3 (2026-10-26).
+- [ ] For patch 02, confirm assistance text, save/reopen and repeated creation/deletion;
+  record which DSP/Overdrive/Scheduler in Audio Interrupt combinations were exercised.
 - [x] `01-messages.maxpat` delivers loadbang on the main thread and float 17.5 correctly.
   An integer 17 is rejected despite a registered float method: no integer-to-float fallback
   in this fixture (2026-10-26, DSP off). Float-to-int rejection was checked previously.
@@ -112,3 +114,15 @@ The Overdrive-off result is consistent with `#[defer]` running immediately on th
 thread and `#[defer_low]` waiting for the main queue. Main/scheduler flags are not exclusive.
 This does not validate DSP-on behavior, modal reentrancy, pending-call teardown, symbol
 arguments, or the assumed position of an already-set qelem after `qelem_front`.
+
+### 2026-10-26 — 02-signals
+
+The user reported the expected snapshot values: left 0.125, right 0.75. The console log
+contains four pairs of `integer inlet 2 value 17` and `proxy inlet 3`, each with
+main=true, scheduler=false, audio=false. This validates the two signal paths and custom
+integer/proxy dispatch in the tested configuration.
+
+The message-thread flags do not establish whether DSP was running at each click. Exact
+DSP/Overdrive/Scheduler in Audio Interrupt settings for the four pairs were not supplied;
+neither were Max version, OS/architecture or tested commit. Assistance, save/reopen and
+repeated creation/deletion were not reported.
