@@ -8,7 +8,8 @@ see `doc/validation-max.md` in the source checkout for the observations and rema
 Patch 03 exposed a construction crash in Max 9.2 ARM64. After fixing the wrapper's Max/Jitter
 storage collision and core attachment, the user confirmed opening the patch, MOP assistance
 and float/proxy dispatch, GL hotness/outlets/proxy output, and no crashes during GL
-deletion/recreation. Constructor refusal and context-first teardown still need confirmation.
+deletion/recreation. Intentional constructor refusal reports both expected errors in Max;
+repeated refused/normal construction and context-first teardown still need confirmation.
 
 ## Build and load
 

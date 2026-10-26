@@ -81,8 +81,10 @@ host results and their limits are recorded below.
 - [x] Patch 03 opens after the storage fix. MOP assistance/hotness, float inlet 3 and proxy
   inlet 4, GL inlet hotness/outlet layout and proxy inlet 1 output are confirmed (2026-10-26).
   Manual MOP creation twice and GL deletion/recreation produced no reported crashes.
+- [x] `jit.median.validate refuse` reports the intentional constructor failure and the
+  wrapper's `unable to create Jitter object` error (2026-10-26).
 - [ ] Complete patch 03 checks: MOP integer echo 19 at outlet 3 and bang at outlet 4,
-  constructor refusal with `jit.median.validate refuse`, and GL teardown with the context
+  repeated refused/normal construction, and GL teardown with the context
   deleted first. Repeat the probe after recreating the GL object.
 - [ ] Run Jitter parallel callback tests in Max; current tests cover validated iteration
   and direct trampoline calls, not the host scheduler.
@@ -168,7 +170,8 @@ attached the core, hiding both defects.
 Regression checks cover independent offsets, collision detection, explicit attachment,
 the core's `maxwrapper` backlink, and Max obex store/lookup after construction for both
 validation classes. The subsequent host retest below confirms opening and basic iolet
-behavior; refusal and context-first teardown remain unverified.
+behavior; the later refusal check also reports the expected errors. Context-first teardown
+remains unverified.
 
 Local verification: all 252 workspace tests passed, including UI tests and doctests;
 strict Clippy and documentation with warnings denied passed. Temporarily removing either
@@ -190,7 +193,18 @@ The console also reported OpenGL 4.1 Metal - 88.1 and GLSL 4.10; that startup me
 does not validate drawing or resource uploads.
 
 This confirms that the original patch-load crash did not recur in the retest. MOP integer
-echo/bang output, intentional constructor refusal, probe delivery after GL recreation,
+echo/bang output, probe delivery after GL recreation,
 and deleting the render context before the GL object were not explicitly reported. Exact
 loaded build and DSP/scheduler settings for this retest were not supplied separately from
 the support-info snapshot above.
+
+The subsequent `jit.median.validate refuse` check produced the expected console output:
+
+```text
+median_jit.median.validate: validation: intentional constructor refusal after making custom iolets
+jit.median.validate: unable to create Jitter object
+```
+
+This confirms delivery of the intentional refusal and the outer wrapper's failure report.
+It does not establish leak-free cleanup in Max; repeated refused/normal construction remains
+to be checked. Mock tests separately cover resource cleanup on this path.

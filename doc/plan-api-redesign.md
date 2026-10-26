@@ -267,7 +267,8 @@ callbacks, attributes/creation arguments, custom methods, deferred ownership, re
 constructors, callback/drop panics, and in-place/intersection matrix processing. macOS ARM64
 packaging succeeds. Initial Max validation on 2026-10-26 found a construction crash;
 the storage/attachment correction below passed a patch 03 opening and basic iolet host retest.
-Refusal and context-first GL teardown remain unverified. Differences from the proposal below:
+Intentional refusal also reports the expected errors in Max; repeated refused/normal
+construction and context-first GL teardown remain unverified. Differences from the proposal below:
 
 - Shared `jit::wrapper::Core<T, Kind>` owns a boxed user value (honoring its alignment), with
   `MaxGlue<T, Kind>` inside the ordinary Max wrapper. Lifecycle cleanup is in these types;
