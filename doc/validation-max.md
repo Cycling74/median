@@ -78,11 +78,12 @@ host results and their limits are recorded below.
   deletion after closing the render context. The example uses SDK immediate-mode GL calls.
 - [ ] Check Jitter attribute inspector/save behavior, SDK notifications and hot/cold iolets;
   the mock checks forwarding/handler preservation but does not implement the host wrappers.
-- [ ] Check a fixed-count MOP and ob3d with extra numeric/proxy inlets and message outlets.
-  Verify SDK iolets precede the custom ones (including dumpout), returned inlet positions,
-  assistance text, hot/cold display and proxy message dispatch. Repeat creation/deletion and
-  constructor refusal. `03-jitter-iolets.maxpat` supplies runnable fixtures; use
-  `jit.median.validate refuse` for intentional construction failure.
+- [x] Patch 03 opens after the storage fix. MOP assistance/hotness, float inlet 3 and proxy
+  inlet 4, GL inlet hotness/outlet layout and proxy inlet 1 output are confirmed (2026-10-26).
+  Manual MOP creation twice and GL deletion/recreation produced no reported crashes.
+- [ ] Complete patch 03 checks: MOP integer echo 19 at outlet 3 and bang at outlet 4,
+  constructor refusal with `jit.median.validate refuse`, and GL teardown with the context
+  deleted first. Repeat the probe after recreating the GL object.
 - [ ] Run Jitter parallel callback tests in Max; current tests cover validated iteration
   and direct trampoline calls, not the host scheduler.
 
@@ -166,10 +167,30 @@ attached the core, hiding both defects.
 
 Regression checks cover independent offsets, collision detection, explicit attachment,
 the core's `maxwrapper` backlink, and Max obex store/lookup after construction for both
-validation classes. Reinstall the rebuilt package and restart Max before retrying patch 03.
-The corrected binary still needs a host retest, including creation/deletion and refusal.
+validation classes. The subsequent host retest below confirms opening and basic iolet
+behavior; refusal and context-first teardown remain unverified.
 
 Local verification: all 252 workspace tests passed, including UI tests and doctests;
 strict Clippy and documentation with warnings denied passed. Temporarily removing either
 fix made the validation regression fail. The Apple Silicon diagnostic package was rebuilt
 and its bundle signature verified.
+
+### 2026-10-26 — 03-jitter-iolets: retest after the storage fix
+
+The user opened patch 03 and reported that assistance and hot/cold indicators look correct
+on `jit.median.validate`. Console output confirms `matrix: float inlet 3 value 2.5` and
+`matrix: proxy inlet 4`, both with main=true, scheduler=false, audio=false. Two manual
+creations of `jit.median.validate` succeeded without errors, as expected without `refuse`.
+
+For `jit.gl.median.validate`, both inlets are hot, outlets look correct, and clicking `probe`
+sends 1 from the rightmost outlet. The console reports `gl: proxy inlet 1` with main=true,
+scheduler=false, audio=false. The user reported no crashes when deleting/recreating the GL
+object. Successful creation/deletion has no diagnostic post, and this fixture draws nothing.
+The console also reported OpenGL 4.1 Metal - 88.1 and GLSL 4.10; that startup message alone
+does not validate drawing or resource uploads.
+
+This confirms that the original patch-load crash did not recur in the retest. MOP integer
+echo/bang output, intentional constructor refusal, probe delivery after GL recreation,
+and deleting the render context before the GL object were not explicitly reported. Exact
+loaded build and DSP/scheduler settings for this retest were not supplied separately from
+the support-info snapshot above.

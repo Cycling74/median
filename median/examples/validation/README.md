@@ -5,9 +5,10 @@ as `median/tests/validation.rs`. Mock tests check the probes; only a run in Max 
 the host behavior. On 2026-10-26 the user verified patch 01 with DSP off and Overdrive on/off,
 plus patch 02's signal outputs and custom integer/proxy inlet positions;
 see `doc/validation-max.md` in the source checkout for the observations and remaining checks.
-Patch 03 exposed a construction crash in Max 9.2 ARM64. The wrapper's Max/Jitter storage
-collision and missing core attachment are corrected in source; rebuild, reinstall and restart
-Max before retrying. Host confirmation of that correction is still pending.
+Patch 03 exposed a construction crash in Max 9.2 ARM64. After fixing the wrapper's Max/Jitter
+storage collision and core attachment, the user confirmed opening the patch, MOP assistance
+and float/proxy dispatch, GL hotness/outlets/proxy output, and no crashes during GL
+deletion/recreation. Constructor refusal and context-first teardown still need confirmation.
 
 ## Build and load
 
@@ -43,6 +44,10 @@ Stop metros/rendering/DSP when finished. For constructor cleanup, manually creat
 `jit.median.validate refuse`: it must report an intentional constructor error. Delete it and
 create `jit.median.validate` normally; repeat a few times. For GL teardown, also delete the
 context before deleting the GL object, then recreate both.
+Normal creation/deletion is quiet: no error or lifecycle post is expected. After recreating
+`jit.gl.median.validate median_validation`, reconnect `probe` to inlet 1 and check that it
+again posts `gl: proxy inlet 1` and sends 1 from the rightmost outlet. The GL fixture draws
+nothing; an empty window is expected.
 
 The message patch supports a deletion smoke test while the metro is running. That does not
 prove every pending-call interleaving or either documented clock shutdown race is safe.

@@ -266,7 +266,8 @@ are implemented, unflagged, on `xnor/api-redesign`. Their mock tests exercise ze
 callbacks, attributes/creation arguments, custom methods, deferred ownership, refused/panicking
 constructors, callback/drop panics, and in-place/intersection matrix processing. macOS ARM64
 packaging succeeds. Initial Max validation on 2026-10-26 found a construction crash;
-the storage/attachment correction below awaits a host retest. Differences from the proposal below:
+the storage/attachment correction below passed a patch 03 opening and basic iolet host retest.
+Refusal and context-first GL teardown remain unverified. Differences from the proposal below:
 
 - Shared `jit::wrapper::Core<T, Kind>` owns a boxed user value (honoring its alignment), with
   `MaxGlue<T, Kind>` inside the ordinary Max wrapper. Lifecycle cleanup is in these types;
@@ -308,7 +309,9 @@ the storage/attachment correction below awaits a host retest. Differences from t
   Standalone cores have no Max iolets. Variable-count MOPs refuse extra iolets: tracking
   dynamic position changes remains outside this construction-only API. The 2026-10-24 mock
   tests cover ordering, dispatch, assistance/hotness, panic containment, and failure cleanup
-  both before and after SDK setup starts. Host ordering still needs verification in Max.
+  both before and after SDK setup starts. Patch 03's 2026-10-26 host retest confirms MOP
+  assistance/hotness and float/proxy positions, plus GL hotness/outlet layout/proxy output;
+  the remaining output and lifecycle checks are in `validation-max.md`.
 
 The remainder of this section records the original branch assessment and design proposal.
 
