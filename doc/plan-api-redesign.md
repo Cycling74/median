@@ -467,8 +467,8 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `01-messages` also confirmed loadbang and float delivery, int-to-float rejection, and
   deferred main-thread delivery with Overdrive on/off, all with DSP off. `02-signals` confirmed
   signal outputs 0.125/0.75 and integer/proxy dispatch at positions 2/3. Patch 04 observed
-  main/audio shared-claim exclusion during an SDK edit and sample-pointer identity; actual
-  sample editing and scheduler-setting variations remain untested. See
+  main/audio shared-claim exclusion during an SDK edit and sample-pointer identity with
+  Overdrive on/off; actual sample editing and Scheduler in Audio Interrupt enabled remain untested. See
   `validation-max.md` for the exact thread flags. Everything else in
   the "To check in Max" notes below is still unchecked; the main ones: whether `undocumented`
   hides `ft1`..`in9` from `simp`'s message menu (if not, do part (b) of section F),
@@ -785,9 +785,9 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     observation windows. No sample references/writes are made. Mock tests cover both the
     assumed exclusion and its counterexample, DSP-off reporting and unwind cleanup. The
     user's Max 9.2 ARM64 runs passed main exclusion/pointer identity, then audio exclusion
-    with 104 refused claims during the edit and successful claims before/after. See
+    with Overdrive on/off: 104 refused claims during the edit and successful claims before/after. See
     `validation-max.md` for scope: pointer equality alone does not prove writable-slice safety,
-    and actual sample editing and scheduler-setting variations remain untested.
+    and actual sample editing and Scheduler in Audio Interrupt enabled remain untested.
   - Messages: `BufferReference::view()` (`buffer_view`, as `index~`/`simpwave~` do on
     double-click), `Class::add_dblclick` (`A_CANT`), and `Class::add_buffer_messages(|s:
     &Self| &*s.buf)`, which registers `set <name>` and `dblclick` for one reference (call it in

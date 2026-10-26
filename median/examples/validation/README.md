@@ -86,8 +86,10 @@ prove every interleaving safe. The probe has mock coverage, including deliberate
 exclusion. On 2026-10-26 the user's first Max run passed main exclusion and pointer identity
 with no audio callbacks (expected at the DSP-off step). The second passed all three checks:
 104 successful audio claims before/after and 104 refused claims during the edit, with no
-successful claims during it. See `doc/validation-max.md` in the repository for the environment
-and scope; scheduler-setting variations and actual sample editing remain untested.
+successful claims during it. The user confirmed Overdrive was on for that pass and repeated
+the test with Overdrive off, obtaining the same results and counts. See `doc/validation-max.md`
+in the repository for the environment and scope; Scheduler in Audio Interrupt enabled and
+actual sample editing remain untested.
 
 ## Record results
 

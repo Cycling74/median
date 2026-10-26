@@ -78,8 +78,9 @@ mutability (`median::sym!("..")` for literals); `BufferLocked` (the shared
 `BufferEdit` (`buffer_edit_begin/end`, refused on the audio and scheduler threads) is the only
 `&mut [f32]`. On 2026-10-26 patch 04 observed `buffer_locksamples` returning null during an
 edit on the main and audio threads in Max 9.2 ARM64, and `buffer_getinfo`'s `b_samples` matching
-shared-claim pointers before/after. This read-only probe supports the exclusion and identity
-assumptions; actual sample editing, scheduler variations and other host versions remain
+shared-claim pointers before/after, with Overdrive on and off. This read-only probe supports
+the exclusion and identity assumptions; actual sample editing, Scheduler in Audio Interrupt
+enabled and other host versions remain
 untested (see `doc/validation-max.md`). median allows one `BufferEdit` per `buffer~`
 at a time (`EditError::Busy`), so its own edits never nest. Still open, and reachable from safe code:
 
