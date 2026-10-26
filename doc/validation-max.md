@@ -91,11 +91,34 @@ host results and their limits are recorded below.
 From the previous handoff: the user verified `hello_dsp~` following and playing its named
 `buffer~`, and a class with `int` but no `float` rejecting float messages.
 
+### 2026-10-26 — support-info environment snapshot
+
+User-supplied Max support information, received after the patch 03 crash report:
+
+| Setting | Value |
+| --- | --- |
+| Max | 9.2.0 (e9c80e453de), native ARM64 |
+| OS | macOS 14.6.1, build 23G93, ARM64 |
+| Audio driver | Core Audio |
+| Sample rate | 44,100 Hz |
+| I/O vector size | 512 samples |
+| Signal vector size | 64 samples |
+| Overdrive | On |
+| Scheduler in Audio Interrupt | Off |
+| Jitter GL engine | `gl3` |
+| Video engine | `avf` |
+
+The version/platform match the crash report. These are the settings at snapshot time;
+they do not establish DSP on/off status or the settings at every earlier test. In particular,
+patch 01 explicitly exercised both Overdrive settings. The snapshot does not identify the
+loaded `median.validate` build or confirm a successful run after the crash fix.
+
 ### 2026-10-26 — 01-messages, DSP off
 
 User-supplied console output, first with Overdrive on, then switched off. DSP was off
-throughout (explicitly confirmed). Max version, OS/architecture, tested commit, and Scheduler
-in Audio Interrupt setting were not supplied.
+throughout (explicitly confirmed). Environment details were supplied later in the support-info
+snapshot above; the tested commit and Scheduler in Audio Interrupt setting for this run
+were not recorded with its output.
 
 | Observation | main | scheduler | audio |
 | --- | --- | --- | --- |
@@ -123,9 +146,9 @@ main=true, scheduler=false, audio=false. This validates the two signal paths and
 integer/proxy dispatch in the tested configuration.
 
 The message-thread flags do not establish whether DSP was running at each click. Exact
-DSP/Overdrive/Scheduler in Audio Interrupt settings for the four pairs were not supplied;
-neither were Max version, OS/architecture or tested commit. Assistance, save/reopen and
-repeated creation/deletion were not reported.
+DSP/Overdrive/Scheduler in Audio Interrupt settings for the four pairs were not supplied.
+Environment details were supplied later in the support-info snapshot above; the tested commit
+remains unspecified. Assistance, save/reopen and repeated creation/deletion were not reported.
 
 ### 2026-10-26 — 03-jitter-iolets: construction crash
 
