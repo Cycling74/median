@@ -45,6 +45,7 @@ struct Jitter {
     ob3d_offsets: HashMap<usize, usize>,
     contexts: HashMap<usize, usize>,
     max_classes: HashMap<usize, usize>,
+    max_obex_offsets: HashMap<usize, usize>,
     max_objects: HashMap<usize, usize>,
     dumps: HashMap<usize, usize>,
     gl_attached: HashMap<usize, usize>,
@@ -385,9 +386,10 @@ pub unsafe extern "C" fn median_mock_jit_method(
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_class_obex_setup(c: *mut t_class, offset: c_long) {
-    unsafe {
-        crate::class::class_obexoffset_set(c, offset);
-    }
+    // Jitter's classex offset is independent of class_obexoffset_set (Max's table).
+    JIT.lock()
+        .max_obex_offsets
+        .insert(c as usize, offset as usize);
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_class_wrap_standard(
@@ -461,10 +463,39 @@ pub unsafe extern "C" fn max_jit_class_mop_wrap(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_object_wrap_complete(
     obj: *mut t_object,
-    jit: *mut t_object,
+    _jit: *mut t_object,
     _: c_long,
 ) {
-    JIT.lock().max_objects.insert(obj as usize, jit as usize);
+    let (class, max_offset) = {
+        let st = state();
+        let class = st.objects[&(obj as usize)].class;
+        (class, st.classes[&class].obex_offset as usize)
+    };
+    let mut jit = JIT.lock();
+    if jit.max_obex_offsets.get(&class) == Some(&max_offset) {
+        drop(jit);
+        state().post_error(
+            obj as usize,
+            "median-mock: Jitter storage overlaps Max obex table".into(),
+        );
+        return;
+    }
+    // The SDK initializes the wrapper with a null jitob; attaching it is a separate call.
+    jit.max_objects.insert(obj as usize, 0);
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn max_jit_obex_jitob_set(obj: *mut c_void, core: *mut c_void) {
+    let mut jit = JIT.lock();
+    let Some(target) = jit.max_objects.get_mut(&(obj as usize)) else {
+        return;
+    };
+    *target = core as usize;
+    drop(jit);
+    if !core.is_null() {
+        unsafe {
+            crate::notify::object_obex_storeflags(core, intern(b"maxwrapper"), obj.cast(), 1);
+        }
+    }
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_object_free(obj: *mut c_void) {
@@ -639,6 +670,44 @@ pub unsafe extern "C" fn jit_object_register(obj: *mut c_void, _: *mut t_symbol)
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn max_and_jitter_obex_offsets_are_independent_and_core_attachment_is_explicit() {
+        let kernel = crate::lock();
+        unsafe {
+            let class = class_new(c"mock.jitter.storage".as_ptr(), None, None, 64, None, 0);
+            crate::class::class_obexoffset_set(class, 32);
+            max_jit_class_obex_setup(class, 40);
+            assert_eq!(state().classes[&(class as usize)].obex_offset, 32);
+            let obj = crate::class::object_alloc(class);
+            let core = crate::class::object_alloc(class);
+            max_jit_object_wrap_complete(obj.cast(), core.cast(), 0);
+            assert!(object_for(obj).is_null());
+            max_jit_obex_jitob_set(obj, core);
+            assert_eq!(object_for(obj), core);
+            let mut owner = std::ptr::null_mut();
+            assert_eq!(
+                crate::notify::object_obex_lookup(core, intern(b"maxwrapper"), &mut owner),
+                0
+            );
+            assert_eq!(owner.cast::<c_void>(), obj);
+            max_jit_object_free(obj);
+            assert!(kernel.free_object(core));
+            assert!(kernel.free_object(obj));
+            assert!(kernel.take_console_log().is_empty());
+
+            // Report the collision deterministically instead of corrupting a table as Max does.
+            max_jit_class_obex_setup(class, 32);
+            let obj = crate::class::object_alloc(class);
+            max_jit_object_wrap_complete(obj.cast(), std::ptr::null_mut(), 0);
+            assert!(
+                kernel.take_console_log()[0]
+                    .text
+                    .contains("overlaps Max obex")
+            );
+            assert!(kernel.free_object(obj));
+        }
+    }
+
     #[test]
     fn borrowed_matrix_metadata_and_lock_restore() {
         let _kernel = crate::lock();

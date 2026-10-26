@@ -128,6 +128,32 @@ fn jitter_probes_report_physical_positions_and_refusal_cleans_up() {
     let matrix = k.new_object("jit.median.validate", &[]);
     let gl = k.new_object("jit.gl.median.validate", &["validation".into()]);
     assert!(!matrix.is_null() && !gl.is_null());
+    assert!(posts(&k).is_empty()); // Includes overlapping Max/Jitter storage diagnostics.
+    for obj in [matrix, gl] {
+        let core = median_mock::jit::object_for(obj);
+        assert!(!core.is_null() && core != obj);
+        // Max performs obex lookups after the constructor returns. Both the Max table
+        // and Jitter's explicit core-to-wrapper attachment must survive construction.
+        unsafe {
+            let mut owner = std::ptr::null_mut();
+            assert_eq!(
+                median::max_sys::object_obex_lookup(
+                    core,
+                    median::sym!("maxwrapper").as_ptr(),
+                    &mut owner,
+                ),
+                0
+            );
+            assert_eq!(owner.cast::<core::ffi::c_void>(), obj);
+            let key = median::sym!("validation.storage").as_ptr();
+            assert_eq!(
+                median::max_sys::object_obex_storeflags(obj, key, core.cast(), 1),
+                0
+            );
+            assert_eq!(median::max_sys::object_obex_lookup(obj, key, &mut owner), 0);
+            assert_eq!(owner.cast::<core::ffi::c_void>(), core);
+        }
+    }
     assert_eq!(k.outlet_count(matrix), 5);
     assert_eq!(k.outlet_count(gl), 3);
     assert_eq!(k.inlet_is_hot(matrix, 2), Some(false));

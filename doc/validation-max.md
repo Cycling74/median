@@ -126,3 +126,27 @@ The message-thread flags do not establish whether DSP was running at each click.
 DSP/Overdrive/Scheduler in Audio Interrupt settings for the four pairs were not supplied;
 neither were Max version, OS/architecture or tested commit. Assistance, save/reopen and
 repeated creation/deletion were not reported.
+
+### 2026-10-26 — 03-jitter-iolets: construction crash
+
+Opening the patch crashed Max 9.2.0 (e9c80e453de), native ARM64, on macOS 14.6.1.
+The supplied report at 10:37:51 shows `object_obex_lookup` called by `jnewobj_new` during
+patcher loading, with an invalid-address read. No iolet or rendering checks passed.
+
+The wrapper registered the same pointer field for Max's object obex table and Jitter's
+wrapper data. Jitter initialization overwrote Max's table pointer, consistent with this
+stack. The correction gives each its own slot. Inspection of the installed Max 9.2 Jitter
+implementation also established that `max_jit_object_wrap_complete` initializes a null
+core pointer; the wrapper now calls `max_jit_obex_jitob_set` explicitly, matching the SDK's
+core attachment sequence. The old mock conflated both storage registrations and implicitly
+attached the core, hiding both defects.
+
+Regression checks cover independent offsets, collision detection, explicit attachment,
+the core's `maxwrapper` backlink, and Max obex store/lookup after construction for both
+validation classes. Reinstall the rebuilt package and restart Max before retrying patch 03.
+The corrected binary still needs a host retest, including creation/deletion and refusal.
+
+Local verification: all 252 workspace tests passed, including UI tests and doctests;
+strict Clippy and documentation with warnings denied passed. Temporarily removing either
+fix made the validation regression fail. The Apple Silicon diagnostic package was rebuilt
+and its bundle signature verified.

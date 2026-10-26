@@ -265,12 +265,20 @@ Implementation update (2026-10-23): the matrix and ob3d wrappers and both SDK ex
 are implemented, unflagged, on `xnor/api-redesign`. Their mock tests exercise zero-matrix
 callbacks, attributes/creation arguments, custom methods, deferred ownership, refused/panicking
 constructors, callback/drop panics, and in-place/intersection matrix processing. macOS ARM64
-packaging succeeds. They have **not run in Max**. Differences from the proposal below:
+packaging succeeds. Initial Max validation on 2026-10-26 found a construction crash;
+the storage/attachment correction below awaits a host retest. Differences from the proposal below:
 
 - Shared `jit::wrapper::Core<T, Kind>` owns a boxed user value (honoring its alignment), with
   `MaxGlue<T, Kind>` inside the ordinary Max wrapper. Lifecycle cleanup is in these types;
   the derive selects them and calls public registration functions. `JitObjRef` comes from
   `JitBuilder::obj()`; no offset-based impl exists for the user type.
+- Max's object obex table and Jitter's wrapper data use **separate pointer fields** in the
+  common wrapper (`obex` and `jitter_obex`). `class_obexoffset_set` and
+  `max_jit_class_obex_setup` must never name the same slot. The original implementation
+  aliased them, causing patch 03 to crash in `object_obex_lookup`. After
+  `max_jit_object_wrap_complete`, explicitly attach the core with `max_jit_obex_jitob_set`;
+  wrapping initializes that pointer to null. The mock now models the two registrations
+  independently, reports collisions, and requires explicit attachment (2026-10-26).
 - One `AttrBuilder<W>` selects its SDK constructor using `W::IS_JITTER`, as do generic getter
   allocation/error paths. `Class` selects `class_addattr`/`jit_class_addattr`. An unattached
   `Attr` owns its allocation until successfully added or explicitly converted to a raw pointer.

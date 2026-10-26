@@ -5,6 +5,9 @@ as `median/tests/validation.rs`. Mock tests check the probes; only a run in Max 
 the host behavior. On 2026-10-26 the user verified patch 01 with DSP off and Overdrive on/off,
 plus patch 02's signal outputs and custom integer/proxy inlet positions;
 see `doc/validation-max.md` in the source checkout for the observations and remaining checks.
+Patch 03 exposed a construction crash in Max 9.2 ARM64. The wrapper's Max/Jitter storage
+collision and missing core attachment are corrected in source; rebuild, reinstall and restart
+Max before retrying. Host confirmation of that correction is still pending.
 
 ## Build and load
 

@@ -412,7 +412,7 @@ impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
         unsafe {
             sys::max_jit_class_obex_setup(
                 class.inner(),
-                MaxObjWrapper::<Self>::obex_offset() as c_long,
+                MaxObjWrapper::<Self>::jitter_obex_offset() as c_long,
             );
             T::setup_max_class(class.inner(), jit.class as _)?;
             let inletinfo = sys::class_method(class.inner(), crate::sym!("inletinfo").as_ptr())
@@ -469,6 +469,8 @@ impl<T: JitterObject<K>, K: 'static> MaxObjWrapped for MaxGlue<T, K> {
         };
         unsafe {
             sys::max_jit_object_wrap_complete(glue.obj.as_ptr(), jit.as_ptr().cast(), 0);
+            // wrap_complete initializes Jitter's wrapper storage but leaves jitob null.
+            sys::max_jit_obex_jitob_set(glue.obj.as_ptr().cast(), jit.as_ptr().cast());
         }
         let mut iolets = host.finalize().map_err(NewError::from)?;
         iolets.set_host_inletinfo(class.iolets.map(|(inputs, _)| inputs), class.inletinfo);

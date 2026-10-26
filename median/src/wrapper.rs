@@ -395,6 +395,10 @@ pub struct Wrapper<O, I, T> {
     s_obj: O,
     // SDK-owned extension storage, located with class_obexoffset_set.
     obex: MaybeUninit<*mut c_void>,
+    // Jitter's max_jit_obex is a different allocation from Max's object obex table.
+    // Never register the same slot with both class_obexoffset_set and
+    // max_jit_class_obex_setup: Jitter would overwrite Max's table pointer.
+    jitter_obex: MaybeUninit<*mut c_void>,
     wrapped: MaybeUninit<I>,
     /// `wrapped` is initialised. Max can free the object before construction finished (a panic
     /// in `T::new`), in which case `free` must not drop `wrapped`. Written (with `Release`) once
@@ -1285,8 +1289,8 @@ where
     ///
     /// # Panics
     /// If Max fails to register the class, or one of its attributes or methods.
-    pub(crate) fn obex_offset() -> usize {
-        std::mem::offset_of!(Self, obex)
+    pub(crate) fn jitter_obex_offset() -> usize {
+        std::mem::offset_of!(Self, jitter_obex)
     }
 
     pub fn register() {
