@@ -35,7 +35,7 @@ impl MaxObjWrapped for Simp {
         //out. A bad one is an `ArgError`, which `?` passes on as the error. `@value 7` is not an
         //argument here: `builder.args()` keeps the attribute arguments apart, and the attribute
         //is set once `new` has returned
-        let value = builder.args().arg_or(0, 0)?;
+        let value = builder.args().at(0).unwrap_or(0)?;
 
         //inlets, left to right. Inlet 0 always exists, this gives it an assist text
         builder.inlet(Inlet::default().assist("first inlet"));

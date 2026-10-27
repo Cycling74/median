@@ -21,11 +21,12 @@
 //!     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
 //!         // the first positional argument, 2 if it is left out; `?` posts a bad one
 //!         // (`argument 1: expected a number, got `foo``) and refuses the object
-//!         let first: t_atom_long = b.args().arg_or(0, 2)?;
+//!         let args = b.args();
+//!         let first: t_atom_long = args.at(0).unwrap_or(2)?;
 //!         // the attribute `@channels`, which only `new` can act on: it decides how many
 //!         // outlets to make
-//!         let channels = b.args().attr_arg::<t_atom_long>(median::sym!("channels"))?;
-//!         let n = channels.unwrap_or(first).clamp(1, 16);
+//!         let n: t_atom_long = args.attr(median::sym!("channels")).unwrap_or(first)?;
+//!         let n = n.clamp(1, 16);
 //!         let outs = (0..n).map(|_| b.outlet(Outlet::int())).collect();
 //!         Ok(Self { outs })
 //!     }
@@ -33,11 +34,16 @@
 //! # median::ext_main! { Chans }
 //! ```
 //!
+//! [`Args::at`] and [`Args::attr`] each give an [`Arg`], one creation argument that may or may
+//! not be there: [`unwrap_or`](Arg::unwrap_or) reads it with a default for a left-out one,
+//! [`require`](Arg::require) makes it an error to leave it out, [`get`](Arg::get) gives an
+//! `Option`.
+//!
 //! Raw access stays: [`Args::raw`] (and `creation_args()` on the builders) is the whole list,
 //! `@name` atoms included.
 //!
 //! The attributes are still applied to the object after `new` returns, with the same atoms, by
-//! the SDK's `attr_args_process`; [`Args::attr_arg`] is for the decisions only `new` can make
+//! the SDK's `attr_args_process`; [`Args::attr`] is for the decisions only `new` can make
 //! (how many outlets, which buffer), not for setting a field the attribute already sets.
 //!
 //! [`Args::text`] and its relatives are the arguments as Max shows them (`atom_gettext`), for
@@ -99,49 +105,31 @@ impl<'a> Args<'a> {
         }
     }
 
-    /// The values of the attribute argument `@name` (pass the name without the `@`): `None` if
-    /// there is none, `Some` of no atoms for an `@name` followed directly by another or by the
-    /// end. If the attribute is given more than once the last occurrence wins, the one that
-    /// the SDK applies last.
-    pub fn attr(&self, name: SymbolRef) -> Option<&'a [Atom]> {
-        self.attrs()
-            .filter(|(n, _)| *n == name)
-            .map(|(_, values)| values)
-            .last()
-    }
-
-    /// Positional argument `i` as a `T`: `Ok(None)` if there are not that many positional
-    /// arguments, an [`ArgError::Type`] if it is not of the type `T` takes.
-    pub fn arg<T: FromAtom>(&self, i: usize) -> Result<Option<T>, ArgError> {
-        match self.positional().get(i) {
-            None => Ok(None),
-            Some(a) => T::from_atom(a).map(Some).map_err(|e| e.at_arg(i)),
+    /// Positional argument `i`: absent if there are not that many positional arguments. An
+    /// `@name` is not a positional argument.
+    pub fn at(&self, i: usize) -> Arg<'a> {
+        Arg {
+            origin: Origin::Positional(i),
+            values: self.positional().get(i).map(std::slice::from_ref),
         }
     }
 
-    /// Positional argument `i` as a `T`, or `default` if it is left out. A wrong type is an
-    /// error, not the default.
-    pub fn arg_or<T: FromAtom>(&self, i: usize, default: T) -> Result<T, ArgError> {
-        Ok(self.arg(i)?.unwrap_or(default))
-    }
-
-    /// Positional argument `i` as a `T`; leaving it out is an [`ArgError::Missing`].
-    pub fn require<T: FromAtom>(&self, i: usize) -> Result<T, ArgError> {
-        self.arg(i)?.ok_or(ArgError::Missing { index: i })
-    }
-
-    /// The first value of the attribute argument `@name` as a `T`: `Ok(None)` if there is no
-    /// such argument, or it has no values. An [`ArgError::Attr`] if the first value is not of
-    /// the type `T` takes. With a repeated attribute, the last occurrence, as
-    /// [`attr`](Self::attr).
+    /// The attribute argument `@name` (pass the name without the `@`): absent if there is no
+    /// such `@name`; present with no values for an `@name` followed directly by another or by
+    /// the end. If the attribute is given more than once the last occurrence wins, the one that
+    /// the SDK applies last.
     ///
     /// The attribute's setter still runs after `new` with the same atoms, so this is for the
     /// decisions only `new` can make, such as how many outlets to create; for a value the
     /// attribute stores itself, read the attribute, not the argument.
-    pub fn attr_arg<T: FromAtom>(&self, name: SymbolRef) -> Result<Option<T>, ArgError> {
-        match self.attr(name).and_then(|values| values.first()) {
-            None => Ok(None),
-            Some(a) => T::from_atom(a).map(Some).map_err(|e| e.at_attr(name)),
+    pub fn attr(&self, name: SymbolRef) -> Arg<'a> {
+        Arg {
+            origin: Origin::Attr(name),
+            values: self
+                .attrs()
+                .filter(|(n, _)| *n == name)
+                .map(|(_, values)| values)
+                .last(),
         }
     }
 
@@ -155,11 +143,112 @@ impl<'a> Args<'a> {
     pub fn positional_text(&self) -> String {
         text_of(self.positional())
     }
+}
 
-    /// The values of the attribute argument `@name` as text, without the `@name`, see
-    /// [`attr`](Self::attr) and [`text`](Self::text); `None` if there is no such argument.
-    pub fn attr_text(&self, name: SymbolRef) -> Option<String> {
-        self.attr(name).map(text_of)
+#[derive(Clone, Copy)]
+enum Origin {
+    Positional(usize),
+    Attr(SymbolRef),
+}
+
+/// One creation argument, present or not: positional `i` ([`Args::at`]) or the values of
+/// `@name` ([`Args::attr`]). It is `Copy`; the typed accessors consume it.
+///
+/// A positional argument is one atom. An attribute argument is the atoms after its `@name`,
+/// and the typed accessors read the first one: an `@name` without values counts as absent for
+/// them ([`get`](Self::get) gives `None`, [`require`](Self::require) an error), though
+/// [`is_present`](Self::is_present) and [`values`](Self::values) tell it from no `@name` at all.
+///
+/// ```no_run
+/// # use median::prelude::*;
+/// # fn f(b: &mut MaxBuilder<impl MaxObjWrapped>) -> Result<(), median::args::ArgError> {
+/// let args = b.args();
+/// let value: t_atom_long = args.at(0).unwrap_or(0)?;
+/// let name = args.at(1).require::<SymbolRef>()?;
+/// let chans: t_atom_long = args.attr(median::sym!("channels")).unwrap_or(2)?;
+/// # Ok(()) }
+/// ```
+#[derive(Clone, Copy)]
+pub struct Arg<'a> {
+    origin: Origin,
+    values: Option<&'a [Atom]>,
+}
+
+impl<'a> Arg<'a> {
+    /// The atom the typed accessors read: the positional atom, the first value of an attribute.
+    fn first(self) -> Option<&'a Atom> {
+        self.values.and_then(<[Atom]>::first)
+    }
+
+    fn type_error(self, e: ArgTypeError) -> ArgError {
+        match self.origin {
+            Origin::Positional(index) => e.at_arg(index),
+            Origin::Attr(name) => e.at_attr(name),
+        }
+    }
+
+    fn missing(self) -> ArgError {
+        match self.origin {
+            Origin::Positional(index) => ArgError::Missing { index },
+            Origin::Attr(name) => ArgError::MissingAttr { name },
+        }
+    }
+
+    /// The argument as a `T`, or `default` if it is absent.
+    ///
+    /// It is named after [`Option::unwrap_or`] because it reads the same way, but it returns a
+    /// `Result`: the default only covers absence. An argument of the wrong type is an
+    /// [`ArgError`], not the default, and the `?` after it reports it.
+    pub fn unwrap_or<T: FromAtom>(self, default: T) -> Result<T, ArgError> {
+        Ok(self.get()?.unwrap_or(default))
+    }
+
+    /// The argument as a `T`, or `T::default()` if it is absent; a wrong type is an error, as
+    /// for [`unwrap_or`](Self::unwrap_or).
+    pub fn unwrap_or_default<T: FromAtom + Default>(self) -> Result<T, ArgError> {
+        Ok(self.get()?.unwrap_or_default())
+    }
+
+    /// The argument as a `T`; leaving it out is an [`ArgError::Missing`] (positional) or
+    /// [`ArgError::MissingAttr`] (attribute, also an `@name` with no values).
+    pub fn require<T: FromAtom>(self) -> Result<T, ArgError> {
+        match self.get()? {
+            Some(v) => Ok(v),
+            None => Err(self.missing()),
+        }
+    }
+
+    /// The argument as a `T`: `Ok(None)` if it is absent (for an attribute also if it has no
+    /// values), an [`ArgError::Type`] or [`ArgError::Attr`] if it is not of the type `T` takes.
+    pub fn get<T: FromAtom>(self) -> Result<Option<T>, ArgError> {
+        match self.first() {
+            None => Ok(None),
+            Some(a) => T::from_atom(a).map(Some).map_err(|e| self.type_error(e)),
+        }
+    }
+
+    /// The atom: the positional one, the first value of an attribute (`None` if it has none).
+    pub fn atom(self) -> Option<&'a Atom> {
+        self.first()
+    }
+
+    /// All the atoms: one for a positional argument, the values after the `@name` for an
+    /// attribute (which may be none: `Some` of an empty slice). `None` if the argument is
+    /// absent.
+    pub fn values(self) -> Option<&'a [Atom]> {
+        self.values
+    }
+
+    /// The atoms as text, the way Max shows them (`atom_gettext`, default flags), without the
+    /// `@name`, with all the values of an attribute. `None` if the argument is absent.
+    pub fn text(self) -> Option<String> {
+        self.values.map(text_of)
+    }
+
+    /// Whether the argument is there: the positional index exists, or the `@name` was given
+    /// (with or without values).
+    pub fn is_present(self) -> bool {
+        self.values.is_some()
     }
 }
 
@@ -196,7 +285,7 @@ impl<'a> Iterator for AttrArgs<'a> {
     }
 }
 
-/// A type that an argument atom converts to, for [`Args::arg`] and its relatives. Implement it
+/// A type that an argument atom converts to, for the typed accessors of [`Arg`]. Implement it
 /// for your own types (an enum from a symbol, say):
 ///
 /// ```
@@ -321,12 +410,14 @@ impl std::error::Error for ArgTypeError {}
 /// Why an argument could not be read, see [`Args`]. `?` in `new` turns it into a
 /// [`NewError`]: the message is posted to the Max console and the object is refused.
 ///
-/// `index` is zero-based, as in [`Args::arg`]; the message counts from 1, as a patcher user
+/// `index` is zero-based, as in [`Args::at`]; the message counts from 1, as a patcher user
 /// does.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ArgError {
-    /// A required positional argument is not there ([`Args::require`]).
+    /// A required positional argument is not there ([`Arg::require`]).
     Missing { index: usize },
+    /// A required attribute argument is not there, or has no values ([`Arg::require`]).
+    MissingAttr { name: SymbolRef },
     /// A positional argument is not of the type asked for.
     Type {
         index: usize,
@@ -343,10 +434,11 @@ pub enum ArgError {
 
 impl fmt::Display for ArgError {
     /// `argument 1: expected a number, got `foo``, `argument 2: missing`,
-    /// `@channels: expected a number, got `x``.
+    /// `@channels: expected a number, got `x``, `@channels: missing`.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ArgError::Missing { index } => write!(f, "argument {}: missing", index + 1),
+            ArgError::MissingAttr { name } => write!(f, "@{name}: missing"),
             ArgError::Type {
                 index,
                 expected,
@@ -387,6 +479,13 @@ mod tests {
         assert_eq!(
             ArgError::Missing { index: 0 }.to_string(),
             "argument 1: missing"
+        );
+        assert_eq!(
+            ArgError::MissingAttr {
+                name: crate::sym!("channels")
+            }
+            .to_string(),
+            "@channels: missing"
         );
     }
 }

@@ -126,9 +126,10 @@
 //! `builder.args()` ([`MaxBuilder::args`](builder::MaxBuilder::args), also on `MSPBuilder` and
 //! `JitBuilder`) splits what follows the class name in the box into the positional arguments and
 //! the `@name value` attribute arguments (which also carry the attribute values saved with the
-//! patcher), and reads them as typed values: `b.args().arg_or(0, 2)?`,
-//! `b.args().attr_arg::<t_atom_long>(median::sym!("channels"))?`, `b.args().text()`. A bad
-//! argument is an [`ArgError`](args::ArgError), which `?` turns into a refusal with a message.
+//! patcher), and reads them as typed values: `args.at(0).unwrap_or(2)?`, `args.at(1).require::<SymbolRef>()?`,
+//! `args.attr(median::sym!("channels")).unwrap_or(2)?`, `args.text()` (`at` and `attr` give an
+//! [`Arg`](args::Arg)). A bad argument is an [`ArgError`](args::ArgError), which `?` turns into a
+//! refusal with a message.
 //! The whole untouched list stays available as [`Args::raw`](args::Args::raw) and
 //! `creation_args()`. Max applies the attribute arguments to the object after `new` returns;
 //! see [`args`]. New in 0.3.

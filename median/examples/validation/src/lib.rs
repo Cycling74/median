@@ -33,7 +33,7 @@ pub struct Messages {
 impl MaxObjWrapped for Messages {
     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         b.inlet(Inlet::default().assist("float, direct, low, front; see Max console"));
-        let label = b.args().arg_or(0, "messages".to_owned())?;
+        let label = b.args().at(0).unwrap_or("messages".to_owned())?;
         Ok(Self {
             obj: b.obj(),
             label,
@@ -219,7 +219,7 @@ impl MatrixOp for Matrices {
                 .assist("3: custom float, hot"),
         )?;
         b.inlet(Inlet::proxy().assist("4: custom proxy; send probe"))?;
-        if b.args().arg_or(0, String::new())? == "refuse" {
+        if b.args().at(0).unwrap_or_default::<String>()? == "refuse" {
             return Err(
                 "validation: intentional constructor refusal after making custom iolets".into(),
             );

@@ -39,15 +39,17 @@ impl MaxObjWrapped for Probe {
         for (name, values) in args.attrs() {
             log(format!("attr {name} [{}]", Args::new(values).text()));
         }
-        let first = args.arg::<t_atom_long>(0)?;
+        let first = args.at(0).get::<t_atom_long>()?;
         log(format!("arg0 {first:?}"));
-        log(format!("arg1 {}", args.arg_or(1, -1.5f64)?));
-        let value = args.attr_arg::<t_atom_long>(median::sym!("value"))?;
-        log(format!("attr_arg value {value:?}"));
+        log(format!("arg1 {}", args.at(1).unwrap_or(-1.5f64)?));
+        let value = args.attr(median::sym!("value"));
         log(format!(
-            "attr_text value {:?}",
-            args.attr_text(median::sym!("value"))
+            "attr value {:?} present {} values {:?}",
+            value.get::<t_atom_long>()?,
+            value.is_present(),
+            value.values().map(<[_]>::len)
         ));
+        log(format!("attr value text {:?}", value.text()));
         // the attribute has not been applied yet
         Ok(Self {
             value: Int64::new(-1),
@@ -106,8 +108,8 @@ fn no_arguments() {
             "positional text []",
             "arg0 None",
             "arg1 -1.5",
-            "attr_arg value None",
-            "attr_text value None",
+            "attr value None present false values None",
+            "attr value text None",
         ]
     );
     assert_eq!(value(&k, obj), MockAtom::Long(-1));
@@ -126,8 +128,8 @@ fn positional_arguments_only() {
             "positional text [1 2.5 foo]",
             "arg0 Some(1)",
             "arg1 2.5",
-            "attr_arg value None",
-            "attr_text value None",
+            "attr value None present false values None",
+            "attr value text None",
         ]
     );
     assert!(k.free_object(obj));
@@ -150,8 +152,8 @@ fn positional_and_attribute_arguments() {
             "attr name [x y]",
             "arg0 Some(1)",
             "arg1 -1.5",
-            "attr_arg value Some(7)",
-            "attr_text value Some(\"7\")",
+            "attr value Some(7) present true values Some(1)",
+            "attr value text Some(\"7\")",
         ]
     );
     // `new` saw 7, and the attribute setter ran after it with the same atoms
@@ -174,8 +176,8 @@ fn attribute_arguments_only() {
             // an `@name` is not a positional argument
             "arg0 None",
             "arg1 -1.5",
-            "attr_arg value Some(7)",
-            "attr_text value Some(\"7\")",
+            "attr value Some(7) present true values Some(1)",
+            "attr value text Some(\"7\")",
         ]
     );
     assert_eq!(value(&k, obj), MockAtom::Long(7));
@@ -188,7 +190,7 @@ fn a_repeated_attribute_takes_the_last_and_an_empty_one_has_no_value() {
     let obj = make(&k, &[s("@value"), 1.into(), s("@value"), 2.into()]);
     let log = take_log();
     assert!(
-        log.contains(&"attr_arg value Some(2)".to_string()),
+        log.contains(&"attr value Some(2) present true values Some(1)".to_string()),
         "{log:?}"
     );
     assert_eq!(value(&k, obj), MockAtom::Long(2));
@@ -199,9 +201,12 @@ fn a_repeated_attribute_takes_the_last_and_an_empty_one_has_no_value() {
     assert!(!obj.is_null());
     let log = take_log();
     assert!(log.contains(&"attr value []".to_string()), "{log:?}");
-    assert!(log.contains(&"attr_arg value None".to_string()), "{log:?}");
     assert!(
-        log.contains(&"attr_text value Some(\"\")".to_string()),
+        log.contains(&"attr value None present true values Some(0)".to_string()),
+        "{log:?}"
+    );
+    assert!(
+        log.contains(&"attr value text Some(\"\")".to_string()),
         "{log:?}"
     );
     assert!(k.free_object(obj));
@@ -318,15 +323,69 @@ fn args_split_a_list_without_a_builder() {
         .map(|(n, v)| (n.to_string(), v.len()))
         .collect();
     assert_eq!(attrs, [("x".to_string(), 2), ("y".to_string(), 0)]);
-    assert_eq!(args.attr(median::sym!("x")).map(<[_]>::len), Some(2));
-    assert!(args.attr(median::sym!("z")).is_none());
-    assert_eq!(args.require::<SymbolRef>(0), Ok(median::sym!("a")));
     assert_eq!(
-        args.require::<t_atom_long>(5),
+        args.attr(median::sym!("x")).values().map(<[_]>::len),
+        Some(2)
+    );
+    assert_eq!(
+        args.attr(median::sym!("y")).values().map(<[_]>::len),
+        Some(0)
+    );
+    assert!(args.attr(median::sym!("y")).is_present());
+    assert!(args.attr(median::sym!("y")).atom().is_none());
+    assert!(!args.attr(median::sym!("z")).is_present());
+    assert!(args.attr(median::sym!("z")).values().is_none());
+    assert_eq!(args.attr(median::sym!("x")).text().as_deref(), Some("2 3"));
+    assert_eq!(args.attr(median::sym!("y")).text().as_deref(), Some(""));
+    assert_eq!(args.attr(median::sym!("z")).text(), None);
+    assert_eq!(
+        args.attr(median::sym!("x")).get::<t_atom_long>(),
+        Ok(Some(2))
+    );
+    assert_eq!(args.attr(median::sym!("y")).get::<t_atom_long>(), Ok(None));
+    assert_eq!(args.attr(median::sym!("z")).unwrap_or(9), Ok(9));
+    assert_eq!(
+        args.attr(median::sym!("y"))
+            .unwrap_or_default::<t_atom_long>(),
+        Ok(0)
+    );
+    assert_eq!(
+        args.attr(median::sym!("z")).require::<t_atom_long>(),
+        Err(ArgError::MissingAttr {
+            name: median::sym!("z")
+        })
+    );
+    assert_eq!(
+        args.attr(median::sym!("y"))
+            .require::<t_atom_long>()
+            .unwrap_err()
+            .to_string(),
+        "@y: missing"
+    );
+    assert_eq!(
+        args.attr(median::sym!("x"))
+            .require::<SymbolRef>()
+            .unwrap_err()
+            .to_string(),
+        "@x: expected a symbol, got `2`"
+    );
+    // positional
+    assert!(args.at(0).is_present());
+    assert!(!args.at(2).is_present());
+    assert_eq!(args.at(0).values().map(<[_]>::len), Some(1));
+    assert_eq!(args.at(0).atom().map(Atom::text).as_deref(), Some("a"));
+    assert_eq!(args.at(1).text().as_deref(), Some("1"));
+    assert_eq!(args.at(2).text(), None);
+    assert_eq!(args.at(0).require::<SymbolRef>(), Ok(median::sym!("a")));
+    assert_eq!(
+        args.at(5).require::<t_atom_long>(),
         Err(ArgError::Missing { index: 5 })
     );
-    assert_eq!(args.arg_or::<t_atom_long>(7, 9), Ok(9));
-    let e = args.arg::<t_atom_long>(0).unwrap_err();
+    assert_eq!(args.at(5).get::<t_atom_long>(), Ok(None));
+    assert_eq!(args.at(7).unwrap_or::<t_atom_long>(9), Ok(9));
+    assert_eq!(args.at(7).unwrap_or_default::<String>(), Ok(String::new()));
+    assert_eq!(args.at(1).unwrap_or_default::<t_atom_long>(), Ok(1));
+    let e = args.at(0).get::<t_atom_long>().unwrap_err();
     assert_eq!(e.to_string(), "argument 1: expected a number, got `a`");
     assert_eq!(args.text(), "a 1 @x 2 3 @y");
     assert_eq!(

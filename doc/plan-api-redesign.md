@@ -394,22 +394,30 @@ hand (min's `argument<>`).
   atoms up to the next one. `attr(name)` takes the last occurrence of a repeated attribute, the one
   the SDK applies last. The SDK takes the count as a `short`, so only the first 32767 atoms of a
   longer list are searched.
-- Typed access. `arg::<T>(i)` is `Ok(None)` for an absent positional argument (`arg_or` takes a
-  default, `require` turns absence into `ArgError::Missing`); a present one of the wrong type is an
-  error, never the default. `FromAtom` is public so a user type (an enum from a symbol) can plug in.
+- Typed access. `args.at(i)` and `args.attr(name)` return an `Arg`, one argument that may be absent
+  (positional `i`, or the values of `@name`; `Arg` is `Copy`). Its `get::<T>()` is `Ok(None)` for an
+  absent argument, `unwrap_or(default)` takes a default (named after `Option::unwrap_or` but
+  returning a `Result`: the default covers absence only), `unwrap_or_default()` uses `T::default()`,
+  `require::<T>()` turns absence into `ArgError::Missing` (positional) or `ArgError::MissingAttr`
+  (attribute); a present one of the wrong type is an error, never the default. The typed accessors
+  read the first value of an attribute, and an `@name` with no values counts as absent for them;
+  `values()` (`Some(&[])` there), `atom()`, `text()` and `is_present()` see the difference. The
+  accessor shape was settled with the user on 2026-10-27 (an earlier cut had `arg`, `arg_or`,
+  `require`, `attr_arg` and `attr_text` on `Args` itself). `FromAtom` is public so a user type (an enum from a
+  symbol) can plug in.
   The provided impls are strict where Max is: `t_atom_long` from an int only, `f64` from an int or a
   float (Max's number coercion), `SymbolRef` from a symbol only, `String` from a symbol (or a
   number, as `Atom::text` shows it), `bool` from the int 0 or 1. An object atom is never accepted.
   `ArgError` converts to `NewError`, so `?` in `new` posts `argument 1: expected a number, got
   `foo`` (counted from 1 for the patcher user; `index` is zero-based) or `@channels: expected ...`
   and refuses the object.
-- `attr_arg` before the setter. Max's `attr_args_process` still runs after `new` with the same atoms
-  (it is not skipped for attributes `new` read), so `attr_arg::<T>(name)` is for decisions only
+- `attr` before the setter. Max's `attr_args_process` still runs after `new` with the same atoms
+  (it is not skipped for attributes `new` read), so `attr(name)` is for decisions only
   `new` can make (how many outlets, which buffer), not for initializing a field the attribute
   already sets: that value arrives by the setter, and `new` sees the field's default. The
   inspector-saved attribute values reach `new` the same way, because they are written into the box
   text as `@name value`. This is documented on the method.
-- Text. `text()`, `positional_text()`, `attr_text(name)` and `Atom::text()` render atoms through the
+- Text. `Args::text()`, `positional_text()`, `Arg::text()` and `Atom::text()` render atoms through the
   SDK's `atom_gettext` with the default flags (`ext_obex_util.h`) and free the buffer with
   `sysmem_freeptr`, as the SDK's `threadpool` example does (the header does not say who frees it).
   That is the raw textual value, for an object that takes its arguments as a string.
@@ -497,7 +505,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   changes. See [handoff-2026-10-23.md](handoff-2026-10-23.md) for the stopping point and open work.
 
 - Creation arguments (piece K, 2026-10-27): `builder.args()` and `median::args` (`Args`, `FromAtom`,
-  `ArgError`, `Atom::text`), implemented; `creation_args()` kept. The examples use it (`simp`,
+  `Arg`, `ArgError`, `Atom::text`), implemented; `creation_args()` kept. The examples use it (`simp`,
   `simp_explicit`, `hello_dsp`, `simplemax`, `validation`; the template reads no arguments). The mock's
   `attr_args_process` now sets attributes, so an `@name value` tail is tested end to end
   (`median/tests/args.rs`, `median-mock/tests/attr_args.rs`). Not run in Max.
