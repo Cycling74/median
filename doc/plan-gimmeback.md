@@ -97,7 +97,7 @@ impl Simp {
     /// `js`: `obj.doAbs(-3)` gives `3`; `obj.doAbs(1, -2)` gives `[1, 2]`; no argument is an
     /// error in the Max window and `null` in `js`. The method is for typed callers such as
     /// `js`; a patch cord is not expected to reach it.
-    #[sel_gimmeback("doAbs")]
+    #[gimmeback("doAbs")]
     pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
         match atoms {
             [] => Err("missing argument for method doAbs()".into()),
@@ -119,13 +119,13 @@ impl Simp {
     }
 
     /// A count: the plain value is enough when nothing can go wrong.
-    #[sel_gimmeback("getcount")]
+    #[gimmeback("getcount")]
     pub fn count(&self, _atoms: &[Atom]) -> t_atom_long {
         self.count.load(Ordering::Relaxed)
     }
 
     /// A snapshot of the object's state for `js` (`obj.getstate()` is a JS object).
-    #[sel_gimmeback("getstate")]
+    #[gimmeback("getstate")]
     pub fn state(&self, _atoms: &[Atom]) -> DictResult<Dict> {
         let d = Dict::new()?;
         d.insert(sym!("count"), self.count.load(Ordering::Relaxed))?;
@@ -148,10 +148,10 @@ one of those with a `Display` error. `#[defer]` on it is a compile error.
 
 ### The selector argument (decided 2026-10-27)
 
-`#[sel("name")]` names the selector in the marker, so a method under `#[sel_gimme]` or
-`#[sel_gimmeback]` has no use for the `&SymbolRef` Max passes; the macro forms take
+`#[sel("name")]` names the selector in the marker, so a method under `#[gimme]` or
+`#[gimmeback]` has no use for the `&SymbolRef` Max passes; the macro forms take
 `(&self, &[Atom])`, like `#[list]`. (`#[any]` keeps the selector: that is its point.) This
-changes `#[sel_gimme]`, which today demands `(&self, &SymbolRef, &[Atom])`; 0.3 is unreleased,
+changes `#[gimme]`, which today demands `(&self, &SymbolRef, &[Atom])`; 0.3 is unreleased,
 so `simp`, the tests and `doc/migration-0.3.md` change with it.
 
 The explicit API keeps one name and accepts both shapes, so one function can serve several
@@ -206,7 +206,7 @@ impl<W> Class<W> {
 Same shape as `add_sel_gimme`: a zero-sized callable, `is_untyped_selector` refused
 (`MaxError::Duplicate`), `RESERVED_SELECTORS` refused through `add_typed`, registered with
 `&[A_GIMMEBACK]`. No deferred variant: a reply can't be delivered after the call returns. A
-method that wants "query, answer later out an outlet" is a `#[sel_gimme]` with an outlet, as
+method that wants "query, answer later out an outlet" is a `#[gimme]` with an outlet, as
 today.
 
 The trampoline in `method.rs`:
@@ -223,26 +223,26 @@ panic therefore returns `MAX_ERR_GENERIC` with `rv` already `A_NOTHING`. `object
 always supplies `rv`; a null is tolerated anyway (the method runs, the reply is dropped) for a
 direct caller that passes one.
 
-The docs of `add_sel_gimmeback` and `#[sel_gimmeback]` must say that the method is for typed
+The docs of `add_sel_gimmeback` and `#[gimmeback]` must say that the method is for typed
 callers (`js`, `object_method_typed`, the Jitter dumpout wrap) and that a patch-cord message
 is not expected to reach it. A method that should answer both a patch cord and `js` registers
-two selectors: a `#[sel_gimme]` that sends out an outlet and a `#[sel_gimmeback]` that
+two selectors: a `#[gimme]` that sends out an outlet and a `#[gimmeback]` that
 returns.
 
 ### Macro
 
-`#[sel_gimmeback("doAbs")]` in `#[median::methods]`, parsed by `parse_sel` with a third mode
+`#[gimmeback("doAbs")]` in `#[median::methods]`, parsed by `parse_sel` with a third mode
 (`gimme: true, back: true`), emitting `Class::add_sel_gimmeback`. The method's return type must
 implement `GimmebackResult`; a wrong one is an ordinary trait-bound error at the generated
 call, which the `ui` tests cover. `#[defer]`/`#[defer_low]` on it is a spanned error, as on
 `#[notify]`. The `reserved.rs` mirror needs no change: the refusals are the same as
-`#[sel_gimme]`'s.
+`#[gimme]`'s.
 
 ### Jitter
 
 Two places a gimmeback method can live on a Jitter type, matching where methods live today:
 
-- `#[sel_gimmeback]` (through `Methods::register`) lands on the Max glue class (`Forward`),
+- `#[gimmeback]` (through `Methods::register`) lands on the Max glue class (`Forward`),
   like every other `#[sel]`. `js` can call it on the Max object; a patcher message is not
   expected to reach it. Nothing in the SDK wrapper is involved.
 - `Class::<Core<T, K>>::add_sel_gimmeback` in `class_setup` registers it on the Jitter class.
@@ -283,14 +283,14 @@ another object. It can follow the first cut once the ownership check has passed 
 
 ## Tests (`median/tests/gimmeback.rs`, `tests/ui/`)
 
-- `#[sel_gimmeback("doAbs")]` returning `Result<Reply, String>`: `k.call` gets the value for
+- `#[gimmeback("doAbs")]` returning `Result<Reply, String>`: `k.call` gets the value for
   int and float arguments; a missing argument gives `Err`, `MAX_ERR_GENERIC`, the error on the
   console, and an `A_NOTHING` atom.
 - A `Reply::Atoms` reply round-trips and leaves no live atomarray after `Kernel::call`.
 - A patcher `k.send` to the method is refused and the method does not run.
 - A panicking method returns `MAX_ERR_GENERIC`, `A_NOTHING`, and the panic text on the console.
 - `add_sel_gimmeback` on an untyped selector and on a reserved one is refused.
-- `ui`: `#[sel_gimmeback] #[defer]` is an error; a method returning `Atom` is an error.
+- `ui`: `#[gimmeback] #[defer]` is an error; a method returning `Atom` is an error.
 - Jitter: a core-class gimmeback registered in `class_setup`; a patcher message produces the
   dumpout list; the wrap flag is passed only for that class.
 - `simp`/`simp_explicit` gain a `doAbs`-style method so the hand-written form is shown.
@@ -325,8 +325,8 @@ the sketch above:
   non-zero `t_max_err` is `Ok(CallReply::Error(code))`. A patcher message to a gimmeback method is
   `SendError::TypedOnly` (a new variant: `NotSendable` documents `A_CANT`, this is an assumption).
 
-Step 2 is done (`#[sel_gimmeback("name")]` in `median_macros/src/methods.rs`; `ui` cases
-`methods_sel_gimmeback_{defer,signature,types}.rs`; `doAbs` in `simp` and `simp_explicit`, tested
+Step 2 is done (`#[gimmeback("name")]` in `median_macros/src/methods.rs`; `ui` cases
+`methods_gimmeback_{defer,signature,types}.rs`; `doAbs` in `simp` and `simp_explicit`, tested
 through `tests/common/simp_script.rs`; `median/tests/gimmeback_macro.rs`). Where it differs from
 the sketch above:
 
@@ -335,7 +335,7 @@ the sketch above:
 - The `ui` cases are three files, not two: the macro's own refusals (a wrong number of arguments,
   an untyped or reserved selector, an option) suppress the compiler's trait-bound errors in the
   same crate, so those cannot share a file with the `GimmebackResult` and `GimmeFn` errors
-  (`methods_sel_gimmeback_signature.rs` and `_types.rs`).
+  (`methods_gimmeback_signature.rs` and `_types.rs`).
 - `Reply` is not in the prelude: the examples and tests import `median::gimmeback::Reply`.
 - The `GimmeFn` diagnostic no longer mentions the return type (it is checked separately, by
   `MethodResult` or `GimmebackResult`).
@@ -364,7 +364,7 @@ differs from the sketch above:
 
 ## Order
 
-0. `GimmeFn` and the selector-less `#[sel_gimme]` (its own commit: it changes existing API).
+0. `GimmeFn` and the selector-less `#[gimme]` (its own commit: it changes existing API).
 1. `Reply`, `GimmebackResult`, trampoline, `add_sel_gimmeback`, mock support, tests.
 2. Macro marker and `ui` cases; examples.
 3. Jitter wrap flag, mock dumpout wrap, Jitter test.

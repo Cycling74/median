@@ -1,4 +1,4 @@
-//! `#[sel_gimmeback]` in `#[median::methods]`, called the way `js` and `object_method_typed` do
+//! `#[gimmeback]` in `#[median::methods]`, called the way `js` and `object_method_typed` do
 //! through the `median-mock` kernel (`tests/gimmeback.rs` registers by hand).
 
 use median::dict::{Dict, Ownership};
@@ -26,38 +26,38 @@ impl MaxObjWrapped for Gm {
 #[median::methods]
 impl Gm {
     /// the atoms only: the marker names the selector
-    #[sel_gimmeback("count")]
+    #[gimmeback("count")]
     pub fn count(&self, atoms: &[Atom]) -> t_atom_long {
         self.calls.fetch_add(1, Ordering::SeqCst);
         atoms.len() as t_atom_long
     }
 
     /// a `Reply` by hand
-    #[sel_gimmeback("one")]
+    #[gimmeback("one")]
     pub fn one(&self, atoms: &[Atom]) -> Reply {
         Reply::Int(atoms.len() as t_atom_long)
     }
 
     /// the selector too: the explicit API says which was sent, so one method can have several
-    #[sel_gimmeback("which")]
+    #[gimmeback("which")]
     pub fn which(&self, sel: &SymbolRef, _atoms: &[Atom]) -> Reply {
         Reply::Symbol(*sel)
     }
 
-    #[sel_gimmeback("getstate")]
+    #[gimmeback("getstate")]
     pub fn state(&self, _atoms: &[Atom]) -> Result<Dict, DictError> {
         let d = Dict::new()?;
         d.insert(sym!("count"), self.calls.load(Ordering::SeqCst))?;
         Ok(d)
     }
 
-    #[sel_gimmeback("fail")]
+    #[gimmeback("fail")]
     pub fn fail(&self, _atoms: &[Atom]) -> Result<t_atom_long, String> {
         Err("it failed".into())
     }
 
     /// a gimme method on a patcher, for contrast
-    #[sel_gimme("plain")]
+    #[gimme("plain")]
     pub fn plain(&self, _atoms: &[Atom]) {
         self.calls.fetch_add(100, Ordering::SeqCst);
     }

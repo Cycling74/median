@@ -4,7 +4,7 @@ error: a method can have only one median marker
 14 |     #[int]
    |     ^
 
-error: `#[defer]` goes with a message marker: `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[sel_gimme(..)]`
+error: `#[defer]` goes with a message marker: `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[gimme(..)]`
   --> tests/ui/methods_markers.rs:17:5
    |
 17 |     #[defer]

@@ -54,18 +54,18 @@ impl Messages {
         report(&self.obj, &self.label, &format!("float {value}"));
     }
 
-    #[sel_gimme("direct")]
+    #[gimme("direct")]
     fn direct(&self, atoms: &[Atom]) {
         self.arguments(&median::sym!("direct"), atoms);
     }
 
-    #[sel_gimme("low")]
+    #[gimme("low")]
     #[defer_low]
     fn low(&self, atoms: &[Atom]) {
         self.arguments(&median::sym!("low"), atoms);
     }
 
-    #[sel_gimme("front")]
+    #[gimme("front")]
     #[defer]
     fn front(&self, atoms: &[Atom]) {
         self.arguments(&median::sym!("front"), atoms);

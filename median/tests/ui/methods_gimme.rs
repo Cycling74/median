@@ -7,16 +7,16 @@ impl BadOptions {
     #[sel("old", gimme)]
     fn old(&self, _sel: &SymbolRef, _atoms: &[Atom]) {}
 
-    #[sel_gimme("defaults", defaults = 1)]
+    #[gimme("defaults", defaults = 1)]
     fn defaults(&self, _sel: &SymbolRef, _atoms: &[Atom]) {}
 
-    #[sel_gimme]
+    #[gimme]
     fn missing(&self, _sel: &SymbolRef, _atoms: &[Atom]) {}
 
-    #[sel_gimme(42)]
+    #[gimme(42)]
     fn number(&self, _sel: &SymbolRef, _atoms: &[Atom]) {}
 
-    #[sel_gimme("bad\0name")]
+    #[gimme("bad\0name")]
     fn nul(&self, _sel: &SymbolRef, _atoms: &[Atom]) {}
 }
 
@@ -27,7 +27,7 @@ impl Duplicate {
     #[sel("same")]
     fn typed(&self) {}
 
-    #[sel_gimme("same")]
+    #[gimme("same")]
     fn atoms(&self, _sel: &SymbolRef, _atoms: &[Atom]) {}
 }
 

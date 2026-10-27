@@ -17,9 +17,9 @@ const MAX_SEL_ARGS: usize = 7;
 enum SelKind {
     /// `#[sel("name")]`: typed arguments.
     Typed,
-    /// `#[sel_gimme("name")]`: the atoms.
+    /// `#[gimme("name")]`: the atoms.
     Gimme,
-    /// `#[sel_gimmeback("name")]`: the atoms, and a value for a typed caller.
+    /// `#[gimmeback("name")]`: the atoms, and a value for a typed caller.
     Gimmeback,
 }
 
@@ -71,8 +71,8 @@ impl Marker {
             "list" => no_args(Marker::List),
             "any" => no_args(Marker::Any),
             "sel" => Self::parse_sel(attr, SelKind::Typed),
-            "sel_gimme" => Self::parse_sel(attr, SelKind::Gimme),
-            "sel_gimmeback" => Self::parse_sel(attr, SelKind::Gimmeback),
+            "gimme" => Self::parse_sel(attr, SelKind::Gimme),
+            "gimmeback" => Self::parse_sel(attr, SelKind::Gimmeback),
             "attr" => AttrOpts::parse(attr).map(|o| Marker::Attr(Box::new(o))),
             "defer" => no_args(Marker::Defer { low: false }),
             "defer_low" => no_args(Marker::Defer { low: true }),
@@ -83,8 +83,8 @@ impl Marker {
     /// Typed selectors accept defaults; gimme and gimmeback selectors accept only a name.
     fn parse_sel(attr: &Attribute, kind: SelKind) -> syn::Result<Self> {
         let form = match kind {
-            SelKind::Gimme => "expected `#[sel_gimme(\"name\")]`",
-            SelKind::Gimmeback => "expected `#[sel_gimmeback(\"name\")]`",
+            SelKind::Gimme => "expected `#[gimme(\"name\")]`",
+            SelKind::Gimmeback => "expected `#[gimmeback(\"name\")]`",
             SelKind::Typed => "expected `#[sel(\"name\")]` or `#[sel(\"name\", defaults = n)]`",
         };
         let list = match &attr.meta {
@@ -129,13 +129,13 @@ impl Marker {
                     SelKind::Gimme => {
                         return Err(syn::Error::new(
                             key.span(),
-                            "`#[sel_gimme]` takes only a selector name; it receives all the atoms",
+                            "`#[gimme]` takes only a selector name; it receives all the atoms",
                         ));
                     }
                     SelKind::Gimmeback => {
                         return Err(syn::Error::new(
                             key.span(),
-                            "`#[sel_gimmeback]` takes only a selector name; it receives all the \
+                            "`#[gimmeback]` takes only a selector name; it receives all the \
                              atoms",
                         ));
                     }
@@ -151,7 +151,7 @@ impl Marker {
                     "gimme" => {
                         return Err(syn::Error::new(
                             key.span(),
-                            "use `#[sel_gimme(\"name\")]` instead of `#[sel(\"name\", gimme)]`",
+                            "use `#[gimme(\"name\")]` instead of `#[sel(\"name\", gimme)]`",
                         ));
                     }
                     "defaults" => {
@@ -190,11 +190,11 @@ impl Marker {
             Marker::Sel {
                 kind: SelKind::Gimme,
                 ..
-            } => "`#[sel_gimme]` method must take `(&self, &[Atom])`",
+            } => "`#[gimme]` method must take `(&self, &[Atom])`",
             Marker::Sel {
                 kind: SelKind::Gimmeback,
                 ..
-            } => "`#[sel_gimmeback]` method must take `(&self, &[Atom])`",
+            } => "`#[gimmeback]` method must take `(&self, &[Atom])`",
             Marker::Sel { .. } => {
                 "`#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, \
                  `t_atom_long` or `SymbolRef`"
@@ -238,7 +238,7 @@ enum Want<'a> {
     Exact(&'a [Arg]),
     /// Any number of value arguments, up to `MAX_SEL_ARGS` (a typed `#[sel]`).
     Values,
-    /// One or two arguments of any type (`#[sel_gimme]`, `#[sel_gimmeback]`):
+    /// One or two arguments of any type (`#[gimme]`, `#[gimmeback]`):
     /// `Class::add_sel_gimme` takes `(&self, &[Atom])` or `(&self, &SymbolRef, &[Atom])`, and the
     /// compiler's `GimmeFn` bound says what is wrong with the types.
     Gimme,
@@ -340,7 +340,7 @@ fn check_no_float_mix(sig: &Signature) -> syn::Result<()> {
         return Err(syn::Error::new(
             sig.span(),
             "a typed selector cannot mix f64 with other argument types (Max passes them in \
-             different registers); use #[sel_gimme(\"name\")] / add_sel_gimme",
+             different registers); use #[gimme(\"name\")] / add_sel_gimme",
         ));
     }
     Ok(())
@@ -422,7 +422,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                         span,
                         format!(
                             "`#[{name}]` goes with a message marker: `#[bang]`, `#[int]`, \
-                             `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[sel_gimme(..)]`"
+                             `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[gimme(..)]`"
                         ),
                     ));
                     continue;
@@ -437,7 +437,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     push_err(syn::Error::new(
                         span,
                         format!(
-                            "`#[{name}]` doesn't go with `#[sel_gimmeback]`: the reply is returned \
+                            "`#[{name}]` doesn't go with `#[gimmeback]`: the reply is returned \
                              to the caller, so the method can't be deferred"
                         ),
                     ));
@@ -649,7 +649,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                         quote_spanned!(span=> c.add_sel_gimmeback(#sel, #path)?;)
                     }
                     (SelKind::Gimmeback, Some(_)) => {
-                        unreachable!("`#[defer]` on `#[sel_gimmeback]` is refused above")
+                        unreachable!("`#[defer]` on `#[gimmeback]` is refused above")
                     }
                 }
             }

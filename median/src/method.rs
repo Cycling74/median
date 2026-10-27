@@ -212,7 +212,7 @@ pub struct NoSel;
 /// `Fn(&T, &[Atom]) -> R` or `Fn(&T, &SymbolRef, &[Atom]) -> R`.
 ///
 /// A method that takes the selector can serve several selectors (it is told which one was sent);
-/// one that does not is the form `#[sel_gimme("name")]` uses, since the marker already names the
+/// one that does not is the form `#[gimme("name")]` uses, since the marker already names the
 /// selector. Implemented for all such callables, not meant to be implemented by hand (it is
 /// sealed).
 ///
@@ -540,7 +540,7 @@ macro_rules! sel_fn_arity {
                 const {
                     assert!(
                         !mixes_float(Self::TYPES),
-                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel_gimme(\"name\")] / add_sel_gimme"
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme(\"name\")] / add_sel_gimme"
                     )
                 };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = $tramp::<W, T, F, R, $($A),*>;
@@ -557,7 +557,7 @@ macro_rules! sel_fn_arity {
                 const {
                     assert!(
                         !mixes_float(Self::TYPES),
-                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[sel_gimme(\"name\")] / add_sel_gimme"
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme(\"name\")] / add_sel_gimme"
                     )
                 };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = match mode {

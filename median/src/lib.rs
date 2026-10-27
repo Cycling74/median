@@ -146,9 +146,9 @@
 //! | `#[sym]` | `symbol` | `fn(&self, SymbolRef)` |
 //! | `#[list]` | `list` | `fn(&self, &[Atom])` |
 //! | `#[any]` | `anything` | `fn(&self, &SymbolRef, &[Atom])` |
-//! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`, either all `f64` or none (Max can't pass a mix: use `#[sel_gimme]`); the last `n` may be left out (they are then 0 or the empty symbol) |
-//! | `#[sel_gimme("name")]` | `name` | `fn(&self, &[Atom])` (the marker names the selector; with [`Class::add_sel_gimme`](class::Class::add_sel_gimme) the method may also take the `&SymbolRef`, one function for several selectors) |
-//! | `#[sel_gimmeback("name")]` | `name`, for typed callers (`js`, `object_method_typed`; `A_GIMMEBACK`); a patch-cord message is not expected to reach it (an assumption, see [`gimmeback`]) | `fn(&self, &[Atom]) -> R` (with [`Class::add_sel_gimmeback`](class::Class::add_sel_gimmeback) the method may also take the `&SymbolRef`), `R` a [`Reply`](gimmeback::Reply), a plain value that converts to one or a `Result` of one with `E: Display`; not deferrable |
+//! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`, either all `f64` or none (Max can't pass a mix: use `#[gimme]`); the last `n` may be left out (they are then 0 or the empty symbol) |
+//! | `#[gimme("name")]` | `name` | `fn(&self, &[Atom])` (the marker names the selector; with [`Class::add_sel_gimme`](class::Class::add_sel_gimme) the method may also take the `&SymbolRef`, one function for several selectors) |
+//! | `#[gimmeback("name")]` | `name`, for typed callers (`js`, `object_method_typed`; `A_GIMMEBACK`); a patch-cord message is not expected to reach it (an assumption, see [`gimmeback`]) | `fn(&self, &[Atom]) -> R` (with [`Class::add_sel_gimmeback`](class::Class::add_sel_gimmeback) the method may also take the `&SymbolRef`), `R` a [`Reply`](gimmeback::Reply), a plain value that converts to one or a `Result` of one with `E: Display`; not deferrable |
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
@@ -157,9 +157,9 @@
 //! | `#[savestate]` | `appendtodictionary` (`A_CANT`): patcher save | `fn(&self, &Dict)` |
 //!
 //! A message marker (except `#[attr]`, `#[dblclick]`, `#[loadbang]`, `#[notify]`, `#[dictionary]`,
-//! `#[savestate]` and `#[sel_gimmeback]`, whose reply goes back to the caller) can be paired with
+//! `#[savestate]` and `#[gimmeback]`, whose reply goes back to the caller) can be paired with
 //! `#[defer_low]` (always run later on the main thread) or `#[defer]` (run now on the main thread,
-//! otherwise later on it): `#[sel_gimme("read")] #[defer_low]`. See [`defer`]; never send a
+//! otherwise later on it): `#[gimme("read")] #[defer_low]`. See [`defer`]; never send a
 //! deferred message from `perform`.
 //!
 //! A message method (and an attribute setter) may return `()` or `Result<(), E>` for any
@@ -174,9 +174,9 @@
 //! (`A_GIMMEBACK`) is a gimme method that also returns a value to callers that pass a reply
 //! atom (`js`, `object_method_typed`). It returns a [`Reply`](gimmeback::Reply), something that
 //! converts to one, or a `Result` of one; see [`gimmeback`]. A patch-cord message is not expected
-//! to reach it. `#[sel_gimmeback("name")]` in `#[median::methods]` registers a method the same way.
+//! to reach it. `#[gimmeback("name")]` in `#[median::methods]` registers a method the same way.
 //!
-//! On a Jitter type (`kind = matrix_op` or `gl`), `#[sel_gimmeback]` lands on the Max wrapper, so
+//! On a Jitter type (`kind = matrix_op` or `gl`), `#[gimmeback]` lands on the Max wrapper, so
 //! only typed callers reach it. `add_sel_gimmeback` on the Jitter class in `class_setup` registers
 //! it there instead and turns on `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` for the Max wrapper, so that
 //! a patcher message to the selector gets the reply out the dumpout outlet. That the wrap renders

@@ -24,7 +24,7 @@
 //! #[median::methods]
 //! impl Reader {
 //!     /// `read` or `read <file>`: always later, on the main thread
-//!     #[sel_gimme("read")]
+//!     #[gimme("read")]
 //!     #[defer_low]
 //!     pub fn read(&self, atoms: &[Atom]) {
 //!         self.obj.post(format!("reading {} file(s)", atoms.len()));

@@ -28,7 +28,7 @@ pub(crate) const RESERVED_SELECTORS: &[&str] = &[
 
 /// A mirror of `median::class::UNTYPED_SELECTORS` (checked by the same test), with the marker to
 /// use for each: Max calls these untyped messages with its own arguments, so a typed `#[sel]` or
-/// `#[sel_gimme]` would misread them.
+/// `#[gimme]` would misread them.
 pub(crate) const UNTYPED_SELECTORS: &[&str] = &[
     "dblclick",
     "loadbang",

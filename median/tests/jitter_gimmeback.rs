@@ -1,5 +1,5 @@
 //! `A_GIMMEBACK` methods on a Jitter type: registered on the Jitter class in `class_setup` (the
-//! wrap flag, the reply out dumpout) or with `#[sel_gimmeback]` (on the Max wrapper, typed callers
+//! wrap flag, the reply out dumpout) or with `#[gimmeback]` (on the Max wrapper, typed callers
 //! only). The mock models the SDK's gimmeback wrap as median assumes it behaves
 //! (`doc/plan-gimmeback.md`, "Host checks"), so these tests check median's side of it: which
 //! flags it passes and where it registers.
@@ -54,13 +54,13 @@ impl MatrixOp for Both {
 }
 #[median::methods]
 impl Both {
-    #[sel_gimmeback("maxback")]
+    #[gimmeback("maxback")]
     fn maxback(&self, atoms: &[Atom]) -> t_atom_long {
         atoms.len() as t_atom_long + 100
     }
 }
 
-/// A gimmeback method only on the Max wrapper (`#[sel_gimmeback]`): no wrap flag.
+/// A gimmeback method only on the Max wrapper (`#[gimmeback]`): no wrap flag.
 #[derive(MaxObject)]
 #[max(name = "jit.test.gb.max", kind = matrix_op)]
 struct MaxOnly {
@@ -82,7 +82,7 @@ impl MatrixOp for MaxOnly {
 }
 #[median::methods]
 impl MaxOnly {
-    #[sel_gimmeback("maxback")]
+    #[gimmeback("maxback")]
     fn maxback(&self, atoms: &[Atom]) -> Result<Reply, String> {
         Ok(Reply::Atoms(
             atoms.iter().map(|a| Atom::from(a.get_int() + 1)).collect(),
@@ -126,7 +126,7 @@ fn the_wrap_flag_is_passed_only_for_a_class_with_a_core_gimmeback_method() {
     let k = median_mock::lock();
     setup(&k);
     assert_eq!(median_mock::jit::wrap_flags("jit.test.gb.core"), Some(1));
-    // a `#[sel_gimmeback]` method is on the Max wrapper, not the Jitter class
+    // a `#[gimmeback]` method is on the Max wrapper, not the Jitter class
     assert_eq!(median_mock::jit::wrap_flags("jit.test.gb.max"), Some(0));
     assert_eq!(median_mock::jit::wrap_flags("jit.test.gb.none"), Some(0));
 }

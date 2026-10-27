@@ -775,7 +775,7 @@ impl<W> Class<W> {
     /// through `atom_setobj` and never frees it, and the assumption is still to be checked in a
     /// host. There is no deferred variant: a reply can't be delivered after the call returns.
     ///
-    /// On a Jitter type there are two places for it. `#[sel_gimmeback]` (through
+    /// On a Jitter type there are two places for it. `#[gimmeback]` (through
     /// [`Methods::register`](crate::wrapper::Methods::register)) lands on the Max wrapper, like
     /// every other message, so only typed callers reach it. Called on the `Class<Core<..>>` that
     /// `MatrixOp::class_setup` / `Ob3d::class_setup` receive, it registers the method on the

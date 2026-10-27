@@ -10,7 +10,7 @@ Written on branch `xnor/review`, 2026-10-21, from a full review of `develop` at 
 | [handoff-2026-10-23.md](handoff-2026-10-23.md) | Current continuation checkpoint, verification and remaining work. |
 | [migration-0.3.md](migration-0.3.md) | Porting an external from `median` 0.2 to 0.3: old form, new form, a before/after of `simp`, and the things that trip a port. |
 | [plan-containers.md](plan-containers.md) | Dictionary, atomarray and string wrappers: the ownership facts from the SDK headers (verified against the kernel source), a single refcounted handle design, the `dictionary` message protocol, what to salvage from `feature/dict*`, acceptance tests. |
-| [plan-gimmeback.md](plan-gimmeback.md) | Design and status (2026-10-27, steps 0-3 implemented on `xnor/api-redesign`; host checks open): `A_GIMMEBACK` methods (`#[sel_gimmeback]`, `Class::add_sel_gimmeback`, a `Reply` type), what the SDK says about the reply and its ownership, the Jitter dumpout wrap, mock support, tests and the host checks that gate it. |
+| [plan-gimmeback.md](plan-gimmeback.md) | Design and status (2026-10-27, steps 0-3 implemented on `xnor/api-redesign`; host checks open): `A_GIMMEBACK` methods (`#[gimmeback]`, `Class::add_sel_gimmeback`, a `Reply` type), what the SDK says about the reply and its ownership, the Jitter dumpout wrap, mock support, tests and the host checks that gate it. |
 | [plan-branches-and-build.md](plan-branches-and-build.md) | Steps 3 to 5. What to do with each open branch, the build/packaging pipeline, bindings regeneration, testing, and dependency refresh. |
 
 Conventions used in these notes:

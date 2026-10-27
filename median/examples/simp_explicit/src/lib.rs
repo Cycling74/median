@@ -78,9 +78,9 @@ impl Methods for SimpExplicit {
         c.add_any(Self::baz)?;
         //the selector, the method, and how many of its last arguments may be left out
         c.add_sel(c"set", Self::set, 1)?;
-        //what `#[sel_gimme("read")] #[defer_low]` gives: run later on the main thread
+        //what `#[gimme("read")] #[defer_low]` gives: run later on the main thread
         c.add_sel_gimme_deferred(c"read", Self::read, Defer::Low)?;
-        //what `#[sel_gimmeback("doAbs")]` gives: the method returns the reply for a typed caller
+        //what `#[gimmeback("doAbs")]` gives: the method returns the reply for a typed caller
         c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
         //what `#[notify]` gives
         c.add_notify(Self::notified)?;

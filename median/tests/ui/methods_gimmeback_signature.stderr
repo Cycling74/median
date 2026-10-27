@@ -1,0 +1,29 @@
+error: `#[gimmeback]` method must take `(&self, &[Atom])`
+  --> tests/ui/methods_gimmeback_signature.rs:10:9
+   |
+10 |     pub fn three(&self, _sel: &SymbolRef, _atoms: &[Atom], _more: &[Atom]) -> t_atom_long {
+   |         ^^
+
+error: `#[gimmeback]` method must take `(&self, &[Atom])`
+  --> tests/ui/methods_gimmeback_signature.rs:16:9
+   |
+16 |     pub fn none(&self) -> t_atom_long {
+   |         ^^
+
+error: `dblclick` is an untyped message Max calls with its own arguments, which a typed selector would misread; use `#[dblclick]` instead
+  --> tests/ui/methods_gimmeback_signature.rs:21:17
+   |
+21 |     #[gimmeback("dblclick")]
+   |                 ^^^^^^^^^^
+
+error: `assist` is a selector median registers for itself (inlets, assist, dsp); pick another name
+  --> tests/ui/methods_gimmeback_signature.rs:27:17
+   |
+27 |     #[gimmeback("assist")]
+   |                 ^^^^^^^^
+
+error: `#[gimmeback]` takes only a selector name; it receives all the atoms
+  --> tests/ui/methods_gimmeback_signature.rs:33:24
+   |
+33 |     #[gimmeback("opt", defaults = 1)]
+   |                        ^^^^^^^^

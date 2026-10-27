@@ -1,5 +1,5 @@
 error[E0277]: a gimmeback method can't return `median::atom::Atom`
- --> tests/ui/methods_sel_gimmeback_types.rs:9:12
+ --> tests/ui/methods_gimmeback_types.rs:9:12
   |
 9 |     pub fn atom(&self, _atoms: &[Atom]) -> Atom {
   |            ^^^^ returns `median::atom::Atom`
@@ -26,7 +26,7 @@ note: required by a bound in `Class::<W>::add_sel_gimmeback`
   |            ^^^^^^^^^^^^^^^ required by this bound in `Class::<W>::add_sel_gimmeback`
 
 error[E0277]: a gimmeback method can't return `i32`
-  --> tests/ui/methods_sel_gimmeback_types.rs:15:12
+  --> tests/ui/methods_gimmeback_types.rs:15:12
    |
 15 |     pub fn int(&self, _atoms: &[Atom]) -> i32 {
    |            ^^^ returns `i32`
@@ -55,7 +55,7 @@ note: required by a bound in `Class::<W>::add_sel_gimmeback`
    = note: this error originates in the macro `plain_result` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: `for<'a> fn(&'a Simp, Vec<median::atom::Atom>) -> isize {Simp::vec}` can't be an `A_GIMME` method of `Simp`
-  --> tests/ui/methods_sel_gimmeback_types.rs:21:12
+  --> tests/ui/methods_gimmeback_types.rs:21:12
    |
 21 |     pub fn vec(&self, _atoms: Vec<Atom>) -> t_atom_long {
    |            ^^^ expected `fn(&Simp, &[Atom])` or `fn(&Simp, &SymbolRef, &[Atom])` (the return type is checked separately)
@@ -72,7 +72,7 @@ note: required by a bound in `Class::<W>::add_sel_gimmeback`
    |            ^^^^^^^^^^^^^^^^ required by this bound in `Class::<W>::add_sel_gimmeback`
 
 error[E0277]: the trait bound `Reply: From<i32>` is not satisfied
-  --> tests/ui/methods_sel_gimmeback_types.rs:27:12
+  --> tests/ui/methods_gimmeback_types.rs:27:12
    |
 27 |     pub fn res(&self, _atoms: &[Atom]) -> Result<i32, String> {
    |            ^^^ the trait `From<i32>` is not implemented for `Reply`

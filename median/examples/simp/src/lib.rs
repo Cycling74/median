@@ -120,7 +120,7 @@ impl Simp {
     //"read" with any arguments, run later on the main thread whichever thread sent it (as a
     //C external would `defer_low` it, for example to open a file dialog). The arguments are
     //copied for the deferred call.
-    #[sel_gimme("read")]
+    #[gimme("read")]
     #[defer_low]
     pub fn read(&self, atoms: &[Atom]) {
         median::object_post!(
@@ -135,7 +135,7 @@ impl Simp {
     //[1, 2]). The method returns what the caller gets back: a `Reply`, a plain value that
     //converts to one, or a `Result` of one (an error is posted to the console and the caller
     //gets no value). A patch cord is not expected to reach it.
-    #[sel_gimmeback("doAbs")]
+    #[gimmeback("doAbs")]
     pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
         match atoms {
             [] => Err("missing argument for method doAbs()".into()),

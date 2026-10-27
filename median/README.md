@@ -161,7 +161,7 @@ josuha
 ```
 if you have more than 7 args or if you are mixing floating point and other argument types, use A_GIMME
 ```
-(`#[sel]` and `Class::add_sel` enforce this: a typed selector whose arguments mix `f64` with `t_atom_long`/`SymbolRef` is a compile error, so use `#[sel_gimme("name")]` / `Class::add_sel_gimme` for it. `#[median::methods]` reports it at the method when it can see the types; otherwise, e.g. behind a type alias, a const assertion in `add_sel` fails when the crate is built (`cargo build`, not `cargo check`).)
+(`#[sel]` and `Class::add_sel` enforce this: a typed selector whose arguments mix `f64` with `t_atom_long`/`SymbolRef` is a compile error, so use `#[gimme("name")]` / `Class::add_sel_gimme` for it. `#[median::methods]` reports it at the method when it can see the types; otherwise, e.g. behind a type alias, a const assertion in `add_sel` fails when the crate is built (`cargo build`, not `cargo check`).)
 
 ## Remaining work
 

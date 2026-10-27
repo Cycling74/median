@@ -2,7 +2,7 @@
 //! the Max object uses median's existing constructor, panic guards and deferred-call queue.
 //!
 //! Gimmeback methods (`A_GIMMEBACK`, see `crate::gimmeback`) have two homes on a Jitter type:
-//! `#[sel_gimmeback]` registers on the Max wrapper (typed callers only), while
+//! `#[gimmeback]` registers on the Max wrapper (typed callers only), while
 //! `Class::<Core<..>>::add_sel_gimmeback` in `class_setup` registers on the Jitter class and makes
 //! the Max class pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to `max_jit_class_wrap_standard`, so a
 //! patcher message gets the reply out dumpout. How the wrap renders the reply (an atomarray as a
