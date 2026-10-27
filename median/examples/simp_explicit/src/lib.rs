@@ -139,7 +139,7 @@ impl SimpExplicit {
         self.changed.set();
     }
 
-    pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
+    pub fn read(&self, atoms: &[Atom]) {
         median::object_post!(
             &self.obj,
             "read {} argument(s) on the main thread",

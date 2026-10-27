@@ -26,7 +26,7 @@
 //!     /// `read` or `read <file>`: always later, on the main thread
 //!     #[sel_gimme("read")]
 //!     #[defer_low]
-//!     pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
+//!     pub fn read(&self, atoms: &[Atom]) {
 //!         self.obj.post(format!("reading {} file(s)", atoms.len()));
 //!     }
 //!

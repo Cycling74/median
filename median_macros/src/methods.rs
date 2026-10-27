@@ -165,9 +165,7 @@ impl Marker {
             Marker::Sym => "`#[sym]` method must take `(&self, SymbolRef)`",
             Marker::List => "`#[list]` method must take `(&self, &[Atom])`",
             Marker::Any => "`#[any]` method must take `(&self, &SymbolRef, &[Atom])`",
-            Marker::Sel { gimme: true, .. } => {
-                "`#[sel_gimme]` method must take `(&self, &SymbolRef, &[Atom])`"
-            }
+            Marker::Sel { gimme: true, .. } => "`#[sel_gimme]` method must take `(&self, &[Atom])`",
             Marker::Sel { .. } => {
                 "`#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, \
                  `t_atom_long` or `SymbolRef`"
@@ -204,10 +202,23 @@ fn arg_matches(ty: &Type, want: Arg) -> bool {
     }
 }
 
+/// The arguments after `&self` that `check_sig` accepts.
+#[derive(Clone, Copy)]
+enum Want<'a> {
+    /// Exactly these, each looking like its `Arg`.
+    Exact(&'a [Arg]),
+    /// Any number of value arguments, up to `MAX_SEL_ARGS` (a typed `#[sel]`).
+    Values,
+    /// One or two arguments of any type (`#[sel_gimme]`): `Class::add_sel_gimme` takes
+    /// `(&self, &[Atom])` or `(&self, &SymbolRef, &[Atom])`, and the compiler's `GimmeFn` bound
+    /// says what is wrong with the types.
+    Gimme,
+}
+
 /// Check that `sig` is `(&self, <args>)` with arguments that look like `want`, and that it is a
-/// plain method (no generics, not async/unsafe/extern). `want` of `None`: any number of value
-/// arguments, up to `MAX_SEL_ARGS`. Returns the number of arguments after `&self`.
-fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Result<usize> {
+/// plain method (no generics, not async/unsafe/extern). Returns the number of arguments after
+/// `&self`.
+fn check_sig(sig: &Signature, want: Want, expected: &str) -> syn::Result<usize> {
     let err = || syn::Error::new(sig.span(), expected);
     if let Some(a) = &sig.asyncness {
         return Err(syn::Error::new(
@@ -250,13 +261,18 @@ fn check_sig(sig: &Signature, want: Option<&[Arg]>, expected: &str) -> syn::Resu
         })
         .collect::<syn::Result<_>>()?;
     match want {
-        Some(want) => {
+        Want::Exact(want) => {
             if args.len() != want.len() || args.iter().zip(want).any(|(t, w)| !arg_matches(t, *w)) {
                 return Err(err());
             }
         }
-        None => {
+        Want::Values => {
             if args.len() > MAX_SEL_ARGS || args.iter().any(|t| !arg_matches(t, Arg::Value)) {
+                return Err(err());
+            }
+        }
+        Want::Gimme => {
+            if !(1..=2).contains(&args.len()) {
                 return Err(err());
             }
         }
@@ -422,13 +438,16 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             continue;
         };
         use Arg::*;
-        let want: Option<&[Arg]> = match &marker {
-            Marker::Bang | Marker::Dblclick | Marker::Loadbang | Marker::Attr(_) => Some(&[]),
-            Marker::Int | Marker::Float | Marker::Sym | Marker::Dictionary => Some(&[Value]),
-            Marker::Savestate | Marker::Notify => Some(&[Ref]),
-            Marker::List => Some(&[Slice]),
-            Marker::Any | Marker::Sel { gimme: true, .. } => Some(&[Ref, Slice]),
-            Marker::Sel { .. } => None,
+        let want = match &marker {
+            Marker::Bang | Marker::Dblclick | Marker::Loadbang | Marker::Attr(_) => {
+                Want::Exact(&[])
+            }
+            Marker::Int | Marker::Float | Marker::Sym | Marker::Dictionary => Want::Exact(&[Value]),
+            Marker::Savestate | Marker::Notify => Want::Exact(&[Ref]),
+            Marker::List => Want::Exact(&[Slice]),
+            Marker::Any => Want::Exact(&[Ref, Slice]),
+            Marker::Sel { gimme: true, .. } => Want::Gimme,
+            Marker::Sel { .. } => Want::Values,
             Marker::Defer { .. } => unreachable!("taken out above"),
         };
         match check_sig(&f.sig, want, marker.expected()) {
@@ -593,7 +612,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                              `(&self, value)`",
                             m.ident
                         );
-                        if let Err(e) = check_sig(&s.sig, Some(&[Arg::Value]), &expected) {
+                        if let Err(e) = check_sig(&s.sig, Want::Exact(&[Arg::Value]), &expected) {
                             push_err(e);
                             continue;
                         }

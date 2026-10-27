@@ -106,8 +106,8 @@ impl Marks {
     }
 
     #[sel_gimme("gimme")]
-    pub fn gimme(&self, sel: &SymbolRef, atoms: &[Atom]) {
-        self.obj.post(format!("gimme {sel} {}", atoms.len()));
+    pub fn gimme(&self, atoms: &[Atom]) {
+        self.obj.post(format!("gimme gimme {}", atoms.len()));
     }
 
     /// an attribute with a getter and setter (`set_foo`, found by name); the setter can fail

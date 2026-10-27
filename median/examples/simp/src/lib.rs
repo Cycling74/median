@@ -122,7 +122,7 @@ impl Simp {
     //copied for the deferred call.
     #[sel_gimme("read")]
     #[defer_low]
-    pub fn read(&self, _sel: &SymbolRef, atoms: &[Atom]) {
+    pub fn read(&self, atoms: &[Atom]) {
         median::object_post!(
             &self.obj,
             "read {} argument(s) on the main thread",

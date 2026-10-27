@@ -215,19 +215,40 @@ fn list_any_gimme() {
     f(&w, &mut sel, 2, atoms.as_ptr());
 
     let f: Gimme = unsafe {
-        cast(sel_gimme_method::<W, _, _, _>(
+        cast(sel_gimme_method::<W, _, _, _, _>(
             |p: &Probe, s: &SymbolRef, a: &[Atom]| p.log(format!("gimme {} {}", name(s), a.len())),
+        ))
+    };
+    f(&w, &mut sel, 1, atoms.as_ptr());
+    //the selector-less shape of the same method: the selector is not passed on
+    let f: Gimme = unsafe {
+        cast(sel_gimme_method::<W, _, _, _, _>(
+            |p: &Probe, a: &[Atom]| p.log(format!("gimme no selector {}", a.len())),
         ))
     };
     f(&w, &mut sel, 1, atoms.as_ptr());
     assert_eq!(
         w.t.take(),
-        ["list 3,4", "list ", "any foo 3,4", "gimme foo 1"]
+        [
+            "list 3,4",
+            "list ",
+            "any foo 3,4",
+            "gimme foo 1",
+            "gimme no selector 1"
+        ]
     );
 }
 
 fn set(p: &Probe, s: SymbolRef) {
     p.log(format!("set {}", name(&s)));
+}
+
+fn gimme_with_sel(p: &Probe, s: &SymbolRef, a: &[Atom]) {
+    p.log(format!("with {} {}", name(s), a.len()));
+}
+
+fn gimme_plain(p: &Probe, a: &[Atom]) {
+    p.log(format!("plain {}", a.len()));
 }
 
 #[test]
@@ -491,6 +512,10 @@ fn class_registers_the_methods() {
         p.log(format!("gimme {} {}", name(s), a.len()))
     })
     .unwrap();
+    //one function under two selectors, and the shape without the selector
+    c.add_sel_gimme(c"gimme_b", gimme_with_sel).unwrap();
+    c.add_sel_gimme(c"gimme_c", gimme_with_sel).unwrap();
+    c.add_sel_gimme(c"gimme_plain", gimme_plain).unwrap();
     c.register(crate::class::ClassType::Box).unwrap();
 
     let obj = k.new_object("median_test_methods", &[]);
@@ -517,6 +542,8 @@ fn class_registers_the_methods() {
         ("set", &[A_DEFSYM as i32][..]),
         ("two", &[A_FLOAT as i32, A_FLOAT as i32][..]),
         ("gimme", &[A_GIMME as i32][..]),
+        ("gimme_b", &[A_GIMME as i32][..]),
+        ("gimme_plain", &[A_GIMME as i32][..]),
     ] {
         assert_eq!(types(sel), t, "{sel}");
     }
@@ -533,6 +560,10 @@ fn class_registers_the_methods() {
     k.send(obj, "set", &[]).unwrap();
     k.send(obj, "two", &[3.into(), 4.5.into()]).unwrap();
     k.send(obj, "gimme", &[1.into(), 2.into()]).unwrap();
+    k.send(obj, "gimme_b", &[1.into()]).unwrap();
+    k.send(obj, "gimme_c", &[]).unwrap();
+    k.send(obj, "gimme_plain", &[1.into(), 2.into(), 3.into()])
+        .unwrap();
     assert_eq!(
         w.t.take(),
         [
@@ -545,7 +576,10 @@ fn class_registers_the_methods() {
             "set s",
             "set ",
             "two 3 4.5",
-            "gimme gimme 2"
+            "gimme gimme 2",
+            "with gimme_b 1",
+            "with gimme_c 0",
+            "plain 3"
         ]
     );
     assert!(k.console_log().is_empty());

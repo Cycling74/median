@@ -122,6 +122,9 @@ mod sealed {
 
     /// Seals `SelFn`: implemented exactly where `SelFn` is, by `sel_fn_arity!`.
     pub trait SealedSelFn<T, Args, R> {}
+
+    /// Seals `GimmeFn`: implemented exactly where `GimmeFn` is.
+    pub trait SealedGimmeFn<T, R, A> {}
 }
 
 /// What a method registered with `Class::add_*` may return: `()` or `Result<(), E>` where
@@ -195,6 +198,62 @@ where
             Err(err) => w.report_error(&err),
         }
     });
+}
+
+/// Marker for [`GimmeFn`]: the callable takes the selector, `Fn(&T, &SymbolRef, &[Atom]) -> R`.
+pub struct WithSel;
+
+/// Marker for [`GimmeFn`]: the callable does not take the selector, `Fn(&T, &[Atom]) -> R`.
+pub struct NoSel;
+
+/// A callable that can be registered as an `A_GIMME` selector method with
+/// [`Class::add_sel_gimme`](crate::class::Class::add_sel_gimme): a zero-sized `Copy`
+/// `Fn(&T, &[Atom]) -> R` or `Fn(&T, &SymbolRef, &[Atom]) -> R`.
+///
+/// A method that takes the selector can serve several selectors (it is told which one was sent);
+/// one that does not is the form `#[sel_gimme("name")]` uses, since the marker already names the
+/// selector. Implemented for all such callables, not meant to be implemented by hand (it is
+/// sealed).
+///
+/// `A` is [`WithSel`] or [`NoSel`], picked by the callable's signature and inferred, so callers
+/// never name it. The two impls can't overlap because `A` differs.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can't be an `A_GIMME` method of `{T}`",
+    label = "expected `fn(&{T}, &[Atom])` or `fn(&{T}, &SymbolRef, &[Atom])`, returning `()` or `Result<(), E>`",
+    note = "the callable must be a fn item or a closure that captures nothing"
+)]
+pub trait GimmeFn<T, R, A>: Copy + Send + Sync + 'static + sealed::SealedGimmeFn<T, R, A> {
+    /// Call the method; the `NoSel` impl ignores `sel`.
+    #[doc(hidden)]
+    fn call(self, t: &T, sel: &SymbolRef, atoms: &[Atom]) -> R;
+}
+
+impl<T, R, F> sealed::SealedGimmeFn<T, R, WithSel> for F where
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static
+{
+}
+
+impl<T, R, F> GimmeFn<T, R, WithSel> for F
+where
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
+{
+    fn call(self, t: &T, sel: &SymbolRef, atoms: &[Atom]) -> R {
+        self(t, sel, atoms)
+    }
+}
+
+impl<T, R, F> sealed::SealedGimmeFn<T, R, NoSel> for F where
+    F: Fn(&T, &[Atom]) -> R + Copy + Send + Sync + 'static
+{
+}
+
+impl<T, R, F> GimmeFn<T, R, NoSel> for F
+where
+    F: Fn(&T, &[Atom]) -> R + Copy + Send + Sync + 'static,
+{
+    fn call(self, t: &T, _sel: &SymbolRef, atoms: &[Atom]) -> R {
+        self(t, atoms)
+    }
 }
 
 /// Build a `&[Atom]` from the `argc`/`argv` Max passes to an `A_GIMME` method.
@@ -516,20 +575,20 @@ sel_fn_arity!(sel_tramp5, sel_deferred_tramp5; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5
 sel_fn_arity!(sel_tramp6, sel_deferred_tramp6; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6);
 sel_fn_arity!(sel_tramp7, sel_deferred_tramp7; A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6, A7 a7);
 
-pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R>(
+pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R, A>(
     w: &W,
     sel: *mut max_sys::t_symbol,
     ac: c_long,
     av: *const max_sys::t_atom,
 ) where
     W: WrapperWrapped<T> + MaxObj,
-    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
+    F: GimmeFn<T, R, A>,
     R: MethodResult,
 {
     // SAFETY: as `any_tramp`
     run(w, "method", |t| {
         let sel = unsafe { SymbolRef::from_raw(sel) };
-        (unsafe { zst::<F>() })(t, &sel, unsafe { atoms(ac, av) })
+        F::call(unsafe { zst::<F>() }, t, &sel, unsafe { atoms(ac, av) })
     });
 }
 
@@ -638,14 +697,14 @@ where
     unsafe { erase(any_tramp::<W, T, F, R> as GimmeTramp<W>) }
 }
 
-pub(crate) fn sel_gimme_method<W, T, F, R>(_f: F) -> MaxMethod
+pub(crate) fn sel_gimme_method<W, T, F, R, A>(_f: F) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
-    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
+    F: GimmeFn<T, R, A>,
     R: MethodResult,
 {
     // SAFETY: as `list_method`
-    unsafe { erase(sel_gimme_tramp::<W, T, F, R> as GimmeTramp<W>) }
+    unsafe { erase(sel_gimme_tramp::<W, T, F, R, A> as GimmeTramp<W>) }
 }
 
 /// The signature of a trampoline for an `A_GIMME` method.
@@ -749,7 +808,7 @@ extern "C" fn list_deferred_tramp<W, T, F, R, const LOW: bool>(
 }
 
 /// `anything` and `A_GIMME` selector methods: the selector and the atoms.
-extern "C" fn gimme_deferred_tramp<W, T, F, R, const LOW: bool, const ANY: bool>(
+extern "C" fn gimme_deferred_tramp<W, T, F, R, A, const LOW: bool, const ANY: bool>(
     w: &W,
     sel: *mut max_sys::t_symbol,
     ac: c_long,
@@ -757,7 +816,7 @@ extern "C" fn gimme_deferred_tramp<W, T, F, R, const LOW: bool, const ANY: bool>
 ) where
     W: WrapperWrapped<T> + MaxObj,
     T: 'static,
-    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
+    F: GimmeFn<T, R, A>,
     R: MethodResult,
 {
     // SAFETY: Max passes a valid selector and `ac` valid atoms that live for the call for an
@@ -766,7 +825,7 @@ extern "C" fn gimme_deferred_tramp<W, T, F, R, const LOW: bool, const ANY: bool>
     let what = if ANY { "anything" } else { "method" };
     // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
     defer_or_run::<W, T, R, _, LOW>(w, what, move |t: &T| {
-        (unsafe { zst::<F>() })(t, &sel, atoms.as_slice())
+        F::call(unsafe { zst::<F>() }, t, &sel, atoms.as_slice())
     });
 }
 
@@ -864,30 +923,30 @@ pub(crate) fn any_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
     T: 'static,
-    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
+    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
     R: MethodResult,
 {
     let p = deferred!(
         mode,
         GimmeTramp<W>,
-        gimme_deferred_tramp::<W, T, F, R>,
+        gimme_deferred_tramp::<W, T, F, R, WithSel>,
         true
     );
     // SAFETY: as `list_method`
     unsafe { erase(p) }
 }
 
-pub(crate) fn sel_gimme_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
+pub(crate) fn sel_gimme_deferred_method<W, T, F, R, A>(_f: F, mode: Defer) -> MaxMethod
 where
     W: WrapperWrapped<T> + MaxObj,
     T: 'static,
-    F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + 'static,
+    F: GimmeFn<T, R, A>,
     R: MethodResult,
 {
     let p = deferred!(
         mode,
         GimmeTramp<W>,
-        gimme_deferred_tramp::<W, T, F, R>,
+        gimme_deferred_tramp::<W, T, F, R, A>,
         false
     );
     // SAFETY: as `list_method`

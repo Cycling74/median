@@ -92,8 +92,8 @@ impl Thing {
 
     #[sel_gimme("open")]
     #[defer_low]
-    pub fn open(&self, sel: &SymbolRef, atoms: &[Atom]) {
-        self.log(format!("{sel} {}", describe(atoms)));
+    pub fn open(&self, atoms: &[Atom]) {
+        self.log(format!("open {}", describe(atoms)));
     }
 
     #[sel("fail")]
@@ -183,7 +183,41 @@ fn describe(atoms: &[Atom]) -> String {
         .join(",")
 }
 
-median::ext_main! { Thing }
+/// Hand-written registration of `A_GIMME` methods, deferred, of both shapes: one function that
+/// takes the selector under two selectors, and one that does not.
+#[derive(MaxObject)]
+#[max(name = "defer.hand", no_methods)]
+pub struct Hand {
+    obj: ObjRef,
+}
+
+impl MaxObjWrapped for Hand {
+    fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Self { obj: b.obj() })
+    }
+
+    fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
+        use median::defer::Defer;
+        c.add_sel_gimme_deferred(c"alpha", Self::with_sel, Defer::Low)
+            .unwrap();
+        c.add_sel_gimme_deferred(c"beta", Self::with_sel, Defer::Low)
+            .unwrap();
+        c.add_sel_gimme_deferred(c"plain", Self::plain, Defer::Low)
+            .unwrap();
+    }
+}
+
+impl Hand {
+    fn with_sel(&self, sel: &SymbolRef, atoms: &[Atom]) {
+        self.obj.post(format!("with {sel} {}", describe(atoms)));
+    }
+
+    fn plain(&self, atoms: &[Atom]) {
+        self.obj.post(format!("plain {}", describe(atoms)));
+    }
+}
+
+median::ext_main! { Thing, Hand }
 
 fn register() {
     static ONCE: Once = Once::new();
@@ -428,5 +462,21 @@ fn a_call_queued_while_both_qelems_run_nested_runs() {
     assert_eq!(k.main_queue_len(), 0);
     assert_eq!(k.run_main_queue(), 0);
     assert!(k.console_log().is_empty(), "{:?}", k.console_log());
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn deferred_gimme_takes_the_selector_or_not() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("defer.hand", &[]);
+    assert!(!obj.is_null());
+    k.send(obj, "alpha", &[MockAtom::Long(1)]).unwrap();
+    k.send(obj, "beta", &[MockAtom::Sym("x".into())]).unwrap();
+    k.send(obj, "plain", &[MockAtom::Long(2), MockAtom::Long(3)])
+        .unwrap();
+    assert!(posts(&k).is_empty());
+    k.run_main_queue();
+    assert_eq!(posts(&k), ["with alpha 1", "with beta 'x'", "plain 2,3"]);
     assert!(k.free_object(obj));
 }

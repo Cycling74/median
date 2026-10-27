@@ -28,32 +28,38 @@ error: `#[any]` method must take `(&self, &SymbolRef, &[Atom])`
 20 |     pub fn any(&self, _atoms: &[Atom]) {}
    |         ^^
 
-error: `#[sel_gimme]` method must take `(&self, &SymbolRef, &[Atom])`
+error: `#[sel_gimme]` method must take `(&self, &[Atom])`
   --> tests/ui/methods_signatures.rs:23:9
    |
-23 |     pub fn gimme(&self, _sel: SymbolRef, _atoms: &[Atom]) {}
+23 |     pub fn gimme(&self) {}
+   |         ^^
+
+error: `#[sel_gimme]` method must take `(&self, &[Atom])`
+  --> tests/ui/methods_signatures.rs:26:9
+   |
+26 |     pub fn many(&self, _sel: &SymbolRef, _atoms: &[Atom], _more: &[Atom]) {}
    |         ^^
 
 error: `#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, `t_atom_long` or `SymbolRef`
-  --> tests/ui/methods_signatures.rs:26:9
+  --> tests/ui/methods_signatures.rs:29:9
    |
-26 |     pub fn eight(&self, _a: f64, _b: f64, _c: f64, _d: f64, _e: f64, _f: f64, _g: f64, _h: f64) {}
+29 |     pub fn eight(&self, _a: f64, _b: f64, _c: f64, _d: f64, _e: f64, _f: f64, _g: f64, _h: f64) {}
    |         ^^
 
 error: `defaults = 2` is more than the method's 1 argument(s)
-  --> tests/ui/methods_signatures.rs:28:34
+  --> tests/ui/methods_signatures.rs:31:34
    |
-28 |     #[sel("defaults", defaults = 2)]
+31 |     #[sel("defaults", defaults = 2)]
    |                                  ^
 
 error: `#[attr]` getter must take `(&self)` and return the value (`f64`, `f32`, `t_atom_long` or `SymbolRef`)
-  --> tests/ui/methods_signatures.rs:32:9
+  --> tests/ui/methods_signatures.rs:35:9
    |
-32 |     pub fn getter(&self) {}
+35 |     pub fn getter(&self) {}
    |         ^^
 
 error: `set_foo`, the setter of the `#[attr]` `foo`, must take `(&self, value)`
-  --> tests/ui/methods_signatures.rs:39:9
+  --> tests/ui/methods_signatures.rs:42:9
    |
-39 |     pub fn set_foo(&self) {}
+42 |     pub fn set_foo(&self) {}
    |         ^^

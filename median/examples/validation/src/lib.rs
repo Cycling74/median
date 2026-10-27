@@ -55,20 +55,20 @@ impl Messages {
     }
 
     #[sel_gimme("direct")]
-    fn direct(&self, sel: &SymbolRef, atoms: &[Atom]) {
-        self.arguments(sel, atoms);
+    fn direct(&self, atoms: &[Atom]) {
+        self.arguments(&median::sym!("direct"), atoms);
     }
 
     #[sel_gimme("low")]
     #[defer_low]
-    fn low(&self, sel: &SymbolRef, atoms: &[Atom]) {
-        self.arguments(sel, atoms);
+    fn low(&self, atoms: &[Atom]) {
+        self.arguments(&median::sym!("low"), atoms);
     }
 
     #[sel_gimme("front")]
     #[defer]
-    fn front(&self, sel: &SymbolRef, atoms: &[Atom]) {
-        self.arguments(sel, atoms);
+    fn front(&self, atoms: &[Atom]) {
+        self.arguments(&median::sym!("front"), atoms);
     }
 
     fn arguments(&self, sel: &SymbolRef, atoms: &[Atom]) {

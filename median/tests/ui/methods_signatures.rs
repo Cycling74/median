@@ -20,7 +20,10 @@ impl Simp {
     pub fn any(&self, _atoms: &[Atom]) {}
 
     #[sel_gimme("gimme")]
-    pub fn gimme(&self, _sel: SymbolRef, _atoms: &[Atom]) {}
+    pub fn gimme(&self) {}
+
+    #[sel_gimme("many")]
+    pub fn many(&self, _sel: &SymbolRef, _atoms: &[Atom], _more: &[Atom]) {}
 
     #[sel("eight")]
     pub fn eight(&self, _a: f64, _b: f64, _c: f64, _d: f64, _e: f64, _f: f64, _g: f64, _h: f64) {}

@@ -718,19 +718,27 @@ impl<W> Class<W> {
     }
 
     /// Register the method `sel` with the arguments as a list of atoms (`A_GIMME`). The callable
-    /// gets the selector as well, so that one can serve several selectors. `sel` must not be one of
-    /// [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP class,
-    /// [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
-    pub fn add_sel_gimme<T, F, R>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+    /// either takes the selector as well, so that one function can serve several selectors, or
+    /// does not (see [`GimmeFn`]; which shape it is, is inferred):
+    ///
+    /// ```ignore
+    /// c.add_sel_gimme(c"foo", Self::foo)?;   // fn foo(&self, sel: &SymbolRef, atoms: &[Atom])
+    /// c.add_sel_gimme(c"bar", Self::foo)?;   // the same function answers two selectors
+    /// c.add_sel_gimme(c"read", Self::read)?; // fn read(&self, atoms: &[Atom])
+    /// ```
+    ///
+    /// `sel` must not be one of [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP
+    /// class, [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
+    pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
-        F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
+        F: GimmeFn<T, R, A>,
         R: MethodResult,
     {
         if is_untyped_selector(sel) {
             return Err(MaxError::Duplicate);
         }
-        let m = sel_gimme_method::<W, T, F, R>(f);
+        let m = sel_gimme_method::<W, T, F, R, A>(f);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
     }
@@ -854,8 +862,9 @@ impl<W> Class<W> {
     }
 
     /// [`add_sel_gimme`](Self::add_sel_gimme), deferred (see
-    /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call.
-    pub fn add_sel_gimme_deferred<T, F, R>(
+    /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call. Takes
+    /// either shape of callable, as `add_sel_gimme` does (see [`GimmeFn`]).
+    pub fn add_sel_gimme_deferred<T, F, R, A>(
         &mut self,
         sel: &CStr,
         f: F,
@@ -864,14 +873,14 @@ impl<W> Class<W> {
     where
         W: WrapperWrapped<T> + MaxObj,
         T: 'static,
-        F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
+        F: GimmeFn<T, R, A>,
         R: MethodResult,
     {
         if is_untyped_selector(sel) {
             return Err(MaxError::Duplicate);
         }
         self.deferred = true;
-        let m = sel_gimme_deferred_method::<W, T, F, R>(f, mode);
+        let m = sel_gimme_deferred_method::<W, T, F, R, A>(f, mode);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
     }

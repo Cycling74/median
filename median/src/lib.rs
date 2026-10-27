@@ -147,7 +147,7 @@
 //! | `#[list]` | `list` | `fn(&self, &[Atom])` |
 //! | `#[any]` | `anything` | `fn(&self, &SymbolRef, &[Atom])` |
 //! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`, either all `f64` or none (Max can't pass a mix: use `#[sel_gimme]`); the last `n` may be left out (they are then 0 or the empty symbol) |
-//! | `#[sel_gimme("name")]` | `name` | `fn(&self, &SymbolRef, &[Atom])` |
+//! | `#[sel_gimme("name")]` | `name` | `fn(&self, &[Atom])` (the marker names the selector; with [`Class::add_sel_gimme`](class::Class::add_sel_gimme) the method may also take the `&SymbolRef`, one function for several selectors) |
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |

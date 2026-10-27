@@ -1,0 +1,57 @@
+error[E0277]: `for<'a> fn(&'a Simp, Vec<median::atom::Atom>) {Simp::vec}` can't be an `A_GIMME` method of `Simp`
+ --> tests/ui/methods_sel_gimme_types.rs:9:12
+  |
+9 |     pub fn vec(&self, _atoms: Vec<Atom>) {}
+  |            ^^^ expected `fn(&Simp, &[Atom])` or `fn(&Simp, &SymbolRef, &[Atom])`, returning `()` or `Result<(), E>`
+  |
+  = help: the trait `GimmeFn<Simp, _, _>` is not implemented for fn item `for<'a> fn(&'a Simp, Vec<median::atom::Atom>) {Simp::vec}`
+  = note: the callable must be a fn item or a closure that captures nothing
+note: required by a bound in `Class::<W>::add_sel_gimme`
+ --> src/class.rs
+  |
+  |     pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+  |            ------------- required by a bound in this associated function
+...
+  |         F: GimmeFn<T, R, A>,
+  |            ^^^^^^^^^^^^^^^^ required by this bound in `Class::<W>::add_sel_gimme`
+
+error[E0277]: `for<'a, 'b> fn(&'a Simp, median::symbol::SymbolRef, &'b [median::atom::Atom]) {Simp::by_value}` can't be an `A_GIMME` method of `Simp`
+  --> tests/ui/methods_sel_gimme_types.rs:13:12
+   |
+13 |     pub fn by_value(&self, _sel: SymbolRef, _atoms: &[Atom]) {}
+   |            ^^^^^^^^ expected `fn(&Simp, &[Atom])` or `fn(&Simp, &SymbolRef, &[Atom])`, returning `()` or `Result<(), E>`
+   |
+   = help: the trait `GimmeFn<Simp, _, _>` is not implemented for fn item `for<'a, 'b> fn(&'a Simp, median::symbol::SymbolRef, &'b [median::atom::Atom]) {Simp::by_value}`
+   = note: the callable must be a fn item or a closure that captures nothing
+note: required by a bound in `Class::<W>::add_sel_gimme`
+  --> src/class.rs
+   |
+   |     pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+   |            ------------- required by a bound in this associated function
+...
+   |         F: GimmeFn<T, R, A>,
+   |            ^^^^^^^^^^^^^^^^ required by this bound in `Class::<W>::add_sel_gimme`
+
+error[E0277]: a median method must return `()` or `Result<(), E>` where `E: Display`, not `i32`
+  --> tests/ui/methods_sel_gimme_types.rs:17:12
+   |
+17 |     pub fn returns(&self, _atoms: &[Atom]) -> i32 {
+   |            ^^^^^^^ returns `i32`
+   |
+   = help: the trait `MethodResult` is not implemented for `i32`
+help: the following other types implement trait `MethodResult`
+  --> src/method.rs
+   |
+   | impl MethodResult for () {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^ `()`
+...
+   | impl<E: Display> MethodResult for Result<(), E> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Result<(), E>`
+note: required by a bound in `Class::<W>::add_sel_gimme`
+  --> src/class.rs
+   |
+   |     pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+   |            ------------- required by a bound in this associated function
+...
+   |         R: MethodResult,
+   |            ^^^^^^^^^^^^ required by this bound in `Class::<W>::add_sel_gimme`
