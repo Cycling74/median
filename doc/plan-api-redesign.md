@@ -400,7 +400,7 @@ hand (min's `argument<>`).
   The provided impls are strict where Max is: `t_atom_long` from an int only, `f64` from an int or a
   float (Max's number coercion), `SymbolRef` from a symbol only, `String` from a symbol (or a
   number, as `Atom::text` shows it), `bool` from the int 0 or 1. An object atom is never accepted.
-  `ArgError` converts to `NewError`, so `?` in `new` posts `argument 1: expected an integer, got
+  `ArgError` converts to `NewError`, so `?` in `new` posts `argument 1: expected a number, got
   `foo`` (counted from 1 for the patcher user; `index` is zero-based) or `@channels: expected ...`
   and refuses the object.
 - `attr_arg` before the setter. Max's `attr_args_process` still runs after `new` with the same atoms

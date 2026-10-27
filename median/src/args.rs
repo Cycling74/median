@@ -20,7 +20,7 @@
 //! impl MaxObjWrapped for Chans {
 //!     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
 //!         // the first positional argument, 2 if it is left out; `?` posts a bad one
-//!         // (`argument 1: expected an integer, got `foo``) and refuses the object
+//!         // (`argument 1: expected a number, got `foo``) and refuses the object
 //!         let first: t_atom_long = b.args().arg_or(0, 2)?;
 //!         // the attribute `@channels`, which only `new` can act on: it decides how many
 //!         // outlets to make
@@ -224,11 +224,14 @@ pub trait FromAtom: Sized {
     fn from_atom(a: &Atom) -> Result<Self, ArgTypeError>;
 }
 
+/// An integer atom, or a float atom truncated toward zero: the coercion Max applies to a typed
+/// `A_LONG` argument, which a `#[sel]` argument of this type gets too.
 impl FromAtom for max_sys::t_atom_long {
     fn from_atom(a: &Atom) -> Result<Self, ArgTypeError> {
         match a.get_type() {
             Some(AtomType::Int) => Ok(a.get_int()),
-            _ => Err(ArgTypeError::new("an integer", a)),
+            Some(AtomType::Float) => Ok(a.get_float() as Self),
+            _ => Err(ArgTypeError::new("a number", a)),
         }
     }
 }
@@ -340,7 +343,7 @@ pub enum ArgError {
 
 impl fmt::Display for ArgError {
     /// `argument 1: expected a number, got `foo``, `argument 2: missing`,
-    /// `@channels: expected an integer, got `x``.
+    /// `@channels: expected a number, got `x``.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ArgError::Missing { index } => write!(f, "argument {}: missing", index + 1),

@@ -223,25 +223,21 @@ fn refused(k: &Kernel, args: &[MockAtom], msg: &str) {
 #[test]
 fn a_bad_argument_refuses_the_object_with_a_message() {
     let k = setup();
-    refused(
-        &k,
-        &[s("foo")],
-        "argument 1: expected an integer, got `foo`",
-    );
+    refused(&k, &[s("foo")], "argument 1: expected a number, got `foo`");
     refused(
         &k,
         &[1.into(), s("bar")],
         "argument 2: expected a number, got `bar`",
     );
-    refused(
-        &k,
-        &[2.5.into()],
-        "argument 1: expected an integer, got `2.5`",
-    );
+    // a float for an integer argument is truncated, as Max does for a typed `A_LONG` argument
+    let obj = make(&k, &[2.5.into()]);
+    let log = take_log();
+    assert!(log.contains(&"arg0 Some(2)".to_string()), "{log:?}");
+    assert!(k.free_object(obj));
     refused(
         &k,
         &[s("@value"), s("x")],
-        "@value: expected an integer, got `x`",
+        "@value: expected a number, got `x`",
     );
 }
 
@@ -276,7 +272,9 @@ fn from_atom_accepts_what_it_documents() {
     let one = Atom::from(1i64);
 
     assert_eq!(t_atom_long::from_atom(&int), Ok(3));
-    assert!(t_atom_long::from_atom(&float).is_err());
+    // truncated toward zero, like a typed `A_LONG` argument
+    assert_eq!(t_atom_long::from_atom(&float), Ok(2));
+    assert_eq!(t_atom_long::from_atom(&Atom::from(-2.5)), Ok(-2));
     assert!(t_atom_long::from_atom(&sym).is_err());
 
     assert_eq!(f64::from_atom(&int), Ok(3.0));
@@ -329,10 +327,10 @@ fn args_split_a_list_without_a_builder() {
     );
     assert_eq!(args.arg_or::<t_atom_long>(7, 9), Ok(9));
     let e = args.arg::<t_atom_long>(0).unwrap_err();
-    assert_eq!(e.to_string(), "argument 1: expected an integer, got `a`");
+    assert_eq!(e.to_string(), "argument 1: expected a number, got `a`");
     assert_eq!(args.text(), "a 1 @x 2 3 @y");
     assert_eq!(
         NewError::from(e).message(),
-        "argument 1: expected an integer, got `a`"
+        "argument 1: expected a number, got `a`"
     );
 }
