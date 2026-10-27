@@ -11,7 +11,7 @@
   `transmute`. The commit's `AGENTS.md` and `median/tests/e2e.rs` hunks touch files that only
   exist on `xnor/api-redesign`.
 - [ ] Run the "To check in Max" list (summary under "Where things stand" in
-  `doc/plan-api-redesign.md`) and record the results there.
+  `doc/plan-api-redesign.md`) and record the results in `doc/validation-max.md`.
 - [x] Port `simplemax` (SDK `basics/simplemax/simplemax.c`) as `median/examples/simplemax`
   with the new API, plus a mock test. Construction, arguments, errors, assist and cleanup
   pass against the mock; `cargo make package` builds a signed macOS ARM64 bundle. Not run in Max.

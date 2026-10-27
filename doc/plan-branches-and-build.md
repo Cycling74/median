@@ -89,7 +89,9 @@ Decision: after the API redesign (step 2) lands, fix the known bugs listed below
 flag; Jitter support ships unflagged. Keep the flag only for the window in which the leaf modules
 are on `develop` ahead of that work.
 
-Now (after 3d bindings), behind `features = ["jitter"]`:
+Done 2026-10-23 (the Jitter continuation): the flag no longer exists (there is no `jitter` feature in
+`median/Cargo.toml` or `max-sys/Cargo.toml`) and Jitter support ships unflagged. The text below is
+kept for the list of fixes. Originally, after 3d bindings, behind `features = ["jitter"]`:
 - `jit::matrix::{Matrix, MatrixGuard, MatrixInfo, MatrixData, MOP, Count, IOCount, MatrixDataType}`,
   `jit::matrix::iter`, `jit::matrix::parallel`, `jit::ob3d::{chunk, buffer, geometry}`, the jitter
   enum/function whitelists in `max-sys/build.rs`, `Float32`, `From<f32> for Atom`.
@@ -167,7 +169,7 @@ With the redesign (step 2, §J):
   `median/src/test/sysmem.rs` stub, which frees with the wrong layout (review M11). Either way the test crate instantiates an
   external through the real `new_tramp`, sends messages through the registered trampolines, and
   asserts on recorded outlet traffic. Run under Miri for the pure-Rust parts.
-- CI: GitHub Actions matrix for macos-14 (aarch64), macos-13 (x86_64), windows-latest; `cargo test`,
+- CI: GitHub Actions matrix for macos-15 (aarch64), macos-15-intel (x86_64), windows-2025 (`.github/workflows/ci.yml`); `cargo test`,
   `cargo clippy -D warnings`, build the three examples, and `cargo make package` for `simp`.
 
 ## Step 5: dependency and toolchain refresh

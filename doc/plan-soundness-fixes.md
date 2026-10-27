@@ -255,8 +255,9 @@ Known remaining issues found in review, not fixed here:
 - ~~An MSP object whose `T::new` panics after `z_dsp_setup` never gets `z_dsp_free` (likely a
   leak).~~ Fixed in redesign step 5: the builder pairs `z_dsp_setup` with `z_dsp_free` until the
   object is constructed (see plan-api-redesign Status).
-- `object_post!`/`object_error!` still accept any pointer from safe code; fixing it needs a
-  signature change, so it goes with step 2.
+- ~~`object_post!`/`object_error!` still accept any pointer from safe code; fixing it needs a
+  signature change, so it goes with step 2.~~ Fixed in redesign step 1: they take `&ObjRef` (see
+  plan-api-redesign step 1).
 - Buffer `getname` (item 5): the headers don't say whether it writes through the argument or
   returns the symbol. Test a late-bound `buffer~` with `hello_dsp`.
 
