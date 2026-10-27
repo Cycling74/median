@@ -255,6 +255,30 @@ fn text_of_each_kind_of_atom() {
     assert_eq!(Atom::from(2.5).text(), "2.5");
     assert_eq!(Atom::from(median::sym!("foo")).text(), "foo");
     assert_eq!(Atom::from(median::sym!("@value")).text(), "@value");
+    // an object atom is never inspected: safe code can put any pointer in one
+    let bogus = Atom::from(0x10usize as *mut std::ffi::c_void);
+    assert_eq!(bogus.text(), "<object>");
+    assert_eq!(Args::new(std::slice::from_ref(&bogus)).text(), "<object>");
+}
+
+#[test]
+fn a_list_longer_than_the_sdk_count_is_all_positional_without_an_attribute() {
+    let _k = setup();
+    let many: Vec<Atom> = (0..40_000i64).map(Atom::from).collect();
+    let args = Args::new(&many);
+    assert_eq!(args.positional().len(), 40_000);
+    assert_eq!(args.attrs().count(), 0);
+    assert!(args.at(39_999).is_present());
+    // an `@name` inside the searched prefix still splits
+    let mut with_attr: Vec<Atom> = (0..100i64).map(Atom::from).collect();
+    with_attr.push(Atom::from(median::sym!("@x")));
+    with_attr.extend((0..40_000i64).map(Atom::from));
+    let args = Args::new(&with_attr);
+    assert_eq!(args.positional().len(), 100);
+    assert_eq!(
+        args.attr(median::sym!("x")).values().map(|v| v.len()),
+        Some(40_000)
+    );
 }
 
 fn atoms(a: &[MockAtom]) -> Vec<Atom> {

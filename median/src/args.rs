@@ -75,17 +75,19 @@ pub struct Args<'a> {
 impl<'a> Args<'a> {
     /// Split `raw`: the positional arguments end where the SDK's `attr_args_offset` says the
     /// first attribute argument begins. (The SDK takes the count as a `short`: of a list longer
-    /// than 32767 atoms only the first 32767 are searched.)
+    /// than 32767 atoms only the first 32767 are searched for an `@name`; if none is there, the
+    /// whole list is positional.)
     pub fn new(raw: &'a [Atom]) -> Self {
-        let n = raw.len().min(c_short::MAX as usize);
-        // SAFETY: `Atom` is a transparent `t_atom`: `raw` is `n` valid atoms, which
-        // `attr_args_offset` only reads
-        let offset =
-            unsafe { max_sys::attr_args_offset(n as c_short, raw.as_ptr().cast_mut().cast()) };
-        Self {
-            raw,
-            offset: usize::try_from(offset).unwrap_or(0).min(raw.len()),
-        }
+        let searched = raw.len().min(c_short::MAX as usize);
+        // SAFETY: `Atom` is a transparent `t_atom`: `raw` is at least `searched` valid atoms,
+        // which `attr_args_offset` only reads
+        let found = unsafe {
+            max_sys::attr_args_offset(searched as c_short, raw.as_ptr().cast_mut().cast())
+        };
+        let found = usize::try_from(found).unwrap_or(0);
+        // the SDK answers the count when there is no attribute argument in what it searched
+        let offset = if found >= searched { raw.len() } else { found };
+        Self { raw, offset }
     }
 
     /// The whole list, untouched: the same atoms as the builders' `creation_args()`, positional

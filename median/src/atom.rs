@@ -162,15 +162,28 @@ impl Atom {
 /// The atoms as one line of text, separated by spaces, through `atom_gettext` with the default
 /// flags. The buffer Max allocates is freed with `sysmem_freeptr`, as the SDK's `threadpool`
 /// example does.
+///
+/// An object atom is rendered as the symbol `<object>` without being inspected: a safe `Atom`
+/// can hold any pointer (`Atom::set_obj`, `From<*mut c_void>`), and `atom_gettext` would
+/// dereference it.
 pub(crate) fn text_of(atoms: &[Atom]) -> String {
+    let placeholder = crate::sym!("<object>");
+    let copies: Vec<max_sys::t_atom> = atoms
+        .iter()
+        .map(|a| match a.get_type() {
+            Some(AtomType::Object) => Atom::from(placeholder).value,
+            // SAFETY: `t_atom` is plain data; copying it inspects nothing
+            _ => unsafe { std::ptr::read(&a.value) },
+        })
+        .collect();
     let mut size: c_long = 0;
     let mut text: *mut c_char = std::ptr::null_mut();
-    // SAFETY: `Atom` is a transparent `t_atom`, so the slice is `atoms.len()` valid atoms, which
+    // SAFETY: `copies` is `copies.len()` valid atoms holding no object pointers, which
     // `atom_gettext` only reads; `size` and `text` are writable
     let err = unsafe {
         max_sys::atom_gettext(
-            atoms.len() as c_long,
-            atoms.as_ptr().cast_mut().cast(),
+            copies.len() as c_long,
+            copies.as_ptr().cast_mut(),
             &mut size,
             &mut text,
             0,

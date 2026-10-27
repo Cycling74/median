@@ -96,9 +96,9 @@ impl Messages {
     }
 
     #[gimmeback("getlist")]
-    fn get_list(&self, atoms: &[Atom]) -> Reply {
+    fn get_list(&self, atoms: &[Atom]) -> Result<Reply, String> {
         report(&self.obj, &self.label, &format!("getlist {}", atoms.len()));
-        Reply::Atoms(doubled(atoms))
+        Ok(Reply::Atoms(doubled(atoms)?))
     }
 
     #[gimmeback("getstate")]
@@ -128,14 +128,20 @@ impl Messages {
     }
 }
 
-/// Each int/float doubled, symbols passed through (an `Atom` is not `Clone`).
-fn doubled(atoms: &[Atom]) -> Vec<Atom> {
+/// Each int/float doubled, symbols passed through (an `Atom` is not `Clone`). An int that
+/// can't be doubled in its type is an error, not a wrapped value.
+fn doubled(atoms: &[Atom]) -> Result<Vec<Atom>, String> {
     atoms
         .iter()
-        .map(|a| match a.get_value() {
-            Some(median::atom::AtomValue::Int(v)) => Atom::from(v * 2),
-            Some(median::atom::AtomValue::Float(v)) => Atom::from(v * 2.),
-            _ => Atom::from(a.get_symbol()),
+        .map(|a| {
+            Ok(match a.get_value() {
+                Some(median::atom::AtomValue::Int(v)) => Atom::from(
+                    v.checked_mul(2)
+                        .ok_or_else(|| format!("getlist: {v} doubled is out of range"))?,
+                ),
+                Some(median::atom::AtomValue::Float(v)) => Atom::from(v * 2.),
+                _ => Atom::from(a.get_symbol()),
+            })
         })
         .collect()
 }
