@@ -3,7 +3,7 @@
 //an external, not a fallback: it is what to read to see what the macros do, and the way to
 //register things conditionally or under computed names. The object behaves exactly like `simp`.
 
-use median::{atom::AtomValue, prelude::*};
+use median::{atom::AtomValue, gimmeback::Reply, prelude::*};
 use std::ffi::CStr;
 
 pub struct SimpExplicit {
@@ -80,6 +80,8 @@ impl Methods for SimpExplicit {
         c.add_sel(c"set", Self::set, 1)?;
         //what `#[sel_gimme("read")] #[defer_low]` gives: run later on the main thread
         c.add_sel_gimme_deferred(c"read", Self::read, Defer::Low)?;
+        //what `#[sel_gimmeback("doAbs")]` gives: the method returns the reply for a typed caller
+        c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
         //what `#[notify]` gives
         c.add_notify(Self::notified)?;
         c.add_attr(c"foo", Self::foo, Self::set_foo, AttrOptions::new())?;
@@ -145,6 +147,27 @@ impl SimpExplicit {
             "read {} argument(s) on the main thread",
             atoms.len()
         );
+    }
+
+    pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
+        match atoms {
+            [] => Err("missing argument for method doAbs()".into()),
+            [one] => Ok(match one.get_value() {
+                Some(AtomValue::Int(i)) => Reply::Int(i.abs()),
+                Some(AtomValue::Float(f)) => Reply::Float(f.abs()),
+                _ => Reply::Nothing,
+            }),
+            many => Ok(Reply::Atoms(
+                many.iter()
+                    .map(|a| match a.get_value() {
+                        Some(AtomValue::Int(i)) => Atom::from(i.abs()),
+                        Some(AtomValue::Float(f)) => Atom::from(f.abs()),
+                        //a symbol goes through as it is (an `Atom` is not `Clone`)
+                        _ => Atom::from(a.get_symbol()),
+                    })
+                    .collect(),
+            )),
+        }
     }
 
     pub fn report(&self) {

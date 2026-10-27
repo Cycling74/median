@@ -12,6 +12,17 @@ use syn::{
 /// The most typed arguments a `#[sel]` method can have (what `class_addmethod` takes).
 const MAX_SEL_ARGS: usize = 7;
 
+/// The flavour of a `#[sel..]` marker.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SelKind {
+    /// `#[sel("name")]`: typed arguments.
+    Typed,
+    /// `#[sel_gimme("name")]`: the atoms.
+    Gimme,
+    /// `#[sel_gimmeback("name")]`: the atoms, and a value for a typed caller.
+    Gimmeback,
+}
+
 enum Marker {
     Bang,
     Dblclick,
@@ -27,7 +38,7 @@ enum Marker {
     Sel {
         name: LitStr,
         defaults: Option<LitInt>,
-        gimme: bool,
+        kind: SelKind,
     },
     Attr(Box<AttrOpts>),
     /// `#[defer]` (`low: false`) or `#[defer_low]`: goes with one of the message markers.
@@ -59,8 +70,9 @@ impl Marker {
             "sym" => no_args(Marker::Sym),
             "list" => no_args(Marker::List),
             "any" => no_args(Marker::Any),
-            "sel" => Self::parse_sel(attr, false),
-            "sel_gimme" => Self::parse_sel(attr, true),
+            "sel" => Self::parse_sel(attr, SelKind::Typed),
+            "sel_gimme" => Self::parse_sel(attr, SelKind::Gimme),
+            "sel_gimmeback" => Self::parse_sel(attr, SelKind::Gimmeback),
             "attr" => AttrOpts::parse(attr).map(|o| Marker::Attr(Box::new(o))),
             "defer" => no_args(Marker::Defer { low: false }),
             "defer_low" => no_args(Marker::Defer { low: true }),
@@ -68,12 +80,12 @@ impl Marker {
         })
     }
 
-    /// Typed selectors accept defaults; gimme selectors accept only a name.
-    fn parse_sel(attr: &Attribute, gimme: bool) -> syn::Result<Self> {
-        let form = if gimme {
-            "expected `#[sel_gimme(\"name\")]`"
-        } else {
-            "expected `#[sel(\"name\")]` or `#[sel(\"name\", defaults = n)]`"
+    /// Typed selectors accept defaults; gimme and gimmeback selectors accept only a name.
+    fn parse_sel(attr: &Attribute, kind: SelKind) -> syn::Result<Self> {
+        let form = match kind {
+            SelKind::Gimme => "expected `#[sel_gimme(\"name\")]`",
+            SelKind::Gimmeback => "expected `#[sel_gimmeback(\"name\")]`",
+            SelKind::Typed => "expected `#[sel(\"name\")]` or `#[sel(\"name\", defaults = n)]`",
         };
         let list = match &attr.meta {
             syn::Meta::List(l) => l,
@@ -113,11 +125,21 @@ impl Marker {
                     break;
                 }
                 let key: syn::Ident = input.parse()?;
-                if gimme {
-                    return Err(syn::Error::new(
-                        key.span(),
-                        "`#[sel_gimme]` takes only a selector name; it receives all the atoms",
-                    ));
+                match kind {
+                    SelKind::Gimme => {
+                        return Err(syn::Error::new(
+                            key.span(),
+                            "`#[sel_gimme]` takes only a selector name; it receives all the atoms",
+                        ));
+                    }
+                    SelKind::Gimmeback => {
+                        return Err(syn::Error::new(
+                            key.span(),
+                            "`#[sel_gimmeback]` takes only a selector name; it receives all the \
+                             atoms",
+                        ));
+                    }
+                    SelKind::Typed => {}
                 }
                 match key.to_string().as_str() {
                     "defaults" if defaults.is_none() => {
@@ -146,7 +168,7 @@ impl Marker {
             Ok(Marker::Sel {
                 name,
                 defaults,
-                gimme,
+                kind,
             })
         })
     }
@@ -165,7 +187,14 @@ impl Marker {
             Marker::Sym => "`#[sym]` method must take `(&self, SymbolRef)`",
             Marker::List => "`#[list]` method must take `(&self, &[Atom])`",
             Marker::Any => "`#[any]` method must take `(&self, &SymbolRef, &[Atom])`",
-            Marker::Sel { gimme: true, .. } => "`#[sel_gimme]` method must take `(&self, &[Atom])`",
+            Marker::Sel {
+                kind: SelKind::Gimme,
+                ..
+            } => "`#[sel_gimme]` method must take `(&self, &[Atom])`",
+            Marker::Sel {
+                kind: SelKind::Gimmeback,
+                ..
+            } => "`#[sel_gimmeback]` method must take `(&self, &[Atom])`",
             Marker::Sel { .. } => {
                 "`#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, \
                  `t_atom_long` or `SymbolRef`"
@@ -209,9 +238,9 @@ enum Want<'a> {
     Exact(&'a [Arg]),
     /// Any number of value arguments, up to `MAX_SEL_ARGS` (a typed `#[sel]`).
     Values,
-    /// One or two arguments of any type (`#[sel_gimme]`): `Class::add_sel_gimme` takes
-    /// `(&self, &[Atom])` or `(&self, &SymbolRef, &[Atom])`, and the compiler's `GimmeFn` bound
-    /// says what is wrong with the types.
+    /// One or two arguments of any type (`#[sel_gimme]`, `#[sel_gimmeback]`):
+    /// `Class::add_sel_gimme` takes `(&self, &[Atom])` or `(&self, &SymbolRef, &[Atom])`, and the
+    /// compiler's `GimmeFn` bound says what is wrong with the types.
     Gimme,
 }
 
@@ -398,6 +427,22 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     ));
                     continue;
                 }
+                Some((
+                    Marker::Sel {
+                        kind: SelKind::Gimmeback,
+                        ..
+                    },
+                    _,
+                )) => {
+                    push_err(syn::Error::new(
+                        span,
+                        format!(
+                            "`#[{name}]` doesn't go with `#[sel_gimmeback]`: the reply is returned \
+                             to the caller, so the method can't be deferred"
+                        ),
+                    ));
+                    continue;
+                }
                 Some((Marker::Notify, _)) => {
                     push_err(syn::Error::new(
                         span,
@@ -446,7 +491,10 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             Marker::Savestate | Marker::Notify => Want::Exact(&[Ref]),
             Marker::List => Want::Exact(&[Slice]),
             Marker::Any => Want::Exact(&[Ref, Slice]),
-            Marker::Sel { gimme: true, .. } => Want::Gimme,
+            Marker::Sel {
+                kind: SelKind::Gimme | SelKind::Gimmeback,
+                ..
+            } => Want::Gimme,
             Marker::Sel { .. } => Want::Values,
             Marker::Defer { .. } => unreachable!("taken out above"),
         };
@@ -458,7 +506,11 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                         continue;
                     }
                 }
-                if let Marker::Sel { gimme: false, .. } = &marker {
+                if let Marker::Sel {
+                    kind: SelKind::Typed,
+                    ..
+                } = &marker
+                {
                     if let Err(e) = check_no_float_mix(&f.sig) {
                         push_err(e);
                         continue;
@@ -572,7 +624,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                 Marker::Sel {
                     name,
                     defaults,
-                    gimme,
+                    kind,
                 },
                 mode,
             ) => {
@@ -580,14 +632,24 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                 let d = defaults
                     .as_ref()
                     .map_or(0, |d| d.base10_parse::<usize>().unwrap_or(0));
-                match (gimme, mode) {
-                    (true, None) => quote_spanned!(span=> c.add_sel_gimme(#sel, #path)?;),
-                    (false, None) => quote_spanned!(span=> c.add_sel(#sel, #path, #d)?;),
-                    (true, Some(mode)) => {
+                match (kind, mode) {
+                    (SelKind::Gimme, None) => {
+                        quote_spanned!(span=> c.add_sel_gimme(#sel, #path)?;)
+                    }
+                    (SelKind::Typed, None) => quote_spanned!(span=> c.add_sel(#sel, #path, #d)?;),
+                    (SelKind::Gimme, Some(mode)) => {
                         quote_spanned!(span=> c.add_sel_gimme_deferred(#sel, #path, #mode)?;)
                     }
-                    (false, Some(mode)) => {
+                    (SelKind::Typed, Some(mode)) => {
                         quote_spanned!(span=> c.add_sel_deferred(#sel, #path, #d, #mode)?;)
+                    }
+                    //the method's own return type is the reply: `add_sel_gimmeback`'s
+                    //`GimmebackResult` bound checks it, at the method
+                    (SelKind::Gimmeback, None) => {
+                        quote_spanned!(span=> c.add_sel_gimmeback(#sel, #path)?;)
+                    }
+                    (SelKind::Gimmeback, Some(_)) => {
+                        unreachable!("`#[defer]` on `#[sel_gimmeback]` is refused above")
                     }
                 }
             }

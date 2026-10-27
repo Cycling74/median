@@ -325,6 +325,22 @@ the sketch above:
   non-zero `t_max_err` is `Ok(CallReply::Error(code))`. A patcher message to a gimmeback method is
   `SendError::TypedOnly` (a new variant: `NotSendable` documents `A_CANT`, this is an assumption).
 
+Step 2 is done (`#[sel_gimmeback("name")]` in `median_macros/src/methods.rs`; `ui` cases
+`methods_sel_gimmeback_{defer,signature,types}.rs`; `doAbs` in `simp` and `simp_explicit`, tested
+through `tests/common/simp_script.rs`; `median/tests/gimmeback_macro.rs`). Where it differs from
+the sketch above:
+
+- `parse_sel` takes a `SelKind` (`Typed`, `Gimme`, `Gimmeback`) instead of the `gimme: bool`, and
+  `Marker::Sel` carries it, rather than a third boolean mode.
+- The `ui` cases are three files, not two: the macro's own refusals (a wrong number of arguments,
+  an untyped or reserved selector, an option) suppress the compiler's trait-bound errors in the
+  same crate, so those cannot share a file with the `GimmebackResult` and `GimmeFn` errors
+  (`methods_sel_gimmeback_signature.rs` and `_types.rs`).
+- `Reply` is not in the prelude: the examples and tests import `median::gimmeback::Reply`.
+- The `GimmeFn` diagnostic says "returning `()` or `Result<(), E>`", which is wrong when the
+  caller is `add_sel_gimmeback` (seen in `methods_sel_gimmeback_types.stderr`, for a method with
+  the wrong arguments). Left as is, since rewording it changes `methods_sel_gimme_types.stderr`.
+
 ## Order
 
 0. `GimmeFn` and the selector-less `#[sel_gimme]` (its own commit: it changes existing API).

@@ -1,4 +1,4 @@
-use median::{atom::AtomValue, prelude::*};
+use median::{atom::AtomValue, gimmeback::Reply, prelude::*};
 
 //the struct is an ordinary struct: `#[derive(MaxObject)]` makes it a Max class named "simp"
 //(the type name in lower case, or `#[max(name = "..")]`), with a `Simp::register()` that
@@ -128,6 +128,33 @@ impl Simp {
             "read {} argument(s) on the main thread",
             atoms.len()
         );
+    }
+
+    //"doAbs" is the SDK's `simplejs` example: the absolute value of the number(s) it is given,
+    //for typed callers such as `js` (`obj.doAbs(-3)` is 3, `obj.doAbs(1, -2)` is the list
+    //[1, 2]). The method returns what the caller gets back: a `Reply`, a plain value that
+    //converts to one, or a `Result` of one (an error is posted to the console and the caller
+    //gets no value). A patch cord is not expected to reach it.
+    #[sel_gimmeback("doAbs")]
+    pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
+        match atoms {
+            [] => Err("missing argument for method doAbs()".into()),
+            [one] => Ok(match one.get_value() {
+                Some(AtomValue::Int(i)) => Reply::Int(i.abs()),
+                Some(AtomValue::Float(f)) => Reply::Float(f.abs()),
+                _ => Reply::Nothing,
+            }),
+            many => Ok(Reply::Atoms(
+                many.iter()
+                    .map(|a| match a.get_value() {
+                        Some(AtomValue::Int(i)) => Atom::from(i.abs()),
+                        Some(AtomValue::Float(f)) => Atom::from(f.abs()),
+                        //a symbol goes through as it is (an `Atom` is not `Clone`)
+                        _ => Atom::from(a.get_symbol()),
+                    })
+                    .collect(),
+            )),
+        }
     }
 
     //Max calls this for a notification from an object this one is attached to. The notification

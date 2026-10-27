@@ -1,6 +1,6 @@
-//! `A_GIMMEBACK` methods registered by hand with `Class::add_sel_gimmeback` (the `#[sel_gimmeback]`
-//! marker comes later), called the way `js` and `object_method_typed` do, through the
-//! `median-mock` kernel.
+//! `A_GIMMEBACK` methods registered by hand with `Class::add_sel_gimmeback` (`gimmeback_macro.rs`
+//! uses the `#[sel_gimmeback]` marker), called the way `js` and `object_method_typed` do, through
+//! the `median-mock` kernel.
 
 use median::atom::AtomValue;
 use median::class::Class;

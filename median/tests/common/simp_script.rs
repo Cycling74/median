@@ -167,3 +167,45 @@ pub const EXPECTED_ARGS: &[&str] = &[
     "Error for an object true: the initial value must be a number, not x",
     "live 0",
 ];
+
+/// `doAbs` (`#[sel_gimmeback]` in `simp`, `add_sel_gimmeback` in `simp_explicit`) called the way
+/// `js` does, and sent from a patcher, which is not expected to reach it.
+pub fn run_do_abs(k: &Kernel, class: &str) -> Vec<String> {
+    let mut t = Vec::new();
+    let obj = k.new_object(class, &[]);
+    assert!(!obj.is_null());
+    k.take_console_log();
+    for atoms in [
+        vec![Atom::Long(-3)],
+        vec![Atom::Float(-2.5)],
+        vec![Atom::Long(1), Atom::Long(-2), Atom::Float(-0.5)],
+        vec![Atom::Sym("x".into())],
+        vec![],
+    ] {
+        t.push(format!("{atoms:?} -> {:?}", k.call(obj, "doAbs", &atoms)));
+        drain(k, obj, &mut t);
+    }
+    t.push(format!(
+        "send {:?}",
+        k.send(obj, "doAbs", &[Atom::Long(-3)])
+    ));
+    drain(k, obj, &mut t);
+    assert!(k.free_object(obj));
+    t.push(format!("live {}", k.live_object_count()));
+    //the mock's refusal names the class
+    t.iter()
+        .map(|l| l.replace(&format!("{class}: "), ""))
+        .collect()
+}
+
+pub const EXPECTED_DO_ABS: &[&str] = &[
+    "[Long(-3)] -> Ok(Int(3))",
+    "[Float(-2.5)] -> Ok(Float(2.5))",
+    "[Long(1), Long(-2), Float(-0.5)] -> Ok(Atoms([Long(1), Long(2), Float(0.5)]))",
+    "[Sym(\"x\")] -> Ok(Nothing)",
+    "[] -> Ok(Error(-1))",
+    "error obj: missing argument for method doAbs()",
+    "send Err(TypedOnly(\"doAbs\"))",
+    "error obj: doAbs is a typed-call (A_GIMMEBACK) method; a patcher message cannot reach it",
+    "live 0",
+];

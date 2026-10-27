@@ -23,3 +23,13 @@ fn simp_explicit_takes_or_refuses_its_argument() {
     let t = common::simp_script::run_args(&k, "simp_explicit");
     assert_eq!(t, common::simp_script::EXPECTED_ARGS, "{t:#?}");
 }
+
+#[test]
+fn simp_explicit_do_abs_answers_a_typed_caller() {
+    let k = median_mock::lock();
+    // SAFETY: that is how Max calls it, on its main thread
+    unsafe { simp_explicit::ext_main(std::ptr::null_mut()) };
+    let t = common::simp_script::run_do_abs(&k, "simp_explicit");
+    assert_eq!(t, common::simp_script::EXPECTED_DO_ABS, "{t:#?}");
+    assert_eq!(median_mock::containers::live_count(), 0);
+}
