@@ -131,11 +131,13 @@ impl Simp {
     }
 
     //"doAbs" is the SDK's `simplejs` example: the absolute value of the number(s) it is given,
-    //for typed callers such as `js` (`obj.doAbs(-3)` is 3, `obj.doAbs(1, -2)` is the list
-    //[1, 2]). The method returns what the caller gets back: a `Reply`, a plain value that
-    //converts to one, or a `Result` of one (an error is posted to the console and the caller
-    //gets no value). A patch cord cannot reach it, so it is
-    //marked undocumented and not listed in the patcher.
+    //for a typed caller that reads the reply, such as another external calling
+    //`object_method_typed` (`doAbs -3` is 3, `doAbs 1 -2` is the list [1, 2]). The method
+    //returns what the caller gets back: a `Reply`, a plain value that converts to one, or a
+    //`Result` of one (an error is posted to the console and the caller gets no value). A patch
+    //cord cannot reach it, so it is marked undocumented and not listed in the patcher; `js`'s
+    //`Maxobj.message` runs it but never hands the reply back, and would leak a list reply
+    //(observed 2026-10-27), so a method meant for `js` should reply with a scalar.
     #[gimmeback("doAbs")]
     pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
         match atoms {

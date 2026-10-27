@@ -98,9 +98,10 @@ macro form, with the two reply shapes and an error:
 ```rust
 #[median::methods]
 impl Simp {
-    /// `js`: `obj.doAbs(-3)` gives `3`; `obj.doAbs(1, -2)` gives `[1, 2]`; no argument is an
-    /// error in the Max window and `null` in `js`. The method is for typed callers such as
-    /// `js`; a patch cord is not expected to reach it.
+    /// For a typed caller that reads the reply (`object_method_typed` from another external):
+    /// `doAbs -3` gives `3`, `doAbs 1 -2` gives the list `[1, 2]`, no argument is an error in
+    /// the Max window and no value. A patch cord can't reach it, and `js`'s `Maxobj.message`
+    /// runs it but never hands the reply back (observed 2026-10-27).
     #[gimmeback("doAbs")]
     pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
         match atoms {
