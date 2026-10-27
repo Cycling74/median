@@ -93,11 +93,11 @@ impl MaxObjWrapped for SimpExplicit {
     //`Err` refuses to make the object: the message is posted to the Max console and the box
     //shows that it couldn't be created
     fn new(builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
-        //an optional argument: the initial value. `?` passes a bad one on as the error
-        let value = match builder.creation_args().first() {
-            Some(a) => initial_value(a)?,
-            None => 0,
-        };
+        //an optional first argument: the initial value, an int or a float (truncated), 0 if left
+        //out. A bad one is an `ArgError`, which `?` passes on as the error. `@value 7` is not an
+        //argument here: `builder.args()` keeps the attribute arguments apart, and the attribute
+        //is set once `new` has returned
+        let value = builder.args().arg_or::<f64>(0, 0.)? as t_atom_long;
 
         //inlets, left to right. Inlet 0 always exists, this gives it an assist text
         builder.inlet(Inlet::default().assist("first inlet"));
@@ -209,16 +209,6 @@ impl SimpExplicit {
         let _ = self
             .list_out
             .send(&[1i64.into(), 12f64.into(), SymbolRef::from(c"foo").into()]);
-    }
-}
-
-//the initial value: an int, or a float (truncated)
-fn initial_value(a: &Atom) -> Result<t_atom_long, String> {
-    match a.get_value() {
-        Some(AtomValue::Int(v)) => Ok(v),
-        Some(AtomValue::Float(v)) => Ok(v as t_atom_long),
-        Some(AtomValue::Symbol(s)) => Err(format!("the initial value must be a number, not {s}")),
-        _ => Err("the initial value must be a number".into()),
     }
 }
 

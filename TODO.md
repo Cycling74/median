@@ -15,6 +15,10 @@
 - [x] Port `simplemax` (SDK `basics/simplemax/simplemax.c`) as `median/examples/simplemax`
   with the new API, plus a mock test. Construction, arguments, errors, assist and cleanup
   pass against the mock; `cargo make package` builds a signed macOS ARM64 bundle. Not run in Max.
+- [ ] Check creation arguments in Max (`median::args`, `doc/plan-api-redesign.md` K): that an
+  inspector-saved attribute (`save`) reaches `new` as `@name value` through `builder.args()`, that
+  `attr_args_offset` splits as the header says, and how `atom_gettext` renders floats and
+  quoted symbols (the mock's rendering is an approximation).
 - [ ] Push `xnor/api-redesign` and open the 0.3 PR (decide the target: GitHub has no `main`).
 - [ ] Validate the new unflagged Jitter wrappers/examples in Max, then complete extra iolets
   and context-safe GL resource helpers (`doc/plan-branches-and-build.md` 3b).

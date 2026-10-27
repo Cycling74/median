@@ -74,8 +74,8 @@ fn hello_dsp_buffers_come_from_its_arguments_and_set_set2() {
         outs
     };
 
-    //`[hello_dsp~ a b @blah 4]`: both buffers from the arguments; `@blah` ends the names (Max
-    //applies the attribute; the mock's `attr_args_process` doesn't)
+    //`[hello_dsp~ a b @blah 4]`: both buffers from the arguments; `@blah` ends the names, and
+    //the attribute is set after `new`
     let args = [
         Atom::Sym("a".into()),
         Atom::Sym("b".into()),
@@ -84,6 +84,7 @@ fn hello_dsp_buffers_come_from_its_arguments_and_set_set2() {
     ];
     let obj = k.new_object("hello_dsp~", &args);
     assert!(!obj.is_null());
+    assert_eq!(k.attr_get(obj, "blah").unwrap(), [Atom::Long(4)]);
     assert_eq!(run(obj), [[2., 2.], [0.5, 0.25]]);
 
     //`set2` repoints buffer2 only: at a buffer~ that doesn't exist, then at one that does

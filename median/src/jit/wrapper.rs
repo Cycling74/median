@@ -104,6 +104,11 @@ impl<T> JitBuilder<'_, T> {
     pub fn creation_args(&self) -> &[Atom] {
         self.host.as_deref().map_or(&[], |b| b.creation_args())
     }
+    /// The Max creation arguments split into positional and `@name value` arguments, see
+    /// [`Args`](crate::args::Args). Empty for a standalone Jitter core.
+    pub fn args(&self) -> crate::args::Args<'_> {
+        crate::args::Args::new(self.creation_args())
+    }
     /// Take the object's handle once, for storage in the user value.
     pub fn obj(&mut self) -> JitObjRef {
         self.obj.take().expect("Jitter object handle already taken")

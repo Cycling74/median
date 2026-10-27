@@ -16,8 +16,10 @@ impl MaxObjWrapped for SimpleMax {
         builder.inlet(Inlet::default().assist("I am inlet 0"));
         let obj = builder.obj();
         median::object_post!(&obj, "a new simplemax object was instantiated");
-        median::object_post!(&obj, "it has {} arguments", builder.creation_args().len());
-        for (i, arg) in builder.creation_args().iter().enumerate() {
+        //the whole list, `@name` atoms included: `raw()` is `creation_args()`
+        let args = builder.args().raw();
+        median::object_post!(&obj, "it has {} arguments", args.len());
+        for (i, arg) in args.iter().enumerate() {
             match arg.get_value() {
                 Some(AtomValue::Int(v)) => median::object_post!(&obj, "arg {i}: long ({v})"),
                 Some(AtomValue::Float(v)) => median::object_post!(&obj, "arg {i}: float ({v:.6})"),

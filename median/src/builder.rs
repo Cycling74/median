@@ -5,6 +5,7 @@
 //! signal inlets and outlets). Unlike the Max SDK, inlets and outlets are described from left to
 //! right; see [`crate::inlet`] and [`crate::outlet`].
 use crate::{
+    args::Args,
     atom::Atom,
     buffer::{BufferRef, BufferReference},
     clock::{Clock, ClockFn, ClockShared},
@@ -238,13 +239,22 @@ impl<T, K: BuilderKind> Builder<T, K> {
         outlet
     }
 
-    /// Get the arguments that were passed to this object on creation.
+    /// Get the arguments that were passed to this object on creation, all of them: the
+    /// positional ones and the `@name value` attribute arguments, as Max passes them. See
+    /// [`args`](Self::args) for the split and typed access.
     pub fn creation_args(&self) -> &[Atom] {
         if self.nargs == 0 {
             return &[];
         }
         // SAFETY: `args` is valid for `nargs` atoms while the builder lives (see `new`)
         unsafe { std::slice::from_raw_parts(self.args, self.nargs) }
+    }
+
+    /// The creation arguments, split into the positional ones and the `@name value` attribute
+    /// arguments (which also carry the attribute values saved with the patcher), with typed
+    /// access: see [`Args`]. `raw()` of it is [`creation_args`](Self::creation_args).
+    pub fn args(&self) -> Args<'_> {
+        Args::new(self.creation_args())
     }
 
     /// Get the symbol that was used to create this object.

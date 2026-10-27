@@ -1,8 +1,11 @@
-//! Attributes: `attribute_new`, `attr_offset_new`, `class_addattr`, the clip filters, and
-//! `attr_args_process`, plus the harness side that gets and sets an attribute the way Max does.
+//! Attributes: `attribute_new`, `attr_offset_new`, `class_addattr`, the clip filters,
+//! `attr_args_offset` and `attr_args_process`, plus the harness side that gets and sets an
+//! attribute the way Max does.
 //!
-//! `attr_args_process` does nothing: `@attr value` arguments are not parsed, so a test sets
-//! attributes with [`crate::Kernel::attr_set`].
+//! `attr_args_process` sets the attributes named by the `@name values` groups of an atom list,
+//! one setter call per group, as [`crate::Kernel::attr_set`] would; a group that fails (an
+//! unknown name, a refusing setter) is posted to the console as an error for the object and the
+//! rest are still applied.
 //!
 //! Only the attribute types `char`, `long`, `float32`, `float64` and `symbol` are supported for
 //! attributes without accessors (read and written at the byte offset given to `attr_offset_new`).
@@ -94,12 +97,58 @@ pub unsafe extern "C" fn class_addattr(c: *mut t_class, attr: *mut t_object) -> 
     }
 }
 
-/// Does nothing, see the module docs.
+/// The index of the first symbol atom whose text starts with `@`, else `ac`: the example of the
+/// SDK header, `foo bar 3.0 @mode 6` gives 3.
 ///
 /// # Safety
-/// No requirements.
+/// `av` must be null or valid for reading `ac` atoms.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn attr_args_process(_x: *mut c_void, _ac: c_short, _av: *mut t_atom) {}
+pub unsafe extern "C" fn attr_args_offset(ac: c_short, av: *mut t_atom) -> c_long {
+    if ac <= 0 || av.is_null() {
+        return 0;
+    }
+    // SAFETY: the caller's contract
+    let atoms = unsafe { std::slice::from_raw_parts(av, ac as usize) };
+    atoms
+        .iter()
+        .position(|a| matches!(Atom::from_raw(a), Atom::Sym(s) if s.starts_with('@')))
+        .unwrap_or(ac as usize) as c_long
+}
+
+/// Set the attributes of `@name values` groups, see the module docs. Atoms before the first
+/// `@name` are ignored.
+///
+/// # Safety
+/// `x` must be a live object, `av` null or valid for reading `ac` atoms.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn attr_args_process(x: *mut c_void, ac: c_short, av: *mut t_atom) {
+    // SAFETY: the caller's contract
+    let start = unsafe { attr_args_offset(ac, av) } as usize;
+    if ac <= 0 || av.is_null() {
+        return;
+    }
+    // SAFETY: as above
+    let atoms = unsafe { atoms_from_raw(ac as usize, av) };
+    let mut i = start;
+    while i < atoms.len() {
+        let Atom::Sym(head) = &atoms[i] else {
+            i += 1;
+            continue;
+        };
+        let Some(name) = head.strip_prefix('@') else {
+            i += 1;
+            continue;
+        };
+        i += 1;
+        let first = i;
+        while i < atoms.len() && !matches!(&atoms[i], Atom::Sym(s) if s.starts_with('@')) {
+            i += 1;
+        }
+        if let Err(e) = set(x as usize, name, &atoms[first..i]) {
+            state().post_error(x as usize, format!("attribute argument @{name}: {e:?}"));
+        }
+    }
+}
 
 fn add_clip(x: *mut c_void, clip: Clip, get: bool, set: bool) -> t_max_err {
     match state().subs.get_mut(&(x as usize)).map(|s| &mut s.kind) {

@@ -3,7 +3,7 @@
 //! see [cycling 74 docs](https://cycling74.com/sdk/max-sdk-8.0.3/html/group__atom.html)
 
 use crate::symbol::SymbolRef;
-use core::ffi::c_void;
+use core::ffi::{CStr, c_char, c_long, c_void};
 
 /// The type of data that an atom stores.
 #[derive(Copy, Clone, Debug)]
@@ -116,6 +116,15 @@ impl Atom {
         unsafe { max_sys::atom_getobj(&self.value) }
     }
 
+    /// The atom as text, the way Max shows it: `atom_gettext` (`ext_obex_util.h`) with its
+    /// default flags. An int is its digits, a float has its redundant zeros removed (`3.`,
+    /// `2.5`), a symbol is its name (in quotes if it contains a space). An invalid UTF-8
+    /// sequence is replaced. An object atom is rendered by Max, so its pointee must be alive
+    /// (see [`from_object_raw`](Self::from_object_raw)).
+    pub fn text(&self) -> String {
+        text_of(std::slice::from_ref(self))
+    }
+
     pub fn set_int<I: Into<max_sys::t_atom_long>>(&mut self, v: I) {
         unsafe {
             max_sys::atom_setlong(&mut self.value, v.into());
@@ -148,6 +157,39 @@ impl Atom {
             value: unsafe { std::mem::MaybeUninit::<max_sys::t_atom>::zeroed().assume_init() },
         }
     }
+}
+
+/// The atoms as one line of text, separated by spaces, through `atom_gettext` with the default
+/// flags. The buffer Max allocates is freed with `sysmem_freeptr`, as the SDK's `threadpool`
+/// example does.
+pub(crate) fn text_of(atoms: &[Atom]) -> String {
+    let mut size: c_long = 0;
+    let mut text: *mut c_char = std::ptr::null_mut();
+    // SAFETY: `Atom` is a transparent `t_atom`, so the slice is `atoms.len()` valid atoms, which
+    // `atom_gettext` only reads; `size` and `text` are writable
+    let err = unsafe {
+        max_sys::atom_gettext(
+            atoms.len() as c_long,
+            atoms.as_ptr().cast_mut().cast(),
+            &mut size,
+            &mut text,
+            0,
+        )
+    };
+    if text.is_null() {
+        return String::new();
+    }
+    // SAFETY: on success `text` is a NUL-terminated string
+    let s = if err == max_sys::e_max_errorcodes::MAX_ERR_NONE as max_sys::t_max_err {
+        unsafe { CStr::from_ptr(text) }
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        String::new()
+    };
+    // SAFETY: `text` was allocated by `atom_gettext`
+    unsafe { max_sys::sysmem_freeptr(text.cast()) };
+    s
 }
 
 impl From<i64> for Atom {

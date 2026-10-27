@@ -9,7 +9,7 @@
 //! * the left outlet is the number of the two buffers that exist (0, 1 or 2), the right outlet
 //!   plays the first channel of buffer1 (1 when it has no `buffer~`).
 
-use median::prelude::*;
+use median::{args::FromAtom, prelude::*};
 
 #[derive(MaxObject)]
 #[max(name = "hello_dsp~", kind = msp)]
@@ -28,16 +28,13 @@ pub struct HelloDSP {
 impl MSPObjWrapped for HelloDSP {
     //create some signal i/o
     fn new(builder: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
-        //the buffer~ names, from the leading symbol arguments (`@name value` arguments are
-        //attributes, Max applies those itself)
+        //the buffer~ names, from the leading symbol arguments of the positional ones (`@name value`
+        //arguments are attributes, which are set after `new`)
         let mut names = builder
-            .creation_args()
+            .args()
+            .positional()
             .iter()
-            .map(|a| a.get_symbol())
-            .take_while(|s| {
-                s.to_str()
-                    .is_ok_and(|s| !s.is_empty() && !s.starts_with('@'))
-            });
+            .map_while(|a| SymbolRef::from_atom(a).ok().filter(|s| !s.is_empty()));
         let (name1, name2) = (names.next(), names.next());
 
         //signal inlets come first; without `.assist(..)` Max shows "signal"

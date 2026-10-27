@@ -146,6 +146,18 @@ pub fn run_args(k: &Kernel, class: &str) -> Vec<String> {
     let obj = k.new_object(class, &[Atom::Float(7.9)]);
     t.push(format!("value {:?}", k.attr_get(obj, "value").unwrap()));
     assert!(k.free_object(obj));
+    //an attribute argument is not the initial value: it sets the attribute, and without a
+    //positional argument the initial value is the default
+    let obj = k.new_object(class, &[Atom::Sym("@value".into()), Atom::Long(7)]);
+    t.push(format!("@value {:?}", k.attr_get(obj, "value").unwrap()));
+    assert!(k.free_object(obj));
+    //after the initial value is taken, the attribute is set
+    let obj = k.new_object(
+        class,
+        &[Atom::Long(5), Atom::Sym("@value".into()), Atom::Long(9)],
+    );
+    t.push(format!("5 @value {:?}", k.attr_get(obj, "value").unwrap()));
+    assert!(k.free_object(obj));
     let obj = k.new_object(class, &[Atom::Sym("x".into())]);
     t.push(format!("null {}", obj.is_null()));
     for e in k.take_console_log() {
@@ -163,8 +175,10 @@ pub fn run_args(k: &Kernel, class: &str) -> Vec<String> {
 pub const EXPECTED_ARGS: &[&str] = &[
     "value [Long(42)]",
     "value [Long(7)]",
+    "@value [Long(7)]",
+    "5 @value [Long(9)]",
     "null true",
-    "Error for an object true: the initial value must be a number, not x",
+    "Error for an object true: argument 1: expected a number, got `x`",
     "live 0",
 ];
 

@@ -63,8 +63,8 @@
 //!   `hashtab_lookup` on that table, `object_addattr_parse` on the method object (see
 //!   [`Kernel::method_attr`]).
 //! * Attributes: `attribute_new`, `attr_offset_new`, `attr_addfilter*_clip`, `object_attr_touch`;
-//!   `attr_args_process` does nothing. [`Kernel::attr_get`]/[`Kernel::attr_set`] call the
-//!   accessors or read/write the offset.
+//!   `attr_args_offset` and `attr_args_process` (the `@name values` tail sets the attributes).
+//!   [`Kernel::attr_get`]/[`Kernel::attr_set`] call the accessors or read/write the offset.
 //! * Attributes of attributes: `class_attr_addattr_parse`, `class_attr_addattr_atoms`, and
 //!   `object_addattr_parse` on an attribute object, recorded per attribute (see
 //!   [`Kernel::attr_attr`]); `gensym_tr` and `str_tr` without translation.
@@ -76,7 +76,8 @@
 //!   edits are tracked and misuse (a claim not released, unpaired edits) is reported; see
 //!   [`buffer`].
 //! * Symbols and memory: `gensym`, `common_symbols_gettable`, `atom_*`, `sysmem_*`,
-//!   `strncpy_zero`, `systhread_is*thread`, `sys_getsr`.
+//!   `strncpy_zero`, `systhread_is*thread`, `sys_getsr`; `atom_gettext` renders int, float and
+//!   symbol atoms (see [`atoms::atoms_text`]).
 //!
 //! * Containers: retained dictionaries, registry, ordered entries, recursive transaction locks,
 //!   strings and atomarray builders; see [`containers`]. JSON/file APIs are not modelled.
@@ -87,9 +88,9 @@
 //!   `sysfile_readtextfile` and `sysfile_close`, over in-memory files registered with
 //!   [`file::add_file`]; see [`mod@file`].
 //!
-//! Not modelled: the other file and path functions (`sysfile_*`, `path_*`), `object_new`, patcher/box access, ordinary Max `@attr` argument
-//! parsing, signal-rate connections between objects, inlet/outlet connections, and everything
-//! else not listed above. A call to a function that is not defined fails at link time, or at load
+//! Not modelled: the other file and path functions (`sysfile_*`, `path_*`), `object_new`,
+//! patcher/box access, signal-rate connections between objects, inlet/outlet connections, and
+//! everything else not listed above. A call to a function that is not defined fails at link time, or at load
 //! time if the binary links lazily.
 
 // `c_long`, `c_short` and friends are written out in the signatures that mirror the SDK, so the

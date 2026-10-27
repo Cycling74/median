@@ -3,7 +3,7 @@
 use crate::symbols::{gensym, intern, name_of};
 use max_sys::{e_max_atomtypes as ty, e_max_errorcodes as err};
 use max_sys::{t_atom, t_atom_float, t_atom_long, t_max_err, t_symbol, word};
-use std::ffi::{c_long, c_void};
+use std::ffi::{c_char, c_long, c_void};
 
 /// An owned copy of a `t_atom`, comparable in tests.
 #[derive(Clone, Debug, PartialEq)]
@@ -233,4 +233,77 @@ pub unsafe extern "C" fn atom_gettype(a: *const t_atom) -> c_long {
     }
     // SAFETY: as `atom_getlong`
     unsafe { (*a).a_type as c_long }
+}
+
+/// Render atoms as text the way Max shows them: separated by single spaces, an int as digits, a
+/// float with at most six decimals and the trailing zeros removed (`3.`, `2.5`), a symbol as its
+/// name, in quotes if it contains whitespace. An object pointer is `<object>`; any other atom
+/// type renders as nothing. This is an approximation for tests: the SDK documents only that
+/// `atom_gettext` eliminates redundant zeros and quotes symbols with spaces, with the default
+/// flags.
+pub fn atoms_text(atoms: &[Atom]) -> String {
+    let mut out = String::new();
+    for (i, a) in atoms.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        match a {
+            Atom::Long(v) => out.push_str(&v.to_string()),
+            Atom::Float(v) => {
+                let s = format!("{v:.6}");
+                let s = if s.contains('.') {
+                    s.trim_end_matches('0')
+                } else {
+                    s.as_str()
+                };
+                out.push_str(s);
+            }
+            Atom::Sym(s) if s.contains(char::is_whitespace) => {
+                out.push('"');
+                out.push_str(s);
+                out.push('"');
+            }
+            Atom::Sym(s) => out.push_str(s),
+            Atom::Obj(_) => out.push_str("<object>"),
+            Atom::Other(_) => {}
+        }
+    }
+    out
+}
+
+/// Format `ac` atoms with [`atoms_text`] into a new block from `sysmem_newptr` (free it with
+/// `sysmem_freeptr`) and store it in `*text`; `*textsize` is the length of the text without the
+/// terminator. `flags` are ignored (the default rules are always used). Both out pointers must
+/// be non-null.
+///
+/// # Safety
+/// `av` must be null or valid for reading `ac` atoms; `textsize` and `text` must be null or valid
+/// for writing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn atom_gettext(
+    ac: c_long,
+    av: *mut t_atom,
+    textsize: *mut c_long,
+    text: *mut *mut c_char,
+    _flags: c_long,
+) -> t_max_err {
+    if text.is_null() || textsize.is_null() {
+        return err::MAX_ERR_INVALID_PTR as t_max_err;
+    }
+    // SAFETY: the caller's contract
+    let atoms = unsafe { atoms_from_raw(ac.max(0) as usize, av) };
+    let s = atoms_text(&atoms);
+    // SAFETY: plain allocation
+    let buf = unsafe { crate::sysmem::sysmem_newptr((s.len() + 1) as _) } as *mut c_char;
+    if buf.is_null() {
+        return err::MAX_ERR_OUT_OF_MEM as t_max_err;
+    }
+    // SAFETY: `buf` is `s.len() + 1` bytes, `text` and `textsize` are writable
+    unsafe {
+        std::ptr::copy_nonoverlapping(s.as_ptr().cast::<c_char>(), buf, s.len());
+        buf.add(s.len()).write(0);
+        *textsize = s.len() as c_long;
+        *text = buf;
+    }
+    err::MAX_ERR_NONE as t_max_err
 }

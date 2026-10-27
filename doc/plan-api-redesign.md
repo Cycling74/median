@@ -379,6 +379,49 @@ the redesign removes or reshapes, so merging them first would break downstream u
 branch's *leaf* modules do not depend on the wrapper shape and can land early. See
 [plan-branches-and-build.md](plan-branches-and-build.md) 3b for the split.
 
+### K. Creation arguments
+
+`builder.args()` (on `MaxBuilder`, `MSPBuilder` and `JitBuilder`) returns `median::args::Args<'_>`,
+a borrowed view of the creation atoms; `builder.creation_args()` (the whole untouched list, `@attr`
+tail included) and `creation_symbol()` stay, and `Args::raw()` is the same slice. It answers the
+review's complaint that `creation_args()` includes the `@attr` tail and that arguments are parsed by
+hand (min's `argument<>`).
+
+- Split. `positional()` ends where the SDK's `attr_args_offset` (`ext_obex.h`: `foo bar 3.0 @mode 6`
+  gives 3) says the first attribute argument begins. The function is called, not reimplemented, so
+  the split is the one Max's `attr_args_process` uses; the mock got an `attr_args_offset` for the
+  same reason. `attrs()` then walks the tail: an `@name` atom (a symbol starting with `@`) and the
+  atoms up to the next one. `attr(name)` takes the last occurrence of a repeated attribute, the one
+  the SDK applies last. The SDK takes the count as a `short`, so only the first 32767 atoms of a
+  longer list are searched.
+- Typed access. `arg::<T>(i)` is `Ok(None)` for an absent positional argument (`arg_or` takes a
+  default, `require` turns absence into `ArgError::Missing`); a present one of the wrong type is an
+  error, never the default. `FromAtom` is public so a user type (an enum from a symbol) can plug in.
+  The provided impls are strict where Max is: `t_atom_long` from an int only, `f64` from an int or a
+  float (Max's number coercion), `SymbolRef` from a symbol only, `String` from a symbol (or a
+  number, as `Atom::text` shows it), `bool` from the int 0 or 1. An object atom is never accepted.
+  `ArgError` converts to `NewError`, so `?` in `new` posts `argument 1: expected an integer, got
+  `foo`` (counted from 1 for the patcher user; `index` is zero-based) or `@channels: expected ...`
+  and refuses the object.
+- `attr_arg` before the setter. Max's `attr_args_process` still runs after `new` with the same atoms
+  (it is not skipped for attributes `new` read), so `attr_arg::<T>(name)` is for decisions only
+  `new` can make (how many outlets, which buffer), not for initializing a field the attribute
+  already sets: that value arrives by the setter, and `new` sees the field's default. The
+  inspector-saved attribute values reach `new` the same way, because they are written into the box
+  text as `@name value`. This is documented on the method.
+- Text. `text()`, `positional_text()`, `attr_text(name)` and `Atom::text()` render atoms through the
+  SDK's `atom_gettext` with the default flags (`ext_obex_util.h`) and free the buffer with
+  `sysmem_freeptr`, as the SDK's `threadpool` example does (the header does not say who frees it).
+  That is the raw textual value, for an object that takes its arguments as a string.
+- Mock. `attr_args_offset`, `atom_gettext` (ints, floats with six decimals and the trailing zeros
+  removed, symbols, in quotes if they contain a space; an approximation of Max's rendering) and a
+  real `attr_args_process`: each `@name values` group goes to the attribute's setter exactly as
+  `Kernel::attr_set` would, a group that fails is posted as an error for the object. Before this a
+  test had to set attributes by hand after `new`.
+- Not done: no declarative argument list (min's `argument<>` with names and descriptions for the
+  maxref and the inspector), no argument-count checking, no `Args` for the `#[gimme]` methods beyond
+  `Args::new(atoms)`.
+
 ## Lessons from issue #17 (alisomay, rytm-external, Dec 2023)
 
 The one substantial field report on median. The author abandoned `external!`, ran `cargo expand`
@@ -452,6 +495,12 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
 - Continuation now also includes core dictionaries, `#[dictionary]`/`#[savestate]`, Jitter
   wrappers/example ports, all-target binding regeneration, dependency refresh and packaging/CI
   changes. See [handoff-2026-10-23.md](handoff-2026-10-23.md) for the stopping point and open work.
+
+- Creation arguments (piece K, 2026-10-27): `builder.args()` and `median::args` (`Args`, `FromAtom`,
+  `ArgError`, `Atom::text`), implemented; `creation_args()` kept. The examples use it (`simp`,
+  `simp_explicit`, `hello_dsp`, `simplemax`, `validation`; the template reads no arguments). The mock's
+  `attr_args_process` now sets attributes, so an `@name value` tail is tested end to end
+  (`median/tests/args.rs`, `median-mock/tests/attr_args.rs`). Not run in Max.
 
 - Review of the continuation (2026-10-27; four adversarial reads of 312399c..eb1b353, one per
   area, cross-model to the author). No high-severity defect in the object lifecycle, the matrix

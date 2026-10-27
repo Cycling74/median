@@ -1,0 +1,338 @@
+//! Creation arguments (`median::args`): a class whose `new` reads its positional and attribute
+//! arguments and records what it saw, created through the `median-mock` kernel, which processes
+//! the `@name value` tail after `new` as Max's `attr_args_process` does.
+
+use median::args::{ArgError, Args, FromAtom};
+use median::prelude::*;
+use median_mock::{Atom as MockAtom, Kernel, Level};
+use std::sync::{Mutex, Once};
+
+/// What the last `new` saw, one line each.
+static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn log(line: String) {
+    LOG.lock().unwrap().push(line);
+}
+
+fn take_log() -> Vec<String> {
+    std::mem::take(&mut *LOG.lock().unwrap())
+}
+
+#[derive(MaxObject)]
+#[max(name = "args.probe")]
+pub struct Probe {
+    #[attr]
+    value: Int64,
+    name: Mutex<SymbolRef>,
+}
+
+impl MaxObjWrapped for Probe {
+    fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        let args = b.args();
+        log(format!(
+            "raw {} positional {}",
+            args.raw().len(),
+            args.positional().len()
+        ));
+        log(format!("text [{}]", args.text()));
+        log(format!("positional text [{}]", args.positional_text()));
+        for (name, values) in args.attrs() {
+            log(format!("attr {name} [{}]", Args::new(values).text()));
+        }
+        let first = args.arg::<t_atom_long>(0)?;
+        log(format!("arg0 {first:?}"));
+        log(format!("arg1 {}", args.arg_or(1, -1.5f64)?));
+        let value = args.attr_arg::<t_atom_long>(median::sym!("value"))?;
+        log(format!("attr_arg value {value:?}"));
+        log(format!(
+            "attr_text value {:?}",
+            args.attr_text(median::sym!("value"))
+        ));
+        // the attribute has not been applied yet
+        Ok(Self {
+            value: Int64::new(-1),
+            name: Mutex::new(SymbolRef::default()),
+        })
+    }
+}
+
+#[median::methods]
+impl Probe {
+    #[attr]
+    fn name(&self) -> SymbolRef {
+        *self.name.lock().unwrap()
+    }
+
+    fn set_name(&self, v: SymbolRef) {
+        *self.name.lock().unwrap() = v;
+    }
+}
+
+median::ext_main! { Probe }
+
+fn setup() -> Kernel {
+    static ONCE: Once = Once::new();
+    let k = median_mock::lock();
+    // SAFETY: that is how Max calls it, on its main thread
+    ONCE.call_once(|| unsafe { ext_main(std::ptr::null_mut()) });
+    take_log();
+    k
+}
+
+fn s(v: &str) -> MockAtom {
+    MockAtom::Sym(v.into())
+}
+
+fn make(k: &Kernel, args: &[MockAtom]) -> *mut std::ffi::c_void {
+    let obj = k.new_object("args.probe", args);
+    assert!(!obj.is_null(), "{args:?}: {:?}", k.console_log());
+    assert!(k.take_console_log().is_empty());
+    obj
+}
+
+fn value(k: &Kernel, obj: *mut std::ffi::c_void) -> MockAtom {
+    k.attr_get(obj, "value").unwrap().remove(0)
+}
+
+#[test]
+fn no_arguments() {
+    let k = setup();
+    let obj = make(&k, &[]);
+    assert_eq!(
+        take_log(),
+        [
+            "raw 0 positional 0",
+            "text []",
+            "positional text []",
+            "arg0 None",
+            "arg1 -1.5",
+            "attr_arg value None",
+            "attr_text value None",
+        ]
+    );
+    assert_eq!(value(&k, obj), MockAtom::Long(-1));
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn positional_arguments_only() {
+    let k = setup();
+    let obj = make(&k, &[1.into(), 2.5.into(), s("foo")]);
+    assert_eq!(
+        take_log(),
+        [
+            "raw 3 positional 3",
+            "text [1 2.5 foo]",
+            "positional text [1 2.5 foo]",
+            "arg0 Some(1)",
+            "arg1 2.5",
+            "attr_arg value None",
+            "attr_text value None",
+        ]
+    );
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn positional_and_attribute_arguments() {
+    let k = setup();
+    let obj = make(
+        &k,
+        &[1.into(), s("@value"), 7.into(), s("@name"), s("x"), s("y")],
+    );
+    assert_eq!(
+        take_log(),
+        [
+            "raw 6 positional 1",
+            "text [1 @value 7 @name x y]",
+            "positional text [1]",
+            "attr value [7]",
+            "attr name [x y]",
+            "arg0 Some(1)",
+            "arg1 -1.5",
+            "attr_arg value Some(7)",
+            "attr_text value Some(\"7\")",
+        ]
+    );
+    // `new` saw 7, and the attribute setter ran after it with the same atoms
+    assert_eq!(value(&k, obj), MockAtom::Long(7));
+    assert_eq!(k.attr_get(obj, "name").unwrap(), [s("x")]);
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn attribute_arguments_only() {
+    let k = setup();
+    let obj = make(&k, &[s("@value"), 7.into()]);
+    assert_eq!(
+        take_log(),
+        [
+            "raw 2 positional 0",
+            "text [@value 7]",
+            "positional text []",
+            "attr value [7]",
+            // an `@name` is not a positional argument
+            "arg0 None",
+            "arg1 -1.5",
+            "attr_arg value Some(7)",
+            "attr_text value Some(\"7\")",
+        ]
+    );
+    assert_eq!(value(&k, obj), MockAtom::Long(7));
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn a_repeated_attribute_takes_the_last_and_an_empty_one_has_no_value() {
+    let k = setup();
+    let obj = make(&k, &[s("@value"), 1.into(), s("@value"), 2.into()]);
+    let log = take_log();
+    assert!(
+        log.contains(&"attr_arg value Some(2)".to_string()),
+        "{log:?}"
+    );
+    assert_eq!(value(&k, obj), MockAtom::Long(2));
+    assert!(k.free_object(obj));
+
+    // `@value` with nothing after it: present, with no values, so no first value to read
+    let obj = k.new_object("args.probe", &[s("@value")]);
+    assert!(!obj.is_null());
+    let log = take_log();
+    assert!(log.contains(&"attr value []".to_string()), "{log:?}");
+    assert!(log.contains(&"attr_arg value None".to_string()), "{log:?}");
+    assert!(
+        log.contains(&"attr_text value Some(\"\")".to_string()),
+        "{log:?}"
+    );
+    assert!(k.free_object(obj));
+}
+
+/// Make `args`, expect it refused with `msg` posted for the object, and nothing left.
+fn refused(k: &Kernel, args: &[MockAtom], msg: &str) {
+    let obj = k.new_object("args.probe", args);
+    assert!(obj.is_null(), "{args:?}");
+    let console = k.take_console_log();
+    assert_eq!(console.len(), 1, "{console:?}");
+    assert_eq!(console[0].level, Level::Error);
+    assert_eq!(console[0].text, msg);
+    assert_ne!(console[0].object, 0);
+    assert_eq!(k.live_object_count(), 0);
+    take_log();
+}
+
+#[test]
+fn a_bad_argument_refuses_the_object_with_a_message() {
+    let k = setup();
+    refused(
+        &k,
+        &[s("foo")],
+        "argument 1: expected an integer, got `foo`",
+    );
+    refused(
+        &k,
+        &[1.into(), s("bar")],
+        "argument 2: expected a number, got `bar`",
+    );
+    refused(
+        &k,
+        &[2.5.into()],
+        "argument 1: expected an integer, got `2.5`",
+    );
+    refused(
+        &k,
+        &[s("@value"), s("x")],
+        "@value: expected an integer, got `x`",
+    );
+}
+
+#[test]
+fn text_of_each_kind_of_atom() {
+    let _k = setup();
+    assert_eq!(Atom::from(5i64).text(), "5");
+    assert_eq!(Atom::from(-12i64).text(), "-12");
+    assert_eq!(Atom::from(3.0).text(), "3.");
+    assert_eq!(Atom::from(2.5).text(), "2.5");
+    assert_eq!(Atom::from(median::sym!("foo")).text(), "foo");
+    assert_eq!(Atom::from(median::sym!("@value")).text(), "@value");
+}
+
+fn atoms(a: &[MockAtom]) -> Vec<Atom> {
+    a.iter()
+        .map(|a| match a {
+            MockAtom::Long(v) => Atom::from(*v),
+            MockAtom::Float(v) => Atom::from(*v),
+            MockAtom::Sym(v) => Atom::from(SymbolRef::try_from(v.as_str()).unwrap()),
+            other => panic!("{other:?}"),
+        })
+        .collect()
+}
+
+#[test]
+fn from_atom_accepts_what_it_documents() {
+    let _k = setup();
+    let int = Atom::from(3i64);
+    let float = Atom::from(2.5);
+    let sym = Atom::from(median::sym!("foo"));
+    let one = Atom::from(1i64);
+
+    assert_eq!(t_atom_long::from_atom(&int), Ok(3));
+    assert!(t_atom_long::from_atom(&float).is_err());
+    assert!(t_atom_long::from_atom(&sym).is_err());
+
+    assert_eq!(f64::from_atom(&int), Ok(3.0));
+    assert_eq!(f64::from_atom(&float), Ok(2.5));
+    assert!(f64::from_atom(&sym).is_err());
+
+    assert_eq!(SymbolRef::from_atom(&sym), Ok(median::sym!("foo")));
+    assert!(SymbolRef::from_atom(&int).is_err());
+
+    assert_eq!(String::from_atom(&sym).as_deref(), Ok("foo"));
+    assert_eq!(String::from_atom(&int).as_deref(), Ok("3"));
+    assert_eq!(String::from_atom(&float).as_deref(), Ok("2.5"));
+
+    assert_eq!(bool::from_atom(&Atom::from(0i64)), Ok(false));
+    assert_eq!(bool::from_atom(&one), Ok(true));
+    assert!(bool::from_atom(&Atom::from(2i64)).is_err());
+    assert!(bool::from_atom(&Atom::from(1.0)).is_err());
+    assert!(bool::from_atom(&sym).is_err());
+
+    // an object atom is never accepted
+    let mut x = 0u8;
+    // SAFETY: the pointee is never inspected, the atom is only given to the conversions
+    let obj = unsafe { Atom::from_object_raw((&raw mut x).cast()) };
+    assert!(t_atom_long::from_atom(&obj).is_err());
+    assert!(f64::from_atom(&obj).is_err());
+    assert!(SymbolRef::from_atom(&obj).is_err());
+    assert!(String::from_atom(&obj).is_err());
+    assert!(bool::from_atom(&obj).is_err());
+    assert_eq!(f64::from_atom(&obj).unwrap_err().found, "an object");
+}
+
+#[test]
+fn args_split_a_list_without_a_builder() {
+    let _k = setup();
+    let list = atoms(&[s("a"), 1.into(), s("@x"), 2.into(), 3.into(), s("@y")]);
+    let args = Args::new(&list);
+    assert_eq!(args.raw().len(), 6);
+    assert_eq!(args.positional().len(), 2);
+    let attrs: Vec<_> = args
+        .attrs()
+        .map(|(n, v)| (n.to_string(), v.len()))
+        .collect();
+    assert_eq!(attrs, [("x".to_string(), 2), ("y".to_string(), 0)]);
+    assert_eq!(args.attr(median::sym!("x")).map(<[_]>::len), Some(2));
+    assert!(args.attr(median::sym!("z")).is_none());
+    assert_eq!(args.require::<SymbolRef>(0), Ok(median::sym!("a")));
+    assert_eq!(
+        args.require::<t_atom_long>(5),
+        Err(ArgError::Missing { index: 5 })
+    );
+    assert_eq!(args.arg_or::<t_atom_long>(7, 9), Ok(9));
+    let e = args.arg::<t_atom_long>(0).unwrap_err();
+    assert_eq!(e.to_string(), "argument 1: expected an integer, got `a`");
+    assert_eq!(args.text(), "a 1 @x 2 3 @y");
+    assert_eq!(
+        NewError::from(e).message(),
+        "argument 1: expected an integer, got `a`"
+    );
+}

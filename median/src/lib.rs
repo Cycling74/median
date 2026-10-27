@@ -121,6 +121,18 @@
 //! references) is released. `?` works on strings and many error types, see
 //! [`NewError`](error::NewError). A panic in `new` is caught and posted the same way.
 //!
+//! # Creation arguments
+//!
+//! `builder.args()` ([`MaxBuilder::args`](builder::MaxBuilder::args), also on `MSPBuilder` and
+//! `JitBuilder`) splits what follows the class name in the box into the positional arguments and
+//! the `@name value` attribute arguments (which also carry the attribute values saved with the
+//! patcher), and reads them as typed values: `b.args().arg_or(0, 2)?`,
+//! `b.args().attr_arg::<t_atom_long>(median::sym!("channels"))?`, `b.args().text()`. A bad
+//! argument is an [`ArgError`](args::ArgError), which `?` turns into a refusal with a message.
+//! The whole untouched list stays available as [`Args::raw`](args::Args::raw) and
+//! `creation_args()`. Max applies the attribute arguments to the object after `new` returns;
+//! see [`args`]. New in 0.3.
+//!
 //! # Inlets and outlets
 //!
 //! `new` describes the inlets and makes the outlets with the builder it is given
@@ -212,6 +224,7 @@
 //! ([`defer`]), and a [`fifo`] carries values out of `perform`.
 //!
 pub mod alloc;
+pub mod args;
 pub mod atom;
 pub mod attr;
 pub mod buffer;
