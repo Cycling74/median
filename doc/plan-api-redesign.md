@@ -398,7 +398,7 @@ hand (min's `argument<>`).
   (positional `i`, or the values of `@name`; `Arg` is `Copy`). Its `get::<T>()` is `Ok(None)` for an
   absent argument, `unwrap_or(default)` takes a default (named after `Option::unwrap_or` but
   returning a `Result`: the default covers absence only), `unwrap_or_default()` uses `T::default()`,
-  `require::<T>()` turns absence into `ArgError::Missing` (positional) or `ArgError::MissingAttr`
+  `unwrap::<T>()` turns absence into `ArgError::Missing` (positional) or `ArgError::MissingAttr`
   (attribute); a present one of the wrong type is an error, never the default. The typed accessors
   read the first value of an attribute, and an `@name` with no values counts as absent for them;
   `values()` (`Some(&[])` there), `atom()`, `text()` and `is_present()` see the difference. The

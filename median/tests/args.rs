@@ -350,21 +350,21 @@ fn args_split_a_list_without_a_builder() {
         Ok(0)
     );
     assert_eq!(
-        args.attr(median::sym!("z")).require::<t_atom_long>(),
+        args.attr(median::sym!("z")).unwrap::<t_atom_long>(),
         Err(ArgError::MissingAttr {
             name: median::sym!("z")
         })
     );
     assert_eq!(
         args.attr(median::sym!("y"))
-            .require::<t_atom_long>()
+            .unwrap::<t_atom_long>()
             .unwrap_err()
             .to_string(),
         "@y: missing"
     );
     assert_eq!(
         args.attr(median::sym!("x"))
-            .require::<SymbolRef>()
+            .unwrap::<SymbolRef>()
             .unwrap_err()
             .to_string(),
         "@x: expected a symbol, got `2`"
@@ -376,9 +376,9 @@ fn args_split_a_list_without_a_builder() {
     assert_eq!(args.at(0).atom().map(Atom::text).as_deref(), Some("a"));
     assert_eq!(args.at(1).text().as_deref(), Some("1"));
     assert_eq!(args.at(2).text(), None);
-    assert_eq!(args.at(0).require::<SymbolRef>(), Ok(median::sym!("a")));
+    assert_eq!(args.at(0).unwrap::<SymbolRef>(), Ok(median::sym!("a")));
     assert_eq!(
-        args.at(5).require::<t_atom_long>(),
+        args.at(5).unwrap::<t_atom_long>(),
         Err(ArgError::Missing { index: 5 })
     );
     assert_eq!(args.at(5).get::<t_atom_long>(), Ok(None));

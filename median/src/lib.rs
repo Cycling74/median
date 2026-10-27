@@ -126,7 +126,7 @@
 //! `builder.args()` ([`MaxBuilder::args`](builder::MaxBuilder::args), also on `MSPBuilder` and
 //! `JitBuilder`) splits what follows the class name in the box into the positional arguments and
 //! the `@name value` attribute arguments (which also carry the attribute values saved with the
-//! patcher), and reads them as typed values: `args.at(0).unwrap_or(2)?`, `args.at(1).require::<SymbolRef>()?`,
+//! patcher), and reads them as typed values: `args.at(0).unwrap_or(2)?`, `args.at(1).unwrap::<SymbolRef>()?`,
 //! `args.attr(median::sym!("channels")).unwrap_or(2)?`, `args.text()` (`at` and `attr` give an
 //! [`Arg`](args::Arg)). A bad argument is an [`ArgError`](args::ArgError), which `?` turns into a
 //! refusal with a message.

@@ -36,7 +36,7 @@
 //!
 //! [`Args::at`] and [`Args::attr`] each give an [`Arg`], one creation argument that may or may
 //! not be there: [`unwrap_or`](Arg::unwrap_or) reads it with a default for a left-out one,
-//! [`require`](Arg::require) makes it an error to leave it out, [`get`](Arg::get) gives an
+//! [`unwrap`](Arg::unwrap) makes it an error to leave it out, [`get`](Arg::get) gives an
 //! `Option`.
 //!
 //! Raw access stays: [`Args::raw`] (and `creation_args()` on the builders) is the whole list,
@@ -156,7 +156,7 @@ enum Origin {
 ///
 /// A positional argument is one atom. An attribute argument is the atoms after its `@name`,
 /// and the typed accessors read the first one: an `@name` without values counts as absent for
-/// them ([`get`](Self::get) gives `None`, [`require`](Self::require) an error), though
+/// them ([`get`](Self::get) gives `None`, [`unwrap`](Self::unwrap) an error), though
 /// [`is_present`](Self::is_present) and [`values`](Self::values) tell it from no `@name` at all.
 ///
 /// ```no_run
@@ -164,7 +164,7 @@ enum Origin {
 /// # fn f(b: &mut MaxBuilder<impl MaxObjWrapped>) -> Result<(), median::args::ArgError> {
 /// let args = b.args();
 /// let value: t_atom_long = args.at(0).unwrap_or(0)?;
-/// let name = args.at(1).require::<SymbolRef>()?;
+/// let name: SymbolRef = args.at(1).unwrap()?;
 /// let chans: t_atom_long = args.attr(median::sym!("channels")).unwrap_or(2)?;
 /// # Ok(()) }
 /// ```
@@ -211,7 +211,7 @@ impl<'a> Arg<'a> {
 
     /// The argument as a `T`; leaving it out is an [`ArgError::Missing`] (positional) or
     /// [`ArgError::MissingAttr`] (attribute, also an `@name` with no values).
-    pub fn require<T: FromAtom>(self) -> Result<T, ArgError> {
+    pub fn unwrap<T: FromAtom>(self) -> Result<T, ArgError> {
         match self.get()? {
             Some(v) => Ok(v),
             None => Err(self.missing()),
@@ -414,9 +414,9 @@ impl std::error::Error for ArgTypeError {}
 /// does.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ArgError {
-    /// A required positional argument is not there ([`Arg::require`]).
+    /// A required positional argument is not there ([`Arg::unwrap`]).
     Missing { index: usize },
-    /// A required attribute argument is not there, or has no values ([`Arg::require`]).
+    /// A required attribute argument is not there, or has no values ([`Arg::unwrap`]).
     MissingAttr { name: SymbolRef },
     /// A positional argument is not of the type asked for.
     Type {

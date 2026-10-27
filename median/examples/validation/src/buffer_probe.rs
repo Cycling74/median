@@ -26,7 +26,7 @@ pub struct BufferProbe {
 
 impl MSPObjWrapped for BufferProbe {
     fn new(b: &mut MSPBuilder<Self>) -> Result<Self, NewError> {
-        let name = b.args().at(0).require::<SymbolRef>()?;
+        let name = b.args().at(0).unwrap::<SymbolRef>()?;
         b.inlet(Inlet::default().assist("probe: inspect buffer edit exclusion; see console"));
         b.outlet(Outlet::signal().assist("silence; connect to snapshot~ to keep DSP active"));
         Ok(Self {
