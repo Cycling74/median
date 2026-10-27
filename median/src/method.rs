@@ -217,10 +217,14 @@ pub struct NoSel;
 ///
 /// `A` is [`WithSel`] or [`NoSel`], picked by the callable's signature and inferred, so callers
 /// never name it. The two impls can't overlap because `A` differs.
+///
+/// A fn item (`Self::read`) needs nothing more. A closure must annotate its parameters
+/// (`|_: &T, _: &[Atom]| ..`): the compiler infers closure parameter types from a plain `Fn`
+/// bound, not through this trait, so `|_, _| ..` does not type-check.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can't be an `A_GIMME` method of `{T}`",
     label = "expected `fn(&{T}, &[Atom])` or `fn(&{T}, &SymbolRef, &[Atom])`, returning `()` or `Result<(), E>`",
-    note = "the callable must be a fn item or a closure that captures nothing"
+    note = "the callable must be a fn item or a closure that captures nothing; a closure must annotate its parameter types (`|_: &T, _: &[Atom]| ..`)"
 )]
 pub trait GimmeFn<T, R, A>: Copy + Send + Sync + 'static + sealed::SealedGimmeFn<T, R, A> {
     /// Call the method; the `NoSel` impl ignores `sel`.
