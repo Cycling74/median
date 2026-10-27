@@ -24,6 +24,19 @@ impl ObjClass for SimpExplicit {
     fn class_name() -> &'static CStr {
         c"simp_explicit"
     }
+
+    //optional maxref metadata, what `description`, `author` and `tags` in `#[max(..)]` give
+    fn description() -> Option<&'static str> {
+        Some("A simple example object")
+    }
+
+    fn author() -> Option<&'static str> {
+        Some("median")
+    }
+
+    fn tags() -> &'static [&'static str] {
+        &["example", "median"]
+    }
 }
 
 impl SimpExplicit {

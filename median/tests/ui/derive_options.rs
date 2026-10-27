@@ -9,10 +9,6 @@ pub struct UnknownOption;
 pub struct UnknownKind;
 
 #[derive(MaxObject)]
-#[max(description = "not yet")]
-pub struct Later;
-
-#[derive(MaxObject)]
 #[max(name = "")]
 pub struct EmptyName;
 

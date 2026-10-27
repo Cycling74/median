@@ -229,6 +229,19 @@ impl MaxObjWrapped for NoBox {
     }
 }
 
+/// All three maxref options.
+#[derive(MaxObject)]
+#[max(name = "derive.described", no_methods)]
+#[max(description = "A described class", author = "Some One")]
+#[max(tags = " alpha,beta ,  gamma delta")]
+pub struct Described;
+
+impl MaxObjWrapped for Described {
+    fn new(_builder: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
+        Ok(Described)
+    }
+}
+
 /// Its registration fails (in `class_setup`), which must not stop the classes after it.
 #[derive(MaxObject)]
 #[max(name = "derive.broken", no_methods)]
@@ -322,6 +335,26 @@ fn ext_main_registers_every_class_and_survives_a_failing_one() {
     let obj = k.new_object("plain", &[]);
     assert!(!obj.is_null());
     assert!(k.free_object(obj));
+}
+
+#[test]
+fn maxref_options_are_returned_by_obj_class() {
+    assert_eq!(
+        <Described as ObjClass>::description(),
+        Some("A described class")
+    );
+    assert_eq!(<Described as ObjClass>::author(), Some("Some One"));
+    assert_eq!(
+        <Described as ObjClass>::tags(),
+        &["alpha", "beta", "gamma delta"]
+    );
+}
+
+#[test]
+fn maxref_metadata_defaults_to_none() {
+    assert_eq!(<Plain as ObjClass>::description(), None);
+    assert_eq!(<Plain as ObjClass>::author(), None);
+    assert!(<Plain as ObjClass>::tags().is_empty());
 }
 
 #[test]

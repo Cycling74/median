@@ -97,6 +97,10 @@
 //! * `class_type = box` (default) or `class_type = nobox`.
 //! * `no_methods`: also implement [`Methods`](wrapper::Methods) with no methods, for a type
 //!   without a `#[median::methods]` block.
+//! * `description = ".."`, `author = ".."`, `tags = "a, b"`: maxref metadata, each optional and
+//!   at most once, string literals; `tags` is split on commas and trimmed. They are returned by
+//!   [`ObjClass::description`](wrapper::ObjClass::description), `author` and `tags`; nothing in
+//!   median reads them yet (generating the `.maxref.xml` is a later step).
 //!
 //! `#[attr]` on a field registers an attribute backed by it. The field's type must implement
 //! [`AttrField`](attr::AttrField), as the [`num`] atomics do. Options:

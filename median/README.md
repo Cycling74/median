@@ -28,7 +28,7 @@ use median::prelude::*;
 
 // the struct is the object; the derive makes it a Max class named "example"
 #[derive(MaxObject)]
-#[max(name = "example")]
+#[max(name = "example", description = "An example object", tags = "example, median")]
 pub struct Example {
     obj: ObjRef,
     // an attribute "value" backed by the field, clipped to 0..=100

@@ -6,15 +6,19 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Ident, LitStr, Member, ext::IdentExt, spanned::Spanned};
 
-/// Options of `#[max(..)]` that are planned (maxref generation) but not there yet.
-const LATER: &[&str] = &["description", "author", "tags"];
-
 #[derive(Clone, Copy)]
 enum Kind {
     Max,
     Msp,
     Matrix,
     Gl,
+}
+
+/// The value of `key = ".."` in `#[max(..)]`: a string literal, or an error that says so.
+fn string_value(meta: &syn::meta::ParseNestedMeta, key: &str) -> syn::Result<LitStr> {
+    meta.value()?
+        .parse::<LitStr>()
+        .map_err(|e| syn::Error::new(e.span(), format!("`{key}` must be a string literal")))
 }
 
 pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
@@ -45,6 +49,9 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut kind: Option<Kind> = None;
     let mut class_type: Option<Ident> = None;
     let mut no_methods = false;
+    let mut description: Option<LitStr> = None;
+    let mut author: Option<LitStr> = None;
+    let mut tags: Option<(LitStr, Vec<String>)> = None;
     for attr in input.attrs.iter().filter(|a| a.path().is_ident("max")) {
         attr.parse_nested_meta(|meta| {
             let key = meta
@@ -101,13 +108,41 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                     }
                     no_methods = true;
                 }
-                k if LATER.contains(&k) => {
-                    return Err(meta.error(format!("`{k}` is not supported yet")));
+                "description" => {
+                    if description.is_some() {
+                        return Err(meta.error("`description` given twice"));
+                    }
+                    description = Some(string_value(&meta, "description")?);
+                }
+                "author" => {
+                    if author.is_some() {
+                        return Err(meta.error("`author` given twice"));
+                    }
+                    author = Some(string_value(&meta, "author")?);
+                }
+                "tags" => {
+                    if tags.is_some() {
+                        return Err(meta.error("`tags` given twice"));
+                    }
+                    let lit = string_value(&meta, "tags")?;
+                    let mut list = Vec::new();
+                    for tag in lit.value().split(',') {
+                        let tag = tag.trim();
+                        if tag.is_empty() {
+                            return Err(syn::Error::new(
+                                lit.span(),
+                                "`tags` is a comma separated list: an entry must not be empty",
+                            ));
+                        }
+                        list.push(tag.to_owned());
+                    }
+                    tags = Some((lit, list));
                 }
                 _ => {
                     return Err(meta.error(
                         "unknown option, expected `name = \"..\"`, `kind = max|msp|matrix_op|gl`, \
-                         `class_type = box|nobox` or `no_methods`",
+                         `class_type = box|nobox`, `no_methods`, \
+                         `description = \"..\"`, `author = \"..\"` or `tags = \"a, b\"`",
                     ));
                 }
             }
@@ -148,6 +183,28 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         ),
     };
     let class_type = class_type.unwrap_or_else(|| format_ident!("Box"));
+    //maxref metadata: only emitted when given, so `ObjClass`'s defaults stay in one place
+    let description_fn = description.as_ref().map(|d| {
+        quote_spanned! {d.span()=>
+            fn description() -> ::core::option::Option<&'static str> {
+                ::core::option::Option::Some(#d)
+            }
+        }
+    });
+    let author_fn = author.as_ref().map(|a| {
+        quote_spanned! {a.span()=>
+            fn author() -> ::core::option::Option<&'static str> {
+                ::core::option::Option::Some(#a)
+            }
+        }
+    });
+    let tags_fn = tags.as_ref().map(|(lit, list)| {
+        quote_spanned! {lit.span()=>
+            fn tags() -> &'static [&'static str] {
+                &[#(#list),*]
+            }
+        }
+    });
 
     //field attributes
     let mut errors: Option<syn::Error> = None;
@@ -243,6 +300,10 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
             fn class_type() -> ::median::class::ClassType {
                 ::median::class::ClassType::#class_type
             }
+
+            #description_fn
+            #author_fn
+            #tags_fn
         }
 
         impl #ident {

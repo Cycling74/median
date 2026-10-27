@@ -1,0 +1,23 @@
+error: `description` must be a string literal
+ --> tests/ui/derive_maxref.rs:4:21
+  |
+4 | #[max(description = 5)]
+  |                     ^
+
+error: `author` given twice
+ --> tests/ui/derive_maxref.rs:8:21
+  |
+8 | #[max(author = "a", author = "b")]
+  |                     ^^^^^^
+
+error: `tags` is a comma separated list: an entry must not be empty
+  --> tests/ui/derive_maxref.rs:12:14
+   |
+12 | #[max(tags = "a, , b")]
+   |              ^^^^^^^^
+
+error: `tags` is a comma separated list: an entry must not be empty
+  --> tests/ui/derive_maxref.rs:16:14
+   |
+16 | #[max(tags = "")]
+   |              ^^

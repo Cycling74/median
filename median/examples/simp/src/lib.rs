@@ -4,7 +4,10 @@ use median::{atom::AtomValue, prelude::*};
 //(the type name in lower case, or `#[max(name = "..")]`), with a `Simp::register()` that
 //`ext_main!` below calls.
 #[derive(MaxObject)]
-#[max(name = "simp")]
+//`description`, `author` and `tags` are maxref metadata (`tags` is split on commas); nothing reads
+//them yet.
+#[max(name = "simp", description = "A simple example object")]
+#[max(author = "median", tags = "example, median")]
 pub struct Simp {
     obj: ObjRef,
     //an attribute "value" backed by this field, clipped to 0..=100. The field's type must be

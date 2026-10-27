@@ -139,6 +139,10 @@ struct ClassEntry {
 ///     fn class_type() -> ClassType {
 ///         ClassType::Box
 ///     }
+///     // optional maxref metadata (`description`, `author`, `tags`), none by default
+///     fn description() -> Option<&'static str> {
+///         Some("An example")
+///     }
 /// }
 /// ```
 ///
@@ -157,6 +161,29 @@ pub trait ObjClass: Sized {
     /// The type of your class. Defaults to 'box' which creates visual objects in Max.
     fn class_type() -> ClassType {
         ClassType::Box
+    }
+
+    /// One line describing the class: the `<digest>` of its `.maxref.xml`.
+    ///
+    /// Maxref metadata: nothing in median reads it yet (generating the reference file is a
+    /// later step). `#[max(description = "..")]` sets it.
+    fn description() -> Option<&'static str> {
+        None
+    }
+
+    /// Who wrote the class: `<metadata name="author">` in its `.maxref.xml`.
+    ///
+    /// Maxref metadata, not read by anything in median yet. `#[max(author = "..")]` sets it.
+    fn author() -> Option<&'static str> {
+        None
+    }
+
+    /// The class's tags: one `<metadata name="tag">` each in its `.maxref.xml`.
+    ///
+    /// Maxref metadata, not read by anything in median yet. `#[max(tags = "a, b")]` sets it
+    /// (the string is split on commas and trimmed).
+    fn tags() -> &'static [&'static str] {
+        &[]
     }
 }
 
