@@ -35,9 +35,12 @@
 //! ```
 //!
 //! [`Args::at`] and [`Args::attr`] each give an [`Arg`], one creation argument that may or may
-//! not be there: [`unwrap_or`](Arg::unwrap_or) reads it with a default for a left-out one,
-//! [`unwrap`](Arg::unwrap) makes it an error to leave it out, [`get`](Arg::get) gives an
-//! `Option`.
+//! not be there. The typed read is the standard conversion: `let name: SymbolRef =
+//! args.at(1).try_into()?` makes it an error to leave it out (or to give the wrong type);
+//! [`unwrap_or`](Arg::unwrap_or) reads it with a default for a left-out one,
+//! [`unwrap_or_default`](Arg::unwrap_or_default) with the type's default, [`get`](Arg::get)
+//! gives an `Option`. All of them work for a type that implements `TryFrom<Arg<'_>>`, which
+//! `t_atom_long`, `f64`, `SymbolRef`, `String` and `bool` do.
 //!
 //! Raw access stays: [`Args::raw`] (and `creation_args()` on the builders) is the whole list,
 //! `@name` atoms included.
@@ -156,15 +159,19 @@ enum Origin {
 ///
 /// A positional argument is one atom. An attribute argument is the atoms after its `@name`,
 /// and the typed accessors read the first one: an `@name` without values counts as absent for
-/// them ([`get`](Self::get) gives `None`, [`unwrap`](Self::unwrap) an error), though
+/// them ([`get`](Self::get) gives `None`, `try_into` an [`ArgError::MissingAttr`]), though
 /// [`is_present`](Self::is_present) and [`values`](Self::values) tell it from no `@name` at all.
+///
+/// The typed read is `TryFrom<Arg<'_>>` (so `try_into`, or `T::try_from(arg)`) with `Error =`
+/// [`ArgError`]: absence is an [`ArgError::Missing`] or [`ArgError::MissingAttr`], a wrong type
+/// an [`ArgError::Type`] or [`ArgError::Attr`].
 ///
 /// ```no_run
 /// # use median::prelude::*;
 /// # fn f(b: &mut MaxBuilder<impl MaxObjWrapped>) -> Result<(), median::args::ArgError> {
 /// let args = b.args();
 /// let value: t_atom_long = args.at(0).unwrap_or(0)?;
-/// let name: SymbolRef = args.at(1).unwrap()?;
+/// let name: SymbolRef = args.at(1).try_into()?;
 /// let chans: t_atom_long = args.attr(median::sym!("channels")).unwrap_or(2)?;
 /// # Ok(()) }
 /// ```
@@ -180,51 +187,52 @@ impl<'a> Arg<'a> {
         self.values.and_then(<[Atom]>::first)
     }
 
-    fn type_error(self, e: ArgTypeError) -> ArgError {
+    /// The error for this argument being of the wrong type: `e` with the argument's position
+    /// or attribute name. For a `TryFrom<Arg<'_>>` of your own type.
+    pub fn type_error(self, e: ArgTypeError) -> ArgError {
         match self.origin {
             Origin::Positional(index) => e.at_arg(index),
             Origin::Attr(name) => e.at_attr(name),
         }
     }
 
-    fn missing(self) -> ArgError {
+    /// The error for this argument being left out (an attribute argument with no values
+    /// counts as left out). For a `TryFrom<Arg<'_>>` of your own type.
+    pub fn missing(self) -> ArgError {
         match self.origin {
             Origin::Positional(index) => ArgError::Missing { index },
             Origin::Attr(name) => ArgError::MissingAttr { name },
         }
     }
 
-    /// The argument as a `T`, or `default` if it is absent.
+    /// The argument as a `T` (any type with a `TryFrom<Arg<'a>>`), or `default` if it is absent.
     ///
     /// It is named after [`Option::unwrap_or`] because it reads the same way, but it returns a
     /// `Result`: the default only covers absence. An argument of the wrong type is an
     /// [`ArgError`], not the default, and the `?` after it reports it.
-    pub fn unwrap_or<T: FromAtom>(self, default: T) -> Result<T, ArgError> {
+    pub fn unwrap_or<T: TryFrom<Arg<'a>, Error = ArgError>>(
+        self,
+        default: T,
+    ) -> Result<T, ArgError> {
         Ok(self.get()?.unwrap_or(default))
     }
 
     /// The argument as a `T`, or `T::default()` if it is absent; a wrong type is an error, as
     /// for [`unwrap_or`](Self::unwrap_or).
-    pub fn unwrap_or_default<T: FromAtom + Default>(self) -> Result<T, ArgError> {
+    pub fn unwrap_or_default<T: TryFrom<Arg<'a>, Error = ArgError> + Default>(
+        self,
+    ) -> Result<T, ArgError> {
         Ok(self.get()?.unwrap_or_default())
-    }
-
-    /// The argument as a `T`; leaving it out is an [`ArgError::Missing`] (positional) or
-    /// [`ArgError::MissingAttr`] (attribute, also an `@name` with no values).
-    pub fn unwrap<T: FromAtom>(self) -> Result<T, ArgError> {
-        match self.get()? {
-            Some(v) => Ok(v),
-            None => Err(self.missing()),
-        }
     }
 
     /// The argument as a `T`: `Ok(None)` if it is absent (for an attribute also if it has no
     /// values), an [`ArgError::Type`] or [`ArgError::Attr`] if it is not of the type `T` takes.
-    pub fn get<T: FromAtom>(self) -> Result<Option<T>, ArgError> {
-        match self.first() {
-            None => Ok(None),
-            Some(a) => T::from_atom(a).map(Some).map_err(|e| self.type_error(e)),
+    /// To make absence an error, convert with `try_into` instead.
+    pub fn get<T: TryFrom<Arg<'a>, Error = ArgError>>(self) -> Result<Option<T>, ArgError> {
+        if self.first().is_none() {
+            return Ok(None);
         }
+        T::try_from(self).map(Some)
     }
 
     /// The atom: the positional one, the first value of an attribute (`None` if it has none).
@@ -285,11 +293,21 @@ impl<'a> Iterator for AttrArgs<'a> {
     }
 }
 
-/// A type that an argument atom converts to, for the typed accessors of [`Arg`]. Implement it
-/// for your own types (an enum from a symbol, say):
+/// The conversion of one argument atom to a type, the per-atom half of reading an [`Arg`]
+/// (`SymbolRef::from_atom(a)` also works on any atom outside the creation arguments).
+///
+/// Implement `FromAtom` for an atom-level conversion (an enum from a symbol, say), or
+/// `TryFrom<Arg<'_>>` (with `Error = ArgError`) for a type that wants to see where the argument
+/// came from, to put its position in the error, see [`Arg::type_error`] and [`Arg::missing`]. The
+/// typed reads of [`Arg`] (`try_into`, [`get`](Arg::get), [`unwrap_or`](Arg::unwrap_or),
+/// [`unwrap_or_default`](Arg::unwrap_or_default)) take any type with a `TryFrom<Arg<'_>>`. The
+/// built-in types get both: each has a `FromAtom` impl and a `TryFrom<Arg<'_>>` that delegates to
+/// it. A blanket `TryFrom<Arg<'_>>` for every `FromAtom` type is not possible (the orphan rules
+/// forbid a blanket impl of a foreign trait for a bare type parameter), so for your own type
+/// implementing `FromAtom` alone does not make it readable from an `Arg`; add a `TryFrom`:
 ///
 /// ```
-/// use median::{args::{ArgTypeError, FromAtom}, atom::Atom};
+/// use median::{args::{Arg, ArgError, ArgTypeError, FromAtom}, atom::Atom};
 ///
 /// enum Mode { Fast, Slow }
 ///
@@ -302,9 +320,19 @@ impl<'a> Iterator for AttrArgs<'a> {
 ///         }
 ///     }
 /// }
+///
+/// impl TryFrom<Arg<'_>> for Mode {
+///     type Error = ArgError;
+///     fn try_from(arg: Arg<'_>) -> Result<Self, ArgError> {
+///         match arg.atom() {
+///             None => Err(arg.missing()),
+///             Some(a) => Mode::from_atom(a).map_err(|e| arg.type_error(e)),
+///         }
+///     }
+/// }
 /// ```
 ///
-/// Implemented for [`t_atom_long`](max_sys::t_atom_long) (an int only), `f64` (an int or a float,
+/// Implemented for [`t_atom_long`](max_sys::t_atom_long) (an int, or a float truncated), `f64` (an int or a float,
 /// as Max's own number coercion), [`SymbolRef`] (a symbol only), `String` (a symbol; an int or a
 /// float as [`Atom::text`] shows it) and `bool` (the int 0 or 1). An object atom is never
 /// accepted by the implementations here.
@@ -363,6 +391,27 @@ impl FromAtom for bool {
     }
 }
 
+/// `TryFrom<Arg<'_>>` for the types that have a `FromAtom`: absence is the argument's `missing`
+/// error, a refused atom its `type_error`. One impl per type because a blanket
+/// `impl<T: FromAtom> TryFrom<Arg<'_>> for T` is rejected by the orphan rules (`TryFrom` is a
+/// foreign trait and `T` an uncovered type parameter).
+macro_rules! try_from_arg {
+    ($($t:ty),* $(,)?) => {$(
+        impl<'a> TryFrom<Arg<'a>> for $t {
+            type Error = ArgError;
+
+            fn try_from(arg: Arg<'a>) -> Result<Self, ArgError> {
+                match arg.first() {
+                    None => Err(arg.missing()),
+                    Some(a) => <$t as FromAtom>::from_atom(a).map_err(|e| arg.type_error(e)),
+                }
+            }
+        }
+    )*};
+}
+
+try_from_arg!(max_sys::t_atom_long, f64, SymbolRef, String, bool);
+
 /// Why a [`FromAtom`] refused an atom: what it expected and what it got, as text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArgTypeError {
@@ -414,9 +463,9 @@ impl std::error::Error for ArgTypeError {}
 /// does.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ArgError {
-    /// A required positional argument is not there ([`Arg::unwrap`]).
+    /// A required positional argument is not there (`try_into` of an [`Arg`]).
     Missing { index: usize },
-    /// A required attribute argument is not there, or has no values ([`Arg::unwrap`]).
+    /// A required attribute argument is not there, or has no values (`try_into` of an [`Arg`]).
     MissingAttr { name: SymbolRef },
     /// A positional argument is not of the type asked for.
     Type {

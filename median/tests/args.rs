@@ -2,7 +2,7 @@
 //! arguments and records what it saw, created through the `median-mock` kernel, which processes
 //! the `@name value` tail after `new` as Max's `attr_args_process` does.
 
-use median::args::{ArgError, Args, FromAtom};
+use median::args::{Arg, ArgError, ArgTypeError, Args, FromAtom};
 use median::prelude::*;
 use median_mock::{Atom as MockAtom, Kernel, Level};
 use std::sync::{Mutex, Once};
@@ -350,21 +350,19 @@ fn args_split_a_list_without_a_builder() {
         Ok(0)
     );
     assert_eq!(
-        args.attr(median::sym!("z")).unwrap::<t_atom_long>(),
+        t_atom_long::try_from(args.attr(median::sym!("z"))),
         Err(ArgError::MissingAttr {
             name: median::sym!("z")
         })
     );
     assert_eq!(
-        args.attr(median::sym!("y"))
-            .unwrap::<t_atom_long>()
+        t_atom_long::try_from(args.attr(median::sym!("y")))
             .unwrap_err()
             .to_string(),
         "@y: missing"
     );
     assert_eq!(
-        args.attr(median::sym!("x"))
-            .unwrap::<SymbolRef>()
+        SymbolRef::try_from(args.attr(median::sym!("x")))
             .unwrap_err()
             .to_string(),
         "@x: expected a symbol, got `2`"
@@ -376,9 +374,9 @@ fn args_split_a_list_without_a_builder() {
     assert_eq!(args.at(0).atom().map(Atom::text).as_deref(), Some("a"));
     assert_eq!(args.at(1).text().as_deref(), Some("1"));
     assert_eq!(args.at(2).text(), None);
-    assert_eq!(args.at(0).unwrap::<SymbolRef>(), Ok(median::sym!("a")));
+    assert_eq!(SymbolRef::try_from(args.at(0)), Ok(median::sym!("a")));
     assert_eq!(
-        args.at(5).unwrap::<t_atom_long>(),
+        t_atom_long::try_from(args.at(5)),
         Err(ArgError::Missing { index: 5 })
     );
     assert_eq!(args.at(5).get::<t_atom_long>(), Ok(None));
@@ -391,5 +389,78 @@ fn args_split_a_list_without_a_builder() {
     assert_eq!(
         NewError::from(e).message(),
         "argument 1: expected a number, got `a`"
+    );
+}
+
+/// A user type that wants to see where its argument came from: an enum from a symbol.
+#[derive(Debug, PartialEq, Eq)]
+enum Mode {
+    Fast,
+    Slow,
+}
+
+impl TryFrom<Arg<'_>> for Mode {
+    type Error = ArgError;
+
+    fn try_from(arg: Arg<'_>) -> Result<Self, ArgError> {
+        let Some(a) = arg.atom() else {
+            return Err(arg.missing());
+        };
+        match a.text().as_str() {
+            "fast" => Ok(Mode::Fast),
+            "slow" => Ok(Mode::Slow),
+            _ => Err(arg.type_error(ArgTypeError::new("fast or slow", a))),
+        }
+    }
+}
+
+#[test]
+fn a_user_type_reads_an_arg_through_try_from() {
+    let _k = setup();
+    let list = atoms(&[s("slow"), s("loud"), s("@mode"), s("fast"), s("@empty")]);
+    let args = Args::new(&list);
+
+    let m: Mode = args.at(0).try_into().unwrap();
+    assert_eq!(m, Mode::Slow);
+    assert_eq!(args.at(0).unwrap_or(Mode::Fast), Ok(Mode::Slow));
+    assert_eq!(
+        args.at(0).unwrap_or_default::<String>().as_deref(),
+        Ok("slow")
+    );
+    assert_eq!(args.at(0).get::<Mode>(), Ok(Some(Mode::Slow)));
+    assert_eq!(
+        args.attr(median::sym!("mode")).get::<Mode>(),
+        Ok(Some(Mode::Fast))
+    );
+
+    // absent: the default, `None`, an error that names the argument
+    assert_eq!(args.at(4).unwrap_or(Mode::Fast), Ok(Mode::Fast));
+    assert_eq!(args.at(4).get::<Mode>(), Ok(None));
+    assert_eq!(
+        Mode::try_from(args.at(4)),
+        Err(ArgError::Missing { index: 4 })
+    );
+    assert_eq!(args.attr(median::sym!("empty")).get::<Mode>(), Ok(None));
+    assert_eq!(
+        Mode::try_from(args.attr(median::sym!("empty"))),
+        Err(ArgError::MissingAttr {
+            name: median::sym!("empty")
+        })
+    );
+
+    // present but wrong: never the default, the error says where
+    let e = args.at(1).unwrap_or(Mode::Fast).unwrap_err();
+    assert_eq!(
+        e.to_string(),
+        "argument 2: expected fast or slow, got `loud`"
+    );
+    assert_eq!(
+        args.at(1).get::<Mode>().unwrap_err().to_string(),
+        "argument 2: expected fast or slow, got `loud`"
+    );
+    let r: Result<Mode, _> = args.at(1).try_into();
+    assert_eq!(
+        r.unwrap_err().to_string(),
+        "argument 2: expected fast or slow, got `loud`"
     );
 }

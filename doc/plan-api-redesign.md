@@ -398,13 +398,17 @@ hand (min's `argument<>`).
   (positional `i`, or the values of `@name`; `Arg` is `Copy`). Its `get::<T>()` is `Ok(None)` for an
   absent argument, `unwrap_or(default)` takes a default (named after `Option::unwrap_or` but
   returning a `Result`: the default covers absence only), `unwrap_or_default()` uses `T::default()`,
-  `unwrap::<T>()` turns absence into `ArgError::Missing` (positional) or `ArgError::MissingAttr`
-  (attribute); a present one of the wrong type is an error, never the default. The typed accessors
+  the standard `TryFrom`/`TryInto` (`let name: SymbolRef = args.at(1).try_into()?`) turns absence into
+  `ArgError::Missing` (positional) or `ArgError::MissingAttr` (attribute); a present one of the wrong type is an error, never the default. The typed accessors
   read the first value of an attribute, and an `@name` with no values counts as absent for them;
   `values()` (`Some(&[])` there), `atom()`, `text()` and `is_present()` see the difference. The
   accessor shape was settled with the user on 2026-10-27 (an earlier cut had `arg`, `arg_or`,
-  `require`, `attr_arg` and `attr_text` on `Args` itself). `FromAtom` is public so a user type (an enum from a
-  symbol) can plug in.
+  `require`, `attr_arg` and `attr_text` on `Args` itself). `FromAtom` is public as the per-atom conversion, and
+  `unwrap_or`, `unwrap_or_default` and `get` take any `T: TryFrom<Arg<'_>, Error = ArgError>`: a user type
+  (an enum from a symbol) implements `FromAtom` for an atom-level conversion, or `TryFrom<Arg<'_>>` to see
+  where the argument came from (`Arg::type_error`, `Arg::missing` build the positioned errors). The
+  built-in types get both, the `TryFrom` impls by a macro: a blanket impl over `FromAtom` is not possible
+  (orphan rules). Decided with the user on 2026-10-27, replacing `Arg::unwrap::<T>()`.
   The provided impls are strict where Max is: `t_atom_long` from an int only, `f64` from an int or a
   float (Max's number coercion), `SymbolRef` from a symbol only, `String` from a symbol (or a
   number, as `Atom::text` shows it), `bool` from the int 0 or 1. An object atom is never accepted.
