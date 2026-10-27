@@ -241,7 +241,8 @@ impl MatrixOp for Matrices {
     // patcher message gets the reply out the dumpout outlet (SDK position 2, unchanged).
     fn class_setup(c: &mut Class<Core<Self, MatrixKind>>) -> median::error::MaxResult<()> {
         c.add_gimmeback(c"getvalues", Self::values)?;
-        c.add_gimmeback(c"getcount", Self::count)
+        c.add_gimmeback(c"getcount", Self::count)?;
+        c.add_gimmeback(c"getbig", Self::big)
     }
 
     // This fixture probes iolet layout, not matrix processing. Do not read its matrix outputs.
@@ -268,6 +269,13 @@ impl Matrices {
     fn count(&self, atoms: &[Atom]) -> t_atom_long {
         report(&self.obj, "matrix", &format!("getcount {}", atoms.len()));
         atoms.len() as t_atom_long
+    }
+
+    /// A list of 4096 ints (64 KiB of atoms) and no console line, like `Messages::getquiet`:
+    /// patch 05 part C bursts it into a `jit.median.validate` with nothing on its dumpout, so the
+    /// memory check measures the reply and not the console.
+    fn big(&self, _atoms: &[Atom]) -> Reply {
+        Reply::Atoms((0..4096i64).map(Atom::from).collect())
     }
 }
 

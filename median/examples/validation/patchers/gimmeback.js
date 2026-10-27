@@ -12,6 +12,18 @@
 // [v8] does not: its message() reports "bad arguments" / "missing arguments" for the selector,
 // the method does not run, and the value is null. So the [v8] box is a negative control.
 //
+// Observed on 2026-10-27, third run (direct-call script): Maxobj.message(..) in [js] returns the
+// message function object itself ("function message() { [native code] } (function)"), never the
+// method's reply, although the method runs. A script cannot read a gimmeback reply through
+// Maxobj.message; the SDK's route for that is the simplejs pattern, which median does not
+// support yet (doc/plan-gimmeback.md, "Calling one").
+//
+// Leak check (the decisive one): "burst 6000" calls getquiet 6000 times in a tight loop and posts
+// "burst done: 6000 calls" once. Each reply is 4096 ints (64 KiB), so 6000 replies are 384 MB if
+// they leak. Read Max's memory in Activity Monitor, click the burst message box, read it again;
+// repeat a few times. A leak is a step of about 384 MB per click that never comes back. A few
+// tens of MB that stay flat across repeated clicks is allocator slack, not a leak.
+//
 // Messages (the patch's message boxes):
 //   count 1 2 3        -> getcount            expected (unverified): the number 3
 //   list 1 2.5 foo     -> getlist             expected (unverified): [2, 5, "foo"]
@@ -19,6 +31,7 @@
 //   fail               -> getfail             expected (unverified): an error in the Max console, no value
 //   state loop         -> getquiet, for the leak check: a 4096-atom list, posts nothing (the script
 //                         posts only every 100th call)
+//   burst 6000         -> getquiet 6000 times in a loop, one line when done (the leak check above)
 //   bang               -> all four with the arguments above
 
 var calls = 0;
@@ -113,6 +126,22 @@ function state() {
         return;
     }
     ask("getstate", []);
+}
+
+function burst(n) {
+    var obj = this.patcher.getnamed("validate");
+    if (!obj) {
+        post("gimmeback.js: no object named validate in this patcher\n");
+        return;
+    }
+    n = Math.floor(Number(n));
+    if (!(n > 0)) {
+        n = 1;
+    }
+    for (var i = 0; i < n; i++) {
+        obj.message("getquiet");
+    }
+    post("burst done:", n, "calls\n");
 }
 
 function fail() {

@@ -110,22 +110,21 @@ host results and their limits are recorded below.
 - [ ] On Windows, check whether Max 9's `jitlib.dll` exports `jit_gl_buffer_data_destroy_tagged`
   and `jit_ob3d_draw_geometry` (`dumpbin /exports`). The pinned SDK's `jitlib.lib` does not,
   so `GLDataBuffer`/`GLGeometry` are compiled out on Windows until it does.
-- [ ] Gimmeback methods (`A_GIMMEBACK`, `doc/plan-gimmeback.md`), called from `js`: the reply
-  arrives as a number, symbol, array or object; an `Err` shows the error in the Max window and
-  `js` gets `null`. After many calls Max's memory does not grow (the caller frees an atomarray and
-  a dictionary reply). If it grows, the ownership assumption is wrong and
-  `Reply::Atoms`/`Reply::Dict` must change. Run it with patch 05 part A
+- [ ] Gimmeback methods (`A_GIMMEBACK`, `doc/plan-gimmeback.md`), called from `js`: an `Err` shows
+  the error in the Max window (observed), and after many calls Max's memory does not grow (the
+  caller frees an atomarray and a dictionary reply). If it grows, the ownership assumption is
+  wrong and `Reply::Atoms`/`Reply::Dict` must change. Run it with patch 05 part A
   (`median/examples/validation/patchers/05-gimmeback.maxpat`, `js` box; the `v8` box is a
-  negative control, see the 2026-10-27 results). Partly run on 2026-10-27 (two runs): `js`
-  reaches the method with the right arguments and the `Err` posts; `Maxobj.message(..)` hands
-  back the `message` function object rather than the reply (seen with the `Function.apply`
-  script and, apparently, with the direct-call script; the second run's script is to be
-  confirmed), so no reply value has been observed. `v8` is a negative control (the method does not
-  run). Memory under the `js` metro loop (the dictionary-returning `getquiet`, 100 replies a
-  second) stayed steady for about a minute: weak evidence, since a leak of a small dictionary is
-  hard to see. The next run is the 4096-atom `getquiet` (64 KiB a reply), where a leak shows
-  within seconds. The SDK's route for a `js` script to receive a reply is the `simplejs`
-  pattern, which median does not support yet (see `doc/plan-gimmeback.md`, "Calling one").
+  negative control). Observed 2026-10-27: `js` reaches the method with the right arguments and
+  the `Err` posts; `getcount` is hidden from the message list (the `undocumented` marking works);
+  `Maxobj.message(..)` returns the `message` function object itself, never the reply (the
+  direct-call script too, third run), so a reply value cannot be read through a box object. That
+  part is closed as observed: the SDK's route for a script to receive a reply is the `simplejs`
+  pattern, which median does not support yet (see `doc/plan-gimmeback.md`, "Calling one"). `v8`
+  is a negative control (the method does not run). The remaining open question is memory only:
+  the metro loops were inconclusive (third run), so run the `burst 6000` message box (6000
+  `getquiet` replies of 64 KiB, 384 MB if leaked) and read Activity Monitor before and after each
+  click.
 - [x] A patcher message to the selector of a gimmeback method on a Max class: Max refuses it and
   the method does not run (patch 05 part B, 2026-10-27, Max 9.2 ARM64). The console shows
   `unknown message argument type`, `median.validate: bad arguments for message "getcount"` and
@@ -139,8 +138,9 @@ host results and their limits are recorded below.
   (patch 05 part C, `jit.median.validate`, dumpout outlet 2): the list goes out dumpout as a
   list under the selector without its leading `get` (`getvalues 7` printed
   `dumpout: values 1 2.5 foo 7`, `getcount 1 2 3` printed `dumpout: count 3`). `median-mock`
-  models this. Still to record: memory under the `getvalues` metro (no leak expected; the
-  caller frees an atomarray reply).
+  models this. Still open: memory. The `getvalues` metro printed every reply, which made it
+  inconclusive (third run); run the `getbig` burst test (patch 05 part C2: `uzi 6000` into a
+  second `jit.median.validate` with nothing attached, 384 MB per click if the replies leak).
 
 ## Recorded results
 
@@ -339,3 +339,26 @@ Environment as above (Max 9.2 ARM64).
   memory growth over about a minute: weak evidence. The fixture's `getquiet` now returns a list
   of 4096 ints (64 KiB a reply), which makes a leak obvious in seconds; that is the next run, for
   `js` and for the Jitter `getvalues` metro.
+
+### 2026-10-27 — 05-gimmeback, third run (commit cb437e1)
+
+Environment as above (Max 9.2 ARM64), commit cb437e1 installed.
+
+- `getcount` no longer appears in `median.validate`'s message list: the `undocumented` marking
+  works.
+- The direct-call script ran, and `Maxobj.message(..)` in `js` returned the `message` function
+  object, not the method's reply: `js: getquiet loop call 8301 -> function message() { [native
+  code] } (function)`. A script cannot read a gimmeback reply through `Maxobj.message`; the SDK's
+  route for that is the `simplejs` pattern (see `doc/plan-gimmeback.md`, "Calling one"), which
+  median does not support yet. The method runs, so this part of the `js` item is closed as
+  observed.
+- Memory, both metro loops running for a few minutes at 100 replies a second of 64 KiB (`js` loop:
+  `getquiet`; Jitter loop: `getvalues`, whose small reply is printed to the console on every
+  call): the `js` loop grew from about 700 MB to 1.25 GB and fell to 981 MB after stopping; the
+  Jitter loop grew to 1.19 GB and fell below 1 GB after stopping. Inconclusive: a full leak of the
+  `js` replies would be 6.4 MB/s (over 1 GB in three minutes, never released), and the Jitter loop
+  printed 6000 console lines a minute. The check is now a burst: `burst 6000` in `gimmeback.js`
+  (6000 `getquiet` calls in a loop, 384 MB if leaked) and the `getbig` message (4096 ints) of
+  `jit.median.validate` through `uzi 6000` with nothing attached (patch 05 parts A and C2). A leak
+  is a step of about 384 MB per click that never comes back; a few tens of MB flat across
+  repeated clicks is allocator slack. Not run yet.

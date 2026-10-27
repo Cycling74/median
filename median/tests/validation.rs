@@ -393,5 +393,16 @@ fn matrix_gimmeback_methods_reply_out_the_dumpout_outlet() {
     let log = posts(&k);
     assert_eq!(log.len(), 2, "{log:?}");
     assert!(log[0].contains("getvalues 1") && log[1].contains("getcount 3"));
+    // `getbig` is a list of 4096 ints out dumpout under `big`, and posts nothing (the burst
+    // test of patch 05 part C)
+    k.send(obj, "getbig", &[]).unwrap();
+    let out = k.take_outlet_log();
+    assert_eq!(out.len(), 1, "{out:?}");
+    assert_eq!((out[0].index, out[0].selector.as_str()), (2, "big"));
+    assert_eq!(out[0].atoms.len(), 4096);
+    assert_eq!(out[0].atoms[0], Atom::Long(0));
+    assert_eq!(out[0].atoms[4095], Atom::Long(4095));
+    assert_eq!(containers::live_count(), live, "getbig leaked a reply");
+    assert!(posts(&k).is_empty(), "getbig must post nothing");
     assert!(k.free_object(obj));
 }

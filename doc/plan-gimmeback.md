@@ -392,13 +392,13 @@ exists so the three host checks can be run in Max. Run on 2026-10-27 (Max 9.2 AR
   is left alone (`median/tests/gimmeback_macro.rs`, `jitter_gimmeback.rs`).
 - Jitter (check 3): the reply is a list out dumpout under the selector without its leading
   `get`. The selector question is answered; `median-mock` strips a leading `get` the same way.
-  Memory under the metro is not recorded yet.
-- `js` (check 1): the method runs, `Err` posts, but `Maxobj.message(..)` returns the `message`
-  function object instead of the reply (so the reply values and the ownership assumption are
-  unverified); `v8` is a negative control. A minute of dictionary replies showed no noticeable
-  growth (weak evidence). `getquiet` now returns a 4096-atom list (64 KiB a reply) so the next
-  run shows a leak quickly. The `simplejs` route (see "Calling one") is the SDK's way to receive
-  a reply in a script and is not started.
+  Memory under the metro was inconclusive (third run); the `getbig` burst test is not run yet.
+- `js` (check 1): the method runs, `Err` posts, `getcount` is hidden from the message list
+  (third run, cb437e1), but `Maxobj.message(..)` returns the `message` function object instead of
+  the reply, so a reply can't be read through a box object (observed; the `simplejs` route is the
+  SDK's way and is not started); `v8` is a negative control. Memory: the metro loops were
+  inconclusive (third run), so the check is now a burst (`burst 6000` in `gimmeback.js`, and
+  `getbig` through `uzi 6000` for Jitter, 384 MB per click if leaked); not run yet.
 
 ## Order
 
