@@ -3,9 +3,12 @@
 pub(crate) mod buffer_probe;
 
 use median::{
+    dict::{Dict, DictError},
+    gimmeback::Reply,
     jit::{
         DrawContext, JitBuilder, JitResult, MatrixOp, Ob3d,
         matrix::{Count, IOCount, Matrix},
+        wrapper::{Core, MatrixKind},
     },
     prelude::*,
     thread::SysThread,
@@ -83,6 +86,61 @@ impl Messages {
             .collect::<Vec<_>>()
             .join(" ");
         report(&self.obj, &self.label, &format!("{sel} {values}"));
+    }
+
+    // The four gimmeback methods are for typed callers (`js`, patch 05): a patch cord is not
+    // expected to reach them. Each posts a line so a run shows the method ran even if the
+    // caller drops the reply.
+
+    #[gimmeback("getcount")]
+    fn get_count(&self, atoms: &[Atom]) -> t_atom_long {
+        report(&self.obj, &self.label, &format!("getcount {}", atoms.len()));
+        atoms.len() as t_atom_long
+    }
+
+    #[gimmeback("getlist")]
+    fn get_list(&self, atoms: &[Atom]) -> Reply {
+        report(&self.obj, &self.label, &format!("getlist {}", atoms.len()));
+        Reply::Atoms(doubled(atoms))
+    }
+
+    #[gimmeback("getstate")]
+    fn get_state(&self, atoms: &[Atom]) -> Result<Dict, DictError> {
+        report(&self.obj, &self.label, &format!("getstate {}", atoms.len()));
+        let d = Dict::new()?;
+        d.insert(
+            median::sym!("label"),
+            SymbolRef::try_from(self.label.as_str()).map_err(|_| DictError::InvalidString)?,
+        )?;
+        d.insert(median::sym!("count"), atoms.len() as i64)?;
+        Ok(d)
+    }
+
+    #[gimmeback("getfail")]
+    fn get_fail(&self, atoms: &[Atom]) -> Result<Reply, String> {
+        report(&self.obj, &self.label, &format!("getfail {}", atoms.len()));
+        Err("getfail: intentional error".into())
+    }
+}
+
+/// Each int/float doubled, symbols passed through (an `Atom` is not `Clone`).
+fn doubled(atoms: &[Atom]) -> Vec<Atom> {
+    atoms
+        .iter()
+        .map(|a| match a.get_value() {
+            Some(median::atom::AtomValue::Int(v)) => Atom::from(v * 2),
+            Some(median::atom::AtomValue::Float(v)) => Atom::from(v * 2.),
+            _ => Atom::from(a.get_symbol()),
+        })
+        .collect()
+}
+
+/// A copy of an int, float or symbol atom.
+fn copied(a: &Atom) -> Atom {
+    match a.get_value() {
+        Some(median::atom::AtomValue::Int(v)) => Atom::from(v),
+        Some(median::atom::AtomValue::Float(v)) => Atom::from(v),
+        _ => Atom::from(a.get_symbol()),
     }
 }
 
@@ -171,9 +229,37 @@ impl MatrixOp for Matrices {
         })
     }
 
+    // Gimmeback methods on the Jitter class: median then passes the gimmeback wrap flag, so a
+    // patcher message gets the reply out the dumpout outlet (SDK position 2, unchanged).
+    fn class_setup(c: &mut Class<Core<Self, MatrixKind>>) -> median::error::MaxResult<()> {
+        c.add_gimmeback(c"getvalues", Self::values)?;
+        c.add_gimmeback(c"getcount", Self::count)
+    }
+
     // This fixture probes iolet layout, not matrix processing. Do not read its matrix outputs.
     fn calc(&self, _: &mut [Matrix<'_>], _: &mut [Matrix<'_>]) -> JitResult<()> {
         Ok(())
+    }
+}
+
+impl Matrices {
+    fn values(&self, atoms: &[Atom]) -> Reply {
+        report(&self.obj, "matrix", &format!("getvalues {}", atoms.len()));
+        Reply::Atoms(
+            [
+                Atom::from(1i64),
+                Atom::from(2.5),
+                Atom::from(SymbolRef::from(c"foo")),
+            ]
+            .into_iter()
+            .chain(atoms.iter().map(copied))
+            .collect(),
+        )
+    }
+
+    fn count(&self, atoms: &[Atom]) -> t_atom_long {
+        report(&self.obj, "matrix", &format!("getcount {}", atoms.len()));
+        atoms.len() as t_atom_long
     }
 }
 

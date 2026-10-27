@@ -1,6 +1,6 @@
 # Max validation fixtures
 
-Five diagnostic classes in one external, with four patches that exercise the same code
+Five diagnostic classes in one external, with five patches that exercise the same code
 as `median/tests/validation.rs`. Mock tests check the probes; only a run in Max establishes
 the host behavior. On 2026-10-26 the user verified patch 01 with DSP off and Overdrive on/off,
 plus patch 02's signal outputs and custom integer/proxy inlet positions;
@@ -42,6 +42,7 @@ The patches include controls and expected results; start with all toggles off.
 | `02-signals.maxpat` | Enable DSP using ezdac~, then enable the sampling toggle. The two displays should read `0.125` and `0.75`. No signal is routed to speakers. The integer inlet reports position 2; `probe` at the proxy reports position 3. Hover to check assistance, then repeat with DSP and scheduler settings changed. |
 | `03-jitter-iolets.maxpat` | MOP custom inlets occupy 2–4; SDK matrix outlets and dumpout occupy 0–2, then integer echo 3 and bang 4. GL custom proxy is inlet 1 and its index appears at outlet 2. Check assistance/hotness and repeated creation/deletion. The GL fixture draws nothing. The MOP fixture does not process matrices. |
 | `04-buffer-exclusivity.maxpat` | Click `probe` with DSP off, then with DSP on using ezdac~. The dedicated buffer's pointers and lock results appear in four console lines. The signal output is silence. Each probe pauses the UI for about 450 ms; do not change the buffer during it. |
+| `05-gimmeback.maxpat` | Three `A_GIMMEBACK` host checks (`doc/plan-gimmeback.md`); everything here is expected (unverified). **A.** `js gimmeback.js` (and a `v8 gimmeback.js` with the same script) calls `getcount`, `getlist`, `getstate` and `getfail` on `median.validate gimme` with `obj.message(..)`. Expected: `3`; `[2, 5, foo]`; an object with `label` gimme and `count` 0; the error `getfail: intentional error` in the console and no usable value. Record each JavaScript value and its `typeof` as the script prints them; if `js` gets `undefined` for every reply, record that and use the `v8` box. With a toggle on, `metro 10` runs `getstate` 100 times a second: record Max's memory in Activity Monitor after a minute (expected: no growth), for `js` and `v8`. **B.** The message boxes `getcount 1 2` and `getcount` wired straight to a `median.validate`. Expected: Max refuses the message and the method's own `cord: getcount ..` line does not appear; record the exact console text. **C.** `getvalues 7` and `getcount 1 2 3` into `jit.median.validate`, `print dumpout` on its dumpout (outlet 2). Expected: the list `1 2.5 foo 7` and a one-atom list `3`; record the print lines and which selector they carry (the message's own, `list`, or something else), and memory after a minute with the `getvalues` metro on (expected: no growth). Use the recording block under "Record results". The script is `patchers/gimmeback.js`. |
 
 Stop metros/rendering/DSP when finished. For constructor cleanup, manually create
 `jit.median.validate refuse`: it must report an intentional constructor error. Delete it and

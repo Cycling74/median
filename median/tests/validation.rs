@@ -2,8 +2,9 @@
 #[path = "../examples/validation/src/lib.rs"]
 mod validation;
 
+use median::dict::{Dict, Ownership};
 use median::wrapper::{MSPObjWrapper, WrapperWrapped};
-use median_mock::{Atom, Kernel, Role};
+use median_mock::{Atom, CallReply, Kernel, Role, SendError, containers};
 use validation::buffer_probe::BufferProbe;
 
 fn register() {
@@ -272,4 +273,107 @@ fn jitter_probes_report_physical_positions_and_refusal_cleans_up() {
         assert_eq!(median_mock::jit::live_mop_count(), 0);
         assert_eq!(median_mock::jit::context_count(), 0);
     }
+}
+
+#[test]
+fn messages_gimmeback_methods_reply_to_typed_callers_and_refuse_patch_cords() {
+    let k = median_mock::lock();
+    register();
+    let obj = k.new_object("median.validate", &["gb".into()]);
+    assert!(!obj.is_null());
+    let live = containers::live_count();
+    let args = [Atom::Long(1), Atom::Float(2.5), Atom::Sym("foo".into())];
+    assert_eq!(k.call(obj, "getcount", &args), Ok(CallReply::Int(3)));
+    assert_eq!(
+        posts(&k),
+        ["gb: getcount 3; main=true scheduler=false audio=false"]
+    );
+    assert_eq!(
+        k.call(obj, "getlist", &args),
+        Ok(CallReply::Atoms(vec![
+            Atom::Long(2),
+            Atom::Float(5.),
+            Atom::Sym("foo".into())
+        ]))
+    );
+    assert_eq!(
+        posts(&k),
+        ["gb: getlist 3; main=true scheduler=false audio=false"]
+    );
+    match k.call(obj, "getstate", &args) {
+        Ok(CallReply::Object(p)) => {
+            let d = unsafe { Dict::from_raw(p.cast(), Ownership::Retained) }.unwrap();
+            assert_eq!(
+                d.get_sym(median::sym!("label"))
+                    .unwrap()
+                    .map(|s| s.to_string()),
+                Some("gb".to_owned())
+            );
+            assert_eq!(d.get_int(median::sym!("count")).unwrap(), Some(3));
+            drop(d);
+        }
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(
+        posts(&k),
+        ["gb: getstate 3; main=true scheduler=false audio=false"]
+    );
+    assert!(matches!(
+        k.call(obj, "getfail", &args),
+        Ok(CallReply::Error(_))
+    ));
+    let log = posts(&k);
+    assert_eq!(log.len(), 2, "{log:?}");
+    assert!(log[0].contains("getfail 3"));
+    assert!(log[1].contains("getfail: intentional error"));
+    assert_eq!(containers::live_count(), live, "a reply was leaked");
+    // a patch cord does not reach any of them
+    for sel in ["getcount", "getlist", "getstate", "getfail"] {
+        assert_eq!(
+            k.send(obj, sel, &args),
+            Err(SendError::TypedOnly(sel.into()))
+        );
+    }
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn matrix_gimmeback_methods_reply_out_the_dumpout_outlet() {
+    let k = median_mock::lock();
+    register();
+    assert_eq!(median_mock::jit::wrap_flags("jit.median.validate"), Some(1));
+    let obj = k.new_object("jit.median.validate", &[]);
+    assert!(!obj.is_null());
+    posts(&k);
+    let live = containers::live_count();
+    k.take_outlet_log();
+    k.send(obj, "getvalues", &[Atom::Long(7)]).unwrap();
+    let out = k.take_outlet_log();
+    assert_eq!(out.len(), 1, "{out:?}");
+    // dumpout is SDK outlet 2 (matrix outlets 0-1), left of the custom outlets 3 and 4
+    assert_eq!(out[0].index, 2);
+    assert_eq!(out[0].selector, "getvalues");
+    assert_eq!(
+        out[0].atoms,
+        [
+            Atom::Long(1),
+            Atom::Float(2.5),
+            Atom::Sym("foo".into()),
+            Atom::Long(7)
+        ]
+    );
+    k.send(
+        obj,
+        "getcount",
+        &[Atom::Long(1), Atom::Long(2), Atom::Long(3)],
+    )
+    .unwrap();
+    let out = k.take_outlet_log();
+    assert_eq!(out.len(), 1, "{out:?}");
+    assert_eq!((out[0].index, &out[0].atoms), (2, &vec![Atom::Long(3)]));
+    assert_eq!(containers::live_count(), live, "an atomarray is left over");
+    let log = posts(&k);
+    assert_eq!(log.len(), 2, "{log:?}");
+    assert!(log[0].contains("getvalues 1") && log[1].contains("getcount 3"));
+    assert!(k.free_object(obj));
 }

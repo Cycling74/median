@@ -114,15 +114,17 @@ host results and their limits are recorded below.
   arrives as a number, symbol, array or object; an `Err` shows the error in the Max window and
   `js` gets `null`. After many calls Max's memory does not grow (the caller frees an atomarray and
   a dictionary reply). If it grows, the ownership assumption is wrong and
-  `Reply::Atoms`/`Reply::Dict` must change.
+  `Reply::Atoms`/`Reply::Dict` must change. Run it with patch 05 part A
+  (`median/examples/validation/patchers/05-gimmeback.maxpat`, `js` and `v8` boxes).
 - [ ] A patcher message to the selector of a gimmeback method on a Max class: record what Max
   reports, and that the method does not run (median assumes a patch cord cannot reach an
-  `A_GIMMEBACK` method).
+  `A_GIMMEBACK` method). Patch 05 part B.
 - [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_gimmeback` in
   `class_setup`, which makes median pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
   `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet; an atomarray reply as a
   list; record which selector the reply carries and whether anything leaks. `median-mock` models
   the assumed behaviour (list out dumpout under the message's selector, atomarray freed).
+  Patch 05 part C (`jit.median.validate`, dumpout outlet 2, with a `metro` for the leak check).
 
 ## Recorded results
 

@@ -362,6 +362,10 @@ differs from the sketch above:
   recorded outlet directly. `median_mock::jit::wrap_flags(class_name)` exposes the flags a Max
   class passed. Without the flag the mock installs nothing for those selectors, as before.
 
+Step 4 (the host checks): patch 05 (`median/examples/validation/patchers/05-gimmeback.maxpat`
+and `gimmeback.js`, with the gimmeback methods of `median.validate` and `jit.median.validate`)
+exists so the three host checks can be run in Max; none has been run.
+
 ## Order
 
 0. `GimmeFn` and the selector-less `#[gimme]` (its own commit: it changes existing API).
