@@ -380,3 +380,28 @@ replies of 4096 atoms (64 KiB each, 384 MB in all if none is freed).
 So an object reply is freed by a caller that consumes it and leaked by one that discards it.
 On a Max class, prefer scalar replies unless the caller is known to read the reply; object
 replies are for the Jitter dumpout path and callers such as `object_method_typed`.
+
+### 2026-10-27 — simp fails to register: Duplicate from add_notify
+
+Environment as above (Max 9.2 ARM64). Creating `[simp]` printed
+
+```
+median: failed to register simp: simp::Simp: failed to register the methods: Duplicate
+```
+
+Cause: median asked `class_method(class, sym)` whether a class already had a method and took a
+null return to mean "no". `ext_obex.h` documents the sibling `object_getmethod` as returning "the
+method if successful, or `method_false()` if unsuccessful", and `class_method` was observed to
+do the same: it is non-null for a method the class does not have. So `Class::add_notify` saw a
+`notify` that was not there and returned `Duplicate` (`simp` has a `#[notify]` method); the
+wrapper saw a `notify` on every class and never installed its default `notify` (buffer
+reference notifications were lost on every class without `#[notify]`); and the Jitter glue's
+`inletinfo` capture could have stored the placeholder and called it with the wrong arguments.
+The mock returned null for an absent method, which is why the tests passed.
+
+Fix: `median::wrapper::class_has_method` looks the method up in the class' method table
+(`class_extra_lookup(c, gensym("methods"))`, `hashtab_lookup`, as `CLASS_METHOD_ATTR_PARSE` in
+`ext_obex_util.h` does) and every presence test uses it. The mock's `class_method` now returns
+`method_false` for an absent method. Not yet re-run in Max: the table lookup on a real class
+(a method added with `class_addmethod` before `class_register` is found) and `simp` registering
+again are to be checked by hand.

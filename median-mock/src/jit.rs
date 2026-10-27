@@ -870,19 +870,25 @@ mod tests {
         }
     }
 
+    /// Whether the class has the method: `class_method` is non-null for a missing one.
+    unsafe fn has_method(class: *mut t_class, name: &[u8]) -> bool {
+        unsafe { class_method(class, intern(name)) }
+            .is_some_and(|f| f as usize != crate::class::method_false as *const () as usize)
+    }
+
     #[test]
     fn wrap_standard_installs_notify_unless_told_not_to() {
         let kernel = crate::lock();
         unsafe {
             let class = class_new(c"mock.jitter.notify".as_ptr(), None, None, 64, None, 0);
             max_jit_class_wrap_standard(class, std::ptr::null_mut(), 0);
-            assert!(class_method(class, intern(b"notify")).is_some());
-            assert!(class_method(class, intern(b"inletinfo")).is_some());
+            assert!(has_method(class, b"notify"));
+            assert!(has_method(class, b"inletinfo"));
             let none = class_new(c"mock.jitter.nonotify".as_ptr(), None, None, 64, None, 0);
             skip_sdk_notify();
             max_jit_class_wrap_standard(none, std::ptr::null_mut(), 0);
-            assert!(class_method(none, intern(b"notify")).is_none());
-            assert!(class_method(none, intern(b"inletinfo")).is_some());
+            assert!(!has_method(none, b"notify"));
+            assert!(has_method(none, b"inletinfo"));
             assert_eq!(
                 max_jit_mop_notify(std::ptr::null_mut(), intern(b"a"), intern(b"b")),
                 0

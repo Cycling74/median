@@ -273,3 +273,30 @@ fn a_hand_written_add_notify_works_as_the_marker() {
     assert_eq!(log(&k), [(Level::Post, "hand-written ping".to_string())]);
     assert!(k.free_object(obj));
 }
+
+/// Max returns a non-null placeholder from `class_method` for a method a class does not have, and
+/// the mock does as well; the presence test must use the class' method table. With the old test,
+/// `Derived` (a `#[notify]` class) failed to register with `Duplicate`.
+#[test]
+fn classes_with_and_without_notify_register_without_errors_and_have_one() {
+    let k = setup();
+    for name in [
+        "notify.derived",
+        "notify.none",
+        "notify.twice",
+        "notify.via_methods",
+    ] {
+        assert!(k.class_exists(name), "{name}: {:?}", k.console_log());
+        let obj = k.new_object(name, &[]);
+        assert!(!obj.is_null(), "{name}");
+        assert!(k.method(obj, "notify").is_some(), "{name}");
+        assert!(k.free_object(obj));
+    }
+    assert!(
+        !k.console_log()
+            .iter()
+            .any(|e| e.text.contains("failed to register")),
+        "{:?}",
+        k.console_log()
+    );
+}

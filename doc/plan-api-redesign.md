@@ -1132,3 +1132,11 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
       - To check in Max: that a `qelem_set` from inside the qelem's own function is a no-op (the
         header's reading); a self-requeueing `#[defer_low]` method keeps running; a `metro`
         sending `#[defer]` messages to an object whose deferred method is running loses none.
+
+- `class_method` is not a presence test (2026-10-27; Max 9.2 ARM64 printed
+  `failed to register simp: ... Duplicate`): Max returns a non-null `method_false` placeholder for
+  an absent method, as `ext_obex.h` documents for `object_getmethod`. `Class::add_notify`, the
+  wrapper's default `notify` and the Jitter glue's `notify`/`inletinfo` capture now use
+  `wrapper::class_has_method` (the class' method table, as `mark_undocumented` does); the mock's
+  `class_method` returns `method_false` too. Record in `validation-max.md`; the rebuilt `simp` is
+  not yet checked in Max.

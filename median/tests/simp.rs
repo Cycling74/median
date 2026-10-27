@@ -58,3 +58,24 @@ fn simp_do_abs_answers_a_typed_caller() {
     assert_eq!(t, common::simp_script::EXPECTED_DO_ABS, "{t:#?}");
     assert_eq!(median_mock::containers::live_count(), 0);
 }
+
+#[test]
+fn simp_registers_without_errors_and_has_a_notify_method() {
+    // `simp` has a `#[notify]` method: `Class::add_notify` must not see one that is not there
+    // (Max 9.2 printed `failed to register simp: ... Duplicate` for it on 2026-10-27)
+    let k = median_mock::lock();
+    // SAFETY: that is how Max calls it, on its main thread
+    unsafe { simp::ext_main(std::ptr::null_mut()) };
+    assert!(k.class_exists("simp"), "{:?}", k.console_log());
+    assert!(
+        !k.console_log()
+            .iter()
+            .any(|e| e.text.contains("failed to register")),
+        "{:?}",
+        k.console_log()
+    );
+    let x = k.new_object("simp", &[]);
+    assert!(!x.is_null());
+    assert!(k.method(x, "notify").is_some());
+    assert!(k.free_object(x));
+}

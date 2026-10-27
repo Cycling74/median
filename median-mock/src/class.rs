@@ -26,19 +26,31 @@ fn max_err(e: err::Type) -> t_max_err {
     e as t_max_err
 }
 
-/// Look up a method on a registered or still-being-built class.
+/// What Max returns from `object_getmethod` for a missing method (`ext_obex.h`: "returns the
+/// method if successful, or method_false() if unsuccessful"), and what `class_method` returned
+/// for a missing method on 2026-10-27 in Max 9.2 ARM64: a function that does nothing and
+/// returns 0.
+///
+/// # Safety
+/// Any argument.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn method_false(_x: *mut c_void) -> max_sys::t_atom_long {
+    0
+}
+
+/// Look up a method on a registered or still-being-built class. For a method the class does
+/// not have, this returns [`method_false`], not null, as Max does; use the class' `methods`
+/// hashtab (`class_extra_lookup`, `hashtab_lookup`) to tell whether a method exists.
 ///
 /// # Safety
 /// `c` is a live class and `name` an interned symbol.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn class_method(c: *mut t_class, name: *mut t_symbol) -> method {
-    let st = state();
-    let address = st
+    let address = state()
         .classes
-        .get(&(c as usize))?
-        .methods
-        .get(&name_of(name as usize))?
-        .fun;
+        .get(&(c as usize))
+        .and_then(|class| class.methods.get(&name_of(name as usize)))
+        .map_or(method_false as *const () as usize, |m| m.fun);
     Some(unsafe {
         std::mem::transmute::<usize, unsafe extern "C" fn(*mut c_void) -> *mut c_void>(address)
     })

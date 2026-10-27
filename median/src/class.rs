@@ -585,9 +585,7 @@ impl<W> Class<W> {
         // SAFETY: the class is valid. (A Jitter class is only checked through `notify_added`:
         // `jit_class_method` is not part of what the mock implements.)
         if self.notify_added
-            || (!self.jitter
-                && unsafe { max_sys::class_method(self.class, crate::sym!("notify").as_ptr()) }
-                    .is_some())
+            || (!self.jitter && unsafe { crate::wrapper::class_has_method(self.class, c"notify") })
         {
             return Err(MaxError::Duplicate);
         }

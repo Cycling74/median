@@ -475,16 +475,20 @@ impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
             );
             T::setup_max_class(class.inner(), jit.class as _, jit.gimmeback)?;
             // Notifications go to `T::notify`, unless the SDK's wrapper installed its handler.
-            if sys::class_method(class.inner(), crate::sym!("notify").as_ptr()).is_none() {
+            if !crate::wrapper::class_has_method(class.inner(), c"notify") {
                 class.add_notify(forward_notify::<T, K>)?;
             }
-            let inletinfo = sys::class_method(class.inner(), crate::sym!("inletinfo").as_ptr())
-                .map(|f| {
+            // Only an `inletinfo` the class has: `class_method` returns a placeholder otherwise.
+            let inletinfo = if crate::wrapper::class_has_method(class.inner(), c"inletinfo") {
+                sys::class_method(class.inner(), crate::sym!("inletinfo").as_ptr()).map(|f| {
                     std::mem::transmute::<
                         sys::method,
                         unsafe extern "C" fn(*mut sys::t_object, *mut c_void, c_long, *mut c_char),
                     >(Some(f))
-                });
+                })
+            } else {
+                None
+            };
             CLASSES
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())

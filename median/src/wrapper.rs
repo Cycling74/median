@@ -82,6 +82,43 @@ unsafe fn write_assist(dest: *mut c_char, text: &str) {
     }
 }
 
+/// The method object of the method `name` of `class`, null if the class has no such method.
+///
+/// This is the lookup `CLASS_METHOD_ATTR_PARSE` does (`ext_obex_util.h`): the class' `methods`
+/// hashtab (`class_extra_lookup(c, gensym("methods"))`) holds the method objects, and
+/// `hashtab_lookup` succeeds only for a method that exists.
+///
+/// # Safety
+/// `class` must be a valid class.
+unsafe fn class_method_object(class: *mut max_sys::t_class, name: &CStr) -> *mut max_sys::t_object {
+    // SAFETY: the caller's contract; the names are NUL-terminated strings that outlive the calls
+    unsafe {
+        let methods = max_sys::class_extra_lookup(class, max_sys::gensym(c"methods".as_ptr()))
+            as *mut max_sys::t_hashtab;
+        if methods.is_null() {
+            return std::ptr::null_mut();
+        }
+        let mut m: *mut max_sys::t_object = std::ptr::null_mut();
+        let found = max_sys::hashtab_lookup(methods, max_sys::gensym(name.as_ptr()), &mut m);
+        if found == 0 { m } else { std::ptr::null_mut() }
+    }
+}
+
+/// Whether `class` has a method `name`.
+///
+/// Do not use `max_sys::class_method` (or `object_getmethod`) for this: they do not return null
+/// for a missing method. `ext_obex.h` documents `object_getmethod` as returning "the method if
+/// successful, or method_false() if unsuccessful", and `class_method` was observed to do the
+/// same (Max 9.2 ARM64, 2026-10-27: it returned non-null for a `notify` the class did not have).
+/// This looks the method up in the class' method table, as [`mark_undocumented`] does.
+///
+/// # Safety
+/// `class` must be a valid class.
+pub(crate) unsafe fn class_has_method(class: *mut max_sys::t_class, name: &CStr) -> bool {
+    // SAFETY: the caller's contract
+    !unsafe { class_method_object(class, name) }.is_null()
+}
+
 /// What `CLASS_METHOD_ATTR_PARSE(c, name, "undocumented", gensym("long"), 0, "1")` does: the
 /// method is not shown to users (`ext_obex_util.h`).
 ///
@@ -90,13 +127,7 @@ unsafe fn write_assist(dest: *mut c_char, text: &str) {
 pub(crate) unsafe fn mark_undocumented(class: *mut max_sys::t_class, name: &CStr) {
     // SAFETY: the caller's contract; the names are NUL-terminated strings that outlive the calls
     unsafe {
-        let methods = max_sys::class_extra_lookup(class, max_sys::gensym(c"methods".as_ptr()))
-            as *mut max_sys::t_hashtab;
-        if methods.is_null() {
-            return;
-        }
-        let mut m: *mut max_sys::t_object = std::ptr::null_mut();
-        let _ = max_sys::hashtab_lookup(methods, max_sys::gensym(name.as_ptr()), &mut m);
+        let m = class_method_object(class, name);
         if !m.is_null() {
             let _ = max_sys::object_addattr_parse(
                 m,
@@ -1198,7 +1229,7 @@ where
                     // Only for a class without a `notify` method: keep the one the user added
                     // (`Class::add_notify`, which runs in `creator`, with the class' methods and
                     // `class_setup`) or the SDK's Jitter wrapper installed.
-                    if max_sys::class_method(c.inner(), crate::sym!("notify").as_ptr()).is_none() {
+                    if !class_has_method(c.inner(), notify) {
                         //the default: only the `buffer~` references get notifications
                         max_sys::class_addmethod(
                             c.inner(),

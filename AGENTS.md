@@ -143,6 +143,9 @@ it in the same change.
 - Follow the SDK headers in `max-sys/thirdparty/max-sdk` for signatures and ownership rules; where
   the SDK's examples and its headers disagree, the headers win (there are known cases, listed in
   `doc/plan-containers.md`). Use `c_long`, not `i64`, for SDK `long` parameters (32-bit on Windows).
+- Never use `class_method` or `object_getmethod` as a presence test: Max returns a non-null
+  `method_false` placeholder for an absent method (`ext_obex.h`). Use
+  `wrapper::class_has_method`, which looks in the class' method table.
 - `AttrBuilder` now passes absent offset accessors as null so the SDK installs them (M9 fixed).
   Built `Attr` values own their allocation until added to a class or converted to a raw pointer;
   the wrapper's `MaxObj::IS_JITTER` selects the Jitter constructor and getter allocator.

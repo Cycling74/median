@@ -1101,6 +1101,77 @@ fn method_attributes_through_the_methods_hashtab() {
     assert!(k.console_log().is_empty(), "{:?}", k.console_log());
 }
 
+/// A method that does nothing, for `class_addmethod`.
+extern "C" fn nothing(_: *mut c_void) {}
+
+#[test]
+fn class_method_of_an_absent_method_is_the_non_null_method_false() {
+    let _k = median_mock::lock();
+    register();
+    let fresh = unsafe {
+        max_sys::class_new(
+            c"methodless.thing".as_ptr(),
+            None,
+            None,
+            size_of::<t_object>() as c_long,
+            None,
+            ty::A_GIMME as c_short,
+            0,
+        )
+    };
+    let dsp = DSP_CLASS.load(Ordering::SeqCst);
+    // a class that has registered no method yet, one that has, and an MSP class
+    for (what, c) in [
+        ("fresh", fresh),
+        ("thing", THING_CLASS.load(Ordering::SeqCst)),
+        ("dsp", dsp),
+    ] {
+        unsafe {
+            // like `object_getmethod`, `class_method` gives `method_false()` for a missing method
+            let m = max_sys::class_method(c, sym(c"nonesuch")).expect(what);
+            assert_eq!(m(null_mut()) as usize, 0, "{what}");
+            assert!(
+                m as usize == median_mock::class::method_false as *const () as usize,
+                "{what}"
+            );
+            // the methods hashtab is what tells
+            let methods =
+                max_sys::class_extra_lookup(c, sym(c"methods")) as *mut max_sys::t_hashtab;
+            assert!(!methods.is_null(), "{what}");
+            let mut found: *mut t_object = null_mut();
+            assert_ne!(
+                max_sys::hashtab_lookup(methods, sym(c"nonesuch"), &mut found),
+                0,
+                "{what}"
+            );
+            assert!(found.is_null(), "{what}");
+        }
+    }
+    // after `class_addmethod` the table has it, and `class_method` is the method itself
+    unsafe {
+        max_sys::class_addmethod(
+            fresh,
+            Some(std::mem::transmute::<
+                extern "C" fn(*mut c_void),
+                unsafe extern "C" fn(*mut c_void) -> *mut c_void,
+            >(nothing)),
+            c"notify".as_ptr(),
+            ty::A_CANT as i32,
+            0,
+        );
+        let methods =
+            max_sys::class_extra_lookup(fresh, sym(c"methods")) as *mut max_sys::t_hashtab;
+        let mut found: *mut t_object = null_mut();
+        assert_eq!(
+            max_sys::hashtab_lookup(methods, sym(c"notify"), &mut found),
+            0
+        );
+        assert!(!found.is_null());
+        let m = max_sys::class_method(fresh, sym(c"notify")).unwrap();
+        assert!(m as usize != median_mock::class::method_false as *const () as usize);
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // clocks
 
