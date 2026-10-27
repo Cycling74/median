@@ -5,7 +5,7 @@ use crate::attr::{self, AttrError};
 use crate::class::{self, Raw, SendError, call_raw, with_inlet};
 use crate::state::{ConsoleEntry, DspAdd, InletKind, OutletEvent, SubKind, state};
 use crate::thread::{Role, with_role};
-use max_sys::t_buffer_obj;
+use max_sys::{e_max_atomtypes as ty, t_atom, t_buffer_obj, t_max_err};
 use std::cell::Cell;
 use std::ffi::{c_long, c_void};
 use std::sync::{Mutex, MutexGuard};
@@ -38,6 +38,27 @@ pub fn lock() -> Kernel {
     let kernel = Kernel { _guard: guard };
     kernel.reset();
     kernel
+}
+
+/// What [`Kernel::call`] got back in the reply atom of `object_method_typed`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CallReply {
+    /// `A_NOTHING`: no value (the method has none, or isn't a gimmeback method).
+    Nothing,
+    Int(i64),
+    Float(f64),
+    Symbol(String),
+    /// An atomarray reply: its atoms, copied. The atomarray was freed (`object_free`), as the
+    /// caller of a typed call does, so one that median leaked would stay in
+    /// [`containers::live_count`](crate::containers::live_count).
+    Atoms(Vec<Atom>),
+    /// Any other object reply (a dictionary, say): the caller owns it and must free it, for
+    /// instance by wrapping a dictionary in median's `Dict::from_raw(.., Ownership::Retained)`, or
+    /// with [`Kernel::free_object`].
+    Object(*mut c_void),
+    /// The method answered a non-zero `t_max_err` (what an `Err` of a gimmeback method gives:
+    /// `MAX_ERR_GENERIC`). The reply atom is not read.
+    Error(t_max_err),
 }
 
 /// The exclusive handle to the kernel, from [`lock`]. All the harness operations are methods.
@@ -172,12 +193,76 @@ impl Kernel {
     /// falls back to an
     /// `anything` method. A missing method is [`SendError::NoMethod`] and an error entry in the
     /// console log. `A_CANT` methods cannot be sent to ([`SendError::NotSendable`]); see
-    /// [`method`](Self::method).
+    /// [`method`](Self::method). Nor can `A_GIMMEBACK` methods ([`SendError::TypedOnly`], with an
+    /// error entry in the console log and the method not called): a patch-cord message is not
+    /// expected to reach one, which is an assumption about Max (see [`call`](Self::call) for the
+    /// way that does).
     ///
     /// Methods run on the calling thread with no kernel lock held, so they may call back into the
     /// kernel freely.
     pub fn send(&self, obj: *mut c_void, selector: &str, atoms: &[Atom]) -> Result<(), SendError> {
         class::dispatch(obj as usize, selector, atoms).map(|_| ())
+    }
+
+    /// A typed call, as `js` or `object_method_typed` makes it: `selector atoms...` to `obj`, with
+    /// a reply atom. The selector is resolved as for [`send`](Self::send), but an `A_GIMMEBACK`
+    /// method is the one that answers (and is called as `(x, s, ac, av, rv)`); any other method
+    /// is called as a message would and gives [`CallReply::Nothing`]. A non-zero `t_max_err` is
+    /// [`CallReply::Error`], and an object (`A_OBJ`) reply is read as [`CallReply`] says.
+    /// A receiver that is not live or has no method is `Err`.
+    // `lookup` checks `obj` against the live table first, and `object_method_typed` does again
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn call(
+        &self,
+        obj: *mut c_void,
+        selector: &str,
+        atoms: &[Atom],
+    ) -> Result<CallReply, SendError> {
+        class::lookup(obj as usize, selector, atoms)?;
+        let mut raw: Vec<t_atom> = atoms.iter().map(Atom::to_raw).collect();
+        // not A_NOTHING, so that a method that leaves `rv` alone is seen by `object_method_typed`
+        // resetting it
+        let mut rv = Atom::Long(0x5eed).to_raw();
+        // SAFETY: `obj` is live (checked), the selector is interned, `raw` holds `raw.len()`
+        // atoms and `rv` is writable
+        let code = unsafe {
+            class::object_method_typed(
+                obj,
+                crate::symbols::intern(selector.as_bytes()),
+                raw.len() as c_long,
+                raw.as_mut_ptr(),
+                &mut rv,
+            )
+        };
+        if code != 0 {
+            return Ok(CallReply::Error(code));
+        }
+        Ok(match rv.a_type as u32 {
+            ty::A_LONG => CallReply::Int(unsafe { rv.a_w.w_long } as i64),
+            ty::A_FLOAT => CallReply::Float(unsafe { rv.a_w.w_float }),
+            ty::A_SYM => {
+                CallReply::Symbol(crate::symbols::name_of(unsafe { rv.a_w.w_sym } as usize))
+            }
+            ty::A_OBJ => {
+                let p = unsafe { rv.a_w.w_obj } as *mut c_void;
+                // SAFETY: `rv` is a valid atom
+                if unsafe { crate::containers::atomisatomarray(&mut rv) } == 1 {
+                    let mut n = 0;
+                    let mut items = std::ptr::null_mut();
+                    // SAFETY: `p` is a live atomarray (just checked)
+                    let atoms = unsafe {
+                        max_sys::atomarray_getatoms(p.cast(), &mut n, &mut items);
+                        crate::atoms::atoms_from_raw(n.max(0) as usize, items)
+                    };
+                    // SAFETY: the reply is the caller's to free
+                    unsafe { max_sys::object_free(p) };
+                    CallReply::Atoms(atoms)
+                } else {
+                    CallReply::Object(p)
+                }
+            }
+            _ => CallReply::Nothing,
+        })
     }
 
     /// `send(obj, "bang", [])`.

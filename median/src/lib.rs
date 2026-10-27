@@ -167,6 +167,14 @@
 //! Max console for the object unless you override it, so `?` works in methods. A panic in a
 //! method is caught and posted too: it never unwinds into Max.
 //!
+//! # Methods that answer a typed caller
+//!
+//! A method registered with [`Class::add_sel_gimmeback`](class::Class::add_sel_gimmeback)
+//! (`A_GIMMEBACK`) is a gimme method that also returns a value to callers that pass a reply
+//! atom (`js`, `object_method_typed`). It returns a [`Reply`](gimmeback::Reply), something that
+//! converts to one, or a `Result` of one; see [`gimmeback`]. A patch-cord message is not expected
+//! to reach it. (There is no macro marker for it yet.)
+//!
 //! # Without the macros
 //!
 //! Everything the macros generate is a short, ordinary trait impl calling public API:
@@ -199,6 +207,7 @@ pub mod error;
 pub mod ffi;
 pub mod fifo;
 pub mod file;
+pub mod gimmeback;
 pub mod inlet;
 pub mod jit;
 pub mod method;

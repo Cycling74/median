@@ -6,6 +6,7 @@ use crate::attr::{
 };
 use crate::defer::Defer;
 use crate::error::{MaxError, MaxResult};
+use crate::gimmeback::GimmebackResult;
 use crate::method::*;
 use crate::object::MaxObj;
 use crate::symbol::SymbolRef;
@@ -741,6 +742,71 @@ impl<W> Class<W> {
         let m = sel_gimme_method::<W, T, F, R, A>(f);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
+    }
+
+    /// Register the method `sel` as a gimme method with a return value (`A_GIMMEBACK`): the
+    /// arguments as a list of atoms, as for [`add_sel_gimme`](Self::add_sel_gimme) (the callable
+    /// takes either shape, see [`GimmeFn`]), and the method returns what the caller gets back in
+    /// its reply atom. The return type is anything [`GimmebackResult`] accepts: a
+    /// [`Reply`](crate::gimmeback::Reply), a value that converts to one, or a `Result` of one with
+    /// an `E: Display` error (reported to the type's `report_error`; the caller then gets no
+    /// value and `MAX_ERR_GENERIC`).
+    ///
+    /// It is for typed callers, the ones that pass a reply atom: `js`, `object_method_typed` from
+    /// another external, and (in a later step) the dumpout wrap of a Jitter class. A message
+    /// from a patch cord is not expected to reach it: `A_GIMMEBACK` is not an argument type the
+    /// message type checker converts to. That is an assumption, not something the headers say, to
+    /// be checked in a host (`doc/plan-gimmeback.md`, "Host checks"). A method that should answer
+    /// both a patch cord and a typed caller registers two selectors: an
+    /// [`add_sel_gimme`](Self::add_sel_gimme) method that sends out an outlet and this.
+    ///
+    /// Ownership of an object reply ([`Reply::Atoms`](crate::gimmeback::Reply::Atoms),
+    /// `Reply::Array` and `Reply::Dict` are `A_OBJ` atoms) goes to the caller, who frees it:
+    /// median assumes this from the SDK's `simplejs` example, which returns a fresh atomarray
+    /// through `atom_setobj` and never frees it, and the assumption is still to be checked in a
+    /// host. There is no deferred variant: a reply can't be delivered after the call returns.
+    ///
+    /// The `doAbs` method of `simplejs` (the absolute value of its one argument, or of each of
+    /// several), written by hand:
+    ///
+    /// ```ignore
+    /// c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
+    ///
+    /// fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
+    ///     match atoms {
+    ///         [] => Err("missing argument for method doAbs()".into()),
+    ///         [one] => Ok(match one.get_value() {
+    ///             Some(AtomValue::Int(i)) => Reply::Int(i.abs()),
+    ///             Some(AtomValue::Float(f)) => Reply::Float(f.abs()),
+    ///             _ => Reply::Nothing,
+    ///         }),
+    ///         many => Ok(Reply::Atoms(
+    ///             many.iter()
+    ///                 .map(|a| match a.get_value() {
+    ///                     Some(AtomValue::Int(i)) => Atom::from(i.abs()),
+    ///                     Some(AtomValue::Float(f)) => Atom::from(f.abs()),
+    ///                     _ => Atom::from(a.get_symbol()),
+    ///                 })
+    ///                 .collect(),
+    ///         )),
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// `sel` must not be one of [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP
+    /// class, [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
+    pub fn add_sel_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        F: GimmeFn<T, R, A>,
+        R: GimmebackResult,
+    {
+        if is_untyped_selector(sel) {
+            return Err(MaxError::Duplicate);
+        }
+        let m = sel_gimmeback_method::<W, T, F, R, A>(f);
+        // SAFETY: `m` is a trampoline taking the object and the registered arguments
+        unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMMEBACK]) }
     }
 
     /// [`add_bang`](Self::add_bang), deferred to the main thread as `mode` says (see

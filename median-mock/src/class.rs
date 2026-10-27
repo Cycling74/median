@@ -569,6 +569,8 @@ fn object_method_signature(x: usize, s: usize) -> Result<(Option<usize>, Vec<c_i
         .ok_or_else(|| format!("no method \"{sel}\""))?;
     let kinds = if rec.types.as_slice() == [ty::A_GIMME as i32] {
         vec![METHOD_PTR, METHOD_LONG, METHOD_PTR]
+    } else if rec.types.as_slice() == [ty::A_GIMMEBACK as i32] {
+        vec![METHOD_PTR, METHOD_LONG, METHOD_PTR, METHOD_PTR]
     } else {
         rec.types.iter().map(|&t| match t as u32 {
             ty::A_LONG | ty::A_DEFLONG => Ok(METHOD_INT),
@@ -611,7 +613,8 @@ pub unsafe extern "C" fn median_mock_object_method_signature(
 }
 
 /// Dispatch arguments collected with the registered ABI. Supports up to five typed arguments,
-/// A_GIMME's explicit `(symbol, long, atoms)` arguments, and buffer~'s `getname(symbol**)`.
+/// A_GIMME's explicit `(symbol, long, atoms)` arguments, A_GIMMEBACK's `(symbol, long, atoms, rv)`
+/// (the result is its `t_max_err`), and buffer~'s `getname(symbol**)`.
 /// Default argument types still require actual arguments: this raw API performs no defaulting.
 ///
 /// # Safety
@@ -687,6 +690,11 @@ pub enum SendError {
     NoMethod(String),
     /// The method is `A_CANT`: it cannot be reached by a message, only by a direct call.
     NotSendable(String),
+    /// The method is `A_GIMMEBACK`: a message from a patcher cannot reach it, only a typed call
+    /// (`object_method_typed`, [`crate::Kernel::call`]). This models an assumption about Max
+    /// that no header states, so it is a different case from `NotSendable`, whose `A_CANT`
+    /// meaning is documented.
+    TypedOnly(String),
     /// The atoms do not satisfy the method's argument types.
     BadArgs { selector: String, reason: String },
     /// There is no inlet at that position.
@@ -758,7 +766,8 @@ fn resolve(c: &ClassData, sel: &str, atoms: &[Atom]) -> Option<(String, MethodRe
 }
 
 /// Call `rec` (a method of `obj`) with `atoms`: `A_GIMME` methods get `(x, sym, argc, argv)`,
-/// typed ones their converted arguments.
+/// typed ones their converted arguments. An `A_GIMMEBACK` method is refused
+/// ([`SendError::TypedOnly`]): see [`object_method_typed`] for the way to call it.
 fn invoke(
     obj: usize,
     selector: &str,
@@ -777,6 +786,9 @@ fn invoke(
             ]
         }
         [t] if *t as u32 == ty::A_CANT => return Err(SendError::NotSendable(selector.to_string())),
+        [t] if *t as u32 == ty::A_GIMMEBACK => {
+            return Err(SendError::TypedOnly(selector.to_string()));
+        }
         types => {
             let mut raws = vec![Raw::I(obj)];
             raws.extend(
@@ -814,6 +826,21 @@ pub(crate) fn dispatch(obj: usize, sel: &str, atoms: &[Atom]) -> Result<*mut c_v
         return Err(SendError::NoMethod(sel.to_string()));
     };
     let res = invoke(obj, &used, &rec, atoms);
+    if let Err(SendError::TypedOnly(_)) = &res {
+        let class_name = {
+            let st = state();
+            st.objects
+                .get(&obj)
+                .map(|o| st.classes[&o.class].name.clone())
+        };
+        state().post_error(
+            obj,
+            format!(
+                "{}: {used} is a typed-call (A_GIMMEBACK) method; a patcher message cannot reach it",
+                class_name.unwrap_or_default()
+            ),
+        );
+    }
     if let Err(SendError::BadArgs { reason, .. }) = &res {
         let class_name = {
             let st = state();
@@ -830,6 +857,84 @@ pub(crate) fn dispatch(obj: usize, sel: &str, atoms: &[Atom]) -> Result<*mut c_v
         );
     }
     res
+}
+
+/// Whether `obj` would answer `sel atoms` (see [`resolve`]): `NotLive` or `NoMethod` if not.
+pub(crate) fn lookup(obj: usize, sel: &str, atoms: &[Atom]) -> Result<(), SendError> {
+    let st = state();
+    let Some(o) = st.objects.get(&obj) else {
+        return Err(SendError::NotLive);
+    };
+    resolve(&st.classes[&o.class], sel, atoms)
+        .map(|_| ())
+        .ok_or_else(|| SendError::NoMethod(sel.to_string()))
+}
+
+/// `object_method_typed` (`ext_obex.h`): send `s` with the arguments `av` to `x`, with the result
+/// in `rv`. "If the receiver object can respond to the message, `object_method_typed()` returns
+/// the result in `rv`. Otherwise, `rv` will contain an `A_NOTHING` atom." The selector is
+/// resolved as [`crate::Kernel::send`] does (including its fallbacks). Then:
+///
+/// * an `A_GIMMEBACK` method is called as `(x, s, ac, av, rv)` and its `t_max_err` is returned
+///   (a null `rv` is `MAX_ERR_GENERIC` and the method is not called);
+/// * an `A_GIMME` method is called as `(x, s, ac, av)`, and a typed method with its converted
+///   arguments (as for a message), and `MAX_ERR_NONE` is returned; `rv` stays `A_NOTHING`;
+/// * an unknown selector, arguments that don't fit a typed method, or an `A_CANT` method are
+///   `MAX_ERR_GENERIC`; a receiver that is not a live object is `MAX_ERR_INVALID_PTR`.
+///
+/// Whoever reads an `A_OBJ` reply owns it (the mock doesn't free it): the assumption the SDK's
+/// `simplejs` example implies and median builds on.
+///
+/// # Safety
+/// `s` is an interned symbol, `av` is valid for `ac` atoms (or `ac` is 0), and `rv` is null or
+/// writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn object_method_typed(
+    x: *mut c_void,
+    s: *mut t_symbol,
+    ac: c_long,
+    av: *mut max_sys::t_atom,
+    rv: *mut max_sys::t_atom,
+) -> t_max_err {
+    if !rv.is_null() {
+        // SAFETY: the caller's contract
+        unsafe {
+            (*rv).a_type = ty::A_NOTHING as _;
+            (*rv).a_w.w_long = 0;
+        }
+    }
+    let obj = x as usize;
+    // SAFETY: the caller's contract
+    let atoms = unsafe { crate::atoms::atoms_from_raw(ac.max(0) as usize, av) };
+    let found = {
+        let st = state();
+        let Some(o) = st.objects.get(&obj) else {
+            return max_err(err::MAX_ERR_INVALID_PTR);
+        };
+        resolve(&st.classes[&o.class], &name_of(s as usize), &atoms)
+    };
+    let Some((used, rec)) = found else {
+        return max_err(err::MAX_ERR_GENERIC);
+    };
+    if rec.types.as_slice() == [ty::A_GIMMEBACK as i32] {
+        if rv.is_null() {
+            return max_err(err::MAX_ERR_GENERIC);
+        }
+        let raws = [
+            Raw::I(obj),
+            Raw::I(intern(used.as_bytes()) as usize),
+            Raw::I(ac.max(0) as usize),
+            Raw::I(av as usize),
+            Raw::I(rv as usize),
+        ];
+        // SAFETY: `rec.fun` was registered `A_GIMMEBACK`: `(x, s, ac, av, rv) -> t_max_err`
+        let code = unsafe { call_raw(rec.fun, &raws) };
+        return code as isize as t_max_err;
+    }
+    match invoke(obj, &used, &rec, &atoms) {
+        Ok(_) => max_err(err::MAX_ERR_NONE),
+        Err(_) => max_err(err::MAX_ERR_GENERIC),
+    }
 }
 
 /// Look up a class by name in any namespace (`box` first).

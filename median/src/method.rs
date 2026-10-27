@@ -2,6 +2,7 @@
 use crate::{
     atom::Atom,
     defer::{Defer, DeferredCall, OwnedAtoms},
+    gimmeback::GimmebackResult,
     notify::Notification,
     object::MaxObj,
     symbol::SymbolRef,
@@ -596,6 +597,39 @@ pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R, A>(
     });
 }
 
+/// The trampoline of an `A_GIMMEBACK` method (`gimmeback_meth` in `ext_mess.h`): the `A_GIMME`
+/// arguments and a `t_atom` for the reply, answering a `t_max_err`.
+///
+/// `*rv` is set to `A_NOTHING` before the method runs, so a panic or an `Err` leaves that for the
+/// caller. A null `rv` is tolerated: the method runs and its reply is dropped (an atomarray or a
+/// dictionary is freed).
+pub(crate) extern "C" fn sel_gimmeback_tramp<W, T, F, R, A>(
+    w: &W,
+    sel: *mut max_sys::t_symbol,
+    ac: c_long,
+    av: *const max_sys::t_atom,
+    rv: *mut max_sys::t_atom,
+) -> max_sys::t_max_err
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: GimmeFn<T, R, A>,
+    R: GimmebackResult,
+{
+    if !rv.is_null() {
+        // SAFETY: the caller passes a writable atom for the reply
+        unsafe { crate::gimmeback::set_nothing(rv) };
+    }
+    crate::ffi::guard_or(w, "method", crate::ffi::ERR_GENERIC, || {
+        // SAFETY: as `any_tramp`
+        let sel = unsafe { SymbolRef::from_raw(sel) };
+        let r = F::call(unsafe { zst::<F>() }, w.wrapped(), &sel, unsafe {
+            atoms(ac, av)
+        });
+        // SAFETY: `rv` is null or the caller's writable atom, which holds `A_NOTHING` (above)
+        unsafe { r.write_reply(rv, &mut |err| w.report_error(err)) }
+    })
+}
+
 // The trampoline of each typed method as Max wants it. `Class::add_*` registers these, and the
 // tests call them without a class.
 
@@ -713,6 +747,25 @@ where
 
 /// The signature of a trampoline for an `A_GIMME` method.
 type GimmeTramp<W> = extern "C" fn(&W, *mut max_sys::t_symbol, c_long, *const max_sys::t_atom);
+
+pub(crate) fn sel_gimmeback_method<W, T, F, R, A>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: GimmeFn<T, R, A>,
+    R: GimmebackResult,
+{
+    // SAFETY: as `list_method`
+    unsafe { erase(sel_gimmeback_tramp::<W, T, F, R, A> as GimmebackTramp<W>) }
+}
+
+/// The signature of a trampoline for an `A_GIMMEBACK` method.
+type GimmebackTramp<W> = extern "C" fn(
+    &W,
+    *mut max_sys::t_symbol,
+    c_long,
+    *const max_sys::t_atom,
+    *mut max_sys::t_atom,
+) -> max_sys::t_max_err;
 
 //
 // Deferred methods (see `crate::defer`): the trampolines copy the arguments and either run the

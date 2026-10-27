@@ -36,6 +36,10 @@
 //!   `o_messlist` pointing into the class as in Max), `object_free` (runs the class's free method
 //!   first, then releases the object's inlets, outlets and registrations, then the memory),
 //!   `freeobject`, `object_method` (see its docs for the restrictions).
+//! * Typed calls: `object_method_typed` and `A_GIMMEBACK` methods (also through `object_method`),
+//!   [`Kernel::call`] to make one and read its [`CallReply`]. A patcher message
+//!   ([`Kernel::send`]) to an `A_GIMMEBACK` method is refused ([`SendError::TypedOnly`]), which
+//!   models an assumption about Max that the headers don't state.
 //! * Inlets and outlets: `outlet_new`, `outlet_append`, `outlet_bang/int/float/list/anything`,
 //!   `inlet_new`, `intin`, `floatin`, `proxy_new`, `proxy_getinlet`. `outlet_new` makes each new
 //!   outlet the leftmost, as in Max, and `outlet_append` (which median uses) adds to the right.
@@ -111,6 +115,6 @@ pub mod thread;
 pub use atoms::Atom;
 pub use attr::{AttrError, GetterArgs, GetterResult};
 pub use class::SendError;
-pub use kernel::{Kernel, lock};
+pub use kernel::{CallReply, Kernel, lock};
 pub use state::{ConsoleEntry, DspAdd, InletKind, Level, OutletEvent};
 pub use thread::Role;

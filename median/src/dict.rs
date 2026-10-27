@@ -817,6 +817,13 @@ impl AtomArray {
     pub fn try_clone(&self) -> DictResult<Self> {
         Self::new(&self.atoms()?)
     }
+    /// Give up the atomarray without freeing it: the caller owns the one reference now (as with
+    /// [`Dict::into_raw`]).
+    pub fn into_raw(self) -> *mut sys::t_atomarray {
+        let p = self.0.as_ptr();
+        std::mem::forget(self);
+        p
+    }
 }
 impl Drop for AtomArray {
     fn drop(&mut self) {

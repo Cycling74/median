@@ -305,6 +305,26 @@ another object. It can follow the first cut once the ownership check has passed 
 3. Jitter: a message to a core-class gimmeback method sends the reply out dumpout; an
    atomarray reply as a list; which selector the reply carries; no leak.
 
+## Status
+
+Step 1 is done (`median/src/gimmeback.rs`, `sel_gimmeback_tramp` in `method.rs`,
+`Class::add_sel_gimmeback`, the mock's `object_method_typed`/`Kernel::call`/`SendError::TypedOnly`,
+`median/tests/gimmeback.rs`, `median-mock/tests/object_method_typed.rs`). Where it differs from
+the sketch above:
+
+- `Reply` has a seventh variant, `Array(AtomArray)`: `From<AtomArray> for Reply` can't be
+  infallible without it (`Atoms(Vec<Atom>)` would have to copy the array out and can fail).
+- `Atom` is neither `Copy` nor `Clone`, so the `_ => *a` in the `doAbs` sketch does not compile;
+  the tests and the `add_sel_gimmeback` docs use `Atom::from(a.get_symbol())`.
+- A list that `AtomArray::new` refuses for a reason other than allocation (an object atom) is
+  posted to `report_error` and answers `MAX_ERR_GENERIC`; only an allocation failure answers
+  `MAX_ERR_OUT_OF_MEM`. Either way `rv` stays `A_NOTHING`.
+- `Dict::from_raw` takes `Ownership::Retained` (not `Owned`) for a reference the caller already
+  holds, which is what a test uses to take over a `Reply::Dict`.
+- The mock's `Kernel::call` returns `Result<CallReply, SendError>`; a method that answers a
+  non-zero `t_max_err` is `Ok(CallReply::Error(code))`. A patcher message to a gimmeback method is
+  `SendError::TypedOnly` (a new variant: `NotSendable` documents `A_CANT`, this is an assumption).
+
 ## Order
 
 0. `GimmeFn` and the selector-less `#[sel_gimme]` (its own commit: it changes existing API).
