@@ -151,7 +151,7 @@
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
-//! | `#[notify]` | `notify` (`A_CANT`): a notification from an attached or subscribed object | `fn(&self, &Notification)` |
+//! | `#[notify]` | `notify` (`A_CANT`): a notification from an attached or subscribed object; not on a Jitter type (`kind = matrix_op`/`gl`: a compile error: the SDK wrapper owns `notify` there) | `fn(&self, &Notification)` |
 //! | `#[dictionary]` | a retained registered dictionary | `fn(&self, Dict)` |
 //! | `#[savestate]` | `appendtodictionary` (`A_CANT`): patcher save | `fn(&self, &Dict)` |
 //!

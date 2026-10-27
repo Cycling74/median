@@ -412,8 +412,9 @@ instead of `Int64` (H4, good instinct); `SymbolRef::to_string().expect(..)` ever
 - Port `simp`, `hello_dsp`, `multi`, `templates/max`, then `simplemax` (the `igk/examples` branch
   is deleted; port the SDK's `basics/simplemax/simplemax.c` directly).
 - Write `doc/migration-0.3.md` from the diff of the examples: old form, new form, one line each. Done: [migration-0.3.md](migration-0.3.md).
-- Keep `external!` for one release as a deprecated shim that expands to the new forms, if the
-  cost is low; otherwise drop it and point at the migration doc.
+- ~~Keep `external!` for one release as a deprecated shim that expands to the new forms, if the
+  cost is low; otherwise drop it and point at the migration doc.~~ Dropped (step 3, confirmed
+  by the user 2026-10-27): no shim, no aliases; `migration-0.3.md` is the path.
 
 ## Order of implementation
 
@@ -520,9 +521,37 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   deferred calls with DSP on and across a modal dialog, `qelem_set` inside its own function,
   `qelem_set` from the audio thread, attribute options in the inspector,
   and the two clock gaps from step 1.
-- Not done from this plan: the derive finding the `ObjRef` field (section A);
-  `#[notify]`; `defer_delivery()`; maxref fields
-  (`description`/`author`/`tags`). Out of scope by design: `dynlet`, several `#[methods]` blocks.
+- Continuation (2026-10-27, after the review): `#[notify]`, `defer_delivery()` and the maxref
+  fields are done, see below. The derive finding the `ObjRef` field (section A) is dropped:
+  `b.obj()` hands the handle out any number of times and the post macros take `&ObjRef` by
+  the step 1 decision, so a generated accessor would have no consumer. Out of scope by design:
+  `dynlet`, several `#[methods]` blocks, and any compatibility with the 0.2 `external!` macros
+  (the user confirmed on 2026-10-27: no shim, no aliases; the "Migration" bullet below is
+  superseded).
+  - `#[notify]` / `Class::add_notify(f)` (`F: Fn(&T, &Notification) -> R`): registered like
+    `dblclick`/`loadbang` through a guarded generic trampoline under `notify` (`A_CANT`), the
+    only path allowed to take that reserved selector. `handle_notification` is gone from
+    `MaxObjWrapped`/`MSPObjWrapped`. The wrapper installs its own `notify` (the `buffer~`
+    reference forwarding only) only when the class has none after registration, and the
+    `add_notify` trampoline forwards to the buffer references before the user method; the
+    Jitter glue registers its forwarding `notify` the same way, still only when the SDK wrapper
+    installed none. A `#[notify]`/`add_notify` on a Jitter type is a `cargo build` error
+    (`MaxObj::SUPPORTS_NOTIFY` is false for the forwarding wrapper; a post-monomorphisation
+    assert, `ui/jitter_notify`): the SDK wrapper owns `notify` and the glue forwards it to
+    `JitterObject::notify` (`MatrixOp`/`Ob3d` get it through the blanket impl). For that
+    case the trybuild suite now has a pass case (`tests/ui_pass`), so it builds rather than
+    checks and those asserts fire. `#[notify]` cannot be deferred (a `Notification` holds raw
+    pointers). `simp`/`simp_explicit` show both styles; `tests/notify.rs`, `ui/methods_notify`.
+  - `b.clock_deferred(f)` / `clock_deferred_with(closure)` (min's `defer_delivery`): a `Clock`
+    whose scheduler-thread tick only sets a qelem the `Clock` owns, so the callback runs on the
+    main thread at low priority; ticks coalesce while one is queued, a tick during the callback
+    is lost for that round (`qelem_set` inside its own function is a no-op), `cancel()` unsets
+    both. Both targets are armed and cleared by the wrapper as before. `tests/clock_deferred.rs`.
+  - `#[max(description = "..", author = "..", tags = "a, b")]` are collected by the derive and
+    exposed as defaulted `ObjClass::description()`/`author()`/`tags()`; nothing consumes them
+    yet. Maxref generation stays later; the suggested design is a mock-driven generator (create
+    the object in `median-mock`, read the iolet table, assist strings, methods and attributes,
+    write the XML), which needs no Max. `ui/derive_maxref`.
 - Next, outside this plan: `TODO.md` (backport f587265 to 0.2.x deferred by the user), then
   [plan-branches-and-build.md](plan-branches-and-build.md) steps 3-5 (the user wants Jitter's
   known bugs fixed and its feature flag dropped after this plan).

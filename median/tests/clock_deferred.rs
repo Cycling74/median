@@ -28,6 +28,9 @@ pub struct Deferred {
 
 /// What the `clock_deferred_with` closure of the last `Deferred` counts.
 static COUNTED: AtomicUsize = AtomicUsize::new(0);
+/// How many clocks `lost_run`'s nested `advance_nested` fired, and how often `lost_run` has run.
+static NESTED_FIRED: AtomicUsize = AtomicUsize::new(usize::MAX);
+static LOST_RUNS: AtomicUsize = AtomicUsize::new(0);
 
 impl MaxObjWrapped for Deferred {
     fn new(b: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
@@ -81,9 +84,10 @@ impl Deferred {
     pub fn lost_run(&self) {
         let n = self.lost_runs.get() + 1;
         self.lost_runs.set(n);
+        LOST_RUNS.store(n as usize, Ordering::SeqCst);
         if n == 1 {
             self.lost.delay(1);
-            median_mock::Kernel::advance_nested(1.0);
+            NESTED_FIRED.store(median_mock::Kernel::advance_nested(1.0), Ordering::SeqCst);
         }
     }
 
@@ -231,12 +235,19 @@ fn a_tick_while_the_callback_runs_is_lost() {
     //it (here, by a tick that the scheduler delivers from inside the callback) does nothing
     let k = median_mock::lock();
     register();
+    NESTED_FIRED.store(usize::MAX, Ordering::SeqCst);
+    LOST_RUNS.store(0, Ordering::SeqCst);
     let obj = k.new_object("clock.deferred", &[]);
     k.send(obj, "lost", &[]).unwrap();
     assert_eq!(k.advance(1.), 1);
     assert_eq!(k.run_main_queue(), 1);
+    //the clock did fire during the callback ...
+    assert_eq!(NESTED_FIRED.load(Ordering::SeqCst), 1);
+    //... and that tick produced no call: the callback ran once, and nothing is left to drain
+    assert_eq!(LOST_RUNS.load(Ordering::SeqCst), 1);
     assert_eq!(k.main_queue_len(), 0);
     assert_eq!(k.run_main_queue(), 0);
+    assert_eq!(LOST_RUNS.load(Ordering::SeqCst), 1);
     //a tick after the callback returned runs it again
     k.send(obj, "lost", &[]).unwrap();
     assert_eq!(k.advance(1.), 1);

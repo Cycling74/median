@@ -53,6 +53,8 @@ struct Jitter {
     inletinfo_calls: Vec<(usize, usize, c_long)>,
     mop_owners: std::collections::HashSet<usize>,
     fail_mop_setup: bool,
+    no_sdk_notify: bool,
+    mop_notify_calls: Vec<(usize, String, String)>,
 }
 static JIT: LazyLock<parking_lot::Mutex<Jitter>> =
     LazyLock::new(|| parking_lot::Mutex::new(Jitter::default()));
@@ -84,6 +86,8 @@ pub(crate) fn reset() {
     jit.inletinfo_calls.clear();
     jit.mop_owners.clear();
     jit.fail_mop_setup = false;
+    jit.no_sdk_notify = false;
+    jit.mop_notify_calls.clear();
     jit.contexts.clear();
     jit.max_objects.clear();
     jit.dumps.clear();
@@ -106,6 +110,16 @@ pub fn take_inletinfo_calls() -> Vec<(usize, usize, c_long)> {
 }
 pub fn fail_next_mop_setup() {
     JIT.lock().fail_mop_setup = true;
+}
+/// Until the next kernel reset, `max_jit_class_wrap_standard` installs no `notify` method (the
+/// SDK's wrapper does not for every class; median then installs its own). Set it before the
+/// class is registered.
+pub fn skip_sdk_notify() {
+    JIT.lock().no_sdk_notify = true;
+}
+/// The `max_jit_mop_notify` calls so far, as (object, sender name, message), cleared by the call.
+pub fn take_mop_notify_calls() -> Vec<(usize, String, String)> {
+    std::mem::take(&mut JIT.lock().mop_notify_calls)
 }
 pub fn live_mop_count() -> usize {
     JIT.lock().mop_owners.len()
@@ -397,7 +411,11 @@ pub unsafe extern "C" fn max_jit_class_wrap_standard(
     jit: *mut t_class,
     _: c_long,
 ) {
-    JIT.lock().max_classes.insert(c as usize, jit as usize);
+    let no_notify = {
+        let mut jit_state = JIT.lock();
+        jit_state.max_classes.insert(c as usize, jit as usize);
+        jit_state.no_sdk_notify
+    };
     // Install distinguishable SDK-owned callbacks so wrapper tests detect accidental
     // replacement by the ordinary Max iolet/notification trampolines.
     unsafe {
@@ -411,22 +429,24 @@ pub unsafe extern "C" fn max_jit_class_wrap_standard(
             [e_max_atomtypes::A_CANT as i32].as_ptr(),
             1,
         );
-        crate::class::median_mock_class_addmethod(
-            c,
-            Some(std::mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut c_void,
-                    *mut t_symbol,
-                    *mut t_symbol,
-                    *mut c_void,
-                    *mut c_void,
-                ) -> t_max_err,
-                unsafe extern "C" fn(*mut c_void) -> *mut c_void,
-            >(standard_notify)),
-            c"notify".as_ptr(),
-            [e_max_atomtypes::A_CANT as i32].as_ptr(),
-            1,
-        );
+        if !no_notify {
+            crate::class::median_mock_class_addmethod(
+                c,
+                Some(std::mem::transmute::<
+                    unsafe extern "C" fn(
+                        *mut c_void,
+                        *mut t_symbol,
+                        *mut t_symbol,
+                        *mut c_void,
+                        *mut c_void,
+                    ) -> t_max_err,
+                    unsafe extern "C" fn(*mut c_void) -> *mut c_void,
+                >(standard_notify)),
+                c"notify".as_ptr(),
+                [e_max_atomtypes::A_CANT as i32].as_ptr(),
+                1,
+            );
+        }
     }
 }
 unsafe extern "C" fn standard_inletinfo(
@@ -575,10 +595,16 @@ pub unsafe extern "C" fn max_jit_mop_free(obj: *mut c_void) {
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_mop_notify(
-    _: *mut c_void,
-    _: *mut t_symbol,
-    _: *mut t_symbol,
+    obj: *mut c_void,
+    sender_name: *mut t_symbol,
+    message: *mut t_symbol,
 ) -> t_jit_err {
+    let call = (
+        obj as usize,
+        name_of(sender_name as usize),
+        name_of(message as usize),
+    );
+    JIT.lock().mop_notify_calls.push(call);
     0
 }
 unsafe fn assist(io: c_long, index: c_long, out: *mut c_char) {
@@ -706,6 +732,33 @@ mod tests {
             );
             assert!(kernel.free_object(obj));
         }
+    }
+
+    #[test]
+    fn wrap_standard_installs_notify_unless_told_not_to() {
+        let kernel = crate::lock();
+        unsafe {
+            let class = class_new(c"mock.jitter.notify".as_ptr(), None, None, 64, None, 0);
+            max_jit_class_wrap_standard(class, std::ptr::null_mut(), 0);
+            assert!(class_method(class, intern(b"notify")).is_some());
+            assert!(class_method(class, intern(b"inletinfo")).is_some());
+            let none = class_new(c"mock.jitter.nonotify".as_ptr(), None, None, 64, None, 0);
+            skip_sdk_notify();
+            max_jit_class_wrap_standard(none, std::ptr::null_mut(), 0);
+            assert!(class_method(none, intern(b"notify")).is_none());
+            assert!(class_method(none, intern(b"inletinfo")).is_some());
+            assert_eq!(
+                max_jit_mop_notify(std::ptr::null_mut(), intern(b"a"), intern(b"b")),
+                0
+            );
+            assert_eq!(
+                take_mop_notify_calls(),
+                [(0, "a".to_string(), "b".to_string())]
+            );
+        }
+        drop(kernel);
+        let _kernel = crate::lock();
+        assert!(!JIT.lock().no_sdk_notify);
     }
 
     #[test]

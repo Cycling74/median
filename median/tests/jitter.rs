@@ -13,6 +13,11 @@ static DROPS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(MaxObject)]
 #[max(name = "jit.test.lifecycle", kind = matrix_op)]
+#[max(
+    description = "A lifecycle test",
+    author = "Some One",
+    tags = "jitter, test"
+)]
 struct Operator {
     obj: JitObjRef,
     #[attr(label = "Gain", clip(0., 4.))]
@@ -178,6 +183,11 @@ fn jitter_registration_callbacks_deferred_ownership_and_partial_construction() {
     );
     let core = median_mock::jit::object_for(obj);
     assert_ne!(core, obj);
+    // the registered wrapper type carries the maxref metadata of the user's type
+    type Glue = median::jit::wrapper::MaxGlue<Operator, median::jit::wrapper::MatrixKind>;
+    assert_eq!(<Glue as ObjClass>::description(), Some("A lifecycle test"));
+    assert_eq!(<Glue as ObjClass>::author(), Some("Some One"));
+    assert_eq!(<Glue as ObjClass>::tags(), ["jitter", "test"]);
     assert_eq!(k.inlet_is_hot(obj, 0), Some(true));
     assert_eq!(k.inlet_is_hot(obj, 1), Some(false));
     assert!(k.method(obj, "ft1").is_some());

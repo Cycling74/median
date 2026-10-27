@@ -547,6 +547,15 @@ impl<W> Class<W> {
     /// [`Class::add_sel`] refuses it. `Err(MaxError::Duplicate)` if the class has a `notify`
     /// method already (added through this `Class` before, or by the SDK's Jitter wrapper).
     ///
+    /// A Jitter class (`kind = matrix_op` or `gl`) cannot use this (nor `#[notify]`): the SDK's
+    /// wrapper, or median's glue, owns `notify` there, so a `#[notify]` method on such a type
+    /// is a compile error. (The glue forwards the notification to `JitterObject::notify`, which
+    /// the matrix and GL kinds implement themselves.)
+    ///
+    /// The wrapper's own `notify` is installed only when the class has none after `class_setup`
+    /// has run, so a `class_setup` that installs `notify` directly through `class_addmethod`
+    /// (instead of this method) also turns off the wrapper's `buffer~` reference forwarding.
+    ///
     /// [`Notification`]: crate::notify::Notification
     pub fn add_notify<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
@@ -554,6 +563,12 @@ impl<W> Class<W> {
         F: Fn(&T, &crate::notify::Notification) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
+        const {
+            assert!(
+                W::SUPPORTS_NOTIFY,
+                "a #[notify] method or Class::add_notify on a Jitter object: the SDK wrapper owns `notify` (the glue forwards it to JitterObject::notify)"
+            )
+        };
         if self.attributes_only {
             return Ok(());
         }

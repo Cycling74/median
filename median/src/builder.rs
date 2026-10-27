@@ -374,9 +374,15 @@ macro_rules! callback_methods {
             /// because `qelem_set` from inside the qelem's own function does nothing (see
             /// [`Queue`] and `ext_proto.h`, `qelem_set`): a deferred clock that re-arms itself
             /// from `f` with a delay shorter than `f`'s run time can miss ticks.
-            /// [`Clock::cancel`] also cancels a tick that is waiting for the main thread. The
-            /// clock can still be scheduled from any thread, `perform` included: only the
-            /// scheduler thread calls `qelem_set`, which is the ordinary qelem case.
+            /// [`Clock::cancel`] also cancels a tick that is waiting for the main thread (a
+            /// tick the scheduler thread has already dispatched can still set the qelem after
+            /// it, so one call can follow `cancel`). The clock's `delay`, `fdelay` and
+            /// `trigger` can be called from any thread, `perform` included: they only schedule
+            /// the Max clock, and the scheduler thread calls `qelem_set`. With Scheduler in
+            /// Audio Interrupt that thread is the audio thread, so `qelem_set` then runs there
+            /// (the same pattern as min-devkit's `defer_delivery`; its real-time safety is
+            /// unverified, see `AGENTS.md`). `cancel` also calls `qelem_unset`: don't call it
+            /// from `perform`, for the same reason.
             ///
             /// As for `clock`, the clock is live once `new` has returned and is disabled (with
             /// its pending call) before the object is dropped; `f` may return `Result<(), E>`.

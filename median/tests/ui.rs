@@ -17,5 +17,8 @@ fn macro_errors() {
     // SAFETY: as above
     unsafe { std::env::set_var("RUSTC_WRAPPER", "") };
     let t = trybuild::TestCases::new();
+    //with a passing case trybuild builds instead of checking, which the cases that fail in a
+    //post-monomorphisation assertion (`jitter_notify`) need
+    t.pass("tests/ui_pass/*.rs");
     t.compile_fail("tests/ui/*.rs");
 }

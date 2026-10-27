@@ -5,3 +5,11 @@ error[E0080]: evaluation panicked: sym!: the symbol name contains a NUL byte
   |                ^^^^^^^^^^^^^^^^^^^^ evaluation of `main::__MEDIAN_SYM` failed here
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `median::sym` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: erroneous constant encountered
+ --> tests/ui/sym_nul.rs:5:16
+  |
+5 |     let _bad = median::sym!("a\0b");
+  |                ^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this note originates in the macro `median::sym` (in Nightly builds, run with -Z macro-backtrace for more info)

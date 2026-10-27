@@ -7,7 +7,10 @@ use median::error::MaxError;
 use median::prelude::*;
 use median_mock::{Atom as MockAtom, Kernel, Level};
 use std::ffi::{CStr, c_void};
-use std::sync::{Mutex, Once};
+use std::sync::{
+    Mutex, Once,
+    atomic::{AtomicUsize, Ordering},
+};
 
 /// A class with a `#[notify]` method that posts the message and refuses `refuse`; it also keeps
 /// a `buffer~` reference, which still gets its notifications.
@@ -42,6 +45,8 @@ impl Derived {
 
 /// What `class_setup` of `Twice` got from registering `notify` twice.
 static TWICE: Mutex<Vec<Result<(), String>>> = Mutex::new(Vec::new());
+/// What the `notify` methods of `Twice` added up: 1 for each call of the first, 100 of the second.
+static TWICE_NOTIFIED: AtomicUsize = AtomicUsize::new(0);
 
 /// Hand-written registration: the second `add_notify` is refused, and so is `add_sel`.
 #[derive(MaxObject)]
@@ -56,8 +61,12 @@ impl MaxObjWrapped for Twice {
     fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
         let mut r = TWICE.lock().unwrap();
         let mut rec = |res: MaxResult<()>| r.push(res.map_err(|e| format!("{e:?}")));
-        rec(c.add_notify(|_: &Self, _: &Notification| {}));
-        rec(c.add_notify(|_: &Self, _: &Notification| {}));
+        rec(c.add_notify(|_: &Self, _: &Notification| {
+            TWICE_NOTIFIED.fetch_add(1, Ordering::SeqCst);
+        }));
+        rec(c.add_notify(|_: &Self, _: &Notification| {
+            TWICE_NOTIFIED.fetch_add(100, Ordering::SeqCst);
+        }));
         rec(c.add_sel_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
     }
 }
@@ -239,10 +248,17 @@ fn the_wrapper_registers_its_own_notify_only_when_there_is_none() {
         assert!(!obj.is_null(), "{name}");
         assert!(k.method(obj, "notify").is_some(), "{name}");
         k.take_console_log();
-        //the default one takes a notification and does nothing
+        TWICE_NOTIFIED.store(0, Ordering::SeqCst);
         send(&k, obj, c"someone", c"anything", std::ptr::null_mut());
-        if name == "notify.none" {
-            assert!(log(&k).is_empty());
+        match name {
+            //the default one takes a notification and does nothing
+            "notify.none" => assert!(log(&k).is_empty()),
+            //the installed one is the user's, not the wrapper's default
+            "notify.derived" => {
+                assert_eq!(log(&k), [(Level::Post, "notified anything".to_string())])
+            }
+            //and the first of two registrations
+            _ => assert_eq!(TWICE_NOTIFIED.load(Ordering::SeqCst), 1),
         }
         assert!(k.free_object(obj));
     }

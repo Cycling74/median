@@ -377,6 +377,14 @@ impl Clock {
     /// Cancel the scheduled run, if any (`clock_unset`). For a deferred clock this also cancels a
     /// tick that is already waiting for the main thread (`qelem_unset`), so the callback does not
     /// run for it; one that is already running does.
+    ///
+    /// A deferred clock can still call back once after `cancel` returns: with Overdrive on, a
+    /// tick that the scheduler thread has dispatched but that has not yet reached its
+    /// `qelem_set` sets the qelem again after `qelem_unset` ran. Also, a deferred clock's
+    /// `cancel` calls `qelem_unset`, whose real-time safety is as unverified as that of
+    /// `qelem_set` from the audio thread (see [`Queue`](crate::queue::Queue)): for a deferred
+    /// clock, don't call it from `perform` (`delay`, `fdelay` and `trigger` are the calls
+    /// meant for there).
     pub fn cancel(&self) {
         unsafe {
             max_sys::clock_unset(self.clock);

@@ -373,6 +373,15 @@ impl<T: JitterObject<K>, K: 'static> ObjClass for MaxGlue<T, K> {
     fn class_type() -> ClassType {
         T::class_type()
     }
+    fn description() -> Option<&'static str> {
+        T::description()
+    }
+    fn author() -> Option<&'static str> {
+        T::author()
+    }
+    fn tags() -> &'static [&'static str] {
+        T::tags()
+    }
 }
 impl<T: JitterObject<K>, K: 'static> FieldAttrs for MaxGlue<T, K> {}
 
@@ -381,6 +390,8 @@ impl<T: JitterObject<K>, K: 'static> FieldAttrs for MaxGlue<T, K> {}
 #[repr(transparent)]
 struct Forward<W, T, K>(W, PhantomData<(T, K)>);
 unsafe impl<W: MaxObj, T, K> MaxObj for Forward<W, T, K> {
+    // `notify` is installed on the Max class before the user's methods are registered
+    const SUPPORTS_NOTIFY: bool = false;
     fn max_obj(&self) -> *mut sys::t_object {
         self.0.max_obj()
     }

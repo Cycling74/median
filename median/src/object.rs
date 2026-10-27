@@ -209,6 +209,12 @@ pub unsafe trait MaxObj: Sized {
     #[doc(hidden)]
     const IS_JITTER: bool = false;
 
+    /// `Class::add_notify` is allowed on a class of this wrapper. `false` for the wrapper the
+    /// methods of a Jitter class are registered through: the SDK wrapper (or median's glue)
+    /// owns `notify` there, and the check is made at compile time.
+    #[doc(hidden)]
+    const SUPPORTS_NOTIFY: bool = true;
+
     fn max_obj(&self) -> *mut max_sys::t_object {
         self as *const Self as *mut max_sys::t_object
     }
