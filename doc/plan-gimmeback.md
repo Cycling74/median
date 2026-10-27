@@ -337,9 +337,8 @@ the sketch above:
   same crate, so those cannot share a file with the `GimmebackResult` and `GimmeFn` errors
   (`methods_sel_gimmeback_signature.rs` and `_types.rs`).
 - `Reply` is not in the prelude: the examples and tests import `median::gimmeback::Reply`.
-- The `GimmeFn` diagnostic says "returning `()` or `Result<(), E>`", which is wrong when the
-  caller is `add_sel_gimmeback` (seen in `methods_sel_gimmeback_types.stderr`, for a method with
-  the wrong arguments). Left as is, since rewording it changes `methods_sel_gimme_types.stderr`.
+- The `GimmeFn` diagnostic no longer mentions the return type (it is checked separately, by
+  `MethodResult` or `GimmebackResult`).
 
 ## Order
 
