@@ -148,7 +148,7 @@
 //! | `#[any]` | `anything` | `fn(&self, &SymbolRef, &[Atom])` |
 //! | `#[sel("name")]`, `#[sel("name", defaults = n)]` | `name` | `fn(&self, A1, .., An)`, up to 7 arguments that are each `f64`, `t_atom_long` or `SymbolRef`, either all `f64` or none (Max can't pass a mix: use `#[gimme]`); the last `n` may be left out (they are then 0 or the empty symbol) |
 //! | `#[gimme("name")]` | `name` | `fn(&self, &[Atom])` (the marker names the selector; with [`Class::add_gimme`](class::Class::add_gimme) the method may also take the `&SymbolRef`, one function for several selectors) |
-//! | `#[gimmeback("name")]` | `name`, for typed callers (`js`, `object_method_typed`; `A_GIMMEBACK`); marked `undocumented` so it is not in the patcher's message list, because a patch cord cannot reach it (observed 2026-10-27: `bad arguments`/`missing arguments`, see [`gimmeback`]) | `fn(&self, &[Atom]) -> R` (with [`Class::add_gimmeback`](class::Class::add_gimmeback) the method may also take the `&SymbolRef`), `R` a [`Reply`](gimmeback::Reply), a plain value that converts to one or a `Result` of one with `E: Display`; not deferrable |
+//! | `#[gimmeback("name")]` | `name`, for typed callers (`js`, `object_method_typed`; `A_GIMMEBACK`); marked `undocumented` so it is not in the patcher's message list, because a patch cord cannot reach it (observed 2026-10-27: `bad arguments`/`missing arguments`, see [`gimmeback`]); an object reply is leaked by a caller that discards it (`js`, observed 2026-10-27), so prefer a scalar reply on a Max class | `fn(&self, &[Atom]) -> R` (with [`Class::add_gimmeback`](class::Class::add_gimmeback) the method may also take the `&SymbolRef`), `R` a [`Reply`](gimmeback::Reply), a plain value that converts to one or a `Result` of one with `E: Display`; not deferrable |
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
@@ -177,6 +177,10 @@
 //! (Max 9.2 reports `bad arguments`/`missing arguments` and does not run it, observed 2026-10-27),
 //! so on a Max class the method is marked `undocumented` and does not appear in the patcher's
 //! message list. `#[gimmeback("name")]` in `#[median::methods]` registers a method the same way.
+//! `js` cannot read the reply (`Maxobj.message` returns its own function object) and leaks an
+//! object reply (`Reply::Atoms`/`Array`/`Dict`: about 64 KiB per 4096-atom reply, never released;
+//! observed 2026-10-27), so on a Max class prefer `Int`/`Float`/`Symbol`/`Nothing` unless the
+//! caller is known to read the reply, in Max today another external calling `object_method_typed`.
 //!
 //! On a Jitter type (`kind = matrix_op` or `gl`), `#[gimmeback]` lands on the Max wrapper, so
 //! only typed callers reach it. `add_gimmeback` on the Jitter class in `class_setup` registers
@@ -184,7 +188,9 @@
 //! a patcher message to the selector gets the reply out the dumpout outlet, as a list under the
 //! selector without its leading `get` (`getvalues` answers as `values`; observed in Max 9.2 on
 //! 2026-10-27, `doc/validation-max.md`). The method on the Jitter class is not marked
-//! `undocumented`: the Max wrapper's own method is what the patcher uses.
+//! `undocumented`: the Max wrapper's own method is what the patcher uses. The wrap consumes and
+//! frees an object reply (observed 2026-10-27: no growth over six thousand 64 KiB replies), so
+//! object replies belong on this path.
 //!
 //! # Without the macros
 //!

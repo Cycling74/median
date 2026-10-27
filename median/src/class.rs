@@ -764,8 +764,8 @@ impl<W> Class<W> {
     /// It is for typed callers, the ones that pass a reply atom: `js`, `object_method_typed` from
     /// another external, and the dumpout wrap of a Jitter class (below). A message
     /// from a patch cord is not expected to reach it: `A_GIMMEBACK` is not an argument type the
-    /// message type checker converts to. That is an assumption, not something the headers say, to
-    /// be checked in a host (`doc/plan-gimmeback.md`, "Host checks"). A method that should answer
+    /// message type checker converts to. That is not stated in the headers; it was confirmed in a
+    /// host (Max 9.2, 2026-10-27, `doc/plan-gimmeback.md`, "Host checks"). A method that should answer
     /// both a patch cord and a typed caller registers two selectors: an
     /// [`add_gimme`](Self::add_gimme) method that sends out an outlet and this.
     ///
@@ -777,10 +777,16 @@ impl<W> Class<W> {
     /// Max wrapper's own method is what the patcher uses, and median does not own it.
     ///
     /// Ownership of an object reply ([`Reply::Atoms`](crate::gimmeback::Reply::Atoms),
-    /// `Reply::Array` and `Reply::Dict` are `A_OBJ` atoms) goes to the caller, who frees it:
-    /// median assumes this from the SDK's `simplejs` example, which returns a fresh atomarray
-    /// through `atom_setobj` and never frees it, and the assumption is still to be checked in a
-    /// host. There is no deferred variant: a reply can't be delivered after the call returns.
+    /// `Reply::Array` and `Reply::Dict` are `A_OBJ` atoms) goes to the caller, as in the SDK's
+    /// `simplejs` example, which returns a fresh atomarray through `atom_setobj` and never frees
+    /// it. A caller that consumes the reply frees it (observed 2026-10-27 in Max 9.2 for the
+    /// Jitter dumpout wrap); one that discards it leaks it (observed for `js`'s
+    /// `Maxobj.message`, about 64 KiB per 4096-atom reply, never released), and `js` cannot read
+    /// the reply anyway: `Maxobj.message` returns its own function object. So on a Max class
+    /// prefer `Int`/`Float`/`Symbol`/`Nothing` unless the caller is known to read the reply (in
+    /// Max today, another external calling `object_method_typed`); object replies are for the
+    /// Jitter dumpout path and such callers. There is no deferred variant: a reply can't be
+    /// delivered after the call returns.
     ///
     /// On a Jitter type there are two places for it. `#[gimmeback]` (through
     /// [`Methods::register`](crate::wrapper::Methods::register)) lands on the Max wrapper, like

@@ -110,21 +110,20 @@ host results and their limits are recorded below.
 - [ ] On Windows, check whether Max 9's `jitlib.dll` exports `jit_gl_buffer_data_destroy_tagged`
   and `jit_ob3d_draw_geometry` (`dumpbin /exports`). The pinned SDK's `jitlib.lib` does not,
   so `GLDataBuffer`/`GLGeometry` are compiled out on Windows until it does.
-- [ ] Gimmeback methods (`A_GIMMEBACK`, `doc/plan-gimmeback.md`), called from `js`: an `Err` shows
-  the error in the Max window (observed), and after many calls Max's memory does not grow (the
-  caller frees an atomarray and a dictionary reply). If it grows, the ownership assumption is
-  wrong and `Reply::Atoms`/`Reply::Dict` must change. Run it with patch 05 part A
-  (`median/examples/validation/patchers/05-gimmeback.maxpat`, `js` box; the `v8` box is a
-  negative control). Observed 2026-10-27: `js` reaches the method with the right arguments and
-  the `Err` posts; `getcount` is hidden from the message list (the `undocumented` marking works);
-  `Maxobj.message(..)` returns the `message` function object itself, never the reply (the
-  direct-call script too, third run), so a reply value cannot be read through a box object. That
-  part is closed as observed: the SDK's route for a script to receive a reply is the `simplejs`
-  pattern, which median does not support yet (see `doc/plan-gimmeback.md`, "Calling one"). `v8`
-  is a negative control (the method does not run). The remaining open question is memory only:
-  the metro loops were inconclusive (third run), so run the `burst 6000` message box (6000
-  `getquiet` replies of 64 KiB, 384 MB if leaked) and read Activity Monitor before and after each
-  click.
+- [x] Gimmeback methods (`A_GIMMEBACK`, `doc/plan-gimmeback.md`), called from `js` (patch 05 part
+  A, `median/examples/validation/patchers/05-gimmeback.maxpat`, `js` box; the `v8` box is a
+  negative control). Observed 2026-10-27 (Max 9.2 ARM64): `js` reaches the method with the right
+  arguments, an `Err` shows in the Max window, and `getcount` is hidden from the message list (the
+  `undocumented` marking works). The reply is not readable through `Maxobj.message(..)`: it
+  returns the `message` function object itself, never the reply (the direct-call script too, third
+  run); the SDK's route for a script to receive a reply is the `simplejs` pattern, which median
+  does not support yet (`doc/plan-gimmeback.md`, "Calling one"). `v8` is a negative control (the
+  method does not run). Memory, fourth run (commit 18ca359): object replies leak on this path.
+  `burst 6000` (six thousand 4096-atom replies, 384 MB) grew Max by about 450 MB per click and
+  nothing was released, so `Maxobj.message` does not consume the reply and never frees an object
+  reply. That is a property of `js` as a caller (a demonstration, not a median defect): scalar
+  replies cannot leak, and an object reply is for callers that read it
+  (`object_method_typed`). See "2026-10-27 — 05-gimmeback, fourth run".
 - [x] A patcher message to the selector of a gimmeback method on a Max class: Max refuses it and
   the method does not run (patch 05 part B, 2026-10-27, Max 9.2 ARM64). The console shows
   `unknown message argument type`, `median.validate: bad arguments for message "getcount"` and
@@ -132,15 +131,15 @@ host results and their limits are recorded below.
   the last for `getcount`). The `v8` run of part A showed the same route refusing the selector.
   median marks a gimmeback method `undocumented` on a Max class, since the patcher's message
   list showed `getcount` even though a patch cord cannot use it.
-- [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_gimmeback` in
+- [x] Jitter: a patcher message to a core-class gimmeback method (`Class::add_gimmeback` in
   `class_setup`, which makes median pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
   `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet. Observed 2026-10-27
   (patch 05 part C, `jit.median.validate`, dumpout outlet 2): the list goes out dumpout as a
   list under the selector without its leading `get` (`getvalues 7` printed
   `dumpout: values 1 2.5 foo 7`, `getcount 1 2 3` printed `dumpout: count 3`). `median-mock`
-  models this. Still open: memory. The `getvalues` metro printed every reply, which made it
-  inconclusive (third run); run the `getbig` burst test (patch 05 part C2: `uzi 6000` into a
-  second `jit.median.validate` with nothing attached, 384 MB per click if the replies leak).
+  models this. Memory, fourth run (commit 18ca359, part C2: `uzi 6000` into `getbig` on a
+  second, print-less `jit.median.validate`, six thousand 4096-atom replies, 384 MB): no visible
+  growth, so the wrap consumes and frees an object reply, as the design assumed.
 
 ## Recorded results
 
@@ -361,4 +360,23 @@ Environment as above (Max 9.2 ARM64), commit cb437e1 installed.
   (6000 `getquiet` calls in a loop, 384 MB if leaked) and the `getbig` message (4096 ints) of
   `jit.median.validate` through `uzi 6000` with nothing attached (patch 05 parts A and C2). A leak
   is a step of about 384 MB per click that never comes back; a few tens of MB flat across
-  repeated clicks is allocator slack. Not run yet.
+  repeated clicks is allocator slack. Run in the fourth run, below.
+
+### 2026-10-27 — 05-gimmeback, fourth run (commit 18ca359): burst memory checks
+
+Environment as above (Max 9.2 ARM64), commit 18ca359 installed. Each burst sends six thousand
+replies of 4096 atoms (64 KiB each, 384 MB in all if none is freed).
+
+- `js` (`burst 6000`, six thousand `getquiet` calls in a loop). Max's memory, settled after each
+  click: 317 MB before; 773 MB after the first click; 1.24 GB after the second; 1.69 GB after the
+  third, with transient peaks of 1.02, 1.46 and 1.92 GB during the bursts. That is about 450 MB
+  per click, never released. Conclusion: `js`'s `Maxobj.message` does not consume the reply (it
+  hands back its own function object, see the third run) and so never frees an object reply;
+  every `Reply::Atoms`/`Array`/`Dict` reply to it leaks.
+- Jitter (`uzi 6000` into `getbig` on the print-less `jit.median.validate`, the same 384 MB): no
+  visible growth. Conclusion: the SDK's dumpout wrap consumes and frees an object reply, as the
+  design assumed.
+
+So an object reply is freed by a caller that consumes it and leaked by one that discards it.
+On a Max class, prefer scalar replies unless the caller is known to read the reply; object
+replies are for the Jitter dumpout path and callers such as `object_method_typed`.

@@ -43,7 +43,9 @@ Assumed by this design and listed under "Host checks" below, since no header sta
   arguments`, the method not run). Since the patcher's message list still offered the selector,
   `Class::add_gimmeback` marks the method `undocumented` on a Max class (see Registration).
 - The caller frees an object reply (what `simplejs` implies), and the Jitter dumpout wrap sends
-  an atomarray reply as its atoms.
+  an atomarray reply as its atoms. Observed 2026-10-27 (fourth run): true of a caller that
+  consumes the reply (the Jitter dumpout wrap); a caller that discards it leaks it (`js`'s
+  `Maxobj.message`, about 450 MB per 6000 replies of 64 KiB). Scalar replies cannot leak.
 
 So a gimmeback method is a gimme method with a return value for typed callers.
 
@@ -272,14 +274,15 @@ not observed).
 Not in scope here, but the natural counterpart: `ObjRef`/`Object::call_typed(sel, atoms) ->
 Result<Reply, MaxError>` over `object_method_typed`, which owns and frees an `atomarray` it
 gets back. It would give the mock test below a median-level shape and lets an external query
-another object. It can follow the first cut once the ownership check has passed in a host.
+another object. The host checks are done (see Status), so it can follow the first cut. It is also the only
+caller that both reads and frees an object reply from a Max class.
 
 For a `js` script, observed in Max 9.2 on 2026-10-27: `Maxobj.message(..)` on `median.validate`
 reaches the method but hands back the `message` function object, not the reply, and `v8`'s
 `message()` takes the typed-message route and refuses the selector. The SDK's route for a script
 to receive a reply is the `simplejs` pattern: a `CLASS_NOBOX` class with `CLASS_FLAG_POLYGLOT`
 (`ext_mess.h`) instantiated from the script with `new`. median does not support that yet (the
-derive has no class-flag option); a possible follow-up, not started.
+derive has no class-flag option). It remains the only way a script gets a value: not started.
 
 ## Mock
 
@@ -318,11 +321,12 @@ derive has no class-flag option); a possible follow-up, not started.
 1. `js` calling the method: the reply arrives as a number / symbol / array / object; an `Err`
    shows the error in the Max window and `js` gets `null`. After many calls Max's memory does
    not grow (the caller frees an atomarray and a dictionary reply). If it grows, the ownership
-   assumption is wrong and `Reply::Atoms`/`Reply::Dict` must change.
+   assumption is wrong and `Reply::Atoms`/`Reply::Dict` must change. (Outcome 2026-10-27: the
+   reply is not readable from `js`, and memory grows, so `js` does not free it; see Status.)
 2. A patcher message to the same selector: what Max reports, and that the method does not run.
 3. Jitter: a message to a core-class gimmeback method sends the reply out dumpout; an
    atomarray reply as a list; which selector the reply carries (observed: without the leading
-   `get`); no leak (still to record).
+   `get`); no leak (recorded 2026-10-27, fourth run).
 
 ## Status
 
@@ -391,14 +395,26 @@ exists so the three host checks can be run in Max. Run on 2026-10-27 (Max 9.2 AR
   the method `undocumented` on a Max class so the patcher does not list it; a Jitter core class
   is left alone (`median/tests/gimmeback_macro.rs`, `jitter_gimmeback.rs`).
 - Jitter (check 3): the reply is a list out dumpout under the selector without its leading
-  `get`. The selector question is answered; `median-mock` strips a leading `get` the same way.
-  Memory under the metro was inconclusive (third run); the `getbig` burst test is not run yet.
-- `js` (check 1): the method runs, `Err` posts, `getcount` is hidden from the message list
-  (third run, cb437e1), but `Maxobj.message(..)` returns the `message` function object instead of
-  the reply, so a reply can't be read through a box object (observed; the `simplejs` route is the
-  SDK's way and is not started); `v8` is a negative control. Memory: the metro loops were
-  inconclusive (third run), so the check is now a burst (`burst 6000` in `gimmeback.js`, and
-  `getbig` through `uzi 6000` for Jitter, 384 MB per click if leaked); not run yet.
+  `get`; `median-mock` strips a leading `get` the same way. Memory (fourth run, commit 18ca359,
+  `uzi 6000` into `getbig` on the print-less `jit.median.validate`, 384 MB of replies): no visible
+  growth, so the SDK's dumpout wrap consumes and frees an object reply, as the design assumed.
+- `js` (check 1): the method runs, `Err` posts, `getcount` is hidden from the message list (third
+  run, cb437e1), but `Maxobj.message(..)` returns the `message` function object instead of the
+  reply, so a reply can't be read through a box object (observed; the `simplejs` route is the
+  SDK's way and is not started); `v8` is a negative control. Memory (fourth run): `burst 6000`
+  (six thousand 4096-atom `getquiet` replies, 384 MB) took Max from 317 MB to 773 MB, 1.24 GB and
+  1.69 GB over three clicks (peaks 1.02, 1.46 and 1.92 GB), about 450 MB per click, never
+  released. `Maxobj.message` does not consume the reply, so it never frees an object reply, and
+  every `Reply::Atoms`/`Array`/`Dict` reply to `js` leaks.
+
+Consequence: an object reply is freed by a caller that consumes it and leaked by one that
+discards it. On a Max (box) class prefer `Int`/`Float`/`Symbol`/`Nothing` unless the caller is
+known to read the reply, which in Max today means another external calling `object_method_typed`;
+object replies are for the Jitter dumpout path and such callers. The docs of `Reply`,
+`GimmebackResult`, `Class::add_gimmeback` and the crate state this.
+
+Step 4 is complete. What is left is the caller side (`call_typed`, "Calling one") and the
+`simplejs` route for scripts, neither started.
 
 ## Order
 
@@ -406,4 +422,4 @@ exists so the three host checks can be run in Max. Run on 2026-10-27 (Max 9.2 AR
 1. `Reply`, `GimmebackResult`, trampoline, `add_gimmeback`, mock support, tests.
 2. Macro marker and `ui` cases; examples.
 3. Jitter wrap flag, mock dumpout wrap, Jitter test.
-4. Host checks; then `call_typed` on the caller side.
+4. Host checks (done 2026-10-27); then `call_typed` on the caller side.
