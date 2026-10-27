@@ -340,6 +340,28 @@ the sketch above:
 - The `GimmeFn` diagnostic no longer mentions the return type (it is checked separately, by
   `MethodResult` or `GimmebackResult`).
 
+Step 3 is done (`Class::has_gimmeback` in `median/src/class.rs`; `Entry::gimmeback`, `wrap_flags` and
+the `gimmeback` parameter of `JitterObject::setup_max_class` in `median/src/jit/wrapper.rs`; the
+wrap in `median-mock/src/jit.rs`; `median-mock/tests/jit_gimmeback.rs`;
+`median/tests/jitter_gimmeback.rs`; the three host checks in `doc/validation-max.md`). Where it
+differs from the sketch above:
+
+- The flag is a local `const GIMMEBACK_WRAP: c_long = 0x1` in `jit/wrapper.rs`: the header's
+  anonymous enum (`MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP`) is not in the generated bindings, and
+  regenerating them for one constant would mean regenerating every target.
+- The flag reaches `setup_max_class` through `Entry` (the registry `Methods::register` of the glue
+  already reads): `register` records `class.has_gimmeback()` after `class_setup`, and
+  `setup_max_class(c, jit, gimmeback)` takes it as a third argument. `Class` records
+  `gimmeback_added` only when a method is registered (not in the attributes-only pass over
+  `#[median::methods]`, which registers nothing on the Jitter class).
+- The mock's wrap is installed from the Jitter class's `A_GIMMEBACK` methods at the time
+  `max_jit_class_wrap_standard` runs (after `class_setup`). A non-zero `t_max_err`, `A_NOTHING`
+  and an object reply that is not an atomarray (freed) send nothing. The reply goes out
+  synchronously through the dumpout outlet recorded by `max_jit_obex_dumpout_set` (the SDK's
+  `A_DEFER_LOW` is not modelled). The mock has no `max_jit_obex_dumpout`; it sends through the
+  recorded outlet directly. `median_mock::jit::wrap_flags(class_name)` exposes the flags a Max
+  class passed. Without the flag the mock installs nothing for those selectors, as before.
+
 ## Order
 
 0. `GimmeFn` and the selector-less `#[sel_gimme]` (its own commit: it changes existing API).

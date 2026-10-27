@@ -110,6 +110,19 @@ host results and their limits are recorded below.
 - [ ] On Windows, check whether Max 9's `jitlib.dll` exports `jit_gl_buffer_data_destroy_tagged`
   and `jit_ob3d_draw_geometry` (`dumpbin /exports`). The pinned SDK's `jitlib.lib` does not,
   so `GLDataBuffer`/`GLGeometry` are compiled out on Windows until it does.
+- [ ] Gimmeback methods (`A_GIMMEBACK`, `doc/plan-gimmeback.md`), called from `js`: the reply
+  arrives as a number, symbol, array or object; an `Err` shows the error in the Max window and
+  `js` gets `null`. After many calls Max's memory does not grow (the caller frees an atomarray and
+  a dictionary reply). If it grows, the ownership assumption is wrong and
+  `Reply::Atoms`/`Reply::Dict` must change.
+- [ ] A patcher message to the selector of a gimmeback method on a Max class: record what Max
+  reports, and that the method does not run (median assumes a patch cord cannot reach an
+  `A_GIMMEBACK` method).
+- [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_sel_gimmeback` in
+  `class_setup`, which makes median pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
+  `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet; an atomarray reply as a
+  list; record which selector the reply carries and whether anything leaks. `median-mock` models
+  the assumed behaviour (list out dumpout under the message's selector, atomarray freed).
 
 ## Recorded results
 

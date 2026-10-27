@@ -173,6 +173,9 @@ pub struct Class<T> {
     deferred: bool,
     /// `add_notify` registered the `notify` method through this `Class`.
     notify_added: bool,
+    /// `add_sel_gimmeback` registered a method through this `Class` (not counting a pass that
+    /// only collects attributes): a Jitter class asks its Max wrapper for the dumpout wrap.
+    gimmeback_added: bool,
     _phantom: PhantomData<T>,
 }
 
@@ -215,6 +218,7 @@ impl<T> Class<T> {
             attr_names: Vec::new(),
             deferred: false,
             notify_added: false,
+            gimmeback_added: false,
             _phantom: PhantomData,
         }
     }
@@ -262,6 +266,11 @@ impl<T> Class<T> {
 
     pub(crate) fn has_deferred(&self) -> bool {
         self.deferred
+    }
+
+    /// Whether [`add_sel_gimmeback`](Self::add_sel_gimmeback) registered a method on this class.
+    pub(crate) fn has_gimmeback(&self) -> bool {
+        self.gimmeback_added
     }
 
     /// Add a built attribute to the class, then the attributes of the attribute its options ask
@@ -753,7 +762,7 @@ impl<W> Class<W> {
     /// value and `MAX_ERR_GENERIC`).
     ///
     /// It is for typed callers, the ones that pass a reply atom: `js`, `object_method_typed` from
-    /// another external, and (in a later step) the dumpout wrap of a Jitter class. A message
+    /// another external, and the dumpout wrap of a Jitter class (below). A message
     /// from a patch cord is not expected to reach it: `A_GIMMEBACK` is not an argument type the
     /// message type checker converts to. That is an assumption, not something the headers say, to
     /// be checked in a host (`doc/plan-gimmeback.md`, "Host checks"). A method that should answer
@@ -765,6 +774,17 @@ impl<W> Class<W> {
     /// median assumes this from the SDK's `simplejs` example, which returns a fresh atomarray
     /// through `atom_setobj` and never frees it, and the assumption is still to be checked in a
     /// host. There is no deferred variant: a reply can't be delivered after the call returns.
+    ///
+    /// On a Jitter type there are two places for it. `#[sel_gimmeback]` (through
+    /// [`Methods::register`](crate::wrapper::Methods::register)) lands on the Max wrapper, like
+    /// every other message, so only typed callers reach it. Called on the `Class<Core<..>>` that
+    /// `MatrixOp::class_setup` / `Ob3d::class_setup` receive, it registers the method on the
+    /// Jitter class and also turns on `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` for the Max wrapper
+    /// (`max_jit_class_wrap_standard`, `jit.max.h`: "uses standard dumpout `A_DEFER_LOW`
+    /// method"), so that a patcher message to the selector calls the method and the reply goes
+    /// out the dumpout outlet. That the wrap sends an atomarray reply as a list, and which
+    /// selector it carries, is assumed and still to be checked in a host
+    /// (`doc/plan-gimmeback.md`, "Host checks"); `median-mock` models it.
     ///
     /// The `doAbs` method of `simplejs` (the absolute value of its one argument, or of each of
     /// several), written by hand:
@@ -806,7 +826,10 @@ impl<W> Class<W> {
         }
         let m = sel_gimmeback_method::<W, T, F, R, A>(f);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
-        unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMMEBACK]) }
+        unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMMEBACK]) }?;
+        // an attributes-only pass registers nothing
+        self.gimmeback_added |= !self.attributes_only;
+        Ok(())
     }
 
     /// [`add_bang`](Self::add_bang), deferred to the main thread as `mode` says (see

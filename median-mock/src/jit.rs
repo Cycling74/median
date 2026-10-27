@@ -45,6 +45,9 @@ struct Jitter {
     ob3d_offsets: HashMap<usize, usize>,
     contexts: HashMap<usize, usize>,
     max_classes: HashMap<usize, usize>,
+    /// The `flags` each Max class passed to `max_jit_class_wrap_standard` (survives resets, like
+    /// the classes).
+    wrap_flags: HashMap<usize, c_long>,
     max_obex_offsets: HashMap<usize, usize>,
     max_objects: HashMap<usize, usize>,
     dumps: HashMap<usize, usize>,
@@ -120,6 +123,12 @@ pub fn skip_sdk_notify() {
 /// The `max_jit_mop_notify` calls so far, as (object, sender name, message), cleared by the call.
 pub fn take_mop_notify_calls() -> Vec<(usize, String, String)> {
     std::mem::take(&mut JIT.lock().mop_notify_calls)
+}
+/// The `flags` the Max class named `name` passed to `max_jit_class_wrap_standard`, `None` if the
+/// class is unknown or never called it. Kept across kernel resets, like the class.
+pub fn wrap_flags(name: &str) -> Option<c_long> {
+    let class = crate::class::find_class(name)?;
+    JIT.lock().wrap_flags.get(&class).copied()
 }
 pub fn live_mop_count() -> usize {
     JIT.lock().mop_owners.len()
@@ -405,17 +414,68 @@ pub unsafe extern "C" fn max_jit_class_obex_setup(c: *mut t_class, offset: c_lon
         .max_obex_offsets
         .insert(c as usize, offset as usize);
 }
+/// `max_jit_class_wrap_standard` (`jit.max.h`). It installs `inletinfo` and (unless
+/// [`skip_sdk_notify`]) `notify` on the Max class `c`, records `flags` for [`wrap_flags`], and,
+/// with `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` (0x1, "uses standard dumpout `A_DEFER_LOW` method"),
+/// installs for each method of the Jitter class `jit` registered `A_GIMMEBACK` an `A_GIMME`
+/// method of the same name on `c` that calls it and sends the reply out the dumpout outlet:
+///
+/// * the Jitter method is called through [`object_method_typed`](crate::class::object_method_typed)
+///   on the Jitter object, with the message's arguments;
+/// * an atomarray reply goes out as its atoms, then is freed; an int, float or symbol as one atom;
+///   `A_NOTHING`, a non-zero `t_max_err`, or any other object (a dictionary, say), which is freed,
+///   sends nothing;
+/// * the outlet message carries the selector the message had (the outlet log's selector), and the
+///   send is synchronous (the SDK's `A_DEFER_LOW` is not modelled).
+///
+/// This is median's assumption about the SDK wrap (`doc/plan-gimmeback.md`, "Host checks"), not a
+/// fact from the headers, so it is what a host check verifies. Without the flag nothing is
+/// installed for those selectors: a patcher message to one is "doesn't understand" on the Max
+/// class, as today.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn max_jit_class_wrap_standard(
     c: *mut t_class,
     jit: *mut t_class,
-    _: c_long,
+    flags: c_long,
 ) {
     let no_notify = {
         let mut jit_state = JIT.lock();
         jit_state.max_classes.insert(c as usize, jit as usize);
+        jit_state.wrap_flags.insert(c as usize, flags);
         jit_state.no_sdk_notify
     };
+    if flags & GIMMEBACK_WRAP != 0 {
+        let selectors: Vec<String> =
+            state()
+                .classes
+                .get(&(jit as usize))
+                .map_or_else(Vec::new, |class| {
+                    class
+                        .methods
+                        .iter()
+                        .filter(|(_, rec)| {
+                            rec.types.as_slice() == [e_max_atomtypes::A_GIMMEBACK as i32]
+                        })
+                        .map(|(name, _)| name.clone())
+                        .collect()
+                });
+        for name in selectors {
+            let name = std::ffi::CString::new(name).expect("a selector has no NUL");
+            // SAFETY: `c` is a class from `class_new`; `gimmeback_wrap` is `A_GIMME`
+            unsafe {
+                crate::class::median_mock_class_addmethod(
+                    c,
+                    Some(std::mem::transmute::<
+                        unsafe extern "C" fn(*mut c_void, *mut t_symbol, c_long, *mut t_atom),
+                        unsafe extern "C" fn(*mut c_void) -> *mut c_void,
+                    >(gimmeback_wrap)),
+                    name.as_ptr(),
+                    [e_max_atomtypes::A_GIMME as i32].as_ptr(),
+                    1,
+                );
+            }
+        }
+    }
     // Install distinguishable SDK-owned callbacks so wrapper tests detect accidental
     // replacement by the ordinary Max iolet/notification trampolines.
     unsafe {
@@ -447,6 +507,70 @@ pub unsafe extern "C" fn max_jit_class_wrap_standard(
                 1,
             );
         }
+    }
+}
+/// `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` (`jit.max.h`).
+const GIMMEBACK_WRAP: c_long = 0x1;
+/// The Max method [`max_jit_class_wrap_standard`] installs for a gimmeback method of the Jitter
+/// class: `(x, s, ac, av)` as an `A_GIMME` method.
+unsafe extern "C" fn gimmeback_wrap(x: *mut c_void, s: *mut t_symbol, ac: c_long, av: *mut t_atom) {
+    let (jitob, dump) = {
+        let jit = JIT.lock();
+        (
+            jit.max_objects.get(&(x as usize)).copied().unwrap_or(0),
+            jit.dumps.get(&(x as usize)).copied().unwrap_or(0),
+        )
+    };
+    if jitob == 0 || dump == 0 {
+        state().post_error(
+            x as usize,
+            "median-mock: gimmeback wrap without a Jitter object or a dumpout outlet".into(),
+        );
+        return;
+    }
+    // SAFETY: an uninitialised `t_atom` is plain data; `object_method_typed` sets it
+    let mut rv: t_atom = unsafe { std::mem::zeroed() };
+    // SAFETY: `jitob` is the live Jitter object, `s`/`ac`/`av` are what the message delivered
+    let code = unsafe { crate::class::object_method_typed(jitob as _, s, ac, av, &mut rv) };
+    let mut reply: Vec<t_atom> = Vec::new();
+    if code == 0 {
+        match rv.a_type as u32 {
+            e_max_atomtypes::A_LONG | e_max_atomtypes::A_FLOAT | e_max_atomtypes::A_SYM => {
+                reply.push(rv);
+            }
+            e_max_atomtypes::A_OBJ => {
+                // SAFETY: the reply is an `A_OBJ` atom; the caller owns an object reply
+                unsafe {
+                    let p = rv.a_w.w_obj;
+                    if crate::containers::atomisatomarray(&mut rv) == 1 {
+                        let mut n = 0;
+                        let mut items = std::ptr::null_mut();
+                        max_sys::atomarray_getatoms(p.cast(), &mut n, &mut items);
+                        reply.extend_from_slice(std::slice::from_raw_parts(
+                            items,
+                            n.max(0) as usize,
+                        ));
+                    }
+                    max_sys::object_free(p.cast());
+                }
+                if reply.is_empty() {
+                    return;
+                }
+            }
+            _ => return,
+        }
+    }
+    if reply.is_empty() {
+        return;
+    }
+    // SAFETY: `dump` is the dumpout outlet of `x`
+    unsafe {
+        crate::io::outlet_anything(
+            dump as _,
+            s,
+            reply.len().min(c_short::MAX as usize) as c_short,
+            reply.as_mut_ptr(),
+        );
     }
 }
 unsafe extern "C" fn standard_inletinfo(

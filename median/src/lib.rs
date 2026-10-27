@@ -176,6 +176,12 @@
 //! converts to one, or a `Result` of one; see [`gimmeback`]. A patch-cord message is not expected
 //! to reach it. `#[sel_gimmeback("name")]` in `#[median::methods]` registers a method the same way.
 //!
+//! On a Jitter type (`kind = matrix_op` or `gl`), `#[sel_gimmeback]` lands on the Max wrapper, so
+//! only typed callers reach it. `add_sel_gimmeback` on the Jitter class in `class_setup` registers
+//! it there instead and turns on `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` for the Max wrapper, so that
+//! a patcher message to the selector gets the reply out the dumpout outlet. That the wrap renders
+//! the reply as a list is assumed, pending a host check (`doc/plan-gimmeback.md`).
+//!
 //! # Without the macros
 //!
 //! Everything the macros generate is a short, ordinary trait impl calling public API:

@@ -1,5 +1,12 @@
 //! Shared Jitter construction and Max forwarding. The user value lives in the Jitter object;
 //! the Max object uses median's existing constructor, panic guards and deferred-call queue.
+//!
+//! Gimmeback methods (`A_GIMMEBACK`, see `crate::gimmeback`) have two homes on a Jitter type:
+//! `#[sel_gimmeback]` registers on the Max wrapper (typed callers only), while
+//! `Class::<Core<..>>::add_sel_gimmeback` in `class_setup` registers on the Jitter class and makes
+//! the Max class pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to `max_jit_class_wrap_standard`, so a
+//! patcher message gets the reply out dumpout. How the wrap renders the reply (an atomarray as a
+//! list) is assumed, pending the host check in `doc/plan-gimmeback.md`.
 
 use super::{
     JitResult,
@@ -189,7 +196,13 @@ pub unsafe trait JitterObject<K>: ObjClass + Methods + FieldAttrs + Sync + 'stat
         Ok(())
     }
     unsafe fn free_core(_p: *mut Core<Self, K>) {}
-    unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()>;
+    /// `gimmeback`: the Jitter class has a method registered with `Class::add_sel_gimmeback`
+    /// (see `wrap_flags`).
+    unsafe fn setup_max_class(
+        c: *mut sys::t_class,
+        jit: *mut sys::t_class,
+        gimmeback: bool,
+    ) -> MaxResult<()>;
     unsafe fn setup_max(
         obj: *mut sys::t_object,
         jit: *mut sys::t_object,
@@ -228,9 +241,26 @@ impl<T, K> WrapperWrapped<T> for Core<T, K> {
     }
 }
 
+/// `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` (`jit.max.h`: "uses standard dumpout `A_DEFER_LOW`
+/// method"). The header's anonymous enum is not in the generated bindings.
+const GIMMEBACK_WRAP: c_long = 0x0000_0001;
+
+/// The `flags` for `max_jit_class_wrap_standard`. With `gimmeback` (the Jitter class has a method
+/// registered through `Class::add_sel_gimmeback`) they ask for the SDK's gimmeback wrap, which per
+/// `jit.max.h` "uses standard dumpout `A_DEFER_LOW` method": a patcher message to such a method
+/// calls it and the reply is sent out the dumpout outlet. The header does not say how the wrap
+/// renders the reply; median assumes an atomarray goes out as a list and a scalar as one atom, and
+/// that the caller side frees an object reply. That is unverified in a host
+/// (`doc/plan-gimmeback.md`, "Host checks"). Without a gimmeback method the flags stay `0`.
+fn wrap_flags(gimmeback: bool) -> c_long {
+    if gimmeback { GIMMEBACK_WRAP } else { 0 }
+}
+
 #[derive(Clone, Copy)]
 struct Entry {
     class: usize,
+    /// The Jitter class has a gimmeback method (`class_setup` ran before the Max class is made).
+    gimmeback: bool,
     iolets: Option<(usize, usize)>,
     inletinfo: Option<InletInfoFn>,
 }
@@ -438,7 +468,7 @@ impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
                 class.inner(),
                 MaxObjWrapper::<Self>::jitter_obex_offset() as c_long,
             );
-            T::setup_max_class(class.inner(), jit.class as _)?;
+            T::setup_max_class(class.inner(), jit.class as _, jit.gimmeback)?;
             // Notifications go to `T::notify`, unless the SDK's wrapper installed its handler.
             if sys::class_method(class.inner(), crate::sym!("notify").as_ptr()).is_none() {
                 class.add_notify(forward_notify::<T, K>)?;
@@ -610,6 +640,7 @@ fn register<T: JitterObject<K>, K: 'static>() {
                 TypeId::of::<(T, K)>(),
                 Entry {
                     class: c as usize,
+                    gimmeback: class.has_gimmeback(),
                     iolets,
                     inletinfo: None,
                 },
@@ -663,10 +694,14 @@ unsafe impl<T: MatrixOp> JitterObject<MatrixKind> for T {
             None
         })
     }
-    unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()> {
+    unsafe fn setup_max_class(
+        c: *mut sys::t_class,
+        jit: *mut sys::t_class,
+        gimmeback: bool,
+    ) -> MaxResult<()> {
         unsafe {
             max_error(sys::max_jit_class_mop_wrap(c, jit, 0))?;
-            sys::max_jit_class_wrap_standard(c, jit, 0);
+            sys::max_jit_class_wrap_standard(c, jit, wrap_flags(gimmeback));
             Ok(())
         }
     }
@@ -808,9 +843,13 @@ unsafe impl<T: Ob3d> JitterObject<GlKind> for T {
             }
         }
     }
-    unsafe fn setup_max_class(c: *mut sys::t_class, jit: *mut sys::t_class) -> MaxResult<()> {
+    unsafe fn setup_max_class(
+        c: *mut sys::t_class,
+        jit: *mut sys::t_class,
+        gimmeback: bool,
+    ) -> MaxResult<()> {
         unsafe {
-            sys::max_jit_class_wrap_standard(c, jit, 0);
+            sys::max_jit_class_wrap_standard(c, jit, wrap_flags(gimmeback));
             sys::max_jit_class_ob3d_wrap(c);
             Ok(())
         }

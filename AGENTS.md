@@ -168,7 +168,7 @@ only `develop` (no `main`), so check the PR target before opening one.
 
 Read `doc/handoff-2026-10-23.md` before resuming. The 0.2.x clock backport remains deferred.
 Jitter derives support `kind = matrix_op|gl`; callbacks use `&self`, per-call borrowed matrices
-and `&DrawContext` for GL. Preserve SDK-owned notification/inlet handlers in Max glue. General
+and `&DrawContext` for GL. Preserve SDK-owned notification/inlet handlers in Max glue. A gimmeback method registered on the core class (`Class::add_sel_gimmeback` in `class_setup`) makes the glue pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to `max_jit_class_wrap_standard` (reply out dumpout; assumed, host check pending in `doc/validation-max.md`); `#[sel_gimmeback]` stays on the Max wrapper. General
 methods/deferred calls live on the Max forwarding class; direct Jitter `class_setup` methods
 cannot defer. `JitBuilder<Self>` adds custom numeric/proxy inlets and message outlets after
 SDK-owned positions for fixed-count MOPs and GL objects; variable-count layouts reject extras.
