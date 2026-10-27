@@ -75,8 +75,11 @@
 //! * Jitter: class/MOP/ob3d lifecycle, attribute forwarding, matrix fixtures and recorded immediate
 //!   GL calls; see [`jit`]. Callbacks are driven directly; there is no renderer or worker scheduler.
 //!
-//! Not modelled: file and path functions (`sysfile_*`, `path_*`, `locatefile_extended`,
-//! `open_dialog`), `object_new`, patcher/box access, ordinary Max `@attr` argument
+//! * Files: `locatefile_extended`, `open_dialog` (always cancelled), `path_opensysfile`,
+//!   `sysfile_readtextfile` and `sysfile_close`, over in-memory files registered with
+//!   [`file::add_file`]; see [`file`].
+//!
+//! Not modelled: the other file and path functions (`sysfile_*`, `path_*`), `object_new`, patcher/box access, ordinary Max `@attr` argument
 //! parsing, signal-rate connections between objects, inlet/outlet connections, and everything
 //! else not listed above. A call to a function that is not defined fails at link time, or at load
 //! time if the binary links lazily.
@@ -94,6 +97,7 @@ pub mod clock;
 pub mod console;
 pub mod containers;
 pub mod dsp;
+pub mod file;
 pub mod io;
 pub mod jit;
 mod kernel;

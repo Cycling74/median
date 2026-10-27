@@ -91,3 +91,28 @@ fn dictionary_receive_send_and_savestate_through_registered_trampolines() {
     drop(patcher);
     assert_eq!(median_mock::containers::live_count(), 0);
 }
+
+#[test]
+fn a_dictionary_message_naming_another_class_is_an_unknown_name() {
+    let k = median_mock::lock();
+    unsafe {
+        ext_main(std::ptr::null_mut());
+    }
+    let obj = k.new_object("test.dictionary", &[]);
+    let other = k.new_object("test.dictionary", &[]);
+    assert!(!obj.is_null() && !other.is_null());
+    unsafe {
+        max_sys::object_register(sym!("dictionary").as_ptr(), sym!("foreign").as_ptr(), other);
+    }
+    k.send(obj, "dictionary", &["foreign".into()]).unwrap();
+    let log = k.take_console_log();
+    assert!(
+        log.iter()
+            .any(|e| e.text.contains("unable to reference dictionary")),
+        "{log:?}"
+    );
+    assert!(k.take_outlet_log().is_empty());
+    assert_eq!(k.retain_count(other), Some(0));
+    assert!(k.free_object(other));
+    assert!(k.free_object(obj));
+}

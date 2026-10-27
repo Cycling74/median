@@ -59,6 +59,9 @@ pub(crate) struct ObjData {
     pub obex: HashMap<String, (usize, i64)>,
     /// `(namespace, name)` if registered with `object_register`.
     pub registered: Option<(String, String)>,
+    /// References taken with `object_retain` beyond the one `object_alloc` hands out;
+    /// `object_free` releases one of them instead of freeing the object while any are left.
+    pub extra_refs: usize,
 }
 
 /// How an inlet was made, see [`crate::Kernel::inlets`].
@@ -99,6 +102,8 @@ pub(crate) struct AttrData {
     /// `class_attr_addattr_parse`/`_atoms` or `object_addattr_parse`/`_atoms` on the attribute:
     /// name -> (type name, atoms). Adding one again replaces it.
     pub attr_attrs: std::collections::BTreeMap<String, (String, Vec<Atom>)>,
+    /// How many times each attribute of the attribute was added (replacing counts too).
+    pub attr_attr_adds: std::collections::BTreeMap<String, usize>,
 }
 
 pub(crate) enum SubKind {

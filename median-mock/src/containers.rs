@@ -168,6 +168,16 @@ pub(crate) fn reset() {
         }
     }
 }
+pub(crate) fn class_name(p: usize) -> Option<&'static str> {
+    let object = STORE.lock().objects.get(&p)?.object.clone();
+    let lock = object.body.lock();
+    let name = match &*lock.borrow() {
+        Body::Dict(_) => "dictionary",
+        Body::Array(_) => "atomarray",
+    };
+    Some(name)
+}
+
 /// Number of live container objects (for ownership/leak tests).
 pub fn live_count() -> usize {
     STORE.lock().objects.len()
@@ -178,9 +188,16 @@ pub unsafe extern "C" fn object_retain(p: *mut t_object) -> t_max_err {
     let mut s = STORE.lock();
     if let Some(r) = s.objects.get_mut(&(p as usize)) {
         r.refs += 1;
-        0
-    } else {
-        ERR
+        return 0;
+    }
+    drop(s);
+    // any other live object keeps a count of its own, see `Kernel::retain_count`
+    match crate::state::state().objects.get_mut(&(p as usize)) {
+        Some(o) => {
+            o.extra_refs += 1;
+            0
+        }
+        None => ERR,
     }
 }
 #[unsafe(no_mangle)]
@@ -519,7 +536,16 @@ pub unsafe extern "C" fn dictionary_clone(d: *mut t_dictionary) -> *mut t_dictio
                 };
                 Entry::Array(alloc(Body::Array(Atoms(a.0.clone()))))
             }
-            Entry::Object(_, 0) => Entry::Object(0, 0),
+            // an object the kernel cannot clone (a `Memory` entry, or an object with no
+            // `object_clone`) becomes a null object entry; the original keeps ownership of its own
+            Entry::Object(_, flags)
+                if flags
+                    & (e_max_datastore_flags::OBJ_FLAG_REF | e_max_datastore_flags::OBJ_FLAG_DATA)
+                        as c_long
+                    == 0 =>
+            {
+                Entry::Object(0, 0)
+            }
             other => other.clone(),
         };
         copied.push((*k, e));
@@ -609,11 +635,19 @@ pub unsafe extern "C" fn dictobj_unregister(d: *mut t_dictionary) -> t_max_err {
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn dictobj_findregistered_retain(name: *mut t_symbol) -> *mut t_dictionary {
-    let mut s = STORE.lock();
-    let Some(&p) = s.names.get(&(name as usize)) else {
+    // The registry is the "dictionary" namespace of `object_register`: it holds whatever class
+    // registered a name there, and the caller gets the object retained either way.
+    let key = ("dictionary".to_string(), name_of(name as usize));
+    let Some(&p) = crate::state::state().registry.get(&key) else {
         return std::ptr::null_mut();
     };
-    s.objects.get_mut(&p).unwrap().refs += 1;
+    if let Some(r) = STORE.lock().objects.get_mut(&p) {
+        r.refs += 1;
+    } else if let Some(o) = crate::state::state().objects.get_mut(&p) {
+        o.extra_refs += 1;
+    } else {
+        return std::ptr::null_mut();
+    }
     p as _
 }
 #[unsafe(no_mangle)]
@@ -762,6 +796,33 @@ mod tests {
             ptr as usize,
             e_max_datastore_flags::OBJ_FLAG_MEMORY as c_long,
         ));
+    }
+    #[test]
+    fn cloning_a_dictionary_turns_memory_entries_into_null_objects() {
+        let _k = crate::lock();
+        unsafe {
+            let d = dictionary_new();
+            let ptr = crate::sysmem::sysmem_newptr(16);
+            let flags = e_max_datastore_flags::OBJ_FLAG_MEMORY as c_long;
+            assert_eq!(
+                dictionary_appendobject_flags(d, intern(b"mem"), ptr.cast(), flags),
+                0
+            );
+            let c = dictionary_clone(d);
+            let object = lookup(c as usize);
+            {
+                let lock = object.body.lock();
+                let body = lock.borrow();
+                let Body::Dict(entries) = &*body else {
+                    unreachable!()
+                };
+                assert!(matches!(entries[..], [(_, Entry::Object(0, 0))]));
+            }
+            drop(object);
+            // each dictionary frees only what it owns: one `sysmem_freeptr`, not two
+            assert!(release(c as usize));
+            assert!(release(d as usize));
+        }
     }
     #[test]
     fn ownership_registry_and_string_conversion_match_sdk() {

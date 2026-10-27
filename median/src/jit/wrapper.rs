@@ -109,6 +109,11 @@ impl<T> JitBuilder<'_, T> {
 
 /// A matrix operator. `calc` may run concurrently: use atomic/locked state, and keep borrowed
 /// matrices inside the call. Data references require the matrix view's unsafe access contract.
+///
+/// `inputs` and `outputs` can hold the same matrix (in-place calculation). Guards from
+/// `Matrix::lock` on one matrix must be dropped last in, first out, or the matrix stays locked
+/// after `calc` (see [`MatrixGuard`](crate::jit::matrix::MatrixGuard)); the reverse-declaration
+/// drop order of locals does this unless a guard is dropped explicitly.
 pub trait MatrixOp: ObjClass + Methods + FieldAttrs + Sync + 'static {
     fn new(builder: &mut JitBuilder<Self>) -> Result<Self, NewError>;
     fn io_count() -> IOCount;

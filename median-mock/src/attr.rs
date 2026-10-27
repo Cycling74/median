@@ -43,6 +43,7 @@ fn new_attr(
         set_clip: None,
         get_clip: None,
         attr_attrs: Default::default(),
+        attr_attr_adds: Default::default(),
     })) as *mut t_object
 }
 
@@ -462,6 +463,23 @@ pub(crate) fn attr_attrs(
         })
 }
 
+/// How many times the attribute `name` of the attribute `attr` was added.
+pub(crate) fn attr_attr_adds(obj: usize, attr: &str, name: &str) -> usize {
+    let st = state();
+    let Some(o) = st.objects.get(&obj) else {
+        return 0;
+    };
+    st.classes[&o.class]
+        .attrs
+        .iter()
+        .find_map(|p| match &st.subs.get(p)?.kind {
+            SubKind::Attr(a) if a.name == attr => Some(a.attr_attr_adds.get(name).copied()),
+            _ => None,
+        })
+        .flatten()
+        .unwrap_or(0)
+}
+
 /// The names of the attributes of the object's class, in the order they were added.
 pub(crate) fn names(obj: usize) -> Vec<String> {
     let st = state();
@@ -543,6 +561,7 @@ pub(crate) fn add_attr_attr(
 ) -> Result<(), ()> {
     match state().subs.get_mut(&attr).map(|s| &mut s.kind) {
         Some(SubKind::Attr(a)) => {
+            *a.attr_attr_adds.entry(name.clone()).or_default() += 1;
             a.attr_attrs.insert(name, (type_name, atoms));
             Ok(())
         }

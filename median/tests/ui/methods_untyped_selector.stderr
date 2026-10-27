@@ -1,0 +1,23 @@
+error: `appendtodictionary` is an untyped message Max calls with its own arguments, which a typed selector would misread; use `#[savestate]` instead
+  --> tests/ui/methods_untyped_selector.rs:15:11
+   |
+15 |     #[sel("appendtodictionary")]
+   |           ^^^^^^^^^^^^^^^^^^^^
+
+error: `loadbang` is an untyped message Max calls with its own arguments, which a typed selector would misread; use `#[loadbang]` instead
+  --> tests/ui/methods_untyped_selector.rs:18:17
+   |
+18 |     #[sel_gimme("loadbang")]
+   |                 ^^^^^^^^^^
+
+error: `dblclick` is an untyped message Max calls with its own arguments, which a typed selector would misread; use `#[dblclick]` instead
+  --> tests/ui/methods_untyped_selector.rs:21:11
+   |
+21 |     #[sel("dblclick")]
+   |           ^^^^^^^^^^
+
+error: `getvalueof` is an untyped message Max calls with its own arguments, which a typed selector would misread; median has no hook for it yet
+  --> tests/ui/methods_untyped_selector.rs:24:17
+   |
+24 |     #[sel_gimme("getvalueof")]
+   |                 ^^^^^^^^^^^^

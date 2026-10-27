@@ -94,6 +94,22 @@ host results and their limits are recorded below.
   deleted first. Repeat the probe after recreating the GL object.
 - [ ] Run Jitter parallel callback tests in Max; current tests cover validated iteration
   and direct trampoline calls, not the host scheduler.
+- [ ] Custom proxy inlets on a Jitter object (`JitBuilder` proxies, made with `proxy_new` and
+  no stuffloc) do not update Jitter's `max_jit_obex_inletnumber`, which the SDK's own MOP
+  handlers (`jit_matrix`, `bang`) read. Check what a `jit_matrix` sent to a custom proxy does
+  (expected: handled as the last SDK inlet number, as it would be for a C external that mixes
+  `proxy_new` with `max_jit_mop_setup_simple`), and that `ObjRef::proxy_inlet()` is right for
+  a message that came in through an SDK matrix proxy. Document the outcome on `JitBuilder`.
+- [ ] `max_jit_mop_assist`/`max_jit_ob3d_assist` are delegated to with a null box argument
+  (median's `assist` hook has no box). Confirm the SDK assist text is unaffected (patch 03's
+  MOP assistance pass suggests so).
+- [ ] `Dict::find_registered` accepts a registered object only if `object_classname` is
+  `dictionary` (`_sym_dictionary`); nothing in the headers names `t_dictionary`'s class. Check
+  that a `dictionary foo` message reaches a `#[dictionary]` method for a `[dict foo]` (if not,
+  every lookup reports "unable to reference dictionary").
+- [ ] On Windows, check whether Max 9's `jitlib.dll` exports `jit_gl_buffer_data_destroy_tagged`
+  and `jit_ob3d_draw_geometry` (`dumpbin /exports`). The pinned SDK's `jitlib.lib` does not,
+  so `GLDataBuffer`/`GLGeometry` are compiled out on Windows until it does.
 
 ## Recorded results
 

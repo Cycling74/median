@@ -62,6 +62,7 @@ impl Kernel {
     /// `ext_main` registers its classes once per process and keeps their pointers.
     pub fn reset(&self) {
         crate::containers::reset();
+        crate::file::reset();
         crate::jit::reset();
         state().reset();
     }
@@ -148,6 +149,12 @@ impl Kernel {
         st.objects
             .get(&(obj as usize))
             .map(|o| st.classes[&o.class].name.clone())
+    }
+
+    /// The references `object_retain` has taken on an object made by `object_alloc` beyond the
+    /// one its creator holds, or `None` if it is not a live object.
+    pub fn retain_count(&self, obj: *mut c_void) -> Option<usize> {
+        state().objects.get(&(obj as usize)).map(|o| o.extra_refs)
     }
 
     // ----- messages
@@ -665,6 +672,12 @@ impl Kernel {
         name: &str,
     ) -> Option<(String, Vec<Atom>)> {
         attr::attr_attrs(obj as usize, attr)?.remove(name)
+    }
+
+    /// How many times the attribute `name` of the attribute `attr` was added (`attr_attr` shows
+    /// only the last one, because adding it again replaces it).
+    pub fn attr_attr_adds(&self, obj: *mut c_void, attr: &str, name: &str) -> usize {
+        attr::attr_attr_adds(obj as usize, attr, name)
     }
 
     /// The names of the attributes of the attribute `attr` of the object's class, sorted.

@@ -54,6 +54,10 @@ pub struct AttrBuilder<T> {
 }
 
 impl<T> Attr<T> {
+    /// The raw attribute object, still owned by this `Attr`: it is freed when the `Attr` is
+    /// dropped, so passing it to `class_addattr` and then dropping the `Attr` frees it twice.
+    /// Ownership moves only through `Class::add_attribute` or the `Into<*mut t_object>`
+    /// conversion.
     pub fn inner(&self) -> *mut max_sys::t_object {
         self.inner
     }
@@ -1029,7 +1033,9 @@ impl AttrOptions {
 /// decimal point or exponent for float types (so Max parses it as a float).
 fn number_text(v: f64, ty: AttrType) -> String {
     match ty {
-        AttrType::Int64 | AttrType::Char => format!("{}", v.trunc() as i64),
+        //`as` truncates and saturates; `v.trunc()` would call libm's `trunc`, which a Windows
+        //link resolves from jitlib.lib instead of the C runtime
+        AttrType::Int64 | AttrType::Char => format!("{}", v as i64),
         _ => format!("{v:?}"),
     }
 }
@@ -1121,17 +1127,21 @@ pub(crate) unsafe fn add_attr_attrs(
             (),
         )?;
     }
-    if let Some(vals) = o.enum_vals {
-        let style = if ty == AttrType::SymbolRef {
-            c"enum"
-        } else {
-            c"enumindex"
-        };
+    //one `style`: an explicit one wins over the `enum`/`enumindex` that `enum_vals` implies
+    let style = o.style.or_else(|| {
+        o.enum_vals.map(|_| {
+            if ty == AttrType::SymbolRef {
+                c"enum"
+            } else {
+                c"enumindex"
+            }
+        })
+    });
+    if let Some(style) = style {
         parse(c"style", sym.s_symbol, style)?;
-        parse(c"enumvals", sym.s_atom, vals)?;
     }
-    if let Some(style) = o.style {
-        parse(c"style", sym.s_symbol, style)?;
+    if let Some(vals) = o.enum_vals {
+        parse(c"enumvals", sym.s_atom, vals)?;
     }
     if let Some(category) = o.category {
         // SAFETY: `category` is a NUL-terminated string; `str_tr` returns one (it, or Max's

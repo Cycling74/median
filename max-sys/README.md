@@ -19,7 +19,14 @@ it is not used to generate or link these bindings.
 
 Windows ARM64 is not enabled: the pinned SDK only supplies `x64` import libraries. Linux is
 not enabled until a host and its ABI are specified. Windows builds link MaxAPI, MaxAudio and
-jitlib from the pinned SDK; unused imports are discarded by the linker.
+jitlib from the pinned SDK. The linker imports a DLL only for the symbols a binary still
+references after static linking, but that is not enough for test programs: they must resolve every
+Max symbol from `median-mock`, or they import `MaxAPI.dll`/`jitlib.dll` and fail to start on a
+machine without Max. `median-mock` links its C archive whole for that reason, and `median` avoids
+libm calls such as `f64::trunc` that `jitlib.lib` would otherwise satisfy. Check with
+`x86_64-w64-mingw32-objdump -p <test exe>` after `cargo test --no-run --target
+x86_64-pc-windows-gnu`. A symbol that `jitlib.lib` does not export (for example
+`jit_ob3d_draw_geometry`) is a link error in every Windows binary that references it.
 
 ## Regenerating
 

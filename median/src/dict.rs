@@ -203,6 +203,10 @@ impl Dict {
     /// Do not access another existing dictionary inside the closure (debug builds check this).
     /// Newly created private dictionaries are allowed. Never wait for a thread that needs this
     /// dictionary or another dictionary transaction. The graph lock precedes the SDK lock.
+    ///
+    /// The transaction holds the process-wide graph lock for its whole duration, so every other
+    /// thread's `transaction`, `insert_child`, `copy_from` and `insert_object` waits for it:
+    /// keep `f` short and do not block in it.
     pub fn transaction<R>(&self, f: impl FnOnce(&Dict) -> R) -> R {
         non_audio();
         let _graph = GRAPH.lock();
@@ -225,12 +229,21 @@ impl Dict {
 
     /// A non-atomic copy across dictionaries: snapshot the source, then insert into the target.
     /// Children are deep-copied. Opaque objects/object atoms are refused before target mutation.
+    ///
+    /// An entry holding an atomarray of dictionaries (what Max's JSON parser produces for an
+    /// array of objects) reads as [`DictValue::Atoms`] holding object atoms, which are refused
+    /// with [`DictError::ObjectAtom`] before the target is changed: this fails on such a source
+    /// today (see the open items in `doc/plan-containers.md`).
     pub fn merge_from(&self, source: &Dict) -> DictResult<()> {
         self.copy_from(source, false)
     }
+    /// [`merge_from`](Self::merge_from) that skips keys already in this dictionary; it refuses
+    /// an atomarray of dictionaries in the source in the same way.
     pub fn copy_unique_from(&self, source: &Dict) -> DictResult<()> {
         self.copy_from(source, true)
     }
+    /// [`merge_from`](Self::merge_from) with the roles swapped; it refuses an atomarray of
+    /// dictionaries in `self` in the same way.
     pub fn copy_to(&self, target: &Dict) -> DictResult<()> {
         target.merge_from(self)
     }
@@ -278,6 +291,16 @@ impl Dict {
     /// even on an ambiguous SDK failure; do not free them afterwards. Object entries must
     /// obey Max's threading and cloning rules. Do not create dictionary cycles or store an
     /// unlocked shared atomarray. Do not use `Memory` for a Max object.
+    ///
+    /// Safe calls made later on this dictionary (or on a dictionary that holds it) hand an
+    /// `Owned`, `Reference`, `Data` or `Memory` entry's pointer to kernel code that treats it as
+    /// a Max object: `get` and `remove` (through `dictionary_entryis*`), the cycle walk of
+    /// `insert_child` (`insert`, `insert_shared`) and everything that goes through
+    /// `dictionary_clone` (`deep_clone`, `write`, `dump`, `find_registered_clone`, `insert` of a
+    /// `&Dict`, `merge_from`). For a `Data` or `Memory` pointer that is not a Max object, the
+    /// caller must be sure each of these is sound for it, or never make them. The kernel table in
+    /// `doc/plan-containers.md` is the only evidence this crate has for what the kernel does with
+    /// such entries; none of it is verified in Max.
     pub unsafe fn insert_object(
         &self,
         key: SymbolRef,
@@ -344,6 +367,13 @@ impl Dict {
             sys::dictionary_appendobject_flags(self.as_ptr(), key.as_ptr(), ptr, flags)
         })
     }
+    /// The value of `key`, copied or retained under the lock.
+    ///
+    /// An entry holding an atomarray of dictionaries (what Max's JSON parser produces for an
+    /// array of objects) comes back as [`DictValue::Atoms`] whose object atoms are non-owning
+    /// pointers to those dictionaries, valid only while the entry stays in this dictionary;
+    /// they are not wrapped as [`Dict`]s. Operations that refuse object atoms
+    /// ([`merge_from`](Self::merge_from) and the like) fail with [`DictError::ObjectAtom`].
     pub fn get(&self, key: SymbolRef) -> DictResult<Option<DictValue>> {
         let _lock = self.lock();
         let d = self.as_ptr();
@@ -431,6 +461,10 @@ impl Dict {
         }
     }
     /// Copy/retain the value, then delete it while still locked. Opaque objects are left in place.
+    ///
+    /// For an entry holding an atomarray of dictionaries (see [`get`](Self::get)) the deletion
+    /// frees those dictionaries, so the object atoms in the returned [`DictValue::Atoms`] are
+    /// dangling: do not dereference them.
     pub fn remove(&self, key: SymbolRef) -> DictResult<Option<DictValue>> {
         let _lock = self.lock();
         let value = self.get(key)?;
@@ -482,15 +516,23 @@ impl Dict {
             Some(unsafe { SymbolRef::from_raw(p) })
         }
     }
+    /// The dictionary registered under `name`, retained. Any class can hold a name in the
+    /// registry (it is the `"dictionary"` namespace of `object_register`); a name held by an
+    /// object that is not a dictionary yields `None`, and that object's reference is released.
     pub fn find_registered(name: SymbolRef) -> Option<Self> {
         non_audio();
-        unsafe {
-            Self::from_raw(
-                sys::dictobj_findregistered_retain(name.as_ptr()),
-                Ownership::Retained,
-            )
-            .ok()
+        let p = unsafe { sys::dictobj_findregistered_retain(name.as_ptr()) };
+        if p.is_null() {
+            return None;
         }
+        // SAFETY: `p` is a live object, retained for us (`ext_obex.h`, `object_classname`).
+        // That Max's dictionary class is named `dictionary` (`_sym_dictionary`) is unverified
+        // in a host; see `doc/validation-max.md`.
+        if unsafe { sys::object_classname(p.cast()) } != crate::sym!("dictionary").as_ptr() {
+            unsafe { sys::object_free(p.cast()) };
+            return None;
+        }
+        unsafe { Self::from_raw(p, Ownership::Retained).ok() }
     }
     pub fn find_registered_clone(name: SymbolRef) -> DictResult<Option<Self>> {
         Self::find_registered(name)
@@ -557,6 +599,10 @@ impl Dict {
     ///
     /// # Safety
     /// During `f`, do not mutate this dictionary or the array through any handle or callback.
+    /// `f` runs with this dictionary's lock held but without the graph lock that `transaction`,
+    /// `insert_child`, `copy_from` and `insert_object` take first, so it must not insert a child
+    /// into, or run a transaction on, any dictionary: another thread doing so would take the two
+    /// locks in the opposite order.
     /// Object atoms are non-owning and must not be dereferenced without their own lifetime
     /// guarantees. The array's contents must follow the SDK's valid-atom contract.
     pub unsafe fn with_atoms_raw<R>(

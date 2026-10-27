@@ -1766,6 +1766,45 @@ fn register_attach_and_notify() {
 }
 
 #[test]
+fn classnames_retains_and_the_dictionary_registry_cover_every_class() {
+    let k = median_mock::lock();
+    register();
+    let x = thing(&k, 1) as *mut c_void;
+    unsafe {
+        assert_eq!(max_sys::object_classname(x), sym(c"thing"));
+        let d = max_sys::dictionary_new();
+        assert_eq!(max_sys::object_classname(d.cast()), sym(c"dictionary"));
+        assert!(max_sys::object_classname(null_mut()).is_null());
+        // a retained object is released by `object_free`, not freed
+        assert_eq!(k.retain_count(x), Some(0));
+        assert_eq!(max_sys::object_retain(x.cast()), 0);
+        assert_eq!(k.retain_count(x), Some(1));
+        assert_eq!(max_sys::object_free(x), 0);
+        assert_eq!(k.retain_count(x), Some(0));
+        // `dictobj_findregistered_retain` finds any class registered in the dictionary namespace
+        let ns = sym(c"dictionary");
+        assert_eq!(max_sys::object_register(ns, sym(c"foreign"), x), x);
+        assert_eq!(
+            max_sys::dictobj_findregistered_retain(sym(c"foreign")).cast::<c_void>(),
+            x
+        );
+        assert_eq!(k.retain_count(x), Some(1));
+        assert_eq!(max_sys::object_free(x), 0);
+        assert_eq!(k.retain_count(x), Some(0));
+        // and a dictionary under its own name
+        assert_eq!(max_sys::object_free(d.cast()), 0);
+        let mut dname = null_mut();
+        let d2 = max_sys::dictionary_new();
+        assert_eq!(max_sys::dictobj_register(d2, &mut dname), d2);
+        let found = max_sys::dictobj_findregistered_retain(dname);
+        assert_eq!(found, d2);
+        assert_eq!(max_sys::object_free(found.cast()), 0);
+        assert_eq!(max_sys::object_free(d2.cast()), 0);
+    }
+    assert!(k.free_object(x));
+}
+
+#[test]
 fn buffer_refs_bind_to_buffers() {
     let k = median_mock::lock();
     register();

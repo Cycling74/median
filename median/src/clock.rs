@@ -259,26 +259,31 @@ impl ClockInner {
     }
 }
 
-/// The class name: stores the version so that externals compiled with other versions of median
-/// won't conflict.
-const CLOCK_CLASS_NAME: &CStr = match CStr::from_bytes_with_nul(
-    concat!(
-        env!("CARGO_CRATE_NAME"),
-        "ClockInner",
-        env!("CARGO_PKG_VERSION"),
-        "\0"
-    )
-    .as_bytes(),
-) {
-    Ok(n) => n,
-    Err(_) => panic!("the clock class name has a NUL"),
-};
+/// The class name: median's version plus a token of this loaded copy of median (the address of
+/// the clock trampoline), so that no two externals share the class. The class is looked up by
+/// name and reused (`register_with(true)`), and a shared class would make objects with the
+/// first external's `new`/`free`, whose `Wrapper`, `ClockInner` and `ClockShared` layouts can
+/// differ between builds of the same version (and between compilers). Externals built from the
+/// same median still register one class each: a nobox class costs nothing to duplicate.
+fn clock_class_name() -> &'static CStr {
+    static NAME: std::sync::OnceLock<std::ffi::CString> = std::sync::OnceLock::new();
+    NAME.get_or_init(|| {
+        std::ffi::CString::new(format!(
+            "{}ClockInner{}_{:x}",
+            env!("CARGO_CRATE_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            ClockInner::call_tramp as extern "C" fn(&MaxObjWrapper<ClockInner>) as *const ()
+                as usize
+        ))
+        .expect("the clock class name has no NUL")
+    })
+}
 
 impl ObjClass for ClockInner {
     type Wrapper = MaxObjWrapper<Self>;
 
     fn class_name() -> &'static CStr {
-        CLOCK_CLASS_NAME
+        clock_class_name()
     }
 
     fn class_type() -> ClassType {

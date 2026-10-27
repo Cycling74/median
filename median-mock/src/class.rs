@@ -385,9 +385,32 @@ pub unsafe extern "C" fn object_alloc(c: *mut t_class) -> *mut c_void {
             signal_inlets: None,
             obex: Default::default(),
             registered: None,
+            extra_refs: 0,
         },
     );
     obj as *mut c_void
+}
+
+/// The class name of an object made by `object_alloc`, or of a dictionary or atomarray; null for
+/// anything else.
+///
+/// # Safety
+/// `x` is a pointer the kernel handed out, or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn object_classname(x: *mut c_void) -> *mut t_symbol {
+    let name = {
+        let st = state();
+        st.objects
+            .get(&(x as usize))
+            .map(|o| st.classes[&o.class].name.clone())
+    };
+    match name
+        .as_deref()
+        .or_else(|| crate::containers::class_name(x as usize))
+    {
+        Some(name) => intern(name.as_bytes()),
+        None => std::ptr::null_mut(),
+    }
 }
 
 /// Frees an object from `object_alloc` (running the class's free method first and then releasing
@@ -410,8 +433,14 @@ pub unsafe extern "C" fn object_free(x: *mut c_void) -> t_max_err {
         Unknown,
     }
     let kind = {
-        let st = state();
-        if let Some(o) = st.objects.get(&addr) {
+        let mut st = state();
+        if let Some(o) = st.objects.get_mut(&addr) {
+            if o.extra_refs > 0 {
+                // a retained object: this is only a release
+                o.extra_refs -= 1;
+                return max_err(err::MAX_ERR_NONE);
+            }
+            let o = &st.objects[&addr];
             Kind::Object(st.classes.get(&o.class).map_or(0, |c| c.free_fn))
         } else if let Some(s) = st.subs.get(&addr) {
             if s.alive { Kind::Sub } else { Kind::DeadSub }

@@ -102,11 +102,19 @@ fn main() {
     gen_common_syms(&out);
     println!("cargo:rerun-if-changed=c/variadic.c");
     println!("cargo:rerun-if-changed=build.rs");
-    cc::Build::new()
+    let mut build = cc::Build::new();
+    build
         .file("c/variadic.c")
         .warnings(true)
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wextra")
-        .flag_if_supported("-Werror")
-        .compile("median_mock_variadic");
+        .flag_if_supported("-Werror");
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        // Link every object, not only the ones something references so far. Otherwise a test
+        // program that references `class_new` and friends before this archive is searched
+        // resolves them from MaxAPI's import library and imports MaxAPI.dll. Only on Windows:
+        // on macOS the modifier makes dsymutil warn about the archive for every test binary.
+        build.link_lib_modifier("+whole-archive");
+    }
+    build.compile("median_mock_variadic");
 }

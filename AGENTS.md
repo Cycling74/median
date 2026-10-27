@@ -172,5 +172,7 @@ cannot defer. `JitBuilder<Self>` adds custom numeric/proxy inlets and message ou
 SDK-owned positions for fixed-count MOPs and GL objects; variable-count layouts reject extras.
 Preserve SDK inlet-info callback arguments when delegating for SDK positions. GL chunks are
 callback-scoped; buffer/geometry adoption and upload remain unsafe pending host ownership
-verification. No new Max runtime checks have been performed; mock success does not verify
-host locking, iolet ordering or GL ownership contracts.
+verification. The Max runs recorded in `doc/validation-max.md` (patches 01-04, 2026-10-26)
+are the only host checks so far; mock success does not verify host locking, iolet ordering or
+GL ownership contracts. The 2026-10-27 review of this work and its fixes are recorded under
+"Where things stand" in `doc/plan-api-redesign.md`.

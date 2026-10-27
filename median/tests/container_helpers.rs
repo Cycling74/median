@@ -172,3 +172,29 @@ fn another_class_at_the_requested_name_consumes_the_rejected_dictionary() {
     assert_eq!(median_mock::containers::live_count(), before);
     assert!(k.free_object(object));
 }
+
+#[test]
+fn a_foreign_object_registered_as_a_dictionary_name_is_not_a_dictionary() {
+    let k = median_mock::lock();
+    Observer::register();
+    let object = k.new_object("dict.helpers.observer", &[]);
+    assert!(!object.is_null());
+    unsafe {
+        max_sys::object_register(
+            sym!("dictionary").as_ptr(),
+            sym!("foreign").as_ptr(),
+            object,
+        );
+    }
+    let refs = k.retain_count(object);
+    assert_eq!(refs, Some(0));
+    assert!(Dict::find_registered(sym!("foreign")).is_none());
+    assert!(
+        Dict::find_registered_clone(sym!("foreign"))
+            .unwrap()
+            .is_none()
+    );
+    // retained by the lookup, released again when it was refused
+    assert_eq!(k.retain_count(object), refs);
+    assert!(k.free_object(object));
+}

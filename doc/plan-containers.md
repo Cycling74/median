@@ -60,6 +60,14 @@ rollback or partial-output guarantees; host verification remains necessary.
 Remaining: in-memory JSON serialization, host tests, and wider SDK failure/entry-flag coverage.
 `jsonwriter.getoutput` remains deliberately unimplemented until its contract is verified in Max.
 
+- Open: an entry holding an atomarray of dictionaries (what Max's JSON parser produces for an
+  array of objects) is read as `DictValue::Atoms` with non-owning object atoms, so `merge_from`,
+  `copy_unique_from` and `copy_to` fail on such a source with `ObjectAtom`, and `remove` returns
+  atoms whose object pointers dangle (the deletion frees the dictionaries). Needs a typed read
+  that deep-copies the child dictionaries (or retains them), and a decision for `remove`. The
+  mock cannot test it: its JSON parser supports scalar atoms in arrays, not arrays of objects
+  (`median-mock/src/containers/io.rs`).
+
 ## 1. What the kernel actually does
 
 | fact | documented in |

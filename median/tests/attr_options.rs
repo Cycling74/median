@@ -49,6 +49,9 @@ pub struct Thing {
     /// none
     #[attr]
     plain: Int64,
+    /// both an enum and an explicit style: one `style`, the explicit one
+    #[attr(enum = "a b", style = "text")]
+    both: Int64,
     mode: Int64,
     built: Float64,
 }
@@ -59,6 +62,7 @@ impl MaxObjWrapped for Thing {
             gain: Float64::new(1.5),
             shape: Int64::new(1),
             plain: Int64::new(0),
+            both: Int64::new(0),
             mode: Int64::new(0),
             built: Float64::new(0.),
         })
@@ -222,6 +226,18 @@ fn field_attribute_options_add_attribute_attributes() {
         aa(&k, obj, "shape", "invisible"),
         ("long".into(), vec![MockAtom::Long(1)])
     );
+
+    //`enum` and `style` together: `style` is added once and the explicit one wins
+    assert_eq!(
+        aa(&k, obj, "both", "style"),
+        ("symbol".into(), vec![s("text")])
+    );
+    assert_eq!(k.attr_attr_adds(obj, "both", "style"), 1);
+    assert_eq!(
+        aa(&k, obj, "both", "enumvals"),
+        ("atom".into(), vec![s("a"), s("b")])
+    );
+    assert_eq!(k.attr_attr_adds(obj, "shape", "style"), 1);
 
     //no options, nothing added
     assert!(k.attr_attr_names(obj, "plain").is_empty());

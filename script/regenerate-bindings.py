@@ -29,12 +29,13 @@ def main():
         ("x86_64-apple-darwin", "ffi-macos-x86_64.rs"),
         ("x86_64-pc-windows-gnu", "ffi-windows-x86_64.rs"),
     ]
+    jobs = max(1, (os.cpu_count() or 2) // 2)  # half the logical cores
     with tempfile.TemporaryDirectory(prefix="median-bindings-") as tmp:
         for target, _ in targets:
             env = os.environ.copy()
             env.update(MAX_SYS_BINDINGS_TARGET=target, MAX_SYS_BINDINGS_DIR=tmp,
                        MAX_SYS_WINDOWS_INCLUDE=str(include))
-            subprocess.run(["cargo", "build", "--features", "build-bindings"],
+            subprocess.run(["cargo", "build", "-j", str(jobs), "--features", "build-bindings"],
                            cwd=crate, env=env, check=True)
         for _, name in targets:
             if not (Path(tmp) / name).is_file():

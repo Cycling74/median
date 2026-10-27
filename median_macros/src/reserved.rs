@@ -26,6 +26,29 @@ pub(crate) const RESERVED_SELECTORS: &[&str] = &[
     "in9",
 ];
 
+/// A mirror of `median::class::UNTYPED_SELECTORS` (checked by the same test), with the marker to
+/// use for each: Max calls these untyped messages with its own arguments, so a typed `#[sel]` or
+/// `#[sel_gimme]` would misread them.
+pub(crate) const UNTYPED_SELECTORS: &[&str] = &[
+    "dblclick",
+    "loadbang",
+    "appendtodictionary",
+    "getvalueof",
+    "setvalueof",
+    "multichanneloutputs",
+    "inputchanged",
+];
+
+/// The marker that registers the untyped selector `name`.
+pub(crate) fn untyped_marker(name: &str) -> Option<&'static str> {
+    match name {
+        "dblclick" => Some("#[dblclick]"),
+        "loadbang" => Some("#[loadbang]"),
+        "appendtodictionary" => Some("#[savestate]"),
+        _ => None,
+    }
+}
+
 // `median::class::MSP_RESERVED_SELECTORS` (what `class_dspinit` adds) is not mirrored: they are
 // only reserved for an MSP class, and the impl doesn't say the kind. `Class::add_*` refuses them
 // for an MSP class when the methods are registered.

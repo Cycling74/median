@@ -128,6 +128,9 @@ impl<'ctx> GLChunk<'ctx> {
     /// A non-null pointer must be a live, exclusively owned SDK chunk with valid matrices and
     /// chain pointers. No other code may delete/modify its descriptor until this owner drops.
     /// Its resources must be compatible with `context`; do not close that context early.
+    /// Dropping the chunk calls `jit_glchunk_delete`, which releases the chunk's matrices, so a
+    /// chunk made with `jit_glchunk_new_frommatrix` over matrices the caller owns must not be
+    /// adopted.
     pub unsafe fn from_raw(
         context: &'ctx DrawContext,
         ptr: *mut sys::t_jit_glchunk,
@@ -143,7 +146,14 @@ impl<'ctx> GLChunk<'ctx> {
     pub fn primitive(&self) -> JitResult<GLChunkPrim> {
         unsafe { SymbolRef::from_raw((*self.as_ptr()).prim) }.try_into()
     }
-    pub fn try_clone(&self) -> JitResult<Self> {
+    /// Copy the chunk with `jit_glchunk_copy`.
+    ///
+    /// # Safety
+    /// Assumes two things that `jit.gl.chunk.h` does not state and that are unverified in Max
+    /// (`doc/validation-max.md`, "`jit_glchunk_copy` partial-result ownership"): the copy is deep,
+    /// with its own `m_vertex` and `m_index` matrices, so that deleting both chunks is sound;
+    /// and on an error any non-null `*newcopy` is the caller's to delete (done here).
+    pub unsafe fn try_clone(&self) -> JitResult<Self> {
         let mut ptr = std::ptr::null_mut();
         let code = unsafe { sys::jit_glchunk_copy(&mut ptr, self.as_ptr()) };
         if code != 0 {

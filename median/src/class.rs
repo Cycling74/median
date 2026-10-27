@@ -641,12 +641,16 @@ impl<W> Class<W> {
     /// The last `defaults` arguments are optional (`A_DEFFLOAT` and so on): Max passes 0, 0.0 or
     /// the empty symbol when the message leaves them out. It is an error if `defaults` is more
     /// than the number of arguments, and `Err(MaxError::Duplicate)` if `sel` is one of
-    /// [`RESERVED_SELECTORS`] or, for an MSP class, [`MSP_RESERVED_SELECTORS`].
+    /// [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP class,
+    /// [`MSP_RESERVED_SELECTORS`].
     pub fn add_sel<T, F, A, R>(&mut self, sel: &CStr, _f: F, defaults: usize) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         F: SelFn<T, A, R>,
     {
+        if is_untyped_selector(sel) {
+            return Err(MaxError::Duplicate);
+        }
         let mut types = [0; 7];
         //`SelFn` is sealed and its impls have at most 7 arguments; checked anyway rather than
         //relied on
@@ -662,14 +666,17 @@ impl<W> Class<W> {
 
     /// Register the method `sel` with the arguments as a list of atoms (`A_GIMME`). The callable
     /// gets the selector as well, so that one can serve several selectors. `sel` must not be one of
-    /// [`RESERVED_SELECTORS`] or, for an MSP class, [`MSP_RESERVED_SELECTORS`]
-    /// (`Err(MaxError::Duplicate)`).
+    /// [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP class,
+    /// [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
     pub fn add_sel_gimme<T, F, R>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
+        if is_untyped_selector(sel) {
+            return Err(MaxError::Duplicate);
+        }
         let m = sel_gimme_method::<W, T, F, R>(f);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMME]) }
@@ -764,7 +771,8 @@ impl<W> Class<W> {
         unsafe { self.add_typed(c"anything", m, &[max_sys::e_max_atomtypes::A_GIMME]) }
     }
 
-    /// [`add_sel`](Self::add_sel), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
+    /// [`add_sel`](Self::add_sel), deferred (see [`add_bang_deferred`](Self::add_bang_deferred));
+    /// it refuses the same selectors.
     pub fn add_sel_deferred<T, F, A, R>(
         &mut self,
         sel: &CStr,
@@ -777,6 +785,9 @@ impl<W> Class<W> {
         T: 'static,
         F: SelFn<T, A, R>,
     {
+        if is_untyped_selector(sel) {
+            return Err(MaxError::Duplicate);
+        }
         let mut types = [0; 7];
         if F::TYPES.len() > types.len() {
             return Err(MaxError::Generic);
@@ -803,6 +814,9 @@ impl<W> Class<W> {
         F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
+        if is_untyped_selector(sel) {
+            return Err(MaxError::Duplicate);
+        }
         self.deferred = true;
         let m = sel_gimme_deferred_method::<W, T, F, R>(f, mode);
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
@@ -961,6 +975,30 @@ pub const RESERVED_SELECTORS: &[&str] = &[
     "in8",
     "in9",
 ];
+
+/// The untyped (`A_CANT`) messages the SDK headers and examples show Max calling through
+/// `object_method` with its own fixed arguments, whatever argument types the class registered
+/// (`ext_obex.h`, "untyped message"): `dblclick`, `loadbang`, `appendtodictionary`,
+/// `getvalueof`/`setvalueof` (pattr, `ext_obex.h`) and `multichanneloutputs`/`inputchanged`
+/// (MC, `z_dsp.h`). A typed `#[sel]`, [`Class::add_sel`] or [`Class::add_sel_gimme`] for one
+/// would misread what Max passes (a `t_dictionary*` or a `long*` as a symbol or an atom list,
+/// say), so they refuse these selectors (`Err(MaxError::Duplicate)`). Use
+/// [`Class::add_dblclick`], [`Class::add_loadbang`] or [`Class::add_savestate`] (the
+/// `#[dblclick]`, `#[loadbang]` and `#[savestate]` markers); the other four have no median
+/// hook yet. The list is what the SDK shows, not a complete census of Max's untyped messages.
+pub const UNTYPED_SELECTORS: &[&str] = &[
+    "dblclick",
+    "loadbang",
+    "appendtodictionary",
+    "getvalueof",
+    "setvalueof",
+    "multichanneloutputs",
+    "inputchanged",
+];
+
+fn is_untyped_selector(sel: &CStr) -> bool {
+    sel.to_str().is_ok_and(|s| UNTYPED_SELECTORS.contains(&s))
+}
 
 /// The selectors `class_dspinit` adds to an MSP class (`z_dsp.h`: "you should avoid binding
 /// anything to their names"). The wrapper calls `class_dspinit` after the user's methods are

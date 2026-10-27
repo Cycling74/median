@@ -33,7 +33,8 @@ impl Ob3d for Helpers {
             }
         }
         assert!(chunk.indices()?.is_some());
-        let mut copy = chunk.try_clone()?;
+        // SAFETY: the mock's `jit_glchunk_copy` is a deep copy and leaves a partial result to us.
+        let mut copy = unsafe { chunk.try_clone() }?;
         {
             let mut vertices = copy.vertices()?;
             let mut guard = vertices.lock();
@@ -51,7 +52,8 @@ impl Ob3d for Helpers {
         }
         for partial in [false, true] {
             median_mock::jit::fail_next_chunk_copy(partial);
-            assert!(chunk.try_clone().is_err());
+            // SAFETY: as above
+            assert!(unsafe { chunk.try_clone() }.is_err());
             assert_eq!(median_mock::jit::live_chunk_count(), 2);
         }
         let mut grid = GLChunk::new_grid(context, GLGridPrim::Quad, 3, 2, 4)?;
@@ -61,30 +63,35 @@ impl Ob3d for Helpers {
         unsafe {
             chunk.draw()?;
         }
-        assert!(unsafe { GLGeometry::from_raw(context, std::ptr::null_mut()) }.is_err());
-        // SAFETY: these CPU fixtures implement only the ownership contract stated by the
-        // mock. This does not establish the real SDK's buffer or setdata contract.
-        let geometry = unsafe { GLGeometry::from_raw(context, median_mock::jit::new_geometry())? };
-        unsafe {
-            geometry.draw()?;
+        // `GLGeometry` and `GLDataBuffer` do not exist on Windows (see `median::jit::ob3d`).
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert!(unsafe { GLGeometry::from_raw(context, std::ptr::null_mut()) }.is_err());
+            // SAFETY: these CPU fixtures implement only the ownership contract stated by the
+            // mock. This does not establish the real SDK's buffer or setdata contract.
+            let geometry =
+                unsafe { GLGeometry::from_raw(context, median_mock::jit::new_geometry())? };
+            unsafe {
+                geometry.draw()?;
+            }
+            let mut payload = [1u8, 2, 3];
+            let before = median_mock::jit::buffer_destroy_count();
+            let descriptor = median_mock::jit::buffer_descriptor(&mut payload);
+            let buffer = unsafe { GLDataBuffer::from_raw(context, descriptor) };
+            let mut descriptor = buffer.into_raw();
+            assert_eq!(median_mock::jit::buffer_destroy_count(), before);
+            unsafe {
+                max_sys::jit_gl_buffer_data_destroy_tagged(&mut descriptor);
+            }
+            assert_eq!(median_mock::jit::buffer_destroy_count(), before + 1);
+            let descriptor = median_mock::jit::buffer_descriptor(&mut payload);
+            let buffer = unsafe { GLDataBuffer::from_raw(context, descriptor) };
+            drop(buffer);
+            assert_eq!(median_mock::jit::buffer_destroy_count(), before + 2);
+            assert_eq!(payload, [1, 2, 3]);
+            let descriptor = median_mock::jit::buffer_descriptor(&mut payload);
+            let _buffer = unsafe { GLDataBuffer::from_raw(context, descriptor) };
         }
-        let mut payload = [1u8, 2, 3];
-        let before = median_mock::jit::buffer_destroy_count();
-        let descriptor = median_mock::jit::buffer_descriptor(&mut payload);
-        let buffer = unsafe { GLDataBuffer::from_raw(context, descriptor) };
-        let mut descriptor = buffer.into_raw();
-        assert_eq!(median_mock::jit::buffer_destroy_count(), before);
-        unsafe {
-            max_sys::jit_gl_buffer_data_destroy_tagged(&mut descriptor);
-        }
-        assert_eq!(median_mock::jit::buffer_destroy_count(), before + 1);
-        let descriptor = median_mock::jit::buffer_descriptor(&mut payload);
-        let buffer = unsafe { GLDataBuffer::from_raw(context, descriptor) };
-        drop(buffer);
-        assert_eq!(median_mock::jit::buffer_destroy_count(), before + 2);
-        assert_eq!(payload, [1, 2, 3]);
-        let descriptor = median_mock::jit::buffer_descriptor(&mut payload);
-        let _buffer = unsafe { GLDataBuffer::from_raw(context, descriptor) };
         assert!(!PANIC.load(Ordering::SeqCst), "test callback cleanup");
         COMPLETED.fetch_add(1, Ordering::SeqCst);
         Ok(())

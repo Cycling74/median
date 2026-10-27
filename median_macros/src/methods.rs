@@ -97,6 +97,20 @@ impl Marker {
                     ),
                 ));
             }
+            if crate::reserved::UNTYPED_SELECTORS.contains(&name.value().as_str()) {
+                let hint = match crate::reserved::untyped_marker(&name.value()) {
+                    Some(marker) => format!("use `{marker}` instead"),
+                    None => "median has no hook for it yet".to_string(),
+                };
+                return Err(syn::Error::new(
+                    name.span(),
+                    format!(
+                        "`{}` is an untyped message Max calls with its own arguments, which a \
+                         typed selector would misread; {hint}",
+                        name.value(),
+                    ),
+                ));
+            }
             let mut defaults = None;
             while !input.is_empty() {
                 input.parse::<syn::Token![,]>()?;

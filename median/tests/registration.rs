@@ -2,7 +2,9 @@
 //! registers itself), and attribute getters cope with the null pointers Max may pass. Run
 //! through the `median-mock` kernel.
 
-use median::class::{MSP_RESERVED_SELECTORS, RESERVED_SELECTORS, is_reserved_selector};
+use median::class::{
+    MSP_RESERVED_SELECTORS, RESERVED_SELECTORS, UNTYPED_SELECTORS, is_reserved_selector,
+};
 use median::error::MaxError;
 use median::prelude::*;
 use median_mock::{Atom as MockAtom, GetterArgs, Kernel, Level};
@@ -80,6 +82,37 @@ impl MaxObjWrapped for Setup {
             c.add_sel(c"userconnect", |_: &Self| {}, 0),
         );
         rec("sel nsiginlets", c.add_sel(c"nsiginlets", |_: &Self| {}, 0));
+        //Max calls the untyped messages with its own arguments: no typed registration of them
+        rec(
+            "sel appendtodictionary",
+            c.add_sel(c"appendtodictionary", |_: &Self, _s: SymbolRef| {}, 0),
+        );
+        rec("sel dblclick", c.add_sel(c"dblclick", |_: &Self| {}, 0));
+        rec(
+            "gimme loadbang",
+            c.add_sel_gimme(c"loadbang", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+        );
+        rec(
+            "deferred sel appendtodictionary",
+            c.add_sel_deferred(
+                c"appendtodictionary",
+                |_: &Self, _s: SymbolRef| {},
+                0,
+                median::defer::Defer::Low,
+            ),
+        );
+        rec(
+            "deferred gimme dblclick",
+            c.add_sel_gimme_deferred(
+                c"dblclick",
+                |_: &Self, _: &SymbolRef, _: &[Atom]| {},
+                median::defer::Defer::Low,
+            ),
+        );
+        //the markers' own methods register them
+        rec("savestate", c.add_savestate(|_: &Self, _: &Dict| {}));
+        rec("dblclick", c.add_dblclick(|_: &Self| {}));
+        rec("loadbang", c.add_loadbang(|_: &Self| {}));
         rec(
             "attr value",
             c.add_attr(
@@ -274,6 +307,14 @@ fn class_setup_is_refused_reserved_selectors_and_duplicate_attributes() {
         ("gimme enable", Ok(())),
         ("bang userconnect", Ok(())),
         ("sel nsiginlets", Ok(())),
+        ("sel appendtodictionary", dup.clone()),
+        ("sel dblclick", dup.clone()),
+        ("gimme loadbang", dup.clone()),
+        ("deferred sel appendtodictionary", dup.clone()),
+        ("deferred gimme dblclick", dup.clone()),
+        ("savestate", Ok(())),
+        ("dblclick", Ok(())),
+        ("loadbang", Ok(())),
         ("attr value", dup.clone()),
         ("readonly value", dup.clone()),
         ("field value", dup.clone()),
@@ -371,6 +412,7 @@ fn the_macro_mirrors_the_reserved_lists() {
             .collect()
     };
     assert_eq!(list("RESERVED_SELECTORS"), RESERVED_SELECTORS);
+    assert_eq!(list("UNTYPED_SELECTORS"), UNTYPED_SELECTORS);
     //the MSP ones are not mirrored: the macro can't know the class's kind
     assert!(!src.contains("pub(crate) const MSP_RESERVED_SELECTORS"));
 }

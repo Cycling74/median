@@ -127,6 +127,10 @@ impl<'a> Matrix<'a> {
     pub fn as_ptr(&self) -> *mut c_void {
         self.inner.as_ptr()
     }
+    /// Lock the matrix until the guard drops. Each guard restores the lock value it saw, so
+    /// guards on the same matrix (inputs and outputs of an in-place `calc` can be one object)
+    /// must be dropped last in, first out, as the SDK's own save/restore lock idiom does; see
+    /// [`MatrixGuard`].
     pub fn lock(&mut self) -> MatrixGuard<'_> {
         // SAFETY: the handle's constructor guarantees a live matrix interface.
         let previous = unsafe {
@@ -142,6 +146,12 @@ impl<'a> Matrix<'a> {
 }
 
 /// Restores the matrix's previous lock state, including during unwinding.
+///
+/// The guard saves the lock value it saw and puts that value back on drop. Two guards on the
+/// same matrix (an in-place `calc`, where `inputs[0]` and `outputs[0]` are one object) must
+/// therefore be dropped last in, first out: dropped in the other order, the first guard's saved
+/// value is restored last and leaves the matrix locked. Rust's reverse-declaration drop order
+/// does this unless a guard is dropped explicitly (`drop(guard)`) out of order.
 /// Jitter locking does not by itself authorize making aliased Rust references.
 pub struct MatrixGuard<'a> {
     inner: NonNull<c_void>,

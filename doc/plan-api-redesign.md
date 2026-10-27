@@ -452,10 +452,55 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   wrappers/example ports, all-target binding regeneration, dependency refresh and packaging/CI
   changes. See [handoff-2026-10-23.md](handoff-2026-10-23.md) for the stopping point and open work.
 
+- Review of the continuation (2026-10-27; four adversarial reads of 312399c..eb1b353, one per
+  area, cross-model to the author). No high-severity defect in the object lifecycle, the matrix
+  views, the parallel adapters or the attribute code. Found and fixed in the same change:
+  - `Dict::find_registered` (and so the `#[dictionary]` message) wrapped whatever object was
+    registered under the name in the `dictionary` namespace as a `Dict`; it now checks
+    `object_classname` and releases a mismatch. The mock's registry lookup returns any class.
+  - `#[sel("appendtodictionary")]`/`add_sel(c"loadbang", ..)` and the like registered a typed
+    method for a selector Max calls untyped through `object_method` (a `t_dictionary*` read as a
+    symbol). `class::UNTYPED_SELECTORS` (`dblclick`, `loadbang`, `appendtodictionary`, and
+    `getvalueof`/`setvalueof`/`multichanneloutputs`/`inputchanged`, which have no median hook)
+    is refused by `add_sel*` (immediate and deferred) and by `#[sel]`/`#[sel_gimme]` with a
+    spanned error naming the marker to use; `RESERVED_SELECTORS` keeps its meaning (what the
+    wrapper registers for every class).
+  - Every external failed to link for Windows: `jit_gl_buffer_data_destroy_tagged` and
+    `jit_ob3d_draw_geometry` are declared in `jit.gl.draw.h` but not exported by the pinned
+    `jitlib.lib`, and macOS hides that through `-undefined dynamic_lookup`. `GLDataBuffer` and
+    `GLGeometry` are compiled out on Windows (`cfg(not(target_os = "windows"))`) until a Max
+    build is shown to export them (see `validation-max.md`). The Windows test programs also
+    imported `MaxAPI.dll`/`jitlib.dll` (`f64::trunc` resolved from `jitlib.lib`, `file.rs`
+    functions missing from the mock, the mock's variadic C shim searched after the import
+    libraries); fixed with `v as i64`, `median_mock::file`, and `+whole-archive` on the shim.
+    Checked statically (`objdump -p` on every test executable); never run on Windows.
+  - The clock class name (looked up and reused by name, `register_with(true)`) was keyed on the
+    crate version only, so two `0.3.0-dev` externals with different `Wrapper` layouts (this range
+    added `obex`/`jitter_obex`) loaded in one Max session would allocate objects with the first
+    one's size (a layout tag would miss `ClockShared`, behind an `Arc`). The name now carries
+    a token of the loaded copy of median (the clock trampoline's address): no two externals
+    share the clock class.
+  - `GLChunk::try_clone` is `unsafe` (the repo's rule for GL ownership the headers don't state:
+    whether `jit_glchunk_copy` is deep and who owns a partial copy). `MatrixGuard` documents that
+    guards on the same matrix (in-place calc) drop last-in-first-out. `Dict::insert_object`'s
+    `Data`/`Memory` flags, `with_atoms_raw`'s lock order against the graph lock, `transaction`'s
+    process-wide lock, `merge_from`/`copy_*`/`remove`/`get` on arrays of dictionaries, and
+    `Attr::inner()` ownership are documented. The attribute `style` is added once when both
+    `style` and `enum_vals` are set. The mock no longer double-frees a cloned `Memory` entry.
+  - Noted, not changed: custom proxy inlets on a Jitter object and the SDK's
+    `max_jit_obex_inletnumber` are separate records (same as a C external mixing `proxy_new`
+    with `max_jit_mop_setup_simple`); the assist delegation passes a null box; `insert_object_raw`
+    shares `insert_object`'s hazard. Added to `validation-max.md` where a host check decides.
+  - Not covered by any mock test, by construction: everything the mock models from this plan's
+    reading of the kernel (`dictobj_register` retaining on collision, recursive transaction
+    locks, atomic `object_retain`, `max_jit_class_obex_setup` not touching Max's offset,
+    `jit_glchunk_copy` depth). The reviews list these as the assumptions to take to Max first.
+
 - All items 0-7 are implemented on `xnor/api-redesign`, each reviewed adversarially (Fable;
   from now on reviews go to Codex, `codex:codex-rescue`) with the findings fixed. The branch is
   local: not pushed, no PR. GitHub has no `main` branch, only `develop`; settle the PR target
-  before opening one. `cargo test` in `median` (170) and `median-mock` (39) pass.
+  before opening one. (Test counts here are from the step 7 checkpoint; the workspace has grown
+  since, see the handoff.)
 - Since the item list, on this branch: `Inlet::cold()`/`hot_if(bool)`; the mock's `float` has
   no fallback; a rustfmt pre-commit hook (`script/install-hooks.sh`, see AGENTS.md) and a
   formatting-only commit in `.git-blame-ignore-revs`; `cargo make install` targets Max 9
