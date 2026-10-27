@@ -19,3 +19,6 @@
 - [ ] Validate the new unflagged Jitter wrappers/examples in Max, then complete extra iolets
   and context-safe GL resource helpers (`doc/plan-branches-and-build.md` 3b).
 - [ ] Verify if setting qelem is realtime-safe and update median::queue docs.
+- [ ] `Reply::Str(String)` for gimmeback methods (`doc/plan-gimmeback.md`): a fresh `t_string`
+  (`string_new`) handed to the caller, which frees it. median has no public string type, so this
+  is the one place that makes one; needs `string_new` in the mock.

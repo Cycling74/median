@@ -1,0 +1,314 @@
+# `A_GIMMEBACK` methods: design
+
+Written 2026-10-27 on `xnor/api-redesign`. Sources: the SDK headers and examples in this repository.
+
+## What the SDK says
+
+`ext_mess.h` (`e_max_atomtypes`, value 14):
+
+> `A_GIMMEBACK`: request that args be passed as an array, the routine will check the types
+> itself. can return atom value in final atom ptr arg. function returns long error code 0 = no
+> err. see `gimmeback_meth` typedef
+
+```c
+typedef long *(*gimmeback_meth)(void *x, t_symbol *s, long ac, t_atom *av, t_atom *rv);
+```
+
+The typedef's `long *` return disagrees with its own comment and with the one SDK example,
+`basics/simplejs` (`t_max_err simplejs_doabs(x, s, ac, av, rv)`); both are a register-sized
+integer, so the ABI is the same and the comment wins (an error code).
+
+Callers that read the reply, from the public SDK:
+
+- `object_method_typed(x, s, ac, av, rv)` (`ext_obex.h`): "If the receiver object can respond
+  to the message, `object_method_typed()` returns the result in `rv`. Otherwise, `rv` will
+  contain an `A_NOTHING` atom." The method is called as `(x, s, ac, av, rv)` and its return
+  value is the error code. `simplejs` exists to be driven from `js`: a script calling the method
+  on the object receives the reply.
+- `simplejs` makes a fresh `atomarray`, stores it in `rv` with `atom_setobj`, and never frees
+  it. The only reading that doesn't leak is that the caller owns an object reply.
+- Jitter: `max_jit_class_wrap_standard(mclass, jclass, flags)` with
+  `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` ("uses standard dumpout `A_DEFER_LOW` method",
+  `jit.max.h`) wraps the Jitter class's gimmeback methods so a message from the patcher calls
+  the method and sends the reply out the dumpout outlet (`max_jit_obex_gimmeback_dumpout`,
+  declared next to it). Without the flag the wrap is `max_jit_obex_gimmeback`.
+
+Assumed by this design and listed under "Host checks" below, since no header states them:
+
+- A patch-cord message does not reach an `A_GIMMEBACK` method on a Max class. The type checker
+  converts a message's arguments against the registered argument types, and `A_GIMMEBACK` is
+  not an argument type, so median treats the method as reachable only through
+  `object_method_typed` callers (`js`, other externals, the Jitter wrap). The host check records
+  what Max reports for such a message.
+- The caller frees an object reply (what `simplejs` implies), and the Jitter dumpout wrap sends
+  an atomarray reply as its atoms.
+
+So a gimmeback method is a gimme method with a return value for typed callers.
+
+## Public API
+
+### The reply type
+
+```rust
+/// What a gimmeback method hands back in `rv`.
+pub enum Reply {
+    /// `A_NOTHING`: the method has no value for this call.
+    Nothing,
+    Int(t_atom_long),
+    Float(f64),
+    Symbol(SymbolRef),
+    /// A list: packaged in a fresh `atomarray` the caller owns (`A_OBJ`), the convention
+    /// `simplejs` sets. Object atoms are refused (`AtomArray::new` validates), so a reply
+    /// cannot carry a pointer median didn't make.
+    Atoms(Vec<Atom>),
+    /// A dictionary (`A_OBJ`): median's reference goes to the caller.
+    Dict(Dict),
+}
+```
+
+With `From<t_atom_long | f64 | SymbolRef | Vec<Atom> | AtomArray | ()>` for `Reply`, and a
+sealed `GimmebackResult` trait implemented for `Reply`, each of those `From` sources, and
+`Result<R, E> where R: Into<Reply>, E: Display`:
+
+- `Ok(r)` / plain `r`: `*rv = r`, return `MAX_ERR_NONE`.
+- `Err(e)`: `*rv = A_NOTHING`, `e` goes to `report_error` (the console), return
+  `MAX_ERR_GENERIC`.
+- `Reply::Atoms` whose `atomarray_new` fails: `A_NOTHING`, `MAX_ERR_OUT_OF_MEM`.
+
+`Reply::Dict(Dict)` belongs in the same enum: `Dict::into_raw` gives up median's reference and
+the caller's free releases it (a shared `Dict` just loses one reference), under the same
+ownership assumption as the atomarray. A string reply
+(`Reply::Str(String)`, a fresh `t_string` from `string_new`) is a TODO (`TODO.md`): median has
+no public string type by design (`doc/plan-containers.md`), so it would be the one place that
+makes one and hands it straight over.
+
+`Atom` itself is deliberately not a reply type: `Atom::set_obj` is safe, so a bare `Atom` could
+return any pointer and the ownership of `rv` is exactly what is unverified. `Reply` is the whole
+set of things we know how to hand over.
+
+### What it looks like
+
+The `simplejs` example (`doAbs`: the absolute value of its one argument, for `js`) in the
+macro form, with the two reply shapes and an error:
+
+```rust
+#[median::methods]
+impl Simp {
+    /// `js`: `obj.doAbs(-3)` gives `3`; `obj.doAbs(1, -2)` gives `[1, 2]`; no argument is an
+    /// error in the Max window and `null` in `js`. The method is for typed callers such as
+    /// `js`; a patch cord is not expected to reach it.
+    #[sel_gimmeback("doAbs")]
+    pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
+        match atoms {
+            [] => Err("missing argument for method doAbs()".into()),
+            [one] => Ok(match one.get_value() {
+                Some(AtomValue::Int(i)) => Reply::Int(i.abs()),
+                Some(AtomValue::Float(f)) => Reply::Float(f.abs()),
+                _ => Reply::Nothing,
+            }),
+            many => Ok(Reply::Atoms(
+                many.iter()
+                    .map(|a| match a.get_value() {
+                        Some(AtomValue::Int(i)) => Atom::from(i.abs()),
+                        Some(AtomValue::Float(f)) => Atom::from(f.abs()),
+                        _ => *a,
+                    })
+                    .collect(),
+            )),
+        }
+    }
+
+    /// A count: the plain value is enough when nothing can go wrong.
+    #[sel_gimmeback("getcount")]
+    pub fn count(&self, _atoms: &[Atom]) -> t_atom_long {
+        self.count.load(Ordering::Relaxed)
+    }
+
+    /// A snapshot of the object's state for `js` (`obj.getstate()` is a JS object).
+    #[sel_gimmeback("getstate")]
+    pub fn state(&self, _atoms: &[Atom]) -> DictResult<Dict> {
+        let d = Dict::new()?;
+        d.insert(sym!("count"), self.count.load(Ordering::Relaxed))?;
+        Ok(d)
+    }
+}
+```
+
+The same three without the macro (`simp_explicit` style), in `Methods::register`:
+
+```rust
+c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
+c.add_sel_gimmeback(c"getcount", Self::count)?;
+c.add_sel_gimmeback(c"getstate", Self::state)?;
+```
+
+The return type is anything `GimmebackResult` accepts: `Reply`, a value that converts to one
+(`t_atom_long`, `f64`, `SymbolRef`, `Vec<Atom>`, `AtomArray`, `Dict`, `()`), or `Result` of
+one of those with a `Display` error. `#[defer]` on it is a compile error.
+
+### The selector argument (decided 2026-10-27)
+
+`#[sel("name")]` names the selector in the marker, so a method under `#[sel_gimme]` or
+`#[sel_gimmeback]` has no use for the `&SymbolRef` Max passes; the macro forms take
+`(&self, &[Atom])`, like `#[list]`. (`#[any]` keeps the selector: that is its point.) This
+changes `#[sel_gimme]`, which today demands `(&self, &SymbolRef, &[Atom])`; 0.3 is unreleased,
+so `simp`, the tests and `doc/migration-0.3.md` change with it.
+
+The explicit API keeps one name and accepts both shapes, so one function can serve several
+selectors:
+
+```rust
+c.add_sel_gimme(c"foo", Self::foo)?;   // fn foo(&self, sel: &SymbolRef, atoms: &[Atom])
+c.add_sel_gimme(c"bar", Self::foo)?;
+c.add_sel_gimme(c"read", Self::read)?; // fn read(&self, atoms: &[Atom])
+```
+
+That is a sealed trait with a marker type parameter that the callable's signature selects
+(checked to compile):
+
+```rust
+pub trait GimmeFn<T, R, A>: Copy + Send + Sync + 'static {
+    fn call(self, t: &T, sel: &SymbolRef, atoms: &[Atom]) -> R;
+}
+pub struct WithSel;
+pub struct NoSel;
+impl<T, R, F: Fn(&T, &SymbolRef, &[Atom]) -> R + ..> GimmeFn<T, R, WithSel> for F { .. }
+impl<T, R, F: Fn(&T, &[Atom]) -> R + ..> GimmeFn<T, R, NoSel> for F { .. }
+
+pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+where F: GimmeFn<T, R, A>, R: MethodResult, ..
+```
+
+The two impls don't overlap because `A` differs, and `A` is inferred from `F`, so callers
+never write it. The trampoline becomes `sel_gimme_tramp::<W, T, F, R, A>` and calls
+`F::call`, which ignores the selector in the `NoSel` impl. The same trait serves
+`add_sel_gimme_deferred` and `add_sel_gimmeback` (whose `R: GimmebackResult`). The macro
+emits the same `c.add_sel_gimme(..)` call for either shape, so it needs no shape check beyond
+"takes `&self`"; a wrong signature is a trait-bound error at the generated call, which the
+`ui` tests pin.
+
+Cost: one more type parameter on three `Class` methods and the trampolines, and a slightly
+longer error for a method with the wrong arguments (the `ui` expectation shows it).
+
+
+### Registration
+
+```rust
+impl<W> Class<W> {
+    pub fn add_sel_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        F: GimmeFn<T, R, A>,   // `(&T, &[Atom])` or `(&T, &SymbolRef, &[Atom])`, see below
+        R: GimmebackResult;
+}
+```
+
+Same shape as `add_sel_gimme`: a zero-sized callable, `is_untyped_selector` refused
+(`MaxError::Duplicate`), `RESERVED_SELECTORS` refused through `add_typed`, registered with
+`&[A_GIMMEBACK]`. No deferred variant: a reply can't be delivered after the call returns. A
+method that wants "query, answer later out an outlet" is a `#[sel_gimme]` with an outlet, as
+today.
+
+The trampoline in `method.rs`:
+
+```rust
+pub(crate) extern "C" fn sel_gimmeback_tramp<W, T, F, R>(
+    w: &W, sel: *mut t_symbol, ac: c_long, av: *const t_atom, rv: *mut t_atom,
+) -> t_max_err
+```
+
+It writes `A_NOTHING` to `rv` first (if non-null), runs the user's function under
+`ffi::guard_or(w, "gimmeback", MAX_ERR_GENERIC, ..)`, and converts the result as above. A
+panic therefore returns `MAX_ERR_GENERIC` with `rv` already `A_NOTHING`. `object_method_typed`
+always supplies `rv`; a null is tolerated anyway (the method runs, the reply is dropped) for a
+direct caller that passes one.
+
+The docs of `add_sel_gimmeback` and `#[sel_gimmeback]` must say that the method is for typed
+callers (`js`, `object_method_typed`, the Jitter dumpout wrap) and that a patch-cord message
+is not expected to reach it. A method that should answer both a patch cord and `js` registers
+two selectors: a `#[sel_gimme]` that sends out an outlet and a `#[sel_gimmeback]` that
+returns.
+
+### Macro
+
+`#[sel_gimmeback("doAbs")]` in `#[median::methods]`, parsed by `parse_sel` with a third mode
+(`gimme: true, back: true`), emitting `Class::add_sel_gimmeback`. The method's return type must
+implement `GimmebackResult`; a wrong one is an ordinary trait-bound error at the generated
+call, which the `ui` tests cover. `#[defer]`/`#[defer_low]` on it is a spanned error, as on
+`#[notify]`. The `reserved.rs` mirror needs no change: the refusals are the same as
+`#[sel_gimme]`'s.
+
+### Jitter
+
+Two places a gimmeback method can live on a Jitter type, matching where methods live today:
+
+- `#[sel_gimmeback]` (through `Methods::register`) lands on the Max glue class (`Forward`),
+  like every other `#[sel]`. `js` can call it on the Max object; a patcher message is not
+  expected to reach it. Nothing in the SDK wrapper is involved.
+- `Class::<Core<T, K>>::add_sel_gimmeback` in `class_setup` registers it on the Jitter class.
+  To make the patcher reply go out dumpout, `Class` records `gimmeback_added` (like
+  `notify_added`) and `setup_max_class` passes `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
+  `max_jit_class_wrap_standard` only when the core class has one. `class_setup` runs before
+  `setup_max_class` (`jit/wrapper.rs`), so the flag is known in time. Today the flags are `0`;
+  classes without a gimmeback method keep that.
+
+The second path is the one for `get...`-style queries answered out dumpout, so it is the one
+that matters; the first comes for free. What selector the dumpout reply carries is for the
+host check.
+
+### Calling one
+
+Not in scope here, but the natural counterpart: `ObjRef`/`Object::call_typed(sel, atoms) ->
+Result<Reply, MaxError>` over `object_method_typed`, which owns and frees an `atomarray` it
+gets back. It would give the mock test below a median-level shape and lets an external query
+another object. It can follow the first cut once the ownership check has passed in a host.
+
+## Mock
+
+- `median-mock/src/class.rs`: `object_method_signature`/`invoke` learn `A_GIMMEBACK`
+  (`(ptr, long, ptr, ptr)` after the receiver). A `Kernel::send` (a patch-cord message) to a
+  gimmeback method is refused with an error on the console and never calls it, modelling the
+  dispatch assumption above. New `object_method_typed`
+  (resolves like `dispatch`; passes the caller's `rv` for a gimmeback method, writes
+  `A_NOTHING` for any other) and `atomisatomarray` (the registry says whether the pointer is a
+  mock atomarray). `Kernel::call(obj, sel, atoms) -> Result<Reply-like, SendError>` for tests:
+  returns the atom, or the atoms of an atomarray reply after freeing it, so a leaked array
+  shows up in the mock's live-object count.
+- `median-mock/src/jit.rs`: `max_jit_class_wrap_standard` honours the `GIMMEBACK_WRAP` flag by
+  installing, for each `A_GIMMEBACK` method of the Jitter class, a Max method that calls it
+  and sends the reply out dumpout (an atomarray as its list, then freed; a scalar as a
+  one-atom list; `A_NOTHING` as nothing), the reply selector unchanged. Mirrors the assumed
+  SDK behaviour, so it is the spec the host check verifies.
+- Tests in `median-mock/tests/` for each new function, per `AGENTS.md`.
+
+## Tests (`median/tests/gimmeback.rs`, `tests/ui/`)
+
+- `#[sel_gimmeback("doAbs")]` returning `Result<Reply, String>`: `k.call` gets the value for
+  int and float arguments; a missing argument gives `Err`, `MAX_ERR_GENERIC`, the error on the
+  console, and an `A_NOTHING` atom.
+- A `Reply::Atoms` reply round-trips and leaves no live atomarray after `Kernel::call`.
+- A patcher `k.send` to the method is refused and the method does not run.
+- A panicking method returns `MAX_ERR_GENERIC`, `A_NOTHING`, and the panic text on the console.
+- `add_sel_gimmeback` on an untyped selector and on a reserved one is refused.
+- `ui`: `#[sel_gimmeback] #[defer]` is an error; a method returning `Atom` is an error.
+- Jitter: a core-class gimmeback registered in `class_setup`; a patcher message produces the
+  dumpout list; the wrap flag is passed only for that class.
+- `simp`/`simp_explicit` gain a `doAbs`-style method so the hand-written form is shown.
+
+## Host checks (add to `doc/validation-max.md`)
+
+1. `js` calling the method: the reply arrives as a number / symbol / array / object; an `Err`
+   shows the error in the Max window and `js` gets `null`. After many calls Max's memory does
+   not grow (the caller frees an atomarray and a dictionary reply). If it grows, the ownership
+   assumption is wrong and `Reply::Atoms`/`Reply::Dict` must change.
+2. A patcher message to the same selector: what Max reports, and that the method does not run.
+3. Jitter: a message to a core-class gimmeback method sends the reply out dumpout; an
+   atomarray reply as a list; which selector the reply carries; no leak.
+
+## Order
+
+0. `GimmeFn` and the selector-less `#[sel_gimme]` (its own commit: it changes existing API).
+1. `Reply`, `GimmebackResult`, trampoline, `add_sel_gimmeback`, mock support, tests.
+2. Macro marker and `ui` cases; examples.
+3. Jitter wrap flag, mock dumpout wrap, Jitter test.
+4. Host checks; then `call_typed` on the caller side.
