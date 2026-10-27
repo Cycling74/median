@@ -205,26 +205,32 @@ pub unsafe extern "C" fn sysfile_readtextfile(
             rest.len().min(maxlen)
         };
         open.pos += take;
-        let target: &[u8] = match flags & t_sysfile_text_flags::TEXT_LB_MASK {
-            t_sysfile_text_flags::TEXT_LB_MAC => b"\r",
-            t_sysfile_text_flags::TEXT_LB_PC => b"\r\n",
-            t_sysfile_text_flags::TEXT_LB_UNIX => b"\n",
-            _ if cfg!(windows) => b"\r\n",
-            _ => b"\n",
+        // `ext_sysfile.h`: line breaks are translated only when a `TEXT_LB_*` flag asks for it
+        let target: Option<&[u8]> = match flags & t_sysfile_text_flags::TEXT_LB_MASK {
+            0 => None,
+            t_sysfile_text_flags::TEXT_LB_MAC => Some(b"\r"),
+            t_sysfile_text_flags::TEXT_LB_PC => Some(b"\r\n"),
+            t_sysfile_text_flags::TEXT_LB_UNIX => Some(b"\n"),
+            _ if cfg!(windows) => Some(b"\r\n"),
+            _ => Some(b"\n"),
         };
         let mut text = Vec::with_capacity(take + 1);
-        let mut bytes = rest[..take].iter().copied().peekable();
-        while let Some(b) = bytes.next() {
-            match b {
-                b'\r' => {
-                    if bytes.peek() == Some(&b'\n') {
-                        bytes.next();
+        if let Some(target) = target {
+            let mut bytes = rest[..take].iter().copied().peekable();
+            while let Some(b) = bytes.next() {
+                match b {
+                    b'\r' => {
+                        if bytes.peek() == Some(&b'\n') {
+                            bytes.next();
+                        }
+                        text.extend_from_slice(target);
                     }
-                    text.extend_from_slice(target);
+                    b'\n' => text.extend_from_slice(target),
+                    b => text.push(b),
                 }
-                b'\n' => text.extend_from_slice(target),
-                b => text.push(b),
             }
+        } else {
+            text.extend_from_slice(&rest[..take]);
         }
         if flags & t_sysfile_text_flags::TEXT_NULL_TERMINATE != 0 {
             text.push(0);

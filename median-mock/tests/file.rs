@@ -87,6 +87,11 @@ fn reads_text_with_line_break_translation_and_closes() {
         b"one\r\ntwo\r\nthree\r\nfour"
     );
     assert_eq!(read(c"t.txt", 3, 3, NUL).unwrap(), b"one\0");
+    // no line-break flag: the bytes come back as they are
+    assert_eq!(
+        read(c"t.txt", 3, 0, NUL).unwrap(),
+        b"one\r\ntwo\rthree\nfour\0"
+    );
     assert_eq!(median_mock::file::open_file_count(), 0);
     //wrong volume, missing file
     assert_eq!(read(c"t.txt", 4, 0, NUL), None);

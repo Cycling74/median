@@ -40,7 +40,7 @@ type NotifyFn = unsafe extern "C" fn(
     *mut max_sys::t_symbol,
     *mut c_void,
     *mut c_void,
-) -> max_sys::t_max_err;
+);
 
 #[test]
 fn a_notification_reaches_the_jitter_object_when_the_sdk_wrapper_has_no_notify() {
