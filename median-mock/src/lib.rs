@@ -77,7 +77,7 @@
 //!
 //! * Files: `locatefile_extended`, `open_dialog` (always cancelled), `path_opensysfile`,
 //!   `sysfile_readtextfile` and `sysfile_close`, over in-memory files registered with
-//!   [`file::add_file`]; see [`file`].
+//!   [`file::add_file`]; see [`mod@file`].
 //!
 //! Not modelled: the other file and path functions (`sysfile_*`, `path_*`), `object_new`, patcher/box access, ordinary Max `@attr` argument
 //! parsing, signal-rate connections between objects, inlet/outlet connections, and everything
