@@ -116,6 +116,19 @@ impl Messages {
         Ok(d)
     }
 
+    /// `getstate` without the console line, for the leak check (a metro calling it a hundred
+    /// times a second would otherwise measure the console, not the reply).
+    #[gimmeback("getquiet")]
+    fn get_quiet(&self, atoms: &[Atom]) -> Result<Dict, DictError> {
+        let d = Dict::new()?;
+        d.insert(
+            median::sym!("label"),
+            SymbolRef::try_from(self.label.as_str()).map_err(|_| DictError::InvalidString)?,
+        )?;
+        d.insert(median::sym!("count"), atoms.len() as i64)?;
+        Ok(d)
+    }
+
     #[gimmeback("getfail")]
     fn get_fail(&self, atoms: &[Atom]) -> Result<Reply, String> {
         report(&self.obj, &self.label, &format!("getfail {}", atoms.len()));

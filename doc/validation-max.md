@@ -115,10 +115,17 @@ host results and their limits are recorded below.
   `js` gets `null`. After many calls Max's memory does not grow (the caller frees an atomarray and
   a dictionary reply). If it grows, the ownership assumption is wrong and
   `Reply::Atoms`/`Reply::Dict` must change. Run it with patch 05 part A
-  (`median/examples/validation/patchers/05-gimmeback.maxpat`, `js` and `v8` boxes).
+  (`median/examples/validation/patchers/05-gimmeback.maxpat`, `js` box; the `v8` box is a
+  negative control, see the 2026-10-27 result). Partly run on 2026-10-27: `js` reaches the method
+  with the right arguments and the `Err` posts; the reply value and the memory check are still
+  open (the first script called through `Function.apply` and read the function back; the
+  method also posted on every loop call, so memory followed the console).
 - [ ] A patcher message to the selector of a gimmeback method on a Max class: record what Max
   reports, and that the method does not run (median assumes a patch cord cannot reach an
-  `A_GIMMEBACK` method). Patch 05 part B.
+  `A_GIMMEBACK` method). Patch 05 part B. The `v8` run of part A on 2026-10-27 already showed
+  the typed-message route refusing the selector (`bad arguments for message "getcount"` with
+  arguments, `missing arguments for message "getstate"` without, the method not run); part B
+  confirms the same for a patch cord.
 - [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_gimmeback` in
   `class_setup`, which makes median pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
   `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet; an atomarray reply as a
@@ -273,3 +280,26 @@ after the edit, and sample-pointer identity with Overdrive on and off. Zero coun
 cannot distinguish DSP off from insufficient callbacks. The probe never accesses sample
 data; actual mutable-slice use, Scheduler in Audio Interrupt enabled, and other host versions
 remain outside this result.
+
+### 2026-10-27 — 05-gimmeback, part A (`js` and `v8`), first run
+
+Environment as the 2026-10-26 snapshot (Max 9.2 ARM64) unless the user says otherwise.
+Commit 749a167 (the first script, calling through `Function.apply`).
+
+- `js gimmeback.js`: every click reached the method with the right argument count
+  (`median.validate: gimme: getcount 3`, `getlist 3`, `getstate 0`, `getfail 0`, then
+  `getfail: intentional error`). The script posted `function message() { [native code] }
+  (function)` as the reply: `obj.message.apply(obj, [..])` is not a plain function call in `js`,
+  so the reply value was not observed. The script now calls `obj.message(sel, a, b, c)` directly
+  (commit after 749a167); rerun part A for the value.
+- `v8 gimmeback.js`: `unknown message argument type` from `v8` for the calls with arguments,
+  then `median.validate: bad arguments for message "getcount"` / `"getlist"` and
+  `missing arguments for message "getstate"` / `"getfail"`; the method did not run (no
+  `gimme:` line); the script saw `null (object)`. `v8`'s `Maxobj.message` therefore takes the
+  typed-message route, which refuses an `A_GIMMEBACK` method the way median assumed a patch cord
+  would. `v8` cannot call a gimmeback method; the `v8` box stays in the patch as a negative
+  control.
+- Memory: Max's footprint rose while the `state loop` metro ran and fell when the console was
+  cleared, with dips while running. Inconclusive: the fixture's `getstate` posted a console line
+  on every call. The loop now calls `getquiet`, which posts nothing; rerun the metro for a
+  minute and record.

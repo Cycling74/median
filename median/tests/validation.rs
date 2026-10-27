@@ -328,7 +328,20 @@ fn messages_gimmeback_methods_reply_to_typed_callers_and_refuse_patch_cords() {
     assert!(log[1].contains("getfail: intentional error"));
     assert_eq!(containers::live_count(), live, "a reply was leaked");
     // a patch cord does not reach any of them
-    for sel in ["getcount", "getlist", "getstate", "getfail"] {
+    // `getquiet` is `getstate` without the console line
+    match k.call(obj, "getquiet", &args) {
+        Ok(CallReply::Object(d)) => {
+            // SAFETY: the reply is a dictionary median handed over; this takes that reference
+            let d = unsafe { Dict::from_raw(d.cast(), Ownership::Retained) }.unwrap();
+            assert_eq!(d.get_int(median::sym!("count")).unwrap(), Some(3));
+        }
+        other => panic!("getquiet: {other:?}"),
+    }
+    assert!(
+        k.take_console_log().is_empty(),
+        "getquiet must post nothing"
+    );
+    for sel in ["getcount", "getlist", "getstate", "getquiet", "getfail"] {
         assert_eq!(
             k.send(obj, sel, &args),
             Err(SendError::TypedOnly(sel.into()))
