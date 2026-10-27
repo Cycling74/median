@@ -116,22 +116,31 @@ host results and their limits are recorded below.
   a dictionary reply). If it grows, the ownership assumption is wrong and
   `Reply::Atoms`/`Reply::Dict` must change. Run it with patch 05 part A
   (`median/examples/validation/patchers/05-gimmeback.maxpat`, `js` box; the `v8` box is a
-  negative control, see the 2026-10-27 result). Partly run on 2026-10-27: `js` reaches the method
-  with the right arguments and the `Err` posts; the reply value and the memory check are still
-  open (the first script called through `Function.apply` and read the function back; the
-  method also posted on every loop call, so memory followed the console).
-- [ ] A patcher message to the selector of a gimmeback method on a Max class: record what Max
-  reports, and that the method does not run (median assumes a patch cord cannot reach an
-  `A_GIMMEBACK` method). Patch 05 part B. The `v8` run of part A on 2026-10-27 already showed
-  the typed-message route refusing the selector (`bad arguments for message "getcount"` with
-  arguments, `missing arguments for message "getstate"` without, the method not run); part B
-  confirms the same for a patch cord.
+  negative control, see the 2026-10-27 results). Partly run on 2026-10-27 (two runs): `js`
+  reaches the method with the right arguments and the `Err` posts; `Maxobj.message(..)` hands
+  back the `message` function object rather than the reply (seen with the `Function.apply`
+  script and, apparently, with the direct-call script; the second run's script is to be
+  confirmed), so no reply value has been observed. `v8` is a negative control (the method does not
+  run). Memory under the `js` metro loop (the dictionary-returning `getquiet`, 100 replies a
+  second) stayed steady for about a minute: weak evidence, since a leak of a small dictionary is
+  hard to see. The next run is the 4096-atom `getquiet` (64 KiB a reply), where a leak shows
+  within seconds. The SDK's route for a `js` script to receive a reply is the `simplejs`
+  pattern, which median does not support yet (see `doc/plan-gimmeback.md`, "Calling one").
+- [x] A patcher message to the selector of a gimmeback method on a Max class: Max refuses it and
+  the method does not run (patch 05 part B, 2026-10-27, Max 9.2 ARM64). The console shows
+  `unknown message argument type`, `median.validate: bad arguments for message "getcount"` and
+  `median.validate: missing arguments for message "getcount"` (the first two for `getcount 1 2`,
+  the last for `getcount`). The `v8` run of part A showed the same route refusing the selector.
+  median marks a gimmeback method `undocumented` on a Max class, since the patcher's message
+  list showed `getcount` even though a patch cord cannot use it.
 - [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_gimmeback` in
   `class_setup`, which makes median pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
-  `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet; an atomarray reply as a
-  list; record which selector the reply carries and whether anything leaks. `median-mock` models
-  the assumed behaviour (list out dumpout under the message's selector, atomarray freed).
-  Patch 05 part C (`jit.median.validate`, dumpout outlet 2, with a `metro` for the leak check).
+  `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet. Observed 2026-10-27
+  (patch 05 part C, `jit.median.validate`, dumpout outlet 2): the list goes out dumpout as a
+  list under the selector without its leading `get` (`getvalues 7` printed
+  `dumpout: values 1 2.5 foo 7`, `getcount 1 2 3` printed `dumpout: count 3`). `median-mock`
+  models this. Still to record: memory under the `getvalues` metro (no leak expected; the
+  caller frees an atomarray reply).
 
 ## Recorded results
 
@@ -303,3 +312,30 @@ Commit 749a167 (the first script, calling through `Function.apply`).
   cleared, with dips while running. Inconclusive: the fixture's `getstate` posted a console line
   on every call. The loop now calls `getquiet`, which posts nothing; rerun the metro for a
   minute and record.
+
+### 2026-10-27 — 05-gimmeback, parts B and C, and part A second run
+
+Environment as above (Max 9.2 ARM64).
+
+- Part B, the patch cords `getcount 1 2` and `getcount` into `median.validate`: the console
+  showed `unknown message argument type`, `median.validate: bad arguments for message "getcount"`,
+  then `median.validate: missing arguments for message "getcount"`; the method did not run. The
+  assumption that a patch cord cannot reach an `A_GIMMEBACK` method is confirmed. The user also
+  noticed `getcount` listed among `median.validate`'s messages in the patcher (message
+  completion), which is misleading; median now marks a gimmeback method on a Max class
+  `undocumented` (`Class::add_gimmeback`; not on a Jitter core class, where the Max wrapper's own
+  method is what the patcher uses). Not re-run in Max since the change.
+- Part C, `jit.median.validate` (core-class gimmeback methods, the wrap flag on): `getvalues 7`
+  printed `dumpout: values 1 2.5 foo 7`; `getcount 1 2 3` printed `dumpout: count 3`. So the
+  SDK's dumpout wrap sends the reply as a list with the leading `get` stripped from the selector.
+  `median-mock` now does the same (a selector that is exactly `get` or does not start with `get`
+  is unchanged in the mock; that part was not observed). Memory under the metro was not reported.
+- Part A, second run: `js` reached the method with the right arguments and `getfail`'s `Err`
+  posted, but `Maxobj.message(..)` returned the `message` function object itself, not the
+  reply (seen with the `Function.apply` script and, apparently, the direct-call script; which
+  script ran is to be confirmed). `v8`'s `message()` reported `bad arguments`/`missing
+  arguments` and the method did not run (the patch-cord route), as in the first run. The `js`
+  metro loop (`getquiet` returning a dictionary, 100 replies a second) showed no noticeable
+  memory growth over about a minute: weak evidence. The fixture's `getquiet` now returns a list
+  of 4096 ints (64 KiB a reply), which makes a leak obvious in seconds; that is the next run, for
+  `js` and for the Jitter `getvalues` metro.

@@ -38,8 +38,10 @@ Assumed by this design and listed under "Host checks" below, since no header sta
 - A patch-cord message does not reach an `A_GIMMEBACK` method on a Max class. The type checker
   converts a message's arguments against the registered argument types, and `A_GIMMEBACK` is
   not an argument type, so median treats the method as reachable only through
-  `object_method_typed` callers (`js`, other externals, the Jitter wrap). The host check records
-  what Max reports for such a message.
+  `object_method_typed` callers (`js`, other externals, the Jitter wrap). Confirmed in Max 9.2 on
+  2026-10-27 (patch 05 part B: `unknown message argument type`, `bad arguments`, `missing
+  arguments`, the method not run). Since the patcher's message list still offered the selector,
+  `Class::add_gimmeback` marks the method `undocumented` on a Max class (see Registration).
 - The caller frees an object reply (what `simplejs` implies), and the Jitter dumpout wrap sends
   an atomarray reply as its atoms.
 
@@ -209,6 +211,12 @@ Same shape as `add_gimme`: a zero-sized callable, `is_untyped_selector` refused
 method that wants "query, answer later out an outlet" is a `#[gimme]` with an outlet, as
 today.
 
+On a Max class (not a Jitter core class, whose Max wrapper owns the method the patcher uses)
+`add_gimmeback` also calls `mark_undocumented` (`wrapper.rs`), the SDK's
+`CLASS_METHOD_ATTR_PARSE(c, name, "undocumented", gensym("long"), 0, "1")` (`ext_obex_util.h`:
+"an example which makes a method invisible to users"), after a successful registration, so the
+selector is not in the patcher's message list: a patch cord cannot reach it.
+
 The trampoline in `method.rs`:
 
 ```rust
@@ -253,8 +261,11 @@ Two places a gimmeback method can live on a Jitter type, matching where methods 
   classes without a gimmeback method keep that.
 
 The second path is the one for `get...`-style queries answered out dumpout, so it is the one
-that matters; the first comes for free. What selector the dumpout reply carries is for the
-host check.
+that matters; the first comes for free. Observed in Max 9.2 on 2026-10-27 (patch 05 part C): the
+reply goes out dumpout as a list under the selector with its leading `get` stripped
+(`getvalues 7` printed `dumpout: values 1 2.5 foo 7`, `getcount 1 2 3` printed `dumpout: count
+3`). The mock does the same; a selector that is exactly `get` goes out as `get` there (a choice,
+not observed).
 
 ### Calling one
 
@@ -262,6 +273,13 @@ Not in scope here, but the natural counterpart: `ObjRef`/`Object::call_typed(sel
 Result<Reply, MaxError>` over `object_method_typed`, which owns and frees an `atomarray` it
 gets back. It would give the mock test below a median-level shape and lets an external query
 another object. It can follow the first cut once the ownership check has passed in a host.
+
+For a `js` script, observed in Max 9.2 on 2026-10-27: `Maxobj.message(..)` on `median.validate`
+reaches the method but hands back the `message` function object, not the reply, and `v8`'s
+`message()` takes the typed-message route and refuses the selector. The SDK's route for a script
+to receive a reply is the `simplejs` pattern: a `CLASS_NOBOX` class with `CLASS_FLAG_POLYGLOT`
+(`ext_mess.h`) instantiated from the script with `new`. median does not support that yet (the
+derive has no class-flag option); a possible follow-up, not started.
 
 ## Mock
 
@@ -277,8 +295,8 @@ another object. It can follow the first cut once the ownership check has passed 
 - `median-mock/src/jit.rs`: `max_jit_class_wrap_standard` honours the `GIMMEBACK_WRAP` flag by
   installing, for each `A_GIMMEBACK` method of the Jitter class, a Max method that calls it
   and sends the reply out dumpout (an atomarray as its list, then freed; a scalar as a
-  one-atom list; `A_NOTHING` as nothing), the reply selector unchanged. Mirrors the assumed
-  SDK behaviour, so it is the spec the host check verifies.
+  one-atom list; `A_NOTHING` as nothing), under the selector minus a leading `get` (observed
+  2026-10-27; first written with the selector unchanged).
 - Tests in `median-mock/tests/` for each new function, per `AGENTS.md`.
 
 ## Tests (`median/tests/gimmeback.rs`, `tests/ui/`)
@@ -303,7 +321,8 @@ another object. It can follow the first cut once the ownership check has passed 
    assumption is wrong and `Reply::Atoms`/`Reply::Dict` must change.
 2. A patcher message to the same selector: what Max reports, and that the method does not run.
 3. Jitter: a message to a core-class gimmeback method sends the reply out dumpout; an
-   atomarray reply as a list; which selector the reply carries; no leak.
+   atomarray reply as a list; which selector the reply carries (observed: without the leading
+   `get`); no leak (still to record).
 
 ## Status
 
@@ -364,7 +383,22 @@ differs from the sketch above:
 
 Step 4 (the host checks): patch 05 (`median/examples/validation/patchers/05-gimmeback.maxpat`
 and `gimmeback.js`, with the gimmeback methods of `median.validate` and `jit.median.validate`)
-exists so the three host checks can be run in Max; none has been run.
+exists so the three host checks can be run in Max. Run on 2026-10-27 (Max 9.2 ARM64, results in
+`doc/validation-max.md`):
+
+- Patch cord (check 2): refused (`unknown message argument type`, `bad arguments`, `missing
+  arguments`), the method does not run. The assumption holds. `Class::add_gimmeback` now marks
+  the method `undocumented` on a Max class so the patcher does not list it; a Jitter core class
+  is left alone (`median/tests/gimmeback_macro.rs`, `jitter_gimmeback.rs`).
+- Jitter (check 3): the reply is a list out dumpout under the selector without its leading
+  `get`. The selector question is answered; `median-mock` strips a leading `get` the same way.
+  Memory under the metro is not recorded yet.
+- `js` (check 1): the method runs, `Err` posts, but `Maxobj.message(..)` returns the `message`
+  function object instead of the reply (so the reply values and the ownership assumption are
+  unverified); `v8` is a negative control. A minute of dictionary replies showed no noticeable
+  growth (weak evidence). `getquiet` now returns a 4096-atom list (64 KiB a reply) so the next
+  run shows a leak quickly. The `simplejs` route (see "Calling one") is the SDK's way to receive
+  a reply in a script and is not started.
 
 ## Order
 

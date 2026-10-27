@@ -176,3 +176,19 @@ fn a_patcher_message_does_not_reach_the_method() {
     assert_eq!(errors(&k, o).len(), 2);
     assert!(k.free_object(o));
 }
+
+#[test]
+fn a_gimmeback_method_is_hidden_from_the_patcher_and_a_gimme_method_is_not() {
+    let k = setup();
+    let o = obj(&k);
+    // a patch cord cannot reach it (observed in Max 9.2, 2026-10-27), so it is not listed
+    for sel in ["count", "one", "which", "getstate", "fail"] {
+        assert_eq!(
+            k.method_attr(o, sel, "undocumented"),
+            Some(("long".to_string(), "1".to_string())),
+            "{sel}"
+        );
+    }
+    assert_eq!(k.method_attr(o, "plain", "undocumented"), None);
+    assert!(k.free_object(o));
+}

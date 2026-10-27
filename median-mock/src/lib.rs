@@ -41,9 +41,9 @@
 //!   ([`Kernel::send`]) to an `A_GIMMEBACK` method is refused ([`SendError::TypedOnly`]), which
 //!   models an assumption about Max that the headers don't state.
 //!   `max_jit_class_wrap_standard` with `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` wraps the Jitter
-//!   class's `A_GIMMEBACK` methods so a patcher message sends the reply out dumpout (see
-//!   [`jit::max_jit_class_wrap_standard`]); that is median's assumption, not something the
-//!   headers state.
+//!   class's `A_GIMMEBACK` methods so a patcher message sends the reply out dumpout under the
+//!   selector without a leading `get` (see [`jit::max_jit_class_wrap_standard`]; observed in
+//!   Max 9.2 on 2026-10-27).
 //! * Inlets and outlets: `outlet_new`, `outlet_append`, `outlet_bang/int/float/list/anything`,
 //!   `inlet_new`, `intin`, `floatin`, `proxy_new`, `proxy_getinlet`. `outlet_new` makes each new
 //!   outlet the leftmost, as in Max, and `outlet_append` (which median uses) adds to the right.

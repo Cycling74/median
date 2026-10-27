@@ -134,7 +134,8 @@ impl Simp {
     //for typed callers such as `js` (`obj.doAbs(-3)` is 3, `obj.doAbs(1, -2)` is the list
     //[1, 2]). The method returns what the caller gets back: a `Reply`, a plain value that
     //converts to one, or a `Result` of one (an error is posted to the console and the caller
-    //gets no value). A patch cord is not expected to reach it.
+    //gets no value). A patch cord cannot reach it, so it is
+    //marked undocumented and not listed in the patcher.
     #[gimmeback("doAbs")]
     pub fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
         match atoms {

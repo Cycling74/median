@@ -425,11 +425,15 @@ pub unsafe extern "C" fn max_jit_class_obex_setup(c: *mut t_class, offset: c_lon
 /// * an atomarray reply goes out as its atoms, then is freed; an int, float or symbol as one atom;
 ///   `A_NOTHING`, a non-zero `t_max_err`, or any other object (a dictionary, say), which is freed,
 ///   sends nothing;
-/// * the outlet message carries the selector the message had (the outlet log's selector), and the
+/// * the outlet message carries the selector the message had without a leading `get`
+///   (`getvalues` goes out as `values`, `getcount` as `count`; a selector that does not start with
+///   `get`, or is exactly `get`, goes out unchanged, so `get` alone answers under `get`), and the
 ///   send is synchronous (the SDK's `A_DEFER_LOW` is not modelled).
 ///
-/// This is median's assumption about the SDK wrap (`doc/plan-gimmeback.md`, "Host checks"), not a
-/// fact from the headers, so it is what a host check verifies. Without the flag nothing is
+/// The list reply out dumpout and the stripped `get` were observed in Max 9.2 on 2026-10-27
+/// (`doc/validation-max.md`); the rest (a scalar as a one-atom list, an object that is not an
+/// atomarray sending nothing, the synchronous send) is median's assumption, not a fact from the
+/// headers. Without the flag nothing is
 /// installed for those selectors: a patcher message to one is "doesn't understand" on the Max
 /// class, as today.
 #[unsafe(no_mangle)]
@@ -559,11 +563,23 @@ unsafe extern "C" fn gimmeback_wrap(x: *mut c_void, s: *mut t_symbol, ac: c_long
     let Some(mut reply) = reply else {
         return;
     };
+    // the reply goes out under the selector without a leading `get` (Max 9.2, 2026-10-27); `get`
+    // alone is left as it is
+    // SAFETY: `s` is the selector of a delivered message, a valid symbol
+    let name = unsafe { CStr::from_ptr((*s).s_name) }.to_bytes();
+    let out_sel = match name.strip_prefix(b"get") {
+        Some(rest) if !rest.is_empty() => {
+            let rest = std::ffi::CString::new(rest).expect("a selector has no NUL");
+            // SAFETY: `rest` is a NUL-terminated string
+            unsafe { max_sys::gensym(rest.as_ptr()) }
+        }
+        _ => s,
+    };
     // SAFETY: `dump` is the dumpout outlet of `x`
     unsafe {
         crate::io::outlet_anything(
             dump as _,
-            s,
+            out_sel,
             reply.len().min(c_short::MAX as usize) as c_short,
             reply.as_mut_ptr(),
         );

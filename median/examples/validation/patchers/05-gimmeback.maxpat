@@ -443,7 +443,7 @@
             1100.0,
             60.0
           ],
-          "text": "Leak check (unverified): the toggle starts a metro 10 that sends state loop, so getstate runs 100 times a second and each reply is a dictionary the caller should free. Turn on the js toggle, watch Max's memory in Activity Monitor for a minute and expect no growth; then stop it and repeat with the v8 toggle. Growth means the caller does not free an object reply, and Reply::Atoms/Reply::Dict must change."
+          "text": "Leak check (unverified): the toggle starts a metro 10 that sends state loop, so getquiet runs 100 times a second and each reply is a list of 4096 ints (64 KiB) that the caller should free; the method and the script post almost nothing (the script says one line per 100 calls). Turn on the js toggle, watch Max's memory in Activity Monitor for a minute and expect no growth (a leak would show within seconds); then stop it and repeat with the v8 toggle. Growth means the caller does not free an object reply, and Reply::Atoms/Reply::Dict must change."
         }
       },
       {
@@ -525,7 +525,7 @@
             865.0,
             70.0
           ],
-          "text": "Expected (unverified): Max refuses the message in the console (record the exact text) and the method's own line (cord: getcount 2; main=true ...) does not appear. If the method does run, or Max says nothing, record that: median assumes a patch cord cannot reach an A_GIMMEBACK method."
+          "text": "Observed 2026-10-27 (Max 9.2): Max refuses the message (unknown message argument type, bad arguments for message \"getcount\", missing arguments for message \"getcount\") and the method's own line (cord: getcount 2; main=true ...) does not appear: a patch cord cannot reach an A_GIMMEBACK method, so median marks it undocumented and the patcher does not list it. Record any run that differs."
         }
       },
       {
@@ -664,7 +664,7 @@
             825.0,
             150.0
           ],
-          "text": "Expected (unverified): getvalues 7 prints the list 1 2.5 foo 7 from print dumpout, and getcount 1 2 3 prints a one-atom list 3. Also expect the method's own console lines (matrix: getvalues 1, matrix: getcount 3). Record which selector the printed message carries: its own (getvalues / getcount), list, or something else. Leak check: turn on the toggle (metro 10 sends getvalues 7 a hundred times a second), watch Max's memory in Activity Monitor for a minute and expect no growth; turn it off afterwards."
+          "text": "Observed 2026-10-27 (Max 9.2): getvalues 7 prints \"values 1 2.5 foo 7\" from print dumpout and getcount 1 2 3 prints \"count 3\": the list goes out dumpout under the selector without its leading get. Leak check (unverified): turn on the toggle (metro 10 sends getvalues 7 a hundred times a second), watch Max's memory in Activity Monitor for a minute and expect no growth; turn it off afterwards."
         }
       }
     ],

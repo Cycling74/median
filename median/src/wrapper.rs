@@ -87,7 +87,7 @@ unsafe fn write_assist(dest: *mut c_char, text: &str) {
 ///
 /// # Safety
 /// `class` must be a valid class that has the method `name`.
-unsafe fn mark_undocumented(class: *mut max_sys::t_class, name: &CStr) {
+pub(crate) unsafe fn mark_undocumented(class: *mut max_sys::t_class, name: &CStr) {
     // SAFETY: the caller's contract; the names are NUL-terminated strings that outlive the calls
     unsafe {
         let methods = max_sys::class_extra_lookup(class, max_sys::gensym(c"methods".as_ptr()))

@@ -116,7 +116,7 @@ extern "C" fn empty(
 /// `plain`: an `A_GIMME` method of the Jitter class, which the wrap leaves alone.
 extern "C" fn plain(_x: *mut t_object, _s: *mut t_symbol, _ac: c_long, _av: *mut t_atom) {}
 
-/// The Jitter class of both Max classes: seven gimmeback methods and a gimme one.
+/// The Jitter class of both Max classes: nine gimmeback methods and a gimme one.
 unsafe fn jitter_class(name_: &std::ffi::CStr) -> *mut c_void {
     unsafe {
         let jc = sys::jit_class_new(
@@ -147,6 +147,9 @@ unsafe fn jitter_class(name_: &std::ffi::CStr) -> *mut c_void {
         add!(fail as Back, Back, c"fail", ty::A_GIMMEBACK);
         add!(dict as Back, Back, c"dict", ty::A_GIMMEBACK);
         add!(empty as Back, Back, c"empty", ty::A_GIMMEBACK);
+        // the reply goes out without a leading `get`; `get` alone is unchanged
+        add!(cell as Back, Back, c"getcell", ty::A_GIMMEBACK);
+        add!(count as Back, Back, c"get", ty::A_GIMMEBACK);
         type Gimme = extern "C" fn(*mut t_object, *mut t_symbol, c_long, *mut t_atom);
         add!(plain as Gimme, Gimme, c"plain", ty::A_GIMME);
         sys::jit_class_register(jc.cast());
@@ -205,7 +208,9 @@ fn the_flag_is_recorded_and_installs_a_max_method_per_gimmeback_method() {
     assert_eq!(median_mock::jit::wrap_flags("mock.gimmeback.off"), Some(0));
     assert_eq!(median_mock::jit::wrap_flags("no.such.class"), None);
     let (on, core_on, _) = object("mock.gimmeback.on");
-    for sel in ["cell", "count", "name", "nothing", "fail", "dict", "empty"] {
+    for sel in [
+        "cell", "count", "name", "nothing", "fail", "dict", "empty", "getcell", "get",
+    ] {
         let (_, types) = k.method(on, sel).unwrap_or_else(|| panic!("{sel}"));
         assert_eq!(types, [ty::A_GIMME as i32], "{sel}");
     }
@@ -213,7 +218,7 @@ fn the_flag_is_recorded_and_installs_a_max_method_per_gimmeback_method() {
     assert!(k.method(on, "plain").is_none());
     let (off, core_off, _) = object("mock.gimmeback.off");
     for sel in [
-        "cell", "count", "name", "nothing", "fail", "dict", "empty", "plain",
+        "cell", "count", "name", "nothing", "fail", "dict", "empty", "getcell", "get", "plain",
     ] {
         assert!(k.method(off, sel).is_none(), "{sel}");
     }
@@ -288,6 +293,38 @@ fn no_reply_an_error_or_a_non_atomarray_object_sends_nothing() {
     k.send(on, "dict", &[]).unwrap();
     assert!(k.take_outlet_log().is_empty());
     // the dictionary was freed by the wrap
+    assert_eq!(containers::live_count(), live);
+    assert!(k.free_object(on) && k.free_object(core));
+}
+
+#[test]
+fn a_leading_get_is_stripped_from_the_reply_selector() {
+    let k = median_mock::lock();
+    classes();
+    let (on, core, _) = object("mock.gimmeback.on");
+    let live = containers::live_count();
+    k.take_outlet_log();
+    // `getcell` answers as `cell`, the same list as the method `cell` gives under its own name
+    k.send(on, "getcell", &[Atom::Long(9)]).unwrap();
+    // `get` alone has nothing left to strip: it answers under `get`
+    k.send(on, "get", &[Atom::Long(1)]).unwrap();
+    // a selector that does not start with `get` is unchanged
+    k.send(on, "cell", &[]).unwrap();
+    let log = k.take_outlet_log();
+    assert_eq!(log.len(), 3, "{log:?}");
+    let list = [Atom::Long(1), Atom::Float(2.5), Atom::Sym("foo".into())];
+    assert_eq!(
+        (log[0].selector.as_str(), &log[0].atoms[..]),
+        ("cell", &list[..])
+    );
+    assert_eq!(
+        (log[1].selector.as_str(), &log[1].atoms[..]),
+        ("get", &[Atom::Long(10)][..])
+    );
+    assert_eq!(
+        (log[2].selector.as_str(), &log[2].atoms[..]),
+        ("cell", &list[..])
+    );
     assert_eq!(containers::live_count(), live);
     assert!(k.free_object(on) && k.free_object(core));
 }

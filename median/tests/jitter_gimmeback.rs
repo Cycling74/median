@@ -145,7 +145,7 @@ fn a_patcher_message_gets_the_atomarray_reply_as_a_list_out_dumpout() {
     assert_eq!(out.len(), 1, "{out:?}");
     // dumpout is the rightmost outlet
     assert_eq!(out[0].index, k.outlet_count(obj) - 1);
-    assert_eq!(out[0].selector, "getcell");
+    assert_eq!(out[0].selector, "cell");
     assert_eq!(
         out[0].atoms,
         [MockAtom::Long(6), MockAtom::Long(8), MockAtom::Float(0.5)]
@@ -167,7 +167,7 @@ fn a_plain_integer_reply_is_a_one_atom_list() {
     let out = k.take_outlet_log();
     assert_eq!(out.len(), 1, "{out:?}");
     assert_eq!(out[0].index, k.outlet_count(obj) - 1);
-    assert_eq!(out[0].selector, "getcount");
+    assert_eq!(out[0].selector, "count");
     assert_eq!(out[0].atoms, [MockAtom::Long(2)]);
     assert!(k.free_object(obj));
 }
@@ -212,5 +212,24 @@ fn without_a_core_gimmeback_method_nothing_is_wrapped() {
     for sel in ["getcell", "getcount", "maxback"] {
         assert!(matches!(k.send(obj, sel, &[]), Err(SendError::NoMethod(_))));
     }
+    assert!(k.free_object(obj));
+}
+
+#[test]
+fn only_a_method_median_owns_is_marked_undocumented() {
+    let k = median_mock::lock();
+    setup(&k);
+    let undocumented = Some(("long".to_string(), "1".to_string()));
+    let obj = k.new_object("jit.test.gb.core", &[] as &[MockAtom]);
+    assert!(!obj.is_null(), "{:?}", k.console_log());
+    // the core-class methods reach the patcher through the Max wrapper's own methods, which
+    // median does not own and does not mark; `add_gimmeback` on the Jitter class skips the mark
+    // (the mock cannot read a Jitter class's methods, so this checks the patcher's side)
+    assert!(k.method(obj, "getcell").is_some());
+    assert_eq!(k.method_attr(obj, "getcell", "undocumented"), None);
+    assert_eq!(k.method_attr(obj, "getcount", "undocumented"), None);
+    // a `#[gimmeback]` method is on the Max wrapper, a median-owned method: marked
+    assert_eq!(k.method_attr(obj, "maxback", "undocumented"), undocumented);
+    assert!(k.take_console_log().is_empty());
     assert!(k.free_object(obj));
 }

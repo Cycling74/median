@@ -17,8 +17,8 @@
 //   list 1 2.5 foo     -> getlist             expected (unverified): [2, 5, "foo"]
 //   state              -> getstate            expected (unverified): an object {label: "gimme", count: 0}
 //   fail               -> getfail             expected (unverified): an error in the Max console, no value
-//   state loop         -> getquiet, for the leak check: the method posts nothing, the script
-//                         posts only every 100th call
+//   state loop         -> getquiet, for the leak check: a 4096-atom list, posts nothing (the script
+//                         posts only every 100th call)
 //   bang               -> all four with the arguments above
 
 var calls = 0;

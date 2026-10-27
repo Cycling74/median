@@ -88,8 +88,8 @@ impl Messages {
         report(&self.obj, &self.label, &format!("{sel} {values}"));
     }
 
-    // The four gimmeback methods are for typed callers (`js`, patch 05): a patch cord is not
-    // expected to reach them. Each posts a line so a run shows the method ran even if the
+    // The gimmeback methods are for typed callers (`js`, patch 05): a patch cord cannot reach
+    // them (observed in Max 9.2 on 2026-10-27), so median hides them from the patcher. Each posts a line so a run shows the method ran even if the
     // caller drops the reply.
 
     #[gimmeback("getcount")]
@@ -116,17 +116,12 @@ impl Messages {
         Ok(d)
     }
 
-    /// `getstate` without the console line, for the leak check (a metro calling it a hundred
-    /// times a second would otherwise measure the console, not the reply).
+    /// A list of 4096 ints (64 KiB of atoms) and no console line, for the leak check: a metro
+    /// calling it a hundred times a second would otherwise measure the console, not the reply, and
+    /// a reply the caller does not free shows as growth within seconds in Activity Monitor.
     #[gimmeback("getquiet")]
-    fn get_quiet(&self, atoms: &[Atom]) -> Result<Dict, DictError> {
-        let d = Dict::new()?;
-        d.insert(
-            median::sym!("label"),
-            SymbolRef::try_from(self.label.as_str()).map_err(|_| DictError::InvalidString)?,
-        )?;
-        d.insert(median::sym!("count"), atoms.len() as i64)?;
-        Ok(d)
+    fn get_quiet(&self, _atoms: &[Atom]) -> Reply {
+        Reply::Atoms((0..4096i64).map(Atom::from).collect())
     }
 
     #[gimmeback("getfail")]

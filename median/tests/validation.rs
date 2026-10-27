@@ -328,12 +328,12 @@ fn messages_gimmeback_methods_reply_to_typed_callers_and_refuse_patch_cords() {
     assert!(log[1].contains("getfail: intentional error"));
     assert_eq!(containers::live_count(), live, "a reply was leaked");
     // a patch cord does not reach any of them
-    // `getquiet` is `getstate` without the console line
+    // `getquiet` is a list of 4096 ints and posts nothing, for the leak check
     match k.call(obj, "getquiet", &args) {
-        Ok(CallReply::Object(d)) => {
-            // SAFETY: the reply is a dictionary median handed over; this takes that reference
-            let d = unsafe { Dict::from_raw(d.cast(), Ownership::Retained) }.unwrap();
-            assert_eq!(d.get_int(median::sym!("count")).unwrap(), Some(3));
+        Ok(CallReply::Atoms(list)) => {
+            assert_eq!(list.len(), 4096);
+            assert_eq!(list[0], Atom::Long(0));
+            assert_eq!(list[4095], Atom::Long(4095));
         }
         other => panic!("getquiet: {other:?}"),
     }
@@ -341,6 +341,7 @@ fn messages_gimmeback_methods_reply_to_typed_callers_and_refuse_patch_cords() {
         k.take_console_log().is_empty(),
         "getquiet must post nothing"
     );
+    assert_eq!(containers::live_count(), live, "getquiet leaked a reply");
     for sel in ["getcount", "getlist", "getstate", "getquiet", "getfail"] {
         assert_eq!(
             k.send(obj, sel, &args),
@@ -365,7 +366,8 @@ fn matrix_gimmeback_methods_reply_out_the_dumpout_outlet() {
     assert_eq!(out.len(), 1, "{out:?}");
     // dumpout is SDK outlet 2 (matrix outlets 0-1), left of the custom outlets 3 and 4
     assert_eq!(out[0].index, 2);
-    assert_eq!(out[0].selector, "getvalues");
+    // the reply goes out without the leading `get` (observed in Max 9.2, 2026-10-27)
+    assert_eq!(out[0].selector, "values");
     assert_eq!(
         out[0].atoms,
         [
@@ -383,7 +385,10 @@ fn matrix_gimmeback_methods_reply_out_the_dumpout_outlet() {
     .unwrap();
     let out = k.take_outlet_log();
     assert_eq!(out.len(), 1, "{out:?}");
-    assert_eq!((out[0].index, &out[0].atoms), (2, &vec![Atom::Long(3)]));
+    assert_eq!(
+        (out[0].index, out[0].selector.as_str(), &out[0].atoms),
+        (2, "count", &vec![Atom::Long(3)])
+    );
     assert_eq!(containers::live_count(), live, "an atomarray is left over");
     let log = posts(&k);
     assert_eq!(log.len(), 2, "{log:?}");

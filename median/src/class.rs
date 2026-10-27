@@ -769,6 +769,13 @@ impl<W> Class<W> {
     /// both a patch cord and a typed caller registers two selectors: an
     /// [`add_gimme`](Self::add_gimme) method that sends out an outlet and this.
     ///
+    /// On a Max class the method is marked `undocumented` (`CLASS_METHOD_ATTR_PARSE(c, name,
+    /// "undocumented", gensym("long"), 0, "1")`, which `ext_obex_util.h` gives as the way to make a
+    /// method invisible to users), so it does not appear in the patcher's message list: a patch
+    /// cord cannot reach it (observed in Max 9.2 on 2026-10-27: `bad arguments` or `missing
+    /// arguments`, and the method does not run). A Jitter core class is left alone: there the
+    /// Max wrapper's own method is what the patcher uses, and median does not own it.
+    ///
     /// Ownership of an object reply ([`Reply::Atoms`](crate::gimmeback::Reply::Atoms),
     /// `Reply::Array` and `Reply::Dict` are `A_OBJ` atoms) goes to the caller, who frees it:
     /// median assumes this from the SDK's `simplejs` example, which returns a fresh atomarray
@@ -782,9 +789,9 @@ impl<W> Class<W> {
     /// Jitter class and also turns on `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` for the Max wrapper
     /// (`max_jit_class_wrap_standard`, `jit.max.h`: "uses standard dumpout `A_DEFER_LOW`
     /// method"), so that a patcher message to the selector calls the method and the reply goes
-    /// out the dumpout outlet. That the wrap sends an atomarray reply as a list, and which
-    /// selector it carries, is assumed and still to be checked in a host
-    /// (`doc/plan-gimmeback.md`, "Host checks"); `median-mock` models it.
+    /// out the dumpout outlet. Observed in Max 9.2 on 2026-10-27: the wrap sends a list reply out
+    /// dumpout as a list, under the selector without its leading `get` (`getvalues` answers as
+    /// `values`, `getcount` as `count`); `median-mock` models it.
     ///
     /// The `doAbs` method of `simplejs` (the absolute value of its one argument, or of each of
     /// several), written by hand:
@@ -828,7 +835,14 @@ impl<W> Class<W> {
         // SAFETY: `m` is a trampoline taking the object and the registered arguments
         unsafe { self.add_typed(sel, m, &[max_sys::e_max_atomtypes::A_GIMMEBACK]) }?;
         // an attributes-only pass registers nothing
-        self.gimmeback_added |= !self.attributes_only;
+        if self.attributes_only {
+            return Ok(());
+        }
+        self.gimmeback_added = true;
+        if !self.jitter {
+            // SAFETY: `add_typed` just registered `sel` on this class
+            unsafe { crate::wrapper::mark_undocumented(self.class, sel) };
+        }
         Ok(())
     }
 
