@@ -181,6 +181,8 @@ pub fn run_do_abs(k: &Kernel, class: &str) -> Vec<String> {
         vec![Atom::Long(1), Atom::Long(-2), Atom::Float(-0.5)],
         vec![Atom::Sym("x".into())],
         vec![],
+        vec![Atom::Long(i64::MIN)],
+        vec![Atom::Long(1), Atom::Long(i64::MIN)],
     ] {
         t.push(format!("{atoms:?} -> {:?}", k.call(obj, "doAbs", &atoms)));
         drain(k, obj, &mut t);
@@ -205,6 +207,10 @@ pub const EXPECTED_DO_ABS: &[&str] = &[
     "[Sym(\"x\")] -> Ok(Nothing)",
     "[] -> Ok(Error(-1))",
     "error obj: missing argument for method doAbs()",
+    "[Long(-9223372036854775808)] -> Ok(Error(-1))",
+    "error obj: doAbs: -9223372036854775808 is out of range",
+    "[Long(1), Long(-9223372036854775808)] -> Ok(Error(-1))",
+    "error obj: doAbs: -9223372036854775808 is out of range",
     "send Err(TypedOnly(\"doAbs\"))",
     "error obj: doAbs is a typed-call (A_GIMMEBACK) method; a patcher message cannot reach it",
     "live 0",

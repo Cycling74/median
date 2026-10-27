@@ -140,19 +140,21 @@ impl Simp {
         match atoms {
             [] => Err("missing argument for method doAbs()".into()),
             [one] => Ok(match one.get_value() {
-                Some(AtomValue::Int(i)) => Reply::Int(i.abs()),
+                Some(AtomValue::Int(i)) => Reply::Int(checked_abs(i)?),
                 Some(AtomValue::Float(f)) => Reply::Float(f.abs()),
                 _ => Reply::Nothing,
             }),
             many => Ok(Reply::Atoms(
                 many.iter()
-                    .map(|a| match a.get_value() {
-                        Some(AtomValue::Int(i)) => Atom::from(i.abs()),
-                        Some(AtomValue::Float(f)) => Atom::from(f.abs()),
-                        //a symbol goes through as it is (an `Atom` is not `Clone`)
-                        _ => Atom::from(a.get_symbol()),
+                    .map(|a| {
+                        Ok(match a.get_value() {
+                            Some(AtomValue::Int(i)) => Atom::from(checked_abs(i)?),
+                            Some(AtomValue::Float(f)) => Atom::from(f.abs()),
+                            //a symbol goes through as it is (an `Atom` is not `Clone`)
+                            _ => Atom::from(a.get_symbol()),
+                        })
                     })
-                    .collect(),
+                    .collect::<Result<Vec<_>, String>>()?,
             )),
         }
     }
@@ -203,3 +205,9 @@ fn initial_value(a: &Atom) -> Result<t_atom_long, String> {
 
 //the `ext_main` that Max calls to register the class
 median::ext_main! { Simp }
+
+//`t_atom_long::MIN` has no absolute value of its own type: an error, not a wrapped result
+fn checked_abs(i: median::max_sys::t_atom_long) -> Result<median::max_sys::t_atom_long, String> {
+    i.checked_abs()
+        .ok_or_else(|| format!("doAbs: {i} is out of range"))
+}
