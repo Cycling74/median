@@ -365,6 +365,48 @@ macro_rules! callback_methods {
                 self.clock_for(cb)
             }
 
+            /// Like [`clock`](Self::clock), but the callback runs on the main thread, at low
+            /// priority after the scheduler tick (min-devkit's `defer_delivery`). The clock's
+            /// tick only sets a qelem, and Max runs `f` from it.
+            ///
+            /// Ticks that arrive while a call is already waiting for the main thread coalesce
+            /// into one call. A tick that arrives while `f` is running is lost for that round,
+            /// because `qelem_set` from inside the qelem's own function does nothing (see
+            /// [`Queue`] and `ext_proto.h`, `qelem_set`): a deferred clock that re-arms itself
+            /// from `f` with a delay shorter than `f`'s run time can miss ticks.
+            /// [`Clock::cancel`] also cancels a tick that is waiting for the main thread. The
+            /// clock can still be scheduled from any thread, `perform` included: only the
+            /// scheduler thread calls `qelem_set`, which is the ordinary qelem case.
+            ///
+            /// As for `clock`, the clock is live once `new` has returned and is disabled (with
+            /// its pending call) before the object is dropped; `f` may return `Result<(), E>`.
+            /// `f` is a method or a closure that captures nothing;
+            /// [`clock_deferred_with`](Self::clock_deferred_with) takes any closure.
+            pub fn clock_deferred<F, R>(&mut self, f: F) -> Clock
+            where
+                F: Fn(&T) -> R + Copy + Send + Sync + 'static,
+                R: MethodResult,
+            {
+                const {
+                    assert!(
+                        std::mem::size_of::<F>() == 0,
+                        "Builder::clock_deferred takes a method or a closure that captures nothing; use clock_deferred_with for a closure that captures"
+                    )
+                };
+                self.clock_deferred_with(f)
+            }
+
+            /// [`clock_deferred`](Self::clock_deferred) with any closure.
+            pub fn clock_deferred_with<F, R>(&mut self, f: F) -> Clock
+            where
+                F: Fn(&T) -> R + Send + Sync + 'static,
+                R: MethodResult,
+            {
+                // SAFETY: the target of the queue is this object, see `clock_deferred_for`
+                let cb = unsafe { callback::<$wrapper<T>, T, F, R>(f) };
+                self.clock_deferred_for(cb)
+            }
+
             /// Make a [`Queue`] that calls `f` with the object on the main thread after
             /// [`Queue::set`]. `f` is a method or a closure that captures nothing, as for
             /// [`clock`](Self::clock); [`queue_with`](Self::queue_with) takes any closure. It may
@@ -432,6 +474,20 @@ impl<T, K: BuilderKind> Builder<T, K> {
         let clock = unsafe { Clock::new_unarmed(self.obj.as_ptr(), func) };
         self.targets.push(clock.shared());
         clock
+    }
+
+    /// A clock whose tick sets a qelem whose callback is `func`, called with this object (on the
+    /// main thread).
+    fn clock_deferred_for(&mut self, func: ClockFn) -> Clock {
+        let queue = self.queue_for(func);
+        let handle = queue.handle();
+        // the clock's callback only runs while its `Clock` is alive, and the `Clock` owns `queue`
+        // (dropped after the clock's target is cleared), so `handle` is valid whenever it runs
+        let tick: ClockFn = Box::new(move |_| {
+            // SAFETY: as above
+            unsafe { handle.set() }
+        });
+        self.clock_for(tick).with_deferred(queue)
     }
 
     /// A queue whose callback is `func`, called with this object.

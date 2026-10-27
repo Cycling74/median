@@ -81,6 +81,29 @@ unsafe impl Send for Queue {}
 // SAFETY: as above; every method takes `&self` and only calls `qelem_*` functions
 unsafe impl Sync for Queue {}
 
+/// A qelem pointer that a clock callback (the scheduler thread) uses to set the qelem of a deferred
+/// clock, see [`Clock`](crate::clock::Clock).
+///
+/// Only valid while the [`Queue`] it came from is alive: the `Clock` that owns both clears its
+/// callback target (which waits for a running callback) before it drops the queue.
+pub(crate) struct QelemHandle(NonNull<c_void>);
+
+// SAFETY: the pointer is only passed to `qelem_set`, which may be called from any thread
+unsafe impl Send for QelemHandle {}
+// SAFETY: as above
+unsafe impl Sync for QelemHandle {}
+
+impl QelemHandle {
+    /// `qelem_set` the qelem.
+    ///
+    /// # Safety
+    /// The queue this came from must not have been dropped.
+    pub(crate) unsafe fn set(&self) {
+        // SAFETY: the caller's contract
+        unsafe { max_sys::qelem_set(self.0.as_ptr().cast()) }
+    }
+}
+
 /// What Max calls when the qelem runs (on the main thread), with the `obj` given to `qelem_new`.
 extern "C" fn queue_tramp(shared: *const ClockShared) {
     crate::ffi::guard_global("queue", (), || {
@@ -124,6 +147,11 @@ impl Queue {
     /// The callback target, so the owning wrapper can arm and disable it.
     pub(crate) fn shared(&self) -> Arc<ClockShared> {
         self.shared.clone()
+    }
+
+    /// The qelem, for the clock of a deferred clock to set from the scheduler thread.
+    pub(crate) fn handle(&self) -> QelemHandle {
+        QelemHandle(self.qelem)
     }
 
     /// Run the callback on the main thread, at the back of Max's queue, unless it is already set

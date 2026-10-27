@@ -46,6 +46,9 @@
 //! callback that makes Max service its scheduler (with Overdrive off, the scheduler runs in the
 //! main thread's event loop, which a modal dialog runs nested) may see the clock fire again,
 //! nested inside it; that is allowed.
+//!
+//! For a callback on the main thread (min-devkit's `defer_delivery`), make the clock with
+//! [`clock_deferred`](crate::builder::Builder::clock_deferred) instead: see [`Clock`].
 use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
@@ -302,7 +305,8 @@ impl MaxObjWrapped for ClockInner {
     }
 }
 
-/// A clock: calls a method of its object on the scheduler thread after a delay. See the
+/// A clock: calls a method of its object on the scheduler thread after a delay (or, for one made
+/// with [`clock_deferred`](crate::builder::Builder::clock_deferred), on the main thread). See the
 /// [module documentation](self).
 ///
 /// Make one with the builder ([`clock`](crate::builder::Builder::clock),
@@ -311,12 +315,30 @@ impl MaxObjWrapped for ClockInner {
 /// freed, so a `Clock` that outlives its object does nothing when it fires. A callback must not
 /// free its own object or drop its own `Clock` (that blocks the thread forever).
 ///
+/// **Deferred clocks.** A clock made with `clock_deferred` or `clock_deferred_with` keeps a
+/// qelem ([`Queue`](crate::queue::Queue)) for the user's callback: when the clock fires, on the
+/// scheduler thread, it only sets the qelem, and Max runs the callback on the main thread at low
+/// priority, after the tick. Ticks that arrive while the qelem is already set coalesce into one
+/// call. A tick that arrives while the callback itself is running is lost for that round, because
+/// `qelem_set` called from inside the qelem's own function does nothing (it is unset only after
+/// the function returns, `ext_proto.h`, `qelem_set`): a deferred clock that re-arms itself from
+/// its callback with a delay shorter than the callback's run time can miss ticks.
+/// [`cancel`](Self::cancel) also unsets the qelem. `delay`, `fdelay` and `trigger` work as for
+/// any clock, including from `perform`: the clock is the one that is scheduled, and it only sets
+/// the qelem from the scheduler thread, which is the ordinary use of `qelem_set`. Dropping the
+/// `Clock` frees both.
+///
 /// Creating one registers median's clock class the first time, under median's class table lock:
 /// don't create a clock during class registration (`FieldAttrs::register_attrs`,
 /// `Methods::register`, `class_setup`), which already holds that lock and would deadlock.
 pub struct Clock {
     _target: crate::object::ObjBox<MaxObjWrapper<ClockInner>>,
     clock: *mut c_void,
+    /// For a deferred clock ([`clock_deferred`](crate::builder::Builder::clock_deferred)), the
+    /// queue that runs the user's callback on the main thread, set by this clock's own callback.
+    /// Declared last so it is dropped after `Drop::drop` has cleared the clock's target (which
+    /// waits for a running callback that sets the qelem).
+    deferred: Option<crate::queue::Queue>,
 }
 
 // SAFETY: the clock pointer is only passed to `clock_*` functions, which Max lets any thread call
@@ -352,10 +374,15 @@ impl Clock {
         }
     }
 
-    /// Cancel the scheduled run, if any (`clock_unset`).
+    /// Cancel the scheduled run, if any (`clock_unset`). For a deferred clock this also cancels a
+    /// tick that is already waiting for the main thread (`qelem_unset`), so the callback does not
+    /// run for it; one that is already running does.
     pub fn cancel(&self) {
         unsafe {
             max_sys::clock_unset(self.clock);
+        }
+        if let Some(queue) = &self.deferred {
+            queue.cancel();
         }
     }
 
@@ -449,7 +476,15 @@ impl Clock {
         Self {
             _target: clock_target,
             clock,
+            deferred: None,
         }
+    }
+
+    /// Make this a deferred clock: the clock's own callback only sets `queue`, whose callback
+    /// is the user's.
+    pub(crate) fn with_deferred(mut self, queue: crate::queue::Queue) -> Self {
+        self.deferred = Some(queue);
+        self
     }
 }
 
