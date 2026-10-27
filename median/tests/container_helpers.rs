@@ -111,13 +111,17 @@ fn name_switches_and_weak_entry_removal_do_not_release_another_owner() {
 }
 
 #[derive(MaxObject)]
-#[max(name = "dict.helpers.observer", no_methods)]
+#[max(name = "dict.helpers.observer")]
 struct Observer;
 impl MaxObjWrapped for Observer {
     fn new(_: &mut MaxBuilder<Self>) -> Result<Self, NewError> {
         Ok(Self)
     }
-    fn handle_notification(&self, n: &median::notify::Notification) {
+}
+#[median::methods]
+impl Observer {
+    #[notify]
+    fn notified(&self, n: &median::notify::Notification) {
         if *n.message() == sym!("modified") {
             // Reentrant read/write confirms notify_modified holds no dictionary lock.
             Dict::find_registered(sym!("observed"))

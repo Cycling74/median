@@ -127,6 +127,13 @@ impl Simp {
         );
     }
 
+    //Max calls this for a notification from an object this one is attached to. The notification
+    //is valid for the call only. A method can't be deferred (`#[defer]`) for that reason.
+    #[notify]
+    pub fn notified(&self, n: &Notification) {
+        median::object_post!(&self.obj, "notification {}", n.message());
+    }
+
     //an attribute "foo": the getter is marked, `set_foo` is found by its name (without one the
     //attribute is read-only)
     #[attr]

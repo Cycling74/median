@@ -1,0 +1,23 @@
+error: `#[notify]` method must take `(&self, &Notification)`
+ --> tests/ui/methods_notify.rs:8:5
+  |
+8 |     fn no_argument(&self) {}
+  |     ^^
+
+error: `#[notify]` method must take `(&self, &Notification)`
+  --> tests/ui/methods_notify.rs:11:5
+   |
+11 |     fn by_value(&self, _n: Notification) {}
+   |     ^^
+
+error: notify callbacks cannot be deferred; a notification is valid only during the call, copy the data explicitly
+  --> tests/ui/methods_notify.rs:18:5
+   |
+18 |     #[defer]
+   |     ^
+
+error: `notify` is registered twice in this impl
+  --> tests/ui/methods_notify.rs:30:5
+   |
+30 |     #[notify]
+   |     ^

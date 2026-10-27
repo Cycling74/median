@@ -147,11 +147,12 @@
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
+//! | `#[notify]` | `notify` (`A_CANT`): a notification from an attached or subscribed object | `fn(&self, &Notification)` |
 //! | `#[dictionary]` | a retained registered dictionary | `fn(&self, Dict)` |
 //! | `#[savestate]` | `appendtodictionary` (`A_CANT`): patcher save | `fn(&self, &Dict)` |
 //!
-//! A message marker (except `#[attr]`, `#[dblclick]`, `#[loadbang]`, `#[dictionary]`, and
-//! `#[savestate]`) can be paired with
+//! A message marker (except `#[attr]`, `#[dblclick]`, `#[loadbang]`, `#[notify]`, `#[dictionary]`,
+//! and `#[savestate]`) can be paired with
 //! `#[defer_low]` (always run later on the main thread) or `#[defer]` (run now on the main thread,
 //! otherwise later on it): `#[sel_gimme("read")] #[defer_low]`. See [`defer`]; never send a
 //! deferred message from `perform`.
@@ -272,6 +273,7 @@ pub mod prelude {
         inlet::{Inlet, InletId},
         max_sys::t_atom_long,
         methods,
+        notify::Notification,
         num::{Float32, Float64, Int64},
         object::{MaxObj, ObjRef},
         object_error, object_post, object_warn,

@@ -286,9 +286,6 @@ pub trait MaxObjWrapped:
         obj.error(err);
     }
 
-    /// Handle notifications that your object gets
-    fn handle_notification(&self, _notification: &Notification) {}
-
     /// The assist text of an inlet or outlet, computed when Max asks for it. `None` (the
     /// default) uses the text given to the builder, or the iolet's kind ("int", "list",
     /// "inlet 2", ...).
@@ -354,9 +351,6 @@ pub trait MSPObjWrapped:
         obj.error(err);
     }
 
-    /// Handle notifications that your object gets
-    fn handle_notification(&self, _notification: &Notification) {}
-
     /// As [`MaxObjWrapped::assist`].
     fn assist(&self, _iolet: IoLet) -> Option<Cow<'_, str>> {
         None
@@ -379,6 +373,14 @@ pub trait WrapperWrapped<T> {
     /// Give an error returned by a method of the wrapped value to its `report_error` hook
     /// ([`MaxObjWrapped::report_error`] or [`MSPObjWrapped::report_error`]).
     fn report_error(&self, err: &dyn Display);
+
+    /// Give a notification to the `buffer~` references of the object (`MaxBuilder::buffer_ref`),
+    /// which median's `notify` handling does before the user's. For the `notify` trampoline;
+    /// the wrappers implement it, the default does nothing.
+    #[doc(hidden)]
+    fn notify_buffer_refs(&self, notification: &Notification) {
+        let _ = notification;
+    }
 
     /// Queue a deferred call on the object's deferred-call queue (see [`crate::defer`]). For
     /// the deferring trampolines; the wrappers implement it, the default panics.
@@ -498,7 +500,8 @@ mod sealed {
         fn call_float(&self, index: usize, value: f64);
         fn call_int(&self, index: usize, value: max_sys::t_atom_long);
 
-        fn handle_notification(&self, notification: &Notification);
+        /// Give the notification to the object's `buffer~` references.
+        fn notify_buffer_refs(&self, notification: &Notification);
         fn report_error(&self, obj: &ObjRef, err: &dyn Display);
         /// # Safety
         /// `s` must be null or point to a writable buffer of at least 512 bytes, as Max passes to
@@ -565,9 +568,8 @@ where
     fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
         self.iolets.call_int(&self.wrapped, index, value);
     }
-    fn handle_notification(&self, notification: &Notification) {
+    fn notify_buffer_refs(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
-        self.wrapped().handle_notification(notification);
     }
     fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
         self.wrapped().report_error(obj, err);
@@ -644,9 +646,8 @@ where
     fn call_int(&self, index: usize, value: max_sys::t_atom_long) {
         self.iolets.call_int(&self.wrapped, index, value);
     }
-    fn handle_notification(&self, notification: &Notification) {
+    fn notify_buffer_refs(&self, notification: &Notification) {
         handle_buffer_ref_notifications(&self.buffer_refs, notification);
-        self.wrapped().handle_notification(notification);
     }
     fn report_error(&self, obj: &ObjRef, err: &dyn Display) {
         self.wrapped().report_error(obj, err);
@@ -959,6 +960,10 @@ where
         }
     }
 
+    fn notify_buffer_refs(&self, notification: &Notification) {
+        self.internal().notify_buffer_refs(notification);
+    }
+
     fn report_error(&self, err: &dyn Display) {
         let internal = self.internal();
         // SAFETY: `s_obj` is the header of this live object, and the handle is dropped when this
@@ -1163,12 +1168,11 @@ where
                 let assist = c"assist";
                 let inletinfo = c"inletinfo";
                 unsafe {
-                    // Keep handlers installed by the SDK's Jitter wrapper.
-                    if !c.host_iolets
-                        || max_sys::class_method(c.inner(), crate::sym!("notify").as_ptr())
-                            .is_none()
-                    {
-                        //register notifications
+                    // Only for a class without a `notify` method: keep the one the user added
+                    // (`Class::add_notify`, which runs in `creator`, with the class' methods and
+                    // `class_setup`) or the SDK's Jitter wrapper installed.
+                    if max_sys::class_method(c.inner(), crate::sym!("notify").as_ptr()).is_none() {
+                        //the default: only the `buffer~` references get notifications
                         max_sys::class_addmethod(
                             c.inner(),
                             Some(std::mem::transmute::<
@@ -1303,7 +1307,7 @@ where
     pub(crate) fn register_with(lookup_class: bool) {
         Self::register_common(
             lookup_class,
-            Self::handle_notification_tramp,
+            Self::default_notify_tramp,
             Self::assist_tramp,
             || {
                 let mut c: Class<Self> = Class::new(
@@ -1349,7 +1353,9 @@ where
         Self::new_or_panic(sym, args)
     }
 
-    extern "C" fn handle_notification_tramp(
+    /// The `notify` method of a class that has none of its own: the object's `buffer~`
+    /// references only.
+    extern "C" fn default_notify_tramp(
         &self,
         sender_name: *mut max_sys::t_symbol,
         message: *mut max_sys::t_symbol,
@@ -1359,7 +1365,7 @@ where
         self.guard_or("notify", (), || {
             // SAFETY: Max passes valid (or null) symbols to a notify method
             let notification = unsafe { Notification::new(sender_name, message, sender, data) };
-            self.internal().handle_notification(&notification);
+            self.internal().notify_buffer_refs(&notification);
         });
     }
 
@@ -1401,7 +1407,7 @@ where
     pub(crate) fn register_with(lookup_class: bool) {
         Self::register_common(
             lookup_class,
-            Self::handle_notification_tramp,
+            Self::default_notify_tramp,
             Self::assist_tramp,
             || {
                 let mut c: Class<Self> = Class::new(
@@ -1606,7 +1612,9 @@ where
         }
     }
 
-    extern "C" fn handle_notification_tramp(
+    /// The `notify` method of a class that has none of its own: the object's `buffer~`
+    /// references only.
+    extern "C" fn default_notify_tramp(
         &self,
         sender_name: *mut max_sys::t_symbol,
         message: *mut max_sys::t_symbol,
@@ -1616,7 +1624,7 @@ where
         self.guard_or("notify", (), || {
             // SAFETY: Max passes valid (or null) symbols to a notify method
             let notification = unsafe { Notification::new(sender_name, message, sender, data) };
-            self.internal().handle_notification(&notification);
+            self.internal().notify_buffer_refs(&notification);
         });
     }
 
@@ -1720,9 +1728,6 @@ mod tests {
         fn new(_builder: &mut MaxBuilder<P>) -> Result<Self, NewError> {
             Ok(P)
         }
-        fn handle_notification(&self, _n: &Notification) {
-            RAN.fetch_add(1, Ordering::SeqCst);
-        }
         fn assist(&self, _iolet: IoLet) -> Option<Cow<'_, str>> {
             RAN.fetch_add(1, Ordering::SeqCst);
             None
@@ -1753,9 +1758,6 @@ mod tests {
             RAN.fetch_add(1, Ordering::SeqCst);
         }
         fn dsp_setup(&self, _: f64) {
-            RAN.fetch_add(1, Ordering::SeqCst);
-        }
-        fn handle_notification(&self, _n: &Notification) {
             RAN.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -1823,7 +1825,7 @@ mod tests {
         assert_eq!(
             errors_during(&k, &*w, || {
                 // SAFETY: null symbols are valid for a notification
-                W::handle_notification_tramp(
+                W::default_notify_tramp(
                     &w,
                     std::ptr::null_mut(),
                     std::ptr::null_mut(),

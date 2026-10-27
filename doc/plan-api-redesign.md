@@ -528,7 +528,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   known bugs fixed and its feature flag dropped after this plan).
 
 - [x] 0. Toolchain (2eb44da). `ext_main` now emits `#[unsafe(no_mangle)]`, accepted by 2018 user
-  crates too. The examples and template stay on edition 2018 until they are ported.
+  crates too. The examples and template stay on edition 2018 until they are ported (since ported: all are edition 2024).
 - [x] 1. `ObjRef`, blanket `MaxObj`/`MSPObj` removed. Differences from section D: `ObjRef` also
   carries `PhantomData<*const ()>` (explicit `!Send`, `unsafe impl Sync`); it has `from_raw`
   (unsafe), `proxy_inlet` (wraps `proxy_getinlet`, safe but only meaningful inside a message
@@ -836,7 +836,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   - Messages: `BufferReference::view()` (`buffer_view`, as `index~`/`simpwave~` do on
     double-click), `Class::add_dblclick` (`A_CANT`), and `Class::add_buffer_messages(|s:
     &Self| &*s.buf)`, which registers `set <name>` and `dblclick` for one reference (call it in
-    `class_setup`). `#[dblclick]` in `#[median::methods]` is still rejected (not done here).
+    `class_setup`). `#[dblclick]` in `#[median::methods]` is still rejected (not done here; added in step 7).
     `buffer_modified` and binding notifications are forwarded as before.
   - `hello_dsp` uses `add_buffer_messages` (its `#[sel("set")]` is gone) and plays its first
     buffer's channel 0 on the right outlet.
@@ -928,7 +928,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     the same end). Not a `Fifo<T>` type as section H sketched.
   - `#[dblclick]` and `#[loadbang]` (`A_CANT`, `fn(&self)`), `Class::add_loadbang`. The SDK
     headers declare neither signature; `(x)` is what the SDK's `dblclick` examples use and what is
-    assumed for `loadbang` (unverified). `#[notify]`, `#[savestate]` stay "not supported yet".
+    assumed for `loadbang` (unverified). `#[savestate]`/`#[dictionary]` were added with the containers; `#[notify]` is added in the 2026-10-27 continuation.
   - Attribute options: `AttrOptions` gains `label`, `style`, `category` (`&'static CStr`),
     `order(t_atom_long)`, `default(impl Into<AttrDefault>)` (`Int`, `Float` or a `Parse` string;
     from `i32`/`i64`/`isize`/`f32`/`f64`/`&'static CStr`), `save`, `enum_vals`, `range(min, max)`,

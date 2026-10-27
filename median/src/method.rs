@@ -2,6 +2,7 @@
 use crate::{
     atom::Atom,
     defer::{Defer, DeferredCall, OwnedAtoms},
+    notify::Notification,
     object::MaxObj,
     symbol::SymbolRef,
     wrapper::WrapperWrapped,
@@ -227,6 +228,29 @@ where
 {
     // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
     run(w, "dblclick", |t| (unsafe { zst::<F>() })(t));
+}
+
+pub(crate) extern "C" fn notify_tramp<W, T, F, R>(
+    w: &W,
+    sender_name: *mut max_sys::t_symbol,
+    message: *mut max_sys::t_symbol,
+    sender: *mut c_void,
+    data: *mut c_void,
+) where
+    W: WrapperWrapped<T> + MaxObj,
+    F: Fn(&T, &Notification) -> R + Copy,
+    R: MethodResult,
+{
+    crate::ffi::guard(w, "notify", || {
+        // SAFETY: Max passes valid (or null) symbols to a notify method, and its other arguments
+        // as they are
+        let notification = unsafe { Notification::new(sender_name, message, sender, data) };
+        // median's own handling (the object's `buffer~` references) first
+        w.notify_buffer_refs(&notification);
+        // SAFETY: `F` is a zero-sized `Copy` callable, see `zst`
+        (unsafe { zst::<F>() })(w.wrapped(), &notification)
+            .report_if_err(&mut |err| w.report_error(err));
+    });
 }
 
 pub(crate) extern "C" fn loadbang_tramp<W, T, F, R>(w: &W)
@@ -530,6 +554,27 @@ where
 {
     // SAFETY: the trampoline takes the object, as Max calls the `A_CANT` method `dblclick`
     unsafe { erase(dblclick_tramp::<W, T, F, R> as extern "C" fn(&W)) }
+}
+
+pub(crate) fn notify_method<W, T, F, R>(_f: F) -> MaxMethod
+where
+    W: WrapperWrapped<T> + MaxObj,
+    F: Fn(&T, &Notification) -> R + Copy,
+    R: MethodResult,
+{
+    // SAFETY: the trampoline takes the object and the four arguments Max calls `notify` with
+    unsafe {
+        erase(
+            notify_tramp::<W, T, F, R>
+                as extern "C" fn(
+                    &W,
+                    *mut max_sys::t_symbol,
+                    *mut max_sys::t_symbol,
+                    *mut c_void,
+                    *mut c_void,
+                ),
+        )
+    }
 }
 
 pub(crate) fn loadbang_method<W, T, F, R>(_f: F) -> MaxMethod

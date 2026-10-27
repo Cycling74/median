@@ -9,9 +9,6 @@ use syn::{
     spanned::Spanned,
 };
 
-/// Markers that are planned but not there yet.
-const LATER: &[&str] = &["notify"];
-
 /// The most typed arguments a `#[sel]` method can have (what `class_addmethod` takes).
 const MAX_SEL_ARGS: usize = 7;
 
@@ -19,6 +16,7 @@ enum Marker {
     Bang,
     Dblclick,
     Loadbang,
+    Notify,
     Dictionary,
     Savestate,
     Int,
@@ -53,6 +51,7 @@ impl Marker {
             "bang" => no_args(Marker::Bang),
             "dblclick" => no_args(Marker::Dblclick),
             "loadbang" => no_args(Marker::Loadbang),
+            "notify" => no_args(Marker::Notify),
             "dictionary" => no_args(Marker::Dictionary),
             "savestate" => no_args(Marker::Savestate),
             "int" => no_args(Marker::Int),
@@ -65,10 +64,6 @@ impl Marker {
             "attr" => AttrOpts::parse(attr).map(|o| Marker::Attr(Box::new(o))),
             "defer" => no_args(Marker::Defer { low: false }),
             "defer_low" => no_args(Marker::Defer { low: true }),
-            k if LATER.contains(&k) => Err(syn::Error::new(
-                attr.span(),
-                format!("`#[{k}]` is not supported yet"),
-            )),
             _ => return None,
         })
     }
@@ -162,6 +157,7 @@ impl Marker {
             Marker::Bang => "`#[bang]` method must take `(&self)`",
             Marker::Dblclick => "`#[dblclick]` method must take `(&self)`",
             Marker::Loadbang => "`#[loadbang]` method must take `(&self)`",
+            Marker::Notify => "`#[notify]` method must take `(&self, &Notification)`",
             Marker::Dictionary => "`#[dictionary]` method must take `(&self, Dict)`",
             Marker::Savestate => "`#[savestate]` method must take `(&self, &Dict)`",
             Marker::Int => "`#[int]` method must take `(&self, t_atom_long)`",
@@ -386,6 +382,13 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     ));
                     continue;
                 }
+                Some((Marker::Notify, _)) => {
+                    push_err(syn::Error::new(
+                        span,
+                        "notify callbacks cannot be deferred; a notification is valid only during the call, copy the data explicitly",
+                    ));
+                    continue;
+                }
                 Some((Marker::Dictionary | Marker::Savestate, _)) => {
                     push_err(syn::Error::new(
                         span,
@@ -422,7 +425,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
         let want: Option<&[Arg]> = match &marker {
             Marker::Bang | Marker::Dblclick | Marker::Loadbang | Marker::Attr(_) => Some(&[]),
             Marker::Int | Marker::Float | Marker::Sym | Marker::Dictionary => Some(&[Value]),
-            Marker::Savestate => Some(&[Ref]),
+            Marker::Savestate | Marker::Notify => Some(&[Ref]),
             Marker::List => Some(&[Slice]),
             Marker::Any | Marker::Sel { gimme: true, .. } => Some(&[Ref, Slice]),
             Marker::Sel { .. } => None,
@@ -489,6 +492,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             Marker::Bang => Some("bang".to_string()),
             Marker::Dblclick => Some("dblclick".to_string()),
             Marker::Loadbang => Some("loadbang".to_string()),
+            Marker::Notify => Some("notify".to_string()),
             Marker::Dictionary => Some("dictionary".to_string()),
             Marker::Savestate => Some("appendtodictionary".to_string()),
             Marker::Int => Some("int".to_string()),
@@ -525,6 +529,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
             (Marker::Bang, None) => quote_spanned!(span=> c.add_bang(#path)?;),
             (Marker::Dblclick, _) => quote_spanned!(span=> c.add_dblclick(#path)?;),
             (Marker::Loadbang, _) => quote_spanned!(span=> c.add_loadbang(#path)?;),
+            (Marker::Notify, _) => quote_spanned!(span=> c.add_notify(#path)?;),
             (Marker::Dictionary, _) => quote_spanned!(span=> c.add_dictionary(#path)?;),
             (Marker::Savestate, _) => quote_spanned!(span=> c.add_savestate(#path)?;),
             (Marker::Int, None) => quote_spanned!(span=> c.add_int(#path)?;),

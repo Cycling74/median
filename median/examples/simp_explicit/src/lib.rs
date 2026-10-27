@@ -67,6 +67,8 @@ impl Methods for SimpExplicit {
         c.add_sel(c"set", Self::set, 1)?;
         //what `#[sel_gimme("read")] #[defer_low]` gives: run later on the main thread
         c.add_sel_gimme_deferred(c"read", Self::read, Defer::Low)?;
+        //what `#[notify]` gives
+        c.add_notify(Self::notified)?;
         c.add_attr(c"foo", Self::foo, Self::set_foo, AttrOptions::new())?;
         Ok(())
     }
@@ -154,6 +156,10 @@ impl SimpExplicit {
 
     pub fn foo(&self) -> f64 {
         self.fvalue.get()
+    }
+
+    pub fn notified(&self, n: &Notification) {
+        median::object_post!(&self.obj, "notification {}", n.message());
     }
 
     pub fn set_foo(&self, v: f64) {

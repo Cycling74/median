@@ -164,13 +164,14 @@ use std::os::raw::c_long;
 pub struct Class<T> {
     pub(crate) jitter: bool,
     pub(crate) attributes_only: bool,
-    pub(crate) host_iolets: bool,
     pub(crate) messages_only: bool,
     class: *mut max_sys::t_class,
     /// The attributes added through this `Class`, to refuse a duplicate name.
     attr_names: Vec<String>,
     /// A deferred method was added: the wrapper gives each object a deferred-call queue.
     deferred: bool,
+    /// `add_notify` registered the `notify` method through this `Class`.
+    notify_added: bool,
     _phantom: PhantomData<T>,
 }
 
@@ -208,11 +209,11 @@ impl<T> Class<T> {
         Self {
             jitter: false,
             attributes_only: false,
-            host_iolets: false,
             messages_only: false,
             class,
             attr_names: Vec::new(),
             deferred: false,
+            notify_added: false,
             _phantom: PhantomData,
         }
     }
@@ -533,6 +534,43 @@ impl<W> Class<W> {
         let m = dblclick_method::<W, T, F, R>(f);
         // SAFETY: `m` is a trampoline taking the object, as Max calls `dblclick`
         unsafe { self.add_typed(c"dblclick", m, &[max_sys::e_max_atomtypes::A_CANT]) }
+    }
+
+    /// Register the `notify` method (`A_CANT`), which Max calls when an object this one is
+    /// attached or subscribed to (or a `buffer~` it references) sends a notification. `f` gets
+    /// the object and the [`Notification`], valid for the call only: its `sender` and `data`
+    /// pointers must not be kept.
+    ///
+    /// median's own `notify` handling (the `buffer~` references of the object, see
+    /// `MaxBuilder::buffer_ref`) runs before `f`. A class without a `notify` method gets a
+    /// wrapper's own that does only that, so `notify` stays in [`RESERVED_SELECTORS`]:
+    /// [`Class::add_sel`] refuses it. `Err(MaxError::Duplicate)` if the class has a `notify`
+    /// method already (added through this `Class` before, or by the SDK's Jitter wrapper).
+    ///
+    /// [`Notification`]: crate::notify::Notification
+    pub fn add_notify<T, F, R>(&mut self, f: F) -> MaxResult<()>
+    where
+        W: WrapperWrapped<T> + MaxObj,
+        F: Fn(&T, &crate::notify::Notification) -> R + Copy + Send + Sync + 'static,
+        R: MethodResult,
+    {
+        if self.attributes_only {
+            return Ok(());
+        }
+        // SAFETY: the class is valid. (A Jitter class is only checked through `notify_added`:
+        // `jit_class_method` is not part of what the mock implements.)
+        if self.notify_added
+            || (!self.jitter
+                && unsafe { max_sys::class_method(self.class, crate::sym!("notify").as_ptr()) }
+                    .is_some())
+        {
+            return Err(MaxError::Duplicate);
+        }
+        let m = notify_method::<W, T, F, R>(f);
+        // SAFETY: `m` is a trampoline taking the object and the four arguments of `notify`
+        unsafe { self.add_typed_inner(c"notify", m, &[max_sys::e_max_atomtypes::A_CANT], true) }?;
+        self.notify_added = true;
+        Ok(())
     }
 
     /// Register the `loadbang` method (`A_CANT`), which Max calls on the main thread when the
@@ -931,6 +969,25 @@ impl<W> Class<W> {
     where
         W: MaxObj,
     {
+        // SAFETY: guaranteed by the caller
+        unsafe { self.add_typed_inner(sel, m, types, false) }
+    }
+
+    /// `add_typed`; with `allow_reserved` it doesn't refuse the selectors the wrapper reserves
+    /// (for the methods that have their own `add_*` for one, `Class::add_notify`).
+    ///
+    /// # Safety
+    /// `m` must be a method that takes the object followed by arguments of `types`.
+    unsafe fn add_typed_inner(
+        &mut self,
+        sel: &CStr,
+        m: MaxMethod,
+        types: &[max_sys::e_max_atomtypes::Type],
+        allow_reserved: bool,
+    ) -> MaxResult<()>
+    where
+        W: MaxObj,
+    {
         if self.attributes_only {
             return Ok(());
         }
@@ -938,7 +995,7 @@ impl<W> Class<W> {
             // A standalone Jitter core has no owner-bound Max deferred-call queue.
             return Err(MaxError::Generic);
         }
-        if is_reserved_selector(sel, W::IS_MSP) {
+        if !allow_reserved && is_reserved_selector(sel, W::IS_MSP) {
             return Err(MaxError::Duplicate);
         }
         // SAFETY: guaranteed by the caller
@@ -950,7 +1007,8 @@ impl<W> Class<W> {
 /// The selectors the wrapper registers for every class (`notify`, `assist`, `inletinfo`, the
 /// `int`/`float` inlet messages `in1`..`in9` and `ft1`..`ft9`, and `dsp64` for MSP objects).
 /// [`Class::add_sel`], [`Class::add_sel_gimme`] and `#[sel]` refuse them: registering one would
-/// replace or collide with the wrapper's own method.
+/// replace or collide with the wrapper's own method. `notify` has its own method,
+/// [`Class::add_notify`] (`#[notify]`), which the wrapper's default gives way to.
 pub const RESERVED_SELECTORS: &[&str] = &[
     "notify",
     "assist",

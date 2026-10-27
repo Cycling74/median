@@ -407,19 +407,31 @@ where
         );
     }
 }
+/// The `notify` method of the glue of a Jitter class: `T::notify` on the Max wrapper's object.
+fn forward_notify<T: JitterObject<K>, K: 'static>(
+    glue: &MaxGlue<T, K>,
+    notification: &crate::notify::Notification,
+) {
+    // SAFETY: `glue.obj` is the live Max object that is being notified
+    unsafe { T::notify(glue.obj.as_ptr(), notification) };
+}
+
 impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
     fn register<W>(class: &mut Class<W>) -> MaxResult<()>
     where
         W: WrapperWrapped<Self> + MaxObj,
     {
         let jit = entry::<T, K>().ok_or(MaxError::InvalidPtr)?;
-        class.host_iolets = true;
         unsafe {
             sys::max_jit_class_obex_setup(
                 class.inner(),
                 MaxObjWrapper::<Self>::jitter_obex_offset() as c_long,
             );
             T::setup_max_class(class.inner(), jit.class as _)?;
+            // Notifications go to `T::notify`, unless the SDK's wrapper installed its handler.
+            if sys::class_method(class.inner(), crate::sym!("notify").as_ptr()).is_none() {
+                class.add_notify(forward_notify::<T, K>)?;
+            }
             let inletinfo = sys::class_method(class.inner(), crate::sym!("inletinfo").as_ptr())
                 .map(|f| {
                     std::mem::transmute::<
@@ -493,11 +505,6 @@ impl<T: JitterObject<K>, K: 'static> MaxObjWrapped for MaxGlue<T, K> {
                 args.len().min(i16::MAX as usize) as _,
                 args.as_ptr().cast_mut().cast(),
             );
-        }
-    }
-    fn handle_notification(&self, notification: &crate::notify::Notification) {
-        unsafe {
-            T::notify(self.obj.as_ptr(), notification);
         }
     }
     fn assist(&self, io: IoLet) -> Option<Cow<'_, str>> {
