@@ -4,7 +4,7 @@
 //! hands a value back to its caller in a `t_atom` (`rv`). `ext_mess.h` describes `A_GIMMEBACK` as
 //! "can return atom value in final atom ptr arg. function returns long error code 0 = no err",
 //! and `object_method_typed` (`ext_obex.h`) is the caller that reads the value. Register one with
-//! [`Class::add_sel_gimmeback`](crate::class::Class::add_sel_gimmeback).
+//! [`Class::add_gimmeback`](crate::class::Class::add_gimmeback).
 //!
 //! What a method may return is [`GimmebackResult`]: a [`Reply`], anything that converts to one
 //! (`t_atom_long`, `f64`, [`SymbolRef`], `Vec<Atom>`, [`AtomArray`], [`Dict`], `()`), or a
@@ -162,7 +162,7 @@ mod sealed {
 }
 
 /// What a method registered with
-/// [`Class::add_sel_gimmeback`](crate::class::Class::add_sel_gimmeback) may return: a [`Reply`],
+/// [`Class::add_gimmeback`](crate::class::Class::add_gimmeback) may return: a [`Reply`],
 /// a value that converts to one (`t_atom_long`, `f64`, [`SymbolRef`], `Vec<Atom>`, [`AtomArray`],
 /// [`Dict`], `()` for no value), or `Result<R, E>` of one of those with `E: Display`.
 ///

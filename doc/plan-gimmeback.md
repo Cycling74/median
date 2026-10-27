@@ -137,9 +137,9 @@ impl Simp {
 The same three without the macro (`simp_explicit` style), in `Methods::register`:
 
 ```rust
-c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
-c.add_sel_gimmeback(c"getcount", Self::count)?;
-c.add_sel_gimmeback(c"getstate", Self::state)?;
+c.add_gimmeback(c"doAbs", Self::do_abs)?;
+c.add_gimmeback(c"getcount", Self::count)?;
+c.add_gimmeback(c"getstate", Self::state)?;
 ```
 
 The return type is anything `GimmebackResult` accepts: `Reply`, a value that converts to one
@@ -158,9 +158,9 @@ The explicit API keeps one name and accepts both shapes, so one function can ser
 selectors:
 
 ```rust
-c.add_sel_gimme(c"foo", Self::foo)?;   // fn foo(&self, sel: &SymbolRef, atoms: &[Atom])
-c.add_sel_gimme(c"bar", Self::foo)?;
-c.add_sel_gimme(c"read", Self::read)?; // fn read(&self, atoms: &[Atom])
+c.add_gimme(c"foo", Self::foo)?;   // fn foo(&self, sel: &SymbolRef, atoms: &[Atom])
+c.add_gimme(c"bar", Self::foo)?;
+c.add_gimme(c"read", Self::read)?; // fn read(&self, atoms: &[Atom])
 ```
 
 That is a sealed trait with a marker type parameter that the callable's signature selects
@@ -175,15 +175,15 @@ pub struct NoSel;
 impl<T, R, F: Fn(&T, &SymbolRef, &[Atom]) -> R + ..> GimmeFn<T, R, WithSel> for F { .. }
 impl<T, R, F: Fn(&T, &[Atom]) -> R + ..> GimmeFn<T, R, NoSel> for F { .. }
 
-pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+pub fn add_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
 where F: GimmeFn<T, R, A>, R: MethodResult, ..
 ```
 
 The two impls don't overlap because `A` differs, and `A` is inferred from `F`, so callers
 never write it. The trampoline becomes `sel_gimme_tramp::<W, T, F, R, A>` and calls
 `F::call`, which ignores the selector in the `NoSel` impl. The same trait serves
-`add_sel_gimme_deferred` and `add_sel_gimmeback` (whose `R: GimmebackResult`). The macro
-emits the same `c.add_sel_gimme(..)` call for either shape, so it needs no shape check beyond
+`add_gimme_deferred` and `add_gimmeback` (whose `R: GimmebackResult`). The macro
+emits the same `c.add_gimme(..)` call for either shape, so it needs no shape check beyond
 "takes `&self`"; a wrong signature is a trait-bound error at the generated call, which the
 `ui` tests pin.
 
@@ -195,7 +195,7 @@ longer error for a method with the wrong arguments (the `ui` expectation shows i
 
 ```rust
 impl<W> Class<W> {
-    pub fn add_sel_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+    pub fn add_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         F: GimmeFn<T, R, A>,   // `(&T, &[Atom])` or `(&T, &SymbolRef, &[Atom])`, see below
@@ -203,7 +203,7 @@ impl<W> Class<W> {
 }
 ```
 
-Same shape as `add_sel_gimme`: a zero-sized callable, `is_untyped_selector` refused
+Same shape as `add_gimme`: a zero-sized callable, `is_untyped_selector` refused
 (`MaxError::Duplicate`), `RESERVED_SELECTORS` refused through `add_typed`, registered with
 `&[A_GIMMEBACK]`. No deferred variant: a reply can't be delivered after the call returns. A
 method that wants "query, answer later out an outlet" is a `#[gimme]` with an outlet, as
@@ -223,7 +223,7 @@ panic therefore returns `MAX_ERR_GENERIC` with `rv` already `A_NOTHING`. `object
 always supplies `rv`; a null is tolerated anyway (the method runs, the reply is dropped) for a
 direct caller that passes one.
 
-The docs of `add_sel_gimmeback` and `#[gimmeback]` must say that the method is for typed
+The docs of `add_gimmeback` and `#[gimmeback]` must say that the method is for typed
 callers (`js`, `object_method_typed`, the Jitter dumpout wrap) and that a patch-cord message
 is not expected to reach it. A method that should answer both a patch cord and `js` registers
 two selectors: a `#[gimme]` that sends out an outlet and a `#[gimmeback]` that
@@ -232,7 +232,7 @@ returns.
 ### Macro
 
 `#[gimmeback("doAbs")]` in `#[median::methods]`, parsed by `parse_sel` with a third mode
-(`gimme: true, back: true`), emitting `Class::add_sel_gimmeback`. The method's return type must
+(`gimme: true, back: true`), emitting `Class::add_gimmeback`. The method's return type must
 implement `GimmebackResult`; a wrong one is an ordinary trait-bound error at the generated
 call, which the `ui` tests cover. `#[defer]`/`#[defer_low]` on it is a spanned error, as on
 `#[notify]`. The `reserved.rs` mirror needs no change: the refusals are the same as
@@ -245,7 +245,7 @@ Two places a gimmeback method can live on a Jitter type, matching where methods 
 - `#[gimmeback]` (through `Methods::register`) lands on the Max glue class (`Forward`),
   like every other `#[sel]`. `js` can call it on the Max object; a patcher message is not
   expected to reach it. Nothing in the SDK wrapper is involved.
-- `Class::<Core<T, K>>::add_sel_gimmeback` in `class_setup` registers it on the Jitter class.
+- `Class::<Core<T, K>>::add_gimmeback` in `class_setup` registers it on the Jitter class.
   To make the patcher reply go out dumpout, `Class` records `gimmeback_added` (like
   `notify_added`) and `setup_max_class` passes `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
   `max_jit_class_wrap_standard` only when the core class has one. `class_setup` runs before
@@ -289,7 +289,7 @@ another object. It can follow the first cut once the ownership check has passed 
 - A `Reply::Atoms` reply round-trips and leaves no live atomarray after `Kernel::call`.
 - A patcher `k.send` to the method is refused and the method does not run.
 - A panicking method returns `MAX_ERR_GENERIC`, `A_NOTHING`, and the panic text on the console.
-- `add_sel_gimmeback` on an untyped selector and on a reserved one is refused.
+- `add_gimmeback` on an untyped selector and on a reserved one is refused.
 - `ui`: `#[gimmeback] #[defer]` is an error; a method returning `Atom` is an error.
 - Jitter: a core-class gimmeback registered in `class_setup`; a patcher message produces the
   dumpout list; the wrap flag is passed only for that class.
@@ -308,14 +308,14 @@ another object. It can follow the first cut once the ownership check has passed 
 ## Status
 
 Step 1 is done (`median/src/gimmeback.rs`, `sel_gimmeback_tramp` in `method.rs`,
-`Class::add_sel_gimmeback`, the mock's `object_method_typed`/`Kernel::call`/`SendError::TypedOnly`,
+`Class::add_gimmeback`, the mock's `object_method_typed`/`Kernel::call`/`SendError::TypedOnly`,
 `median/tests/gimmeback.rs`, `median-mock/tests/object_method_typed.rs`). Where it differs from
 the sketch above:
 
 - `Reply` has a seventh variant, `Array(AtomArray)`: `From<AtomArray> for Reply` can't be
   infallible without it (`Atoms(Vec<Atom>)` would have to copy the array out and can fail).
 - `Atom` is neither `Copy` nor `Clone`, so the `_ => *a` in the `doAbs` sketch does not compile;
-  the tests and the `add_sel_gimmeback` docs use `Atom::from(a.get_symbol())`.
+  the tests and the `add_gimmeback` docs use `Atom::from(a.get_symbol())`.
 - A list that `AtomArray::new` refuses for a reason other than allocation (an object atom) is
   posted to `report_error` and answers `MAX_ERR_GENERIC`; only an allocation failure answers
   `MAX_ERR_OUT_OF_MEM`. Either way `rv` stays `A_NOTHING`.
@@ -365,7 +365,7 @@ differs from the sketch above:
 ## Order
 
 0. `GimmeFn` and the selector-less `#[gimme]` (its own commit: it changes existing API).
-1. `Reply`, `GimmebackResult`, trampoline, `add_sel_gimmeback`, mock support, tests.
+1. `Reply`, `GimmebackResult`, trampoline, `add_gimmeback`, mock support, tests.
 2. Macro marker and `ui` cases; examples.
 3. Jitter wrap flag, mock dumpout wrap, Jitter test.
 4. Host checks; then `call_typed` on the caller side.

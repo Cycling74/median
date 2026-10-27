@@ -571,7 +571,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   don't use a handle).
 - [x] 2. `Class<W>::add_*`, typed ZST registration (macro-free). Public: `add_bang`, `add_int`,
   `add_float`, `add_sym`, `add_list`, `add_any`, `add_sel(sel: &CStr, f, defaults)`,
-  `add_sel_gimme(sel: &CStr, f)`, all `-> MaxResult<()>`, plus the sealed `MethodResult` and the
+  `add_gimme(sel: &CStr, f)`, all `-> MaxResult<()>`, plus the sealed `MethodResult` and the
   `SelArg`/`SelFn` traits (`macro_rules!` over arities 0..=7; `build.rs` generation and the old
   `Method` enum / `add_method` / `external!` are untouched). Differences from section C:
   `ObjWrapped::report_error` is `(&self, obj: &ObjRef, err: &dyn Display)` (not
@@ -677,7 +677,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     floats and other arguments of a typed method in different registers on x64, and the old
     `build.rs` never generated a mix. `SelFn::trampoline` (so `Class::add_sel` and `#[sel]`) has a
     post-monomorphisation `const { assert!(..) }` that rejects a mix ("use
-    `#[gimme("name")]` / `add_sel_gimme`"); like the zero-size check it fires on `cargo
+    `#[gimme("name")]` / `add_gimme`"); like the zero-size check it fires on `cargo
     build`, not `cargo check`. `#[median::methods]` also reports it with a spanned error when the
     argument types are written `f64` (best effort: an alias hides it). The tests that mixed were
     changed to same-typed selectors.
@@ -938,7 +938,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     the object's calls and `qelem_front`; a qelem already queued at the back stays there; several
     `Front` calls run latest first, as Max's `defer`s do). Hand-written:
     `Class::add_{bang,int,float,sym,list,any}_deferred(f, mode)`,
-    `add_sel_deferred(sel, f, defaults, mode)`, `add_sel_gimme_deferred(sel, f, mode)` (typed
+    `add_sel_deferred(sel, f, defaults, mode)`, `add_gimme_deferred(sel, f, mode)` (typed
     selectors get a hidden `SelFn::deferred_trampoline`; `SelArg: Copy + Send + 'static`). The
     trampolines reach the queue through a hidden `WrapperWrapped::defer_call` (default panics).
     Markers pair with a message marker only; with `#[attr]`, `#[dblclick]`, `#[loadbang]` or alone
@@ -982,7 +982,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     added: `basic`, `paint`, `selfsave`, `defaultname`. Issue #17's hand-written
     `class_attr_addattr_parse(.., "save", ..)` is now `save`.
   - Examples: `simp`/`simp_explicit` have a `Queue` (`changed`, set by `int`), a deferred
-    `read` (`#[gimme("read")] #[defer_low]` / `add_sel_gimme_deferred`) and `value` with
+    `read` (`#[gimme("read")] #[defer_low]` / `add_gimme_deferred`) and `value` with
     `label`, `category`, `save`; `hello_dsp` and the template use attribute options. The shared
     simp script checks all three.
   - `median-mock` (dbec6cd): `qelem_front`, `qelem_free` of a dead qelem reported,

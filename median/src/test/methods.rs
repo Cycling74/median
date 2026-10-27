@@ -508,14 +508,14 @@ fn class_registers_the_methods() {
         0,
     )
     .unwrap();
-    c.add_sel_gimme(c"gimme", |p: &Probe, s: &SymbolRef, a: &[Atom]| {
+    c.add_gimme(c"gimme", |p: &Probe, s: &SymbolRef, a: &[Atom]| {
         p.log(format!("gimme {} {}", name(s), a.len()))
     })
     .unwrap();
     //one function under two selectors, and the shape without the selector
-    c.add_sel_gimme(c"gimme_b", gimme_with_sel).unwrap();
-    c.add_sel_gimme(c"gimme_c", gimme_with_sel).unwrap();
-    c.add_sel_gimme(c"gimme_plain", gimme_plain).unwrap();
+    c.add_gimme(c"gimme_b", gimme_with_sel).unwrap();
+    c.add_gimme(c"gimme_c", gimme_with_sel).unwrap();
+    c.add_gimme(c"gimme_plain", gimme_plain).unwrap();
     c.register(crate::class::ClassType::Box).unwrap();
 
     let obj = k.new_object("median_test_methods", &[]);

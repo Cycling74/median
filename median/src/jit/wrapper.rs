@@ -3,7 +3,7 @@
 //!
 //! Gimmeback methods (`A_GIMMEBACK`, see `crate::gimmeback`) have two homes on a Jitter type:
 //! `#[gimmeback]` registers on the Max wrapper (typed callers only), while
-//! `Class::<Core<..>>::add_sel_gimmeback` in `class_setup` registers on the Jitter class and makes
+//! `Class::<Core<..>>::add_gimmeback` in `class_setup` registers on the Jitter class and makes
 //! the Max class pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to `max_jit_class_wrap_standard`, so a
 //! patcher message gets the reply out dumpout. How the wrap renders the reply (an atomarray as a
 //! list) is assumed, pending the host check in `doc/plan-gimmeback.md`.
@@ -196,7 +196,7 @@ pub unsafe trait JitterObject<K>: ObjClass + Methods + FieldAttrs + Sync + 'stat
         Ok(())
     }
     unsafe fn free_core(_p: *mut Core<Self, K>) {}
-    /// `gimmeback`: the Jitter class has a method registered with `Class::add_sel_gimmeback`
+    /// `gimmeback`: the Jitter class has a method registered with `Class::add_gimmeback`
     /// (see `wrap_flags`).
     unsafe fn setup_max_class(
         c: *mut sys::t_class,
@@ -246,7 +246,7 @@ impl<T, K> WrapperWrapped<T> for Core<T, K> {
 const GIMMEBACK_WRAP: c_long = 0x0000_0001;
 
 /// The `flags` for `max_jit_class_wrap_standard`. With `gimmeback` (the Jitter class has a method
-/// registered through `Class::add_sel_gimmeback`) they ask for the SDK's gimmeback wrap, which per
+/// registered through `Class::add_gimmeback`) they ask for the SDK's gimmeback wrap, which per
 /// `jit.max.h` "uses standard dumpout `A_DEFER_LOW` method": a patcher message to such a method
 /// calls it and the reply is sent out the dumpout outlet. The header does not say how the wrap
 /// renders the reply; median assumes an atomarray goes out as a list and a scalar as one atom, and

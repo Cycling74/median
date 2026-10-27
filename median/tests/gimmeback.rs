@@ -1,4 +1,4 @@
-//! `A_GIMMEBACK` methods registered by hand with `Class::add_sel_gimmeback` (`gimmeback_macro.rs`
+//! `A_GIMMEBACK` methods registered by hand with `Class::add_gimmeback` (`gimmeback_macro.rs`
 //! uses the `#[gimmeback]` marker), called the way `js` and `object_method_typed` do, through
 //! the `median-mock` kernel.
 
@@ -105,24 +105,24 @@ impl Methods for Gb {
     where
         W: WrapperWrapped<Self> + MaxObj,
     {
-        c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
-        c.add_sel_gimmeback(c"getcount", Self::count)?;
-        c.add_sel_gimmeback(c"half", Self::half)?;
-        c.add_sel_gimmeback(c"name", Self::name)?;
-        c.add_sel_gimmeback(c"unit", Self::unit)?;
-        c.add_sel_gimmeback(c"array", Self::array)?;
-        c.add_sel_gimmeback(c"badlist", Self::bad_list)?;
-        c.add_sel_gimmeback(c"getstate", Self::state)?;
+        c.add_gimmeback(c"doAbs", Self::do_abs)?;
+        c.add_gimmeback(c"getcount", Self::count)?;
+        c.add_gimmeback(c"half", Self::half)?;
+        c.add_gimmeback(c"name", Self::name)?;
+        c.add_gimmeback(c"unit", Self::unit)?;
+        c.add_gimmeback(c"array", Self::array)?;
+        c.add_gimmeback(c"badlist", Self::bad_list)?;
+        c.add_gimmeback(c"getstate", Self::state)?;
         //one function, two selectors; it is told which
-        c.add_sel_gimmeback(c"one", Self::which)?;
-        c.add_sel_gimmeback(c"two", Self::which)?;
-        c.add_sel_gimmeback(c"boom", Self::boom)?;
+        c.add_gimmeback(c"one", Self::which)?;
+        c.add_gimmeback(c"two", Self::which)?;
+        c.add_gimmeback(c"boom", Self::boom)?;
         //a closure must annotate its parameters
-        c.add_sel_gimmeback(c"closure", |_: &Self, atoms: &[Atom]| {
+        c.add_gimmeback(c"closure", |_: &Self, atoms: &[Atom]| {
             atoms.len() as t_atom_long
         })?;
         //a message sent to a patcher
-        c.add_sel_gimme(c"plain", |t: &Self, _: &[Atom]| {
+        c.add_gimme(c"plain", |t: &Self, _: &[Atom]| {
             t.calls.fetch_add(100, Ordering::SeqCst);
         })?;
         Ok(())
@@ -135,16 +135,16 @@ impl Gb {
         //untyped (`A_CANT`) selectors: Max calls them with its own arguments
         r.push((
             "dblclick",
-            c.add_sel_gimmeback(c"dblclick", |_: &Self, _: &[Atom]| {}),
+            c.add_gimmeback(c"dblclick", |_: &Self, _: &[Atom]| {}),
         ));
         //reserved: the wrapper registers it
         r.push((
             "notify",
-            c.add_sel_gimmeback(c"notify", |_: &Self, _: &[Atom]| {}),
+            c.add_gimmeback(c"notify", |_: &Self, _: &[Atom]| {}),
         ));
         r.push((
             "assist",
-            c.add_sel_gimmeback(c"assist", |_: &Self, _: &SymbolRef, _: &[Atom]| {
+            c.add_gimmeback(c"assist", |_: &Self, _: &SymbolRef, _: &[Atom]| {
                 0 as t_atom_long
             }),
         ));

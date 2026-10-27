@@ -67,7 +67,7 @@ impl MaxObjWrapped for Twice {
         rec(c.add_notify(|_: &Self, _: &Notification| {
             TWICE_NOTIFIED.fetch_add(100, Ordering::SeqCst);
         }));
-        rec(c.add_sel_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
+        rec(c.add_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}));
     }
 }
 

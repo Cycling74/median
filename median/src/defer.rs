@@ -41,7 +41,7 @@
 //!
 //! By hand, the `Class` methods `add_bang_deferred`, `add_int_deferred`, `add_float_deferred`,
 //! `add_sym_deferred`, `add_list_deferred`, `add_any_deferred`, `add_sel_deferred` and
-//! `add_sel_gimme_deferred` take the same arguments as their undeferred twins plus a [`Defer`].
+//! `add_gimme_deferred` take the same arguments as their undeferred twins plus a [`Defer`].
 //!
 //! The two modes are those of the SDK's `defer_low` and `defer`, with one difference:
 //!

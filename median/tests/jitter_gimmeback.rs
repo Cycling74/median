@@ -45,8 +45,8 @@ impl MatrixOp for Both {
         }
     }
     fn class_setup(class: &mut Class<Core<Self, MatrixKind>>) -> median::error::MaxResult<()> {
-        class.add_sel_gimmeback(c"getcell", Self::cell)?;
-        class.add_sel_gimmeback(c"getcount", Self::count)
+        class.add_gimmeback(c"getcell", Self::cell)?;
+        class.add_gimmeback(c"getcount", Self::count)
     }
     fn calc(&self, _: &mut [Matrix<'_>], _: &mut [Matrix<'_>]) -> JitResult<()> {
         Ok(())

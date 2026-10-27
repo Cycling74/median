@@ -208,7 +208,7 @@ pub struct WithSel;
 pub struct NoSel;
 
 /// A callable that can be registered as an `A_GIMME` selector method with
-/// [`Class::add_sel_gimme`](crate::class::Class::add_sel_gimme): a zero-sized `Copy`
+/// [`Class::add_gimme`](crate::class::Class::add_gimme): a zero-sized `Copy`
 /// `Fn(&T, &[Atom]) -> R` or `Fn(&T, &SymbolRef, &[Atom]) -> R`.
 ///
 /// A method that takes the selector can serve several selectors (it is told which one was sent);
@@ -540,7 +540,7 @@ macro_rules! sel_fn_arity {
                 const {
                     assert!(
                         !mixes_float(Self::TYPES),
-                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme(\"name\")] / add_sel_gimme"
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme(\"name\")] / add_gimme"
                     )
                 };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = $tramp::<W, T, F, R, $($A),*>;
@@ -557,7 +557,7 @@ macro_rules! sel_fn_arity {
                 const {
                     assert!(
                         !mixes_float(Self::TYPES),
-                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme(\"name\")] / add_sel_gimme"
+                        "a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme(\"name\")] / add_gimme"
                     )
                 };
                 let p: extern "C" fn(&W, $(<$A as SelArg>::C),*) = match mode {

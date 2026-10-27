@@ -173,7 +173,7 @@ pub struct Class<T> {
     deferred: bool,
     /// `add_notify` registered the `notify` method through this `Class`.
     notify_added: bool,
-    /// `add_sel_gimmeback` registered a method through this `Class` (not counting a pass that
+    /// `add_gimmeback` registered a method through this `Class` (not counting a pass that
     /// only collects attributes): a Jitter class asks its Max wrapper for the dumpout wrap.
     gimmeback_added: bool,
     _phantom: PhantomData<T>,
@@ -268,7 +268,7 @@ impl<T> Class<T> {
         self.deferred
     }
 
-    /// Whether [`add_sel_gimmeback`](Self::add_sel_gimmeback) registered a method on this class.
+    /// Whether [`add_gimmeback`](Self::add_gimmeback) registered a method on this class.
     pub(crate) fn has_gimmeback(&self) -> bool {
         self.gimmeback_added
     }
@@ -676,7 +676,7 @@ impl<W> Class<W> {
     /// Register the method `sel` with typed arguments, taken from the callable's signature: up
     /// to 7 arguments that are each `f64`, `t_atom_long` or [`SymbolRef`]; either all of them
     /// `f64` or none. Max passes floats and other arguments of a typed method in different
-    /// registers, so a mix is rejected at compile time; use [`Class::add_sel_gimme`] for it:
+    /// registers, so a mix is rejected at compile time; use [`Class::add_gimme`] for it:
     ///
     /// ```compile_fail,E0080
     /// # use median::{builder::MaxBuilder, class::Class, error::NewError, max_sys::t_atom_long, wrapper::*};
@@ -732,14 +732,14 @@ impl<W> Class<W> {
     /// does not (see [`GimmeFn`]; which shape it is, is inferred):
     ///
     /// ```ignore
-    /// c.add_sel_gimme(c"foo", Self::foo)?;   // fn foo(&self, sel: &SymbolRef, atoms: &[Atom])
-    /// c.add_sel_gimme(c"bar", Self::foo)?;   // the same function answers two selectors
-    /// c.add_sel_gimme(c"read", Self::read)?; // fn read(&self, atoms: &[Atom])
+    /// c.add_gimme(c"foo", Self::foo)?;   // fn foo(&self, sel: &SymbolRef, atoms: &[Atom])
+    /// c.add_gimme(c"bar", Self::foo)?;   // the same function answers two selectors
+    /// c.add_gimme(c"read", Self::read)?; // fn read(&self, atoms: &[Atom])
     /// ```
     ///
     /// `sel` must not be one of [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP
     /// class, [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
-    pub fn add_sel_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+    pub fn add_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         F: GimmeFn<T, R, A>,
@@ -754,7 +754,7 @@ impl<W> Class<W> {
     }
 
     /// Register the method `sel` as a gimme method with a return value (`A_GIMMEBACK`): the
-    /// arguments as a list of atoms, as for [`add_sel_gimme`](Self::add_sel_gimme) (the callable
+    /// arguments as a list of atoms, as for [`add_gimme`](Self::add_gimme) (the callable
     /// takes either shape, see [`GimmeFn`]), and the method returns what the caller gets back in
     /// its reply atom. The return type is anything [`GimmebackResult`] accepts: a
     /// [`Reply`](crate::gimmeback::Reply), a value that converts to one, or a `Result` of one with
@@ -767,7 +767,7 @@ impl<W> Class<W> {
     /// message type checker converts to. That is an assumption, not something the headers say, to
     /// be checked in a host (`doc/plan-gimmeback.md`, "Host checks"). A method that should answer
     /// both a patch cord and a typed caller registers two selectors: an
-    /// [`add_sel_gimme`](Self::add_sel_gimme) method that sends out an outlet and this.
+    /// [`add_gimme`](Self::add_gimme) method that sends out an outlet and this.
     ///
     /// Ownership of an object reply ([`Reply::Atoms`](crate::gimmeback::Reply::Atoms),
     /// `Reply::Array` and `Reply::Dict` are `A_OBJ` atoms) goes to the caller, who frees it:
@@ -790,7 +790,7 @@ impl<W> Class<W> {
     /// several), written by hand:
     ///
     /// ```ignore
-    /// c.add_sel_gimmeback(c"doAbs", Self::do_abs)?;
+    /// c.add_gimmeback(c"doAbs", Self::do_abs)?;
     ///
     /// fn do_abs(&self, atoms: &[Atom]) -> Result<Reply, String> {
     ///     match atoms {
@@ -815,7 +815,7 @@ impl<W> Class<W> {
     ///
     /// `sel` must not be one of [`RESERVED_SELECTORS`], [`UNTYPED_SELECTORS`] or, for an MSP
     /// class, [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
-    pub fn add_sel_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
+    pub fn add_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         F: GimmeFn<T, R, A>,
@@ -950,15 +950,10 @@ impl<W> Class<W> {
         unsafe { self.add_typed(sel, F::deferred_trampoline::<W>(mode), types) }
     }
 
-    /// [`add_sel_gimme`](Self::add_sel_gimme), deferred (see
+    /// [`add_gimme`](Self::add_gimme), deferred (see
     /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call. Takes
-    /// either shape of callable, as `add_sel_gimme` does (see [`GimmeFn`]).
-    pub fn add_sel_gimme_deferred<T, F, R, A>(
-        &mut self,
-        sel: &CStr,
-        f: F,
-        mode: Defer,
-    ) -> MaxResult<()>
+    /// either shape of callable, as `add_gimme` does (see [`GimmeFn`]).
+    pub fn add_gimme_deferred<T, F, R, A>(&mut self, sel: &CStr, f: F, mode: Defer) -> MaxResult<()>
     where
         W: WrapperWrapped<T> + MaxObj,
         T: 'static,
@@ -1119,7 +1114,7 @@ impl<W> Class<W> {
 
 /// The selectors the wrapper registers for every class (`notify`, `assist`, `inletinfo`, the
 /// `int`/`float` inlet messages `in1`..`in9` and `ft1`..`ft9`, and `dsp64` for MSP objects).
-/// [`Class::add_sel`], [`Class::add_sel_gimme`] and `#[sel]` refuse them: registering one would
+/// [`Class::add_sel`], [`Class::add_gimme`] and `#[sel]` refuse them: registering one would
 /// replace or collide with the wrapper's own method. `notify` has its own method,
 /// [`Class::add_notify`] (`#[notify]`), which the wrapper's default gives way to.
 pub const RESERVED_SELECTORS: &[&str] = &[
@@ -1151,7 +1146,7 @@ pub const RESERVED_SELECTORS: &[&str] = &[
 /// `object_method` with its own fixed arguments, whatever argument types the class registered
 /// (`ext_obex.h`, "untyped message"): `dblclick`, `loadbang`, `appendtodictionary`,
 /// `getvalueof`/`setvalueof` (pattr, `ext_obex.h`) and `multichanneloutputs`/`inputchanged`
-/// (MC, `z_dsp.h`). A typed `#[sel]`, [`Class::add_sel`] or [`Class::add_sel_gimme`] for one
+/// (MC, `z_dsp.h`). A typed `#[sel]`, [`Class::add_sel`] or [`Class::add_gimme`] for one
 /// would misread what Max passes (a `t_dictionary*` or a `long*` as a symbol or an atom list,
 /// say), so they refuse these selectors (`Err(MaxError::Duplicate)`). Use
 /// [`Class::add_dblclick`], [`Class::add_loadbang`] or [`Class::add_savestate`] (the
@@ -1180,7 +1175,7 @@ fn is_untyped_selector(sel: &CStr) -> bool {
 pub const MSP_RESERVED_SELECTORS: &[&str] = &["signal", "userconnect", "nsiginlets", "enable"];
 
 /// Whether `sel` is one of [`RESERVED_SELECTORS`], or, for an MSP class (`msp`), of
-/// [`MSP_RESERVED_SELECTORS`]: what [`Class::add_sel`], [`Class::add_sel_gimme`] (any `add_*` in
+/// [`MSP_RESERVED_SELECTORS`]: what [`Class::add_sel`], [`Class::add_gimme`] (any `add_*` in
 /// fact) refuse.
 pub fn is_reserved_selector(sel: &CStr, msp: bool) -> bool {
     sel.to_str().is_ok_and(|s| {

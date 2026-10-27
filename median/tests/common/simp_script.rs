@@ -168,7 +168,7 @@ pub const EXPECTED_ARGS: &[&str] = &[
     "live 0",
 ];
 
-/// `doAbs` (`#[gimmeback]` in `simp`, `add_sel_gimmeback` in `simp_explicit`) called the way
+/// `doAbs` (`#[gimmeback]` in `simp`, `add_gimmeback` in `simp_explicit`) called the way
 /// `js` does, and sent from a patcher, which is not expected to reach it.
 pub fn run_do_abs(k: &Kernel, class: &str) -> Vec<String> {
     let mut t = Vec::new();

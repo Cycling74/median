@@ -198,11 +198,11 @@ impl MaxObjWrapped for Hand {
 
     fn class_setup(c: &mut Class<MaxObjWrapper<Self>>) {
         use median::defer::Defer;
-        c.add_sel_gimme_deferred(c"alpha", Self::with_sel, Defer::Low)
+        c.add_gimme_deferred(c"alpha", Self::with_sel, Defer::Low)
             .unwrap();
-        c.add_sel_gimme_deferred(c"beta", Self::with_sel, Defer::Low)
+        c.add_gimme_deferred(c"beta", Self::with_sel, Defer::Low)
             .unwrap();
-        c.add_sel_gimme_deferred(c"plain", Self::plain, Defer::Low)
+        c.add_gimme_deferred(c"plain", Self::plain, Defer::Low)
             .unwrap();
     }
 }

@@ -239,7 +239,7 @@ enum Want<'a> {
     /// Any number of value arguments, up to `MAX_SEL_ARGS` (a typed `#[sel]`).
     Values,
     /// One or two arguments of any type (`#[gimme]`, `#[gimmeback]`):
-    /// `Class::add_sel_gimme` takes `(&self, &[Atom])` or `(&self, &SymbolRef, &[Atom])`, and the
+    /// `Class::add_gimme` takes `(&self, &[Atom])` or `(&self, &SymbolRef, &[Atom])`, and the
     /// compiler's `GimmeFn` bound says what is wrong with the types.
     Gimme,
 }
@@ -340,7 +340,7 @@ fn check_no_float_mix(sig: &Signature) -> syn::Result<()> {
         return Err(syn::Error::new(
             sig.span(),
             "a typed selector cannot mix f64 with other argument types (Max passes them in \
-             different registers); use #[gimme(\"name\")] / add_sel_gimme",
+             different registers); use #[gimme(\"name\")] / add_gimme",
         ));
     }
     Ok(())
@@ -634,19 +634,19 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                     .map_or(0, |d| d.base10_parse::<usize>().unwrap_or(0));
                 match (kind, mode) {
                     (SelKind::Gimme, None) => {
-                        quote_spanned!(span=> c.add_sel_gimme(#sel, #path)?;)
+                        quote_spanned!(span=> c.add_gimme(#sel, #path)?;)
                     }
                     (SelKind::Typed, None) => quote_spanned!(span=> c.add_sel(#sel, #path, #d)?;),
                     (SelKind::Gimme, Some(mode)) => {
-                        quote_spanned!(span=> c.add_sel_gimme_deferred(#sel, #path, #mode)?;)
+                        quote_spanned!(span=> c.add_gimme_deferred(#sel, #path, #mode)?;)
                     }
                     (SelKind::Typed, Some(mode)) => {
                         quote_spanned!(span=> c.add_sel_deferred(#sel, #path, #d, #mode)?;)
                     }
-                    //the method's own return type is the reply: `add_sel_gimmeback`'s
+                    //the method's own return type is the reply: `add_gimmeback`'s
                     //`GimmebackResult` bound checks it, at the method
                     (SelKind::Gimmeback, None) => {
-                        quote_spanned!(span=> c.add_sel_gimmeback(#sel, #path)?;)
+                        quote_spanned!(span=> c.add_gimmeback(#sel, #path)?;)
                     }
                     (SelKind::Gimmeback, Some(_)) => {
                         unreachable!("`#[defer]` on `#[gimmeback]` is refused above")

@@ -4,7 +4,7 @@ pub struct Simp;
 
 #[median::methods]
 impl Simp {
-    // not atoms: the `GimmeFn` bound of `add_sel_gimme` refuses it at the method
+    // not atoms: the `GimmeFn` bound of `add_gimme` refuses it at the method
     #[gimme("vec")]
     pub fn vec(&self, _atoms: Vec<Atom>) {}
 

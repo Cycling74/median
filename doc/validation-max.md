@@ -118,7 +118,7 @@ host results and their limits are recorded below.
 - [ ] A patcher message to the selector of a gimmeback method on a Max class: record what Max
   reports, and that the method does not run (median assumes a patch cord cannot reach an
   `A_GIMMEBACK` method).
-- [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_sel_gimmeback` in
+- [ ] Jitter: a patcher message to a core-class gimmeback method (`Class::add_gimmeback` in
   `class_setup`, which makes median pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to
   `max_jit_class_wrap_standard`) sends the reply out the dumpout outlet; an atomarray reply as a
   list; record which selector the reply carries and whether anything leaks. `median-mock` models

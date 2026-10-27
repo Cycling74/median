@@ -65,17 +65,17 @@ impl MaxObjWrapped for Setup {
         rec("sel assist", c.add_sel(c"assist", |_: &Self| {}, 0));
         rec(
             "gimme notify",
-            c.add_sel_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+            c.add_gimme(c"notify", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
         );
         rec(
             "gimme dsp64",
-            c.add_sel_gimme(c"dsp64", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+            c.add_gimme(c"dsp64", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
         );
         rec("sel ft10", c.add_sel(c"ft10", |_: &Self| {}, 0));
         rec("sel signal", c.add_sel(c"signal", |_: &Self| {}, 0));
         rec(
             "gimme enable",
-            c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+            c.add_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
         );
         rec(
             "bang userconnect",
@@ -90,7 +90,7 @@ impl MaxObjWrapped for Setup {
         rec("sel dblclick", c.add_sel(c"dblclick", |_: &Self| {}, 0));
         rec(
             "gimme loadbang",
-            c.add_sel_gimme(c"loadbang", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+            c.add_gimme(c"loadbang", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
         );
         rec(
             "deferred sel appendtodictionary",
@@ -103,7 +103,7 @@ impl MaxObjWrapped for Setup {
         );
         rec(
             "deferred gimme dblclick",
-            c.add_sel_gimme_deferred(
+            c.add_gimme_deferred(
                 c"dblclick",
                 |_: &Self, _: &SymbolRef, _: &[Atom]| {},
                 median::defer::Defer::Low,
@@ -213,7 +213,7 @@ impl MSPObjWrapped for SetupDsp {
         rec("sel signal", c.add_sel(c"signal", |_: &Self| {}, 0));
         rec(
             "gimme enable",
-            c.add_sel_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
+            c.add_gimme(c"enable", |_: &Self, _: &SymbolRef, _: &[Atom]| {}),
         );
         rec(
             "bang userconnect",
