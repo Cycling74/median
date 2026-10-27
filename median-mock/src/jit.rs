@@ -532,11 +532,13 @@ unsafe extern "C" fn gimmeback_wrap(x: *mut c_void, s: *mut t_symbol, ac: c_long
     let mut rv: t_atom = unsafe { std::mem::zeroed() };
     // SAFETY: `jitob` is the live Jitter object, `s`/`ac`/`av` are what the message delivered
     let code = unsafe { crate::class::object_method_typed(jitob as _, s, ac, av, &mut rv) };
-    let mut reply: Vec<t_atom> = Vec::new();
+    // `None`: nothing goes out (no value, an error, or an object that is not an atomarray).
+    // `Some(atoms)`: a list, which may be empty (an empty atomarray is still a reply).
+    let mut reply: Option<Vec<t_atom>> = None;
     if code == 0 {
         match rv.a_type as u32 {
             e_max_atomtypes::A_LONG | e_max_atomtypes::A_FLOAT | e_max_atomtypes::A_SYM => {
-                reply.push(rv);
+                reply = Some(vec![rv]);
             }
             e_max_atomtypes::A_OBJ => {
                 // SAFETY: the reply is an `A_OBJ` atom; the caller owns an object reply
@@ -546,23 +548,17 @@ unsafe extern "C" fn gimmeback_wrap(x: *mut c_void, s: *mut t_symbol, ac: c_long
                         let mut n = 0;
                         let mut items = std::ptr::null_mut();
                         max_sys::atomarray_getatoms(p.cast(), &mut n, &mut items);
-                        reply.extend_from_slice(std::slice::from_raw_parts(
-                            items,
-                            n.max(0) as usize,
-                        ));
+                        reply = Some(std::slice::from_raw_parts(items, n.max(0) as usize).to_vec());
                     }
                     max_sys::object_free(p.cast());
                 }
-                if reply.is_empty() {
-                    return;
-                }
             }
-            _ => return,
+            _ => {}
         }
     }
-    if reply.is_empty() {
+    let Some(mut reply) = reply else {
         return;
-    }
+    };
     // SAFETY: `dump` is the dumpout outlet of `x`
     unsafe {
         crate::io::outlet_anything(
