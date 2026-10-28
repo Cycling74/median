@@ -12,7 +12,7 @@ use std::borrow::Cow;
 use std::sync::Once;
 
 /// A Max object with every kind of inlet and outlet.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "io.max")]
 pub struct IoMax {
     obj: ObjRef,
@@ -102,7 +102,7 @@ impl IoMax {
 }
 
 /// Assist and hot/cold from the hooks, which depend on state; inlet 2's table text is too long.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "io.hooked")]
 pub struct Hooked {
     open: Int64,
@@ -149,8 +149,8 @@ impl Hooked {
 }
 
 /// An MSP object: three signal inlets, then a proxy and a float inlet.
-#[derive(MaxObject)]
-#[max(name = "io.dsp~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "io.dsp~")]
 pub struct IoDsp {
     obj: ObjRef,
 }
@@ -187,8 +187,8 @@ impl IoDsp {
 }
 
 /// An MSP object with no signal inlets: inlet 0 is still there, with its own assist.
-#[derive(MaxObject)]
-#[max(name = "io.nosig~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "io.nosig~", no_methods)]
 pub struct NoSig;
 
 impl MSPObjWrapped for NoSig {
@@ -203,8 +203,8 @@ impl MSPObjWrapped for NoSig {
 }
 
 /// Mistakes in the description, picked by the first argument.
-#[derive(MaxObject)]
-#[max(name = "io.bad~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "io.bad~", no_methods)]
 pub struct Bad {
     _clock: Clock,
 }

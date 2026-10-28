@@ -1,4 +1,4 @@
-//! The errors of `#[derive(MaxObject)]` and `#[median::methods]`: each file in `tests/ui` must
+//! The errors of `#[derive(MaxObj)]` and `#[median::methods]`: each file in `tests/ui` must
 //! fail to compile with the error in its `.stderr` file. (`TRYBUILD=overwrite` regenerates them.)
 
 #[test]

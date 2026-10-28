@@ -202,7 +202,7 @@ longer error for a method with the wrong arguments (the `ui` expectation shows i
 impl<W> Class<W> {
     pub fn add_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: GimmeFn<T, R, A>,   // `(&T, &[Atom])` or `(&T, &SymbolRef, &[Atom])`, see below
         R: GimmebackResult;
 }

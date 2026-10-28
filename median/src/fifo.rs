@@ -10,8 +10,8 @@
 //! use median::fifo::{Consumer, Producer, RingBuffer, Shared};
 //! use median::prelude::*;
 //!
-//! #[derive(MaxObject)]
-//! #[max(name = "peak~", kind = msp)]
+//! #[derive(MSPObj)]
+//! #[max(name = "peak~")]
 //! pub struct Peak {
 //!     tx: Shared<Producer<f64>>,
 //!     rx: Shared<Consumer<f64>>,

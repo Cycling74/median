@@ -15,8 +15,8 @@ use median_mock::{Atom as MockAtom, CallReply, Kernel, SendError, containers};
 use std::sync::Once;
 
 /// Both: two gimmeback methods on the Jitter class and one on the Max wrapper.
-#[derive(MaxObject)]
-#[max(name = "jit.test.gb.core", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.gb.core")]
 struct Both {
     _obj: JitObjRef,
 }
@@ -61,8 +61,8 @@ impl Both {
 }
 
 /// A gimmeback method only on the Max wrapper (`#[gimmeback]`): no wrap flag.
-#[derive(MaxObject)]
-#[max(name = "jit.test.gb.max", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.gb.max")]
 struct MaxOnly {
     _obj: JitObjRef,
 }
@@ -91,8 +91,8 @@ impl MaxOnly {
 }
 
 /// No gimmeback method anywhere: the flags stay 0.
-#[derive(MaxObject)]
-#[max(name = "jit.test.gb.none", kind = matrix_op, no_methods)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.gb.none", no_methods)]
 struct NoGimmeback {
     _obj: JitObjRef,
 }

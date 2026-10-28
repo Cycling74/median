@@ -12,8 +12,8 @@ Finding numbers refer to [review-2026-10.md](review-2026-10.md).
 ```rust
 use median::prelude::*;
 
-#[derive(MaxObject)]
-#[max(name = "simp")]                        // kind defaults to Max; `msp` for t_pxobject
+#[derive(MaxObj)]                            // `MSPObj` for t_pxobject
+#[max(name = "simp")]
 pub struct Simp {
     #[attr(clip(0, 100))]                    // attribute backed by the field, getter/setter generated
     value: Int64,
@@ -59,13 +59,13 @@ median::ext_main! { Simp }                   // macro_rules; expands to Simp::re
 
 ## Pieces
 
-### A. `#[derive(MaxObject)]` (replaces the struct half of `external!`)
+### A. `#[derive(MaxObj)]` and its siblings (replaces the struct half of `external!`)
 
 Generates:
 
 - `impl ObjWrapped for Simp { type Wrapper = MaxObjWrapper<Simp>; fn class_name() -> &CStr { c"simp" } fn class_type() .. }`.
-  `MaxObjWrapped: ObjWrapped<Wrapper = MaxObjWrapper<Self>>` and the MSP twin, so a `kind`
-  mismatch between the derive and the trait impl is a normal type error.
+  `MaxObjWrapped: ObjWrapped<Wrapper = MaxObjWrapper<Self>>` and the MSP twin, so a mismatch
+  between the derive (`MaxObj`/`MSPObj`/`JitMatrixObj`/`JitGlObj`) and the trait impl is a normal type error.
 - `impl Simp { pub fn register() { <Self as ObjWrapped>::Wrapper::register() } }`.
 - Field attributes `#[attr(..)]` register offset-free attributes with generated accessors
   (`extern "C" fn __attr_get_value<W>(..)` reading the field through `wrapped()`), with options
@@ -155,7 +155,8 @@ impl ObjRef { pub fn post(&self, msg: impl Display); pub fn error(&self, ..); pu
   two. The same holds for `Outlet<K>` (M10). Closing it fully needs a lifetime-branded handle,
   which `T` cannot store; we accept the deliberate-escape case and document it on `ObjRef`.
 - Remove `unsafe impl<T: MaxObjWrapped<T>> MaxObj for T` and the `MSPObj` twin. `MaxObj` stays as the
-  `unsafe trait` for the wrapper types themselves.
+  `unsafe trait` for the wrapper types themselves (renamed `MaxObjHeader` on 2026-10-27, see
+  "Where things stand").
 - `post!`/`object_post!` take `&ObjRef` (or anything `AsRef<ObjRef>`).
 - Side effect: `field-offset` is no longer needed anywhere.
 
@@ -351,8 +352,8 @@ How each redesign piece lands on it:
    can call `max_jit_mop_free` / `jit_object_free` / `max_jit_object_free` itself: the wrapper drops
    `T` *before* Max frees the object, so the pointer is valid throughout. For the generated glue
    (next item) the derive emits that `Drop`. The `destroy` hook and the `&mut self` it needed go.
-4. **A third object kind generates the Max glue.** `#[derive(MaxObject)] #[max(name = "jit.median.scalebias", kind = matrix_op)]`
-   (or `kind = gl`) on the *Jitter-side* struct generates both classes: the jit class from a
+4. **A third object kind generates the Max glue.** `#[derive(JitMatrixObj)] #[max(name = "jit.median.scalebias")]`
+   (or `JitGlObj`) on the *Jitter-side* struct generates both classes: the jit class from a
    `MatrixOp`/`Ob3d` trait impl (`calc` / `draw`), and a Max wrapper class whose `new`,
    `class_setup` and `Drop` are the glue the examples currently write by hand. The user writes one
    struct, as in min's `matrix_operator<>`. `ext_main! { JitScaleBias }` registers jit then Max.
@@ -364,9 +365,9 @@ How each redesign piece lands on it:
    `class_addattr` vs `jit_class_addattr`; the duplicated `jit/attr.rs` and its two proc-macros
    collapse into the generic accessor trampolines of item C.
 6. **Assist and iolets.** `max_jit_mop_setup_simple` creates the matrix inlets/outlets and the
-   dumpout itself, so for `kind = matrix_op` the builder must not also declare them. The generated
+   dumpout itself, so for `JitMatrixObj` the builder must not also declare them. The generated
    Max class's `assist` delegates to `max_jit_mop_assist` first (it reads the live MOP io list) and
-   falls back to the iolet table for any extra iolets the user adds; `kind = gl` does the same with
+   falls back to the iolet table for any extra iolets the user adds; `JitGlObj` does the same with
    `max_jit_ob3d_assist`. Registering `assist` by hand, as both examples do, is removed. The iolet
    table needs an "externally created" count so positions line up.
 7. **`calc` on `&self`.** Same fix as `perform64` (step 1 item 4): input/output `Vec<Matrix>` behind
@@ -480,7 +481,7 @@ instead of `Int64` (H4, good instinct); `SymbolRef::to_string().expect(..)` ever
    macros should not be written against `syn` 1. `max-sys` and the rest of step 5 stay where they are.
 1. `ObjRef` + remove blanket `MaxObj` (D). Smallest change that unblocks the rest.
 2. `Class<W>::add_*` ZST registration (C); keep the old `Method` enum underneath.
-3. `#[derive(MaxObject)]` (A) and `#[methods]` (B); port `simp`.
+3. `#[derive(MaxObj)]` (A) and `#[methods]` (B); port `simp`.
 4. Iolet descriptors (F); port `hello_dsp`, `multi`.
 5. Fallible `new` (E).
 6. `SymbolRef`, `BufferLocked` (G).
@@ -597,7 +598,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `add_notify` trampoline forwards to the buffer references before the user method; the
     Jitter glue registers its forwarding `notify` the same way, still only when the SDK wrapper
     installed none. A `#[notify]`/`add_notify` on a Jitter type is a `cargo build` error
-    (`MaxObj::SUPPORTS_NOTIFY` is false for the forwarding wrapper; a post-monomorphisation
+    (`MaxObjHeader::SUPPORTS_NOTIFY` is false for the forwarding wrapper; a post-monomorphisation
     assert, `ui/jitter_notify`): the SDK wrapper owns `notify` and the glue forwards it to
     `JitterObject::notify` (`MatrixOp`/`Ob3d` get it through the blanket impl). For that
     case the trybuild suite now has a pass case (`tests/ui_pass`), so it builds rather than
@@ -623,7 +624,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   carries `PhantomData<*const ()>` (explicit `!Send`, `unsafe impl Sync`); it has `from_raw`
   (unsafe), `proxy_inlet` (wraps `proxy_getinlet`, safe but only meaningful inside a message
   method), `defer`/`defer_low` (unsafe, replacing `WrappedDefer`, which is removed), plus
-  `try_register`/`try_attach`/`subscribe`/`attr_*touch_with_name` moved over from `MaxObj`;
+  `try_register`/`try_attach`/`subscribe`/`attr_*touch_with_name` moved over from `MaxObj` (now `MaxObjHeader`);
   `attr_touch` is spelled `attr_touch_with_name` as before. `MaxObj`/`MSPObj` no longer have
   `post`/`post_error`/etc. `ObjBuilder::obj(&mut self)` hands the handle out (the unsafe
   `max_obj`/`msp_obj` builder accessors stay for now). `object_post!`/`object_error!` take
@@ -638,7 +639,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `ObjWrapped::report_error` is `(&self, obj: &ObjRef, err: &dyn Display)` (not
   `(&self, &dyn Display)`): the default needs the object and `T` need not store an `ObjRef`; the
   trampoline builds the `&ObjRef` from the wrapper's own pointer for the call only. Registration
-  needs `T: ObjWrapped<T>` as well as `W: WrapperWrapped<T> + MaxObj` (for `report_error`), until
+  needs `T: ObjWrapped<T>` as well as `W: WrapperWrapped<T> + MaxObjHeader` (for `report_error`), until
   the redundant `T` parameter goes in step 3. `add_sel` returns an error (not a panic) when
   `defaults` exceeds the arity. Trampolines cannot know the selector, so a panic in a typed
   selector method is posted as "panic in method". A closure whose return type is `!` (it always
@@ -671,9 +672,9 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `handle_notification`, `assist`) are default methods of `MaxObjWrapped` and of
     `MSPObjWrapped` (each has its own copy), next to `new`/`class_setup` (and `perform`/
     `dsp_setup`). `MaxObjWrapped: ObjClass<Wrapper = MaxObjWrapper<Self>> + Methods + FieldAttrs
-    + Sync + 'static`, the MSP twin likewise, so a `kind` mismatch is a type error. Generic
+    + Sync + 'static`, the MSP twin likewise, so a derive/trait mismatch is a type error. Generic
     trampolines reach `report_error` through `WrapperWrapped::report_error(&self, &dyn Display)`,
-    which the wrappers implement; `Class::add_*` need only `W: WrapperWrapped<T> + MaxObj`.
+    which the wrappers implement; `Class::add_*` need only `W: WrapperWrapped<T> + MaxObjHeader`.
   - `Methods::register<W>(&mut Class<W>) -> MaxResult<()>` and `FieldAttrs::register_attrs<W>(..)
     -> MaxResult<()>` (both default to `Ok(())`) return a result so hand-written impls use `?`; an
     `Err` makes the wrapper's registration panic with the error, which the guard in `register()`/
@@ -681,7 +682,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     `class_setup`. `MaxObjWrapper::<T>::register()` is safe and has no `lookup_class` argument
     (median's internal clock class uses a crate-private variant). `Class::new`, `find_in_max` and
     `exists_in_max` take `&CStr`.
-  - Derive: `#[max(name, kind = max|msp, class_type = box|nobox, no_methods)]`; it generates
+  - Derive: `#[derive(MaxObj|MSPObj|JitMatrixObj|JitGlObj)]` with `#[max(name, class_type = box|nobox, no_methods)]`; it generates
     `ObjClass`, an inherent `pub fn register()` (calls the wrapper's inside
     `ffi::guard_ext_main`), and `FieldAttrs` (empty when no field has `#[attr]`), plus an empty
     `Methods` with `no_methods`. Generic structs are rejected. It does not look for an `ObjRef`
@@ -718,7 +719,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   - `median::ext_main! { A, B }` is a `macro_rules!` that calls `<A>::register()` and so on, each
     in its own `guard_ext_main`. `median::prelude` re-exports the derive, `methods`, `ext_main`,
     the traits, `ObjRef`, `Atom`, `SymbolRef`, the `num` types, `Class`/`ClassType`,
-    `AttrOptions`, the builders, inlets/outlets, `ClockHandle`, `MaxResult`, `MaxObj`,
+    `AttrOptions`, the builders, inlets/outlets, `ClockHandle`, `MaxResult`, `MaxObjHeader`,
     `WrapperWrapped`, `post` and `object_post!`/`error!`/`warn!`, `t_atom_long`.
   - `examples/simp_explicit` is `simp` with every generated impl written by hand.
   - Tests (`median-mock`): `tests/derive.rs` (every marker dispatches with its arguments, `#[sel]`
@@ -960,7 +961,7 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
     - Leaking (`mem::forget`) a `BufferLocked` or `BufferEdit` is documented as a Max-wide hang
       on that buffer (the in-use count stays raised, or the mutex held and the valid flag
       cleared), not a local leak.
-    - `MSP_RESERVED_SELECTORS` are refused only for MSP classes: `MaxObj` has a hidden
+    - `MSP_RESERVED_SELECTORS` are refused only for MSP classes: `MaxObjHeader` has a hidden
       `IS_MSP` (true for `MSPObjWrapper`), `Class::add_*` checks it and
       `class::is_reserved_selector(sel, msp)` takes the kind. `#[median::methods]` no longer
       mirrors or rejects them (it can't know the kind); an MSP class's `#[sel("enable")]` fails
@@ -1152,3 +1153,9 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
   `wrapper::class_has_method` (the class' method table, as `mark_undocumented` does); the mock's
   `class_method` returns `method_false` too. Record in `validation-max.md`; the rebuilt `simp` is
   not yet checked in Max.
+
+- Derives and header traits (2026-10-27): the four derives `MaxObj`, `MSPObj`, `JitMatrixObj` and
+  `JitGlObj` replace `#[derive(MaxObject)]` with `#[max(kind = ..)]` (the `kind` option is gone: it
+  is an unknown option now; the derive picks the wrapper, and so the trait the type must
+  implement). The low-level traits `MaxObj`/`MSPObj` are now `MaxObjHeader`/`MSPObjHeader`
+  ("`Self` starts with a live object header"), freeing the names for the derives. No shims.

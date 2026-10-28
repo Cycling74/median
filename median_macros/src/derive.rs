@@ -1,4 +1,5 @@
-//! `#[derive(MaxObject)]`: the class identity (`ObjClass`), `register()`, and the field
+//! `#[derive(MaxObj)]`, `#[derive(MSPObj)]`, `#[derive(JitMatrixObj)]` and `#[derive(JitGlObj)]`:
+//! the class identity (`ObjClass`), `register()`, and the field
 //! attributes (`FieldAttrs`) of a struct.
 
 use crate::attr_opts::AttrOpts;
@@ -6,12 +7,25 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Ident, LitStr, Member, ext::IdentExt, spanned::Spanned};
 
+/// Which derive this is: it picks the wrapper type and the body of `register()`.
 #[derive(Clone, Copy)]
-enum Kind {
+pub(crate) enum Kind {
     Max,
     Msp,
     Matrix,
     Gl,
+}
+
+impl Kind {
+    /// The name of the derive, for error messages.
+    fn derive_name(self) -> &'static str {
+        match self {
+            Kind::Max => "MaxObj",
+            Kind::Msp => "MSPObj",
+            Kind::Matrix => "JitMatrixObj",
+            Kind::Gl => "JitGlObj",
+        }
+    }
 }
 
 /// The value of `key = ".."` in `#[max(..)]`: a string literal, or an error that says so.
@@ -21,12 +35,15 @@ fn string_value(meta: &syn::meta::ParseNestedMeta, key: &str) -> syn::Result<Lit
         .map_err(|e| syn::Error::new(e.span(), format!("`{key}` must be a string literal")))
 }
 
-pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
+pub fn derive(input: DeriveInput, kind: Kind) -> syn::Result<TokenStream> {
+    let derive_name = kind.derive_name();
     let ident = &input.ident;
     if !input.generics.params.is_empty() {
         return Err(syn::Error::new(
             input.generics.span(),
-            "#[derive(MaxObject)] does not support generic types: a Max class is one concrete type",
+            format!(
+                "#[derive({derive_name})] does not support generic types: a Max class is one concrete type"
+            ),
         ));
     }
     let fields = match &input.data {
@@ -34,19 +51,18 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         Data::Enum(e) => {
             return Err(syn::Error::new(
                 e.enum_token.span(),
-                "#[derive(MaxObject)] only works on a struct",
+                format!("#[derive({derive_name})] only works on a struct"),
             ));
         }
         Data::Union(u) => {
             return Err(syn::Error::new(
                 u.union_token.span(),
-                "#[derive(MaxObject)] only works on a struct",
+                format!("#[derive({derive_name})] only works on a struct"),
             ));
         }
     };
 
     let mut name: Option<LitStr> = None;
-    let mut kind: Option<Kind> = None;
     let mut class_type: Option<Ident> = None;
     let mut no_methods = false;
     let mut description: Option<LitStr> = None;
@@ -67,24 +83,6 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                     let n: LitStr = meta.value()?.parse()?;
                     crate::cstr::check(&n)?;
                     name = Some(n);
-                }
-                "kind" => {
-                    if kind.is_some() {
-                        return Err(meta.error("`kind` given twice"));
-                    }
-                    let k = meta.value()?.call(Ident::parse_any)?;
-                    kind = Some(match k.to_string().as_str() {
-                        "max" => Kind::Max,
-                        "msp" => Kind::Msp,
-                        "matrix_op" => Kind::Matrix,
-                        "gl" => Kind::Gl,
-                        _ => {
-                            return Err(syn::Error::new(
-                                k.span(),
-                                "expected `kind = max`, `kind = msp`, `kind = matrix_op` or `kind = gl`",
-                            ));
-                        }
-                    });
                 }
                 "class_type" => {
                     if class_type.is_some() {
@@ -140,7 +138,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 }
                 _ => {
                     return Err(meta.error(
-                        "unknown option, expected `name = \"..\"`, `kind = max|msp|matrix_op|gl`, \
+                        "unknown option, expected `name = \"..\"`, \
                          `class_type = box|nobox`, `no_methods`, \
                          `description = \"..\"`, `author = \"..\"` or `tags = \"a, b\"`",
                     ));
@@ -156,7 +154,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         .unwrap_or_else(|| ident.to_string().to_lowercase());
     let name_span = name.as_ref().map_or(ident.span(), LitStr::span);
     let class_name_expr = crate::cstr::expr(&class_name, name_span);
-    let (wrapper, register) = match kind.unwrap_or(Kind::Max) {
+    let (wrapper, register) = match kind {
         Kind::Max => (
             quote!(::median::wrapper::MaxObjWrapper<Self>),
             quote!(::median::wrapper::MaxObjWrapper::<Self>::register()),
@@ -319,7 +317,7 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
             #[allow(unused_variables)]
             fn register_attrs<W>(c: &mut ::median::class::Class<W>) -> ::median::error::MaxResult<()>
             where
-                W: ::median::wrapper::WrapperWrapped<Self> + ::median::object::MaxObj,
+                W: ::median::wrapper::WrapperWrapped<Self> + ::median::object::MaxObjHeader,
             {
                 #(#attr_calls)*
                 ::core::result::Result::Ok(())

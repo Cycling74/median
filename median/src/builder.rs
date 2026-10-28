@@ -338,7 +338,7 @@ macro_rules! callback_methods {
             ///
             /// ```compile_fail,E0080
             /// # use median::prelude::*;
-            /// # #[derive(MaxObject)]
+            /// # #[derive(MaxObj)]
             /// # #[max(no_methods)]
             /// # pub struct Example;
             /// # impl MaxObjWrapped for Example {

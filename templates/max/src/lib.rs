@@ -1,7 +1,7 @@
 use median::prelude::*;
 
-//`#[derive(MaxObject)]` makes the struct a Max class; `ext_main!` at the bottom registers it.
-#[derive(MaxObject)]
+//`#[derive(MaxObj)]` makes the struct a Max class; `ext_main!` at the bottom registers it.
+#[derive(MaxObj)]
 #[max(name = "{{crate_name}}")]
 pub struct MaxExtern {
     obj: ObjRef,

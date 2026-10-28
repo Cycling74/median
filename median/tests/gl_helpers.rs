@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 static PANIC: AtomicBool = AtomicBool::new(false);
 static COMPLETED: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(MaxObject)]
-#[max(name = "jit.gl.helper.test", kind = gl, no_methods)]
+#[derive(JitGlObj)]
+#[max(name = "jit.gl.helper.test", no_methods)]
 pub struct Helpers;
 impl Ob3d for Helpers {
     fn new(_: &mut JitBuilder<Self>) -> Result<Self, NewError> {

@@ -1,6 +1,6 @@
 use median::{dict::DictResult, prelude::*};
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "test.dictionary")]
 struct Receiver {
     state: Dict,

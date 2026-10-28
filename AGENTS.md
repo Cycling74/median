@@ -10,7 +10,7 @@ to any other checkout.
 |---|---|
 | `max-sys/` | Low-level FFI crate. Pre-generated bindgen output per target in `max-sys/src/ffi-*.rs`, selected by `cfg` in `max-sys/src/lib.rs`. The Max SDK headers are the git submodule at `max-sys/thirdparty/max-sdk-base` (`c74support/{max,msp,jit}-includes`); the older `max-sdk` submodule supplies examples. Regeneration instructions are in `max-sys/README.md`; the generated files are committed, so regenerate only when `build.rs`, the `wrapper*.h` files or the SDK change, and regenerate every target together. |
 | `median/` | The safe(r) wrapper crate: `src/wrapper.rs` (object wrappers and trampolines), `builder.rs` (inlets/outlets/clocks/queues at construction), `class.rs`/`method.rs` (class registration: `Class::add_*` take a zero-sized callable and build the trampoline generically; no build script), `attr.rs` (also the generic attribute accessors, `AttrField`, `AttrOptions`), `lib.rs` (crate docs, `ext_main!`, `prelude`), `atom.rs`, `args.rs` (`Args`, `FromAtom`, `ArgError`: creation arguments split by the SDK's `attr_args_offset`, typed and as text; `builder.args()`, `creation_args()` is the raw list), `symbol.rs`, `outlet.rs`, `inlet.rs`, `clock.rs` (`Clock`, also the main-thread `clock_deferred` variant, and `ClockShared`, the callback target clocks, queues and deferred calls share), `queue.rs` (`Queue`, a qelem), `defer.rs` (`#[defer]`/`#[defer_low]`: the per-object deferred-call queue), `fifo.rs` (re-exported `rtrb` ring buffers, `Shared`), `gimmeback.rs` (`Reply`/`GimmebackResult`, what an `A_GIMMEBACK` method returns; registered with `Class::add_gimmeback`, design in `doc/plan-gimmeback.md`), `buffer.rs`, `notify.rs`, `thread.rs`, `file.rs`, `num.rs`, `slice.rs`, `alloc.rs`. |
-| `median_macros/` | Proc macros re-exported by `median`: `#[derive(MaxObject)]` (`derive.rs`: `ObjClass`, `register()`, `FieldAttrs`), `#[median::methods]` (`methods.rs`: re-emits the impl without markers, implements `Methods` with `Class::add_*` calls; markers `#[bang]` .. `#[sel]`, `#[gimme]`, `#[gimmeback]`, `#[attr]`, `#[dblclick]`, `#[loadbang]`, `#[notify]`, `#[dictionary]`, `#[savestate]`, each message marker except `#[gimmeback]` and the last three optionally with `#[defer]`/`#[defer_low]`), shared `#[attr(..)]` options (`attr_opts.rs`), and the reserved-selector mirror (`reserved.rs`). The generated code calls only public `median` API; `ext_main!` is a `macro_rules!` in `median`. |
+| `median_macros/` | Proc macros re-exported by `median`: `#[derive(MaxObj)]`, `#[derive(MSPObj)]`, `#[derive(JitMatrixObj)]`, `#[derive(JitGlObj)]` (`derive.rs`, one `Kind` each: `ObjClass`, `register()`, `FieldAttrs`), `#[median::methods]` (`methods.rs`: re-emits the impl without markers, implements `Methods` with `Class::add_*` calls; markers `#[bang]` .. `#[sel]`, `#[gimme]`, `#[gimmeback]`, `#[attr]`, `#[dblclick]`, `#[loadbang]`, `#[notify]`, `#[dictionary]`, `#[savestate]`, each message marker except `#[gimmeback]` and the last three optionally with `#[defer]`/`#[defer_low]`), shared `#[attr(..)]` options (`attr_opts.rs`), and the reserved-selector mirror (`reserved.rs`). The generated code calls only public `median` API; `ext_main!` is a `macro_rules!` in `median`. |
 | `median/examples/` | `simplemax` (SDK constructor/console example), `simp` (Max object, derive + `#[median::methods]`), `simp_explicit` (the same without the macros: the reference for the hand-written style), `hello_dsp` (MSP), `multi` (two classes in one external), `validation` (five diagnostic classes and four Max patches; `cargo make package-fixtures`). Each is a `cdylib` built with `cargo make` using `median/utils/Makefile.toml`; `median/tests/` also compiles each into a test (`#[path]` modules) and runs it against `median-mock`. |
 | `templates/` | `cargo generate` template for a new external. The packaging tasks are vendored in `templates/max/Makefile.package.toml`; keep that copy and `PkgInfo` synchronized with `median/utils/` when changing the pipeline. |
 | `median/src/dict.rs` | Retained dictionaries and owned atomarrays; `dictionary`/`savestate` callbacks are in `method.rs`. See `doc/plan-containers.md` for ownership contracts and unfinished helpers. |
@@ -61,9 +61,9 @@ done: `perform64`/`dsp64` take `&self`, `num` types are real atomics, raw-pointe
 (clippy's `not_unsafe_ptr_arg_deref` is `deny` in `median/Cargo.toml`), console output uses
 `"%s"`, attribute accessors return `t_max_err`, clocks are shut out before their owner is dropped,
 and every trampoline catches panics. Redesign step 1 (`doc/plan-api-redesign.md`) fixed H3 and
-the `object_post!`/`object_error!` hole: the offset-based blanket `MaxObj`/`MSPObj for T` impls and
+the `object_post!`/`object_error!` hole: the offset-based blanket `MaxObj`/`MSPObj for T` impls (now the traits `MaxObjHeader`/`MSPObjHeader`) and
 the `field-offset` dependency are gone; an object keeps an `ObjRef` (from `builder.obj()`) and
-posts/touches attributes through it, and the macros take `&ObjRef`. `MaxObj`/`MSPObj` are
+posts/touches attributes through it, and the macros take `&ObjRef`. `MaxObjHeader`/`MSPObjHeader` are
 only implemented for the wrapper types. Do not add impls of the old shape. Documented limit:
 `ObjRef` is `!Clone`, `!Send`, but safe code can still deliberately leak it (`Box::leak`,
 `thread_local!`) and use it after the object is deleted. Redesign step 4 replaced the boxed
@@ -121,7 +121,7 @@ it in the same change.
   1.85). Use `c"..."` literals for fixed C strings, not `CString::new(..).unwrap()`, and
   `core::ffi::c_*` types in new code. Code the macros generate must not depend on the user's
   edition (no `c"..."` in it: names go through `median::__private::cstr`).
-- An external is `#[derive(MaxObject)]` on the struct, `impl MaxObjWrapped` (or `MSPObjWrapped`),
+- An external is `#[derive(MaxObj)]` (or `MSPObj`, `JitMatrixObj`, `JitGlObj`) on the struct, `impl MaxObjWrapped` (or `MSPObjWrapped`, `jit::MatrixOp`, `jit::Ob3d`),
   `#[median::methods]` on an inherent impl, and `median::ext_main! { Type, .. }`. The macros only
   emit calls to public API (`ObjClass`, `FieldAttrs`, `Methods`, `Class::add_*`,
   `Class::add_field_attr`/`add_attr`); anything they can do must stay writable by hand, as
@@ -148,7 +148,7 @@ it in the same change.
   `wrapper::class_has_method`, which looks in the class' method table.
 - `AttrBuilder` now passes absent offset accessors as null so the SDK installs them (M9 fixed).
   Built `Attr` values own their allocation until added to a class or converted to a raw pointer;
-  the wrapper's `MaxObj::IS_JITTER` selects the Jitter constructor and getter allocator.
+  the wrapper's `MaxObjHeader::IS_JITTER` selects the Jitter constructor and getter allocator.
 
 ## Branches
 
@@ -170,7 +170,7 @@ only `develop` (no `main`), so check the PR target before opening one.
 ## Continuation checkpoint (2026-10-23)
 
 Read `doc/handoff-2026-10-23.md` before resuming. The 0.2.x clock backport remains deferred.
-Jitter derives support `kind = matrix_op|gl`; callbacks use `&self`, per-call borrowed matrices
+The Jitter derives are `JitMatrixObj` and `JitGlObj`; callbacks use `&self`, per-call borrowed matrices
 and `&DrawContext` for GL. Preserve SDK-owned notification/inlet handlers in Max glue. A gimmeback method registered on the core class (`Class::add_gimmeback` in `class_setup`) makes the glue pass `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` to `max_jit_class_wrap_standard` (reply out dumpout; assumed, host check pending in `doc/validation-max.md`); `#[gimmeback]` stays on the Max wrapper. General
 methods/deferred calls live on the Max forwarding class; direct Jitter `class_setup` methods
 cannot defer. `JitBuilder<Self>` adds custom numeric/proxy inlets and message outlets after

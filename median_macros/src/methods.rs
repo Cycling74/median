@@ -700,7 +700,7 @@ pub fn methods(args: TokenStream, mut item: ItemImpl) -> TokenStream {
                 #[allow(unused_variables)]
                 fn register<W>(c: &mut ::median::class::Class<W>) -> ::median::error::MaxResult<()>
                 where
-                    W: ::median::wrapper::WrapperWrapped<Self> + ::median::object::MaxObj,
+                    W: ::median::wrapper::WrapperWrapped<Self> + ::median::object::MaxObjHeader,
                 {
                     #(#calls)*
                     ::core::result::Result::Ok(())

@@ -8,7 +8,7 @@
 //! ```no_run
 //! use median::prelude::*;
 //!
-//! #[derive(MaxObject)]
+//! #[derive(MaxObj)]
 //! #[max(name = "example")]
 //! pub struct Example {
 //!     obj: ObjRef,
@@ -78,22 +78,30 @@
 //! median::ext_main! { Example }
 //! ```
 //!
-//! Three ordinary items and a line: the struct with `#[derive(MaxObject)]`, the
+//! Three ordinary items and a line: the struct with `#[derive(MaxObj)]`, the
 //! [`MaxObjWrapped`](wrapper::MaxObjWrapped) impl (or [`MSPObjWrapped`](wrapper::MSPObjWrapped)
 //! for an MSP object, which adds `perform`), an inherent impl with `#[median::methods]`, and
 //! [`ext_main!`]. They can live in different modules.
 //!
 //! # The derive
 //!
-//! `#[derive(MaxObject)]` implements [`ObjClass`](wrapper::ObjClass) (the class name, box type
-//! and wrapper), [`FieldAttrs`](wrapper::FieldAttrs) (the field attributes) and an inherent
-//! `register()` that [`ext_main!`] calls. Options, in `#[max(..)]` on the struct:
+//! The derive implements [`ObjClass`](wrapper::ObjClass) (the class name, box type and wrapper),
+//! [`FieldAttrs`](wrapper::FieldAttrs) (the field attributes) and an inherent `register()` that
+//! [`ext_main!`] calls. Which derive you use picks the wrapper, and so the trait the type must
+//! implement (a mismatch is a type error):
+//!
+//! | derive | the type implements |
+//! |---|---|
+//! | `MaxObj` | [`MaxObjWrapped`](wrapper::MaxObjWrapped) |
+//! | `MSPObj` | [`MSPObjWrapped`](wrapper::MSPObjWrapped) |
+//! | `JitMatrixObj` | [`jit::MatrixOp`] |
+//! | `JitGlObj` | [`jit::Ob3d`] |
+//!
+//! The two Jitter derives register both the Jitter class and its Max forwarding class.
+//!
+//! Options, in `#[max(..)]` on the struct (spelled the same on every derive):
 //!
 //! * `name = "foo.bar"`: the Max class name; by default the type name in lower case.
-//! * `kind = max` (default) or `kind = msp`: which wrapper, and so which of `MaxObjWrapped` and
-//!   `MSPObjWrapped` the type must implement (a mismatch is a type error).
-//! * `kind = matrix_op` or `kind = gl`: implement [`jit::MatrixOp`] or [`jit::Ob3d`];
-//!   the derive registers both the Jitter class and its Max forwarding class.
 //! * `class_type = box` (default) or `class_type = nobox`.
 //! * `no_methods`: also implement [`Methods`](wrapper::Methods) with no methods, for a type
 //!   without a `#[median::methods]` block.
@@ -166,7 +174,7 @@
 //! | `#[attr]`, `#[attr(name = "..", ..)]` with the options of a field attribute | an attribute | a getter `fn(&self) -> V`, `V` one of `f64`, `f32`, `t_atom_long`, `SymbolRef`; a method `set_<getter name>(&self, V)` in the same impl is its setter, without one (or with `readonly`) the attribute is read-only |
 //! | `#[dblclick]` | `dblclick` (`A_CANT`): the box was double-clicked | `fn(&self)` |
 //! | `#[loadbang]` | `loadbang` (`A_CANT`): the patcher finished loading | `fn(&self)` |
-//! | `#[notify]` | `notify` (`A_CANT`): a notification from an attached or subscribed object; not on a Jitter type (`kind = matrix_op`/`gl`: a compile error: the SDK wrapper owns `notify` there) | `fn(&self, &Notification)` |
+//! | `#[notify]` | `notify` (`A_CANT`): a notification from an attached or subscribed object; not on a Jitter type (`JitMatrixObj`/`JitGlObj`: a compile error: the SDK wrapper owns `notify` there) | `fn(&self, &Notification)` |
 //! | `#[dictionary]` | a retained registered dictionary | `fn(&self, Dict)` |
 //! | `#[savestate]` | `appendtodictionary` (`A_CANT`): patcher save | `fn(&self, &Dict)` |
 //!
@@ -196,7 +204,7 @@
 //! observed 2026-10-27), so on a Max class prefer `Int`/`Float`/`Symbol`/`Nothing` unless the
 //! caller is known to read the reply, in Max today another external calling `object_method_typed`.
 //!
-//! On a Jitter type (`kind = matrix_op` or `gl`), `#[gimmeback]` lands on the Max wrapper, so
+//! On a Jitter type (`JitMatrixObj`/`JitGlObj`), `#[gimmeback]` lands on the Max wrapper, so
 //! only typed callers reach it. `add_gimmeback` on the Jitter class in `class_setup` registers
 //! it there instead and turns on `MAX_JIT_CLASS_FLAGS_GIMMEBACK_WRAP` for the Max wrapper, so that
 //! a patcher message to the selector gets the reply out the dumpout outlet, as a list under the
@@ -259,9 +267,25 @@ pub use self::max::*;
 
 pub use max_sys;
 
-/// Derive the class identity, a `register()` function and the field attributes of a Max or MSP
-/// object. See the [crate documentation](crate#the-derive) for the options.
-pub use median_macros::MaxObject;
+/// Derive the class identity, a `register()` function and the field attributes of a Max object
+/// (the type implements [`MaxObjWrapped`](crate::wrapper::MaxObjWrapped)). See the
+/// [crate documentation](crate#the-derive) for the options.
+pub use median_macros::MaxObj;
+
+/// Derive the class identity, a `register()` function and the field attributes of an MSP object
+/// (the type implements [`MSPObjWrapped`](crate::wrapper::MSPObjWrapped)). See the
+/// [crate documentation](crate#the-derive) for the options.
+pub use median_macros::MSPObj;
+
+/// Derive the class identity, a `register()` function and the field attributes of a Jitter matrix
+/// operator (the type implements [`jit::MatrixOp`]), and register its Max forwarding class. See
+/// the [crate documentation](crate#the-derive) for the options.
+pub use median_macros::JitMatrixObj;
+
+/// Derive the class identity, a `register()` function and the field attributes of a Jitter GL
+/// object (the type implements [`jit::Ob3d`]), and register its Max forwarding class. See the
+/// [crate documentation](crate#the-derive) for the options.
+pub use median_macros::JitGlObj;
 
 /// Register the marked methods of an inherent impl with the class: implements
 /// [`Methods`](crate::wrapper::Methods). See the [crate documentation](crate#methods) for the
@@ -272,11 +296,11 @@ pub use median_macros::methods;
 /// order, each inside its own panic guard (a class that fails to register is posted to the Max
 /// console and the others are still registered).
 ///
-/// Each class is a type with a `register()` function, which `#[derive(MaxObject)]` generates:
+/// Each class is a type with a `register()` function, which the derives (`#[derive(MaxObj)]` here) generate:
 ///
 /// ```no_run
 /// # use median::prelude::*;
-/// # #[derive(MaxObject)]
+/// # #[derive(MaxObj)]
 /// # #[max(no_methods)]
 /// # pub struct Simp;
 /// # impl MaxObjWrapped for Simp {
@@ -305,7 +329,7 @@ macro_rules! ext_main {
 /// The common imports for writing an external: `use median::prelude::*;`.
 pub mod prelude {
     pub use crate::{
-        MaxObject,
+        JitGlObj, JitMatrixObj, MSPObj, MaxObj,
         atom::Atom,
         attr::{AttrField, AttrOptions},
         builder::{MSPBuilder, ManagedBufferRef, MaxBuilder},
@@ -320,7 +344,7 @@ pub mod prelude {
         methods,
         notify::Notification,
         num::{Float32, Float64, Int64},
-        object::{MaxObj, ObjRef},
+        object::{MaxObjHeader, ObjRef},
         object_error, object_post, object_warn,
         outlet::{Any, Bang, Float, Int, List, Outlet, SendError, Signal, StackOverflow},
         post,

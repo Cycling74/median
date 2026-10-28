@@ -2,7 +2,7 @@
 //!
 //! ```
 //! # use median::prelude::*;
-//! # #[derive(MaxObject)]
+//! # #[derive(MaxObj)]
 //! # #[max(no_methods)]
 //! pub struct Adder {
 //!     right: Int64,

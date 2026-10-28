@@ -188,8 +188,9 @@ impl ObjRef {
     }
 }
 
-/// Indicates that your struct can be safely cast to a max_sys::t_object this means your struct
-/// must be `#[repr(C)]` and have a `max_sys::t_object` as its first member.
+/// Indicates that `Self` starts with a live `max_sys::t_object` header, so a reference to it can
+/// be cast to a `max_sys::t_object` pointer: `Self` must be `#[repr(C)]` and have a
+/// `max_sys::t_object` as its first member.
 ///
 /// This is implemented for the wrapper types (and not for your own struct): to post, touch
 /// attributes and so on from your own struct, keep an [`ObjRef`] in it.
@@ -197,7 +198,7 @@ impl ObjRef {
 /// # Safety
 /// Implementors must start with a live Max object header at offset zero, valid for every
 /// borrow of `self`, and must obey the host's object lifetime and threading rules.
-pub unsafe trait MaxObj: Sized {
+pub unsafe trait MaxObjHeader: Sized {
     /// The object is an MSP object (`t_pxobject`): `Class` refuses the selectors
     /// `class_dspinit` adds ([`MSP_RESERVED_SELECTORS`](crate::class::MSP_RESERVED_SELECTORS))
     /// for its class.
@@ -220,8 +221,9 @@ pub unsafe trait MaxObj: Sized {
     }
 }
 
-/// Indicates that your struct can be safely cast to a max_sys::t_pxobject this means your struct
-/// must be `#[repr(C)]` and have a `max_sys::t_pxobject` as its first member.
+/// Indicates that `Self` starts with a live `max_sys::t_pxobject` header, so a reference to it
+/// can be cast to a `max_sys::t_pxobject` pointer: `Self` must be `#[repr(C)]` and have a
+/// `max_sys::t_pxobject` as its first member.
 ///
 /// This is implemented for the wrapper types (and not for your own struct): to post, touch
 /// attributes and so on from your own struct, keep an [`ObjRef`] in it.
@@ -229,7 +231,7 @@ pub unsafe trait MaxObj: Sized {
 /// # Safety
 /// Implementors must start with a live `t_pxobject` at offset zero, valid for every borrow of
 /// `self`, and must obey the host's DSP setup, teardown and threading rules.
-pub unsafe trait MSPObj: Sized {
+pub unsafe trait MSPObjHeader: Sized {
     fn msp_obj(&self) -> *mut max_sys::t_pxobject {
         self as *const Self as *mut max_sys::t_pxobject
     }
@@ -300,11 +302,11 @@ pub unsafe fn warn<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
 ///
 /// It only gives shared access (`Deref`): Max may call into the object from other threads at any
 /// time, and the object's header is owned by Max, so `&mut T` is never available.
-pub struct ObjBox<T: MaxObj> {
+pub struct ObjBox<T: MaxObjHeader> {
     value: NonNull<T>,
 }
 
-impl<T: MaxObj> ObjBox<T> {
+impl<T: MaxObjHeader> ObjBox<T> {
     /// Allocate an instance of `class` with `object_alloc`. Returns `None` if Max returns null.
     ///
     /// # Safety
@@ -339,7 +341,7 @@ impl<T: MaxObj> ObjBox<T> {
     }
 }
 
-impl<T: MaxObj> Deref for ObjBox<T> {
+impl<T: MaxObjHeader> Deref for ObjBox<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -348,7 +350,7 @@ impl<T: MaxObj> Deref for ObjBox<T> {
     }
 }
 
-impl<T: MaxObj> Drop for ObjBox<T> {
+impl<T: MaxObjHeader> Drop for ObjBox<T> {
     fn drop(&mut self) {
         // SAFETY: `value` is a Max object we own; Max runs the class's `free` method and
         // releases the memory.
@@ -358,5 +360,5 @@ impl<T: MaxObj> Drop for ObjBox<T> {
     }
 }
 
-unsafe impl<T: MaxObj + Sync> Sync for ObjBox<T> {}
-unsafe impl<T: MaxObj + Send> Send for ObjBox<T> {}
+unsafe impl<T: MaxObjHeader + Sync> Sync for ObjBox<T> {}
+unsafe impl<T: MaxObjHeader + Send> Send for ObjBox<T> {}

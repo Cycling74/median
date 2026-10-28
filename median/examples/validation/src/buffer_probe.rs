@@ -12,8 +12,8 @@ const BEFORE: usize = 1;
 const DURING: usize = 2;
 const AFTER: usize = 3;
 
-#[derive(MaxObject)]
-#[max(name = "median.validate.buffer~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "median.validate.buffer~")]
 pub struct BufferProbe {
     obj: ObjRef,
     name: SymbolRef,

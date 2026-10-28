@@ -13,7 +13,7 @@ use std::sync::{
 
 /// A deferred clock from a method, one from a capturing closure, one whose callback fails, and
 /// one that ticks while its own callback runs.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "clock.deferred")]
 pub struct Deferred {
     obj: ObjRef,

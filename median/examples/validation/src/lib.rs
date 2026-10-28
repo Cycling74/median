@@ -23,7 +23,7 @@ fn report(obj: &ObjRef, label: &str, event: &str) {
     ));
 }
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "median.validate")]
 pub struct Messages {
     obj: ObjRef,
@@ -155,8 +155,8 @@ fn copied(a: &Atom) -> Atom {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "median.validate~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "median.validate~")]
 pub struct Signals {
     obj: ObjRef,
 }
@@ -199,8 +199,8 @@ impl Signals {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "jit.median.validate", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.median.validate")]
 pub struct Matrices {
     obj: ObjRef,
     integer: Outlet<Int>,
@@ -302,8 +302,8 @@ impl Matrices {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "jit.gl.median.validate", kind = gl)]
+#[derive(JitGlObj)]
+#[max(name = "jit.gl.median.validate")]
 pub struct Graphics {
     obj: ObjRef,
     out: Outlet<Int>,

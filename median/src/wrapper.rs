@@ -13,7 +13,7 @@ use crate::{
     error::{MaxResult, NewError},
     method::{MaxFree, MaxMethod},
     notify::Notification,
-    object::{MSPObj, MaxObj, ObjBox, ObjRef},
+    object::{MSPObjHeader, MaxObjHeader, ObjBox, ObjRef},
     symbol::SymbolRef,
 };
 
@@ -155,7 +155,7 @@ struct ClassEntry {
 
 /// The identity of a class: its name, its box type and which wrapper it lives in.
 ///
-/// `#[derive(MaxObject)]` implements this; by hand it is:
+/// The derives (`#[derive(MaxObj)]` and the others) implement this; by hand it is:
 ///
 /// ```
 /// # use median::{class::ClassType, wrapper::*};
@@ -226,13 +226,13 @@ pub trait ObjClass: Sized {
 /// [`Class`] registration methods:
 ///
 /// ```
-/// # use median::{class::Class, error::MaxResult, object::MaxObj, wrapper::*};
+/// # use median::{class::Class, error::MaxResult, object::MaxObjHeader, wrapper::*};
 /// # struct Simp;
 /// # impl Simp { fn bang(&self) {} }
 /// impl Methods for Simp {
 ///     fn register<W>(c: &mut Class<W>) -> MaxResult<()>
 ///     where
-///         W: WrapperWrapped<Self> + MaxObj,
+///         W: WrapperWrapped<Self> + MaxObjHeader,
 ///     {
 ///         c.add_bang(Self::bang)?;
 ///         Ok(())
@@ -250,25 +250,25 @@ pub trait Methods: Sized {
     /// Register the methods. `W` is the wrapper type, it is inferred.
     fn register<W>(_class: &mut Class<W>) -> MaxResult<()>
     where
-        W: WrapperWrapped<Self> + MaxObj,
+        W: WrapperWrapped<Self> + MaxObjHeader,
     {
         Ok(())
     }
 }
 
 /// The attributes backed by fields of the struct (`#[attr]` on a field, with
-/// `#[derive(MaxObject)]`), registered with Max when the class is.
+/// `#[derive(MaxObj)]`), registered with Max when the class is.
 ///
 /// The derive always implements this, with an empty body when no field has `#[attr]`. By hand,
 /// call [`Class::add_field_attr`] (or write `impl FieldAttrs for Foo {}` for none):
 ///
 /// ```
-/// # use median::{attr::AttrOptions, class::Class, error::MaxResult, num::Int64, object::MaxObj, wrapper::*};
+/// # use median::{attr::AttrOptions, class::Class, error::MaxResult, num::Int64, object::MaxObjHeader, wrapper::*};
 /// # struct Simp { value: Int64 }
 /// impl FieldAttrs for Simp {
 ///     fn register_attrs<W>(c: &mut Class<W>) -> MaxResult<()>
 ///     where
-///         W: WrapperWrapped<Self> + MaxObj,
+///         W: WrapperWrapped<Self> + MaxObjHeader,
 ///     {
 ///         c.add_field_attr(c"value", |s: &Self| &s.value, AttrOptions::new().clip(0., 100.))
 ///     }
@@ -283,7 +283,7 @@ pub trait FieldAttrs: Sized {
     /// Register the attributes. `W` is the wrapper type, it is inferred.
     fn register_attrs<W>(_class: &mut Class<W>) -> MaxResult<()>
     where
-        W: WrapperWrapped<Self> + MaxObj,
+        W: WrapperWrapped<Self> + MaxObjHeader,
     {
         Ok(())
     }
@@ -293,7 +293,7 @@ pub trait FieldAttrs: Sized {
 ///
 /// The supertraits are the class identity ([`ObjClass`], with `Wrapper = MaxObjWrapper<Self>`),
 /// the message methods ([`Methods`]) and the field attributes ([`FieldAttrs`]); with
-/// `#[derive(MaxObject)]` and `#[median::methods]` they are generated. Registration calls
+/// `#[derive(MaxObj)]` and `#[median::methods]` they are generated. Registration calls
 /// [`FieldAttrs::register_attrs`], then [`Methods::register`], then [`MaxObjWrapped::class_setup`].
 pub trait MaxObjWrapped:
     ObjClass<Wrapper = MaxObjWrapper<Self>> + Methods + FieldAttrs + Sync + 'static
@@ -582,11 +582,11 @@ mod sealed {
 }
 use sealed::WrapperInternal;
 
-unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_object, I, T> {}
-unsafe impl<I, T> MaxObj for Wrapper<max_sys::t_pxobject, I, T> {
+unsafe impl<I, T> MaxObjHeader for Wrapper<max_sys::t_object, I, T> {}
+unsafe impl<I, T> MaxObjHeader for Wrapper<max_sys::t_pxobject, I, T> {
     const IS_MSP: bool = true;
 }
-unsafe impl<I, T> MSPObj for Wrapper<max_sys::t_pxobject, I, T> {}
+unsafe impl<I, T> MSPObjHeader for Wrapper<max_sys::t_pxobject, I, T> {}
 
 impl<T> WrapperInternal<max_sys::t_object, T> for MaxWrapperInternal<T>
 where
@@ -736,7 +736,7 @@ where
 /// inside the panic guard of `ext_main`, or of the derived `register`, which posts the message.)
 fn register_members<W, T>(class: &mut Class<W>)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: FieldAttrs + Methods,
 {
     if let Err(e) = T::register_attrs(class) {
@@ -901,7 +901,7 @@ enum CreateError {
 impl<O, I, T> Wrapper<O, I, T>
 where
     I: WrapperInternal<O, T>,
-    Self: MaxObj + 'static,
+    Self: MaxObjHeader + 'static,
 {
     /// Allocate an object of the class registered for `T`, run `T::new` with a builder, and
     /// make the inlets.
@@ -1336,7 +1336,7 @@ where
     T: MaxObjWrapped,
 {
     /// Register the class with Max: its field attributes, its methods, then `T::class_setup`.
-    /// `#[derive(MaxObject)]` generates a `T::register()` that calls this, and `ext_main!`
+    /// `#[derive(MaxObj)]` generates a `T::register()` that calls this, and `ext_main!`
     /// calls that.
     ///
     /// # Remarks
@@ -1440,7 +1440,7 @@ where
     T: MSPObjWrapped,
 {
     /// Register the class with Max: its field attributes, its methods, then `T::class_setup`.
-    /// `#[derive(MaxObject)]` generates a `T::register()` that calls this, and `ext_main!`
+    /// `#[derive(MSPObj)]` generates a `T::register()` that calls this, and `ext_main!`
     /// calls that.
     ///
     /// # Remarks
@@ -1837,7 +1837,7 @@ mod tests {
     }
 
     /// Run `f` and return the errors that were posted for `w` meanwhile, oldest first.
-    fn errors_during<W: MaxObj>(k: &Kernel, w: &W, f: impl FnOnce()) -> Vec<String> {
+    fn errors_during<W: MaxObjHeader>(k: &Kernel, w: &W, f: impl FnOnce()) -> Vec<String> {
         let before = errors_for(k, w.max_obj()).len();
         f();
         errors_for(k, w.max_obj()).split_off(before)

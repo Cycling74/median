@@ -14,7 +14,7 @@ use std::sync::{
 
 /// A class with a `#[notify]` method that posts the message and refuses `refuse`; it also keeps
 /// a `buffer~` reference, which still gets its notifications.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "notify.derived")]
 pub struct Derived {
     obj: ObjRef,
@@ -49,7 +49,7 @@ static TWICE: Mutex<Vec<Result<(), String>>> = Mutex::new(Vec::new());
 static TWICE_NOTIFIED: AtomicUsize = AtomicUsize::new(0);
 
 /// Hand-written registration: the second `add_notify` is refused, and so is `add_sel`.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "notify.twice", no_methods)]
 pub struct Twice;
 
@@ -72,7 +72,7 @@ impl MaxObjWrapped for Twice {
 }
 
 /// No `notify` method of its own.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "notify.none")]
 pub struct NoNotify;
 
@@ -88,7 +88,7 @@ impl NoNotify {
     pub fn bang(&self) {}
 }
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "notify.via_methods", no_methods)]
 pub struct ViaMethods {
     obj: ObjRef,

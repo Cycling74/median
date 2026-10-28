@@ -1,18 +1,18 @@
 use median::prelude::*;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(nmae = "x")]
 pub struct UnknownOption;
 
-#[derive(MaxObject)]
-#[max(kind = jitter)]
+#[derive(MaxObj)]
+#[max(kind = msp)]
 pub struct UnknownKind;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "")]
 pub struct EmptyName;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 pub struct Generic<T> {
     t: T,
 }

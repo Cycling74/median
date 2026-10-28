@@ -7,8 +7,8 @@ use median::prelude::*;
 use median_mock::{Atom as MockAtom, Role};
 use std::sync::Once;
 
-#[derive(MaxObject)]
-#[max(name = "fifo.peak~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "fifo.peak~")]
 pub struct Peak {
     tx: Shared<Producer<f64>>,
     rx: Shared<Consumer<f64>>,

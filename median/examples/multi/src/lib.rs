@@ -3,7 +3,7 @@ use median::prelude::*;
 //two classes in one external: a Max object and an MSP object. Max finds the second through the
 //`init` file next to this crate, which maps its name to this external.
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "median.multi", no_methods)]
 pub struct Base {}
 
@@ -14,8 +14,8 @@ impl MaxObjWrapped for Base {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "median.multi.sig~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "median.multi.sig~", no_methods)]
 pub struct Sig {}
 
 impl MSPObjWrapped for Sig {

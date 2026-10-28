@@ -1,7 +1,7 @@
 use median::prelude::*;
 
 // an outlet can't be duplicated, so a copy can't outlive the object
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(no_methods)]
 pub struct Simp {
     out: Outlet<List>,

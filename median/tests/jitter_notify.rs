@@ -12,8 +12,8 @@ use median::{
 };
 use median_mock::Atom as MockAtom;
 
-#[derive(MaxObject)]
-#[max(name = "jit.test.nonotify", kind = matrix_op, no_methods)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.nonotify", no_methods)]
 struct NoSdkNotify {
     _obj: JitObjRef,
 }

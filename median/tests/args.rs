@@ -18,7 +18,7 @@ fn take_log() -> Vec<String> {
     std::mem::take(&mut *LOG.lock().unwrap())
 }
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "args.probe")]
 pub struct Probe {
     #[attr]

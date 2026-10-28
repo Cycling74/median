@@ -5,7 +5,7 @@
 
 use median::prelude::*;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "io.cold", no_methods)]
 pub struct IoCold {
     _obj: ObjRef,

@@ -7,7 +7,7 @@
 //! ```no_run
 //! use median::prelude::*;
 //!
-//! #[derive(MaxObject)]
+//! #[derive(MaxObj)]
 //! pub struct Ticker {
 //!     clock: Clock,
 //!     out: Outlet<Bang>,
@@ -53,7 +53,7 @@ use crate::class::ClassType;
 use crate::method::MaxMethod;
 use crate::{
     builder::MaxBuilder,
-    object::MaxObj,
+    object::MaxObjHeader,
     wrapper::{FieldAttrs, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
 };
 

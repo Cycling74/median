@@ -3,7 +3,7 @@
 use median::{atom::AtomValue, prelude::*};
 
 // This object has no state or message methods. Its ObjRef is only needed during construction.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "simplemax", no_methods)]
 pub struct SimpleMax;
 

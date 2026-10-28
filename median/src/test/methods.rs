@@ -7,7 +7,7 @@ use crate::{
     atom::Atom,
     class::Class,
     method::*,
-    object::{MaxObj, ObjRef},
+    object::{MaxObjHeader, ObjRef},
     symbol::SymbolRef,
     wrapper::WrapperWrapped,
 };
@@ -51,7 +51,7 @@ impl<T> Wrap<T> {
 }
 
 // SAFETY: `repr(C)` with a `t_object` first
-unsafe impl<T> MaxObj for Wrap<T> {}
+unsafe impl<T> MaxObjHeader for Wrap<T> {}
 
 /// The `report_error` hook of a wrapped type, as `MaxObjWrapped` has it.
 trait Hook {

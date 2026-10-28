@@ -8,7 +8,7 @@
 //! ```no_run
 //! use median::prelude::*;
 //!
-//! #[derive(MaxObject)]
+//! #[derive(MaxObj)]
 //! pub struct Redraw {
 //!     redraw: Queue,
 //!     value: Int64,

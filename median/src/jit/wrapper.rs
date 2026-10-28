@@ -19,7 +19,7 @@ use crate::{
     defer::{Defer, DeferredCall},
     error::{MaxError, MaxResult, NewError},
     inlet::{Inlet, InletId},
-    object::{MaxObj, ObjRef},
+    object::{MaxObjHeader, ObjRef},
     outlet::{Outlet, OutletDesc, OutletFor},
     symbol::SymbolRef,
     wrapper::{FieldAttrs, IoLet, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
@@ -146,7 +146,7 @@ pub struct DrawContext {
     _thread: PhantomData<*mut ()>,
 }
 impl DrawContext {
-    fn current(owner: &impl MaxObj) -> Self {
+    fn current(owner: &impl MaxObjHeader) -> Self {
         Self {
             owner: NonNull::new(owner.max_obj()).expect("live ob3d wrapper"),
             _thread: PhantomData,
@@ -228,7 +228,7 @@ pub struct Core<T, K> {
     _kind: PhantomData<K>,
 }
 // SAFETY: only the SDK wrapper starts with a Jitter/Max object header; no impl exists for T.
-unsafe impl<T, K> MaxObj for Core<T, K> {
+unsafe impl<T, K> MaxObjHeader for Core<T, K> {
     const IS_JITTER: bool = true;
 }
 impl<T, K> WrapperWrapped<T> for Core<T, K> {
@@ -390,7 +390,7 @@ where
     }
 }
 
-/// Max-side glue, automatically selected by `#[max(kind = matrix_op)]` / `kind = gl`.
+/// Max-side glue, automatically selected by `#[derive(JitMatrixObj)]` / `#[derive(JitGlObj)]`.
 pub struct MaxGlue<T: JitterObject<K>, K: 'static> {
     obj: ObjRef,
     jit: NonNull<Core<T, K>>,
@@ -424,7 +424,7 @@ impl<T: JitterObject<K>, K: 'static> FieldAttrs for MaxGlue<T, K> {}
 // Max wrapper. It forwards deferred calls into that wrapper's existing, owner-bound queue.
 #[repr(transparent)]
 struct Forward<W, T, K>(W, PhantomData<(T, K)>);
-unsafe impl<W: MaxObj, T, K> MaxObj for Forward<W, T, K> {
+unsafe impl<W: MaxObjHeader, T, K> MaxObjHeader for Forward<W, T, K> {
     // `notify` is installed on the Max class before the user's methods are registered
     const SUPPORTS_NOTIFY: bool = false;
     fn max_obj(&self) -> *mut sys::t_object {
@@ -433,7 +433,7 @@ unsafe impl<W: MaxObj, T, K> MaxObj for Forward<W, T, K> {
 }
 impl<W, T, K> WrapperWrapped<T> for Forward<W, T, K>
 where
-    W: WrapperWrapped<MaxGlue<T, K>> + MaxObj,
+    W: WrapperWrapped<MaxGlue<T, K>> + MaxObjHeader,
     T: JitterObject<K>,
     K: 'static,
 {
@@ -465,7 +465,7 @@ fn forward_notify<T: JitterObject<K>, K: 'static>(
 impl<T: JitterObject<K>, K: 'static> Methods for MaxGlue<T, K> {
     fn register<W>(class: &mut Class<W>) -> MaxResult<()>
     where
-        W: WrapperWrapped<Self> + MaxObj,
+        W: WrapperWrapped<Self> + MaxObjHeader,
     {
         let jit = entry::<T, K>().ok_or(MaxError::InvalidPtr)?;
         unsafe {

@@ -5,7 +5,7 @@ use median::prelude::*;
 use median_mock::Level;
 use std::sync::Once;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "special.thing")]
 pub struct Thing {
     obj: ObjRef,

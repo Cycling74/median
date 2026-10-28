@@ -1,18 +1,18 @@
 use median::prelude::*;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(description = 5)]
 pub struct NotAString;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(author = "a", author = "b")]
 pub struct Twice;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(tags = "a, , b")]
 pub struct EmptyTag;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(tags = "")]
 pub struct NoTags;
 

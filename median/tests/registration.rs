@@ -11,7 +11,7 @@ use median_mock::{Atom as MockAtom, GetterArgs, Kernel, Level};
 use std::sync::{Mutex, Once};
 
 /// A field attribute and a getter attribute with the same name: registration fails.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "reg.dup")]
 pub struct DupAttr {
     #[attr]
@@ -39,7 +39,7 @@ static SETUP: Mutex<Vec<(String, Result<(), String>)>> = Mutex::new(Vec::new());
 
 /// Hand written `class_setup` that tries every collision; the results are recorded (and the
 /// class still registers, since `class_setup` ignores them).
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "reg.setup")]
 pub struct Setup {
     #[attr]
@@ -148,7 +148,7 @@ impl Setup {
 }
 
 /// A Max class may have the methods `class_dspinit` adds to MSP classes.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "reg.enable")]
 pub struct Enable {
     obj: ObjRef,
@@ -172,8 +172,8 @@ impl Enable {
 }
 
 /// An MSP class may not: its registration fails.
-#[derive(MaxObject)]
-#[max(name = "reg.enable~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "reg.enable~")]
 pub struct EnableDsp;
 
 impl MSPObjWrapped for EnableDsp {
@@ -194,8 +194,8 @@ impl EnableDsp {
 static SETUP_DSP: Mutex<Vec<(String, Result<(), String>)>> = Mutex::new(Vec::new());
 
 /// `class_setup` of an MSP class trying `class_dspinit`'s selectors.
-#[derive(MaxObject)]
-#[max(name = "reg.setup~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "reg.setup~", no_methods)]
 pub struct SetupDsp;
 
 impl MSPObjWrapped for SetupDsp {
@@ -229,7 +229,7 @@ impl MSPObjWrapped for SetupDsp {
 }
 
 /// No methods of its own: what the class has is what the wrapper registers.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "reg.bare", no_methods)]
 pub struct Bare;
 
@@ -239,8 +239,8 @@ impl MaxObjWrapped for Bare {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "reg.bare~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "reg.bare~", no_methods)]
 pub struct BareDsp;
 
 impl MSPObjWrapped for BareDsp {

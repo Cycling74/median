@@ -11,7 +11,7 @@ use std::sync::{
 };
 
 /// A clock from a method, one from a capturing closure, and one whose callback fails.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "clock.ticker")]
 pub struct Ticker {
     obj: ObjRef,

@@ -9,8 +9,8 @@ use median_mock::{Atom as MockAtom, InletKind};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static DROPS: AtomicUsize = AtomicUsize::new(0);
-#[derive(MaxObject)]
-#[max(name = "jit.iolets.test", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.iolets.test")]
 struct Extra {
     obj: ObjRef,
     out: Outlet<Int>,
@@ -87,8 +87,8 @@ impl Drop for Extra {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "jit.gl.iolets.test", kind = gl)]
+#[derive(JitGlObj)]
+#[max(name = "jit.gl.iolets.test")]
 struct GlExtra {
     obj: ObjRef,
     out: Outlet<List>,
@@ -115,8 +115,8 @@ impl GlExtra {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "jit.variable.iolets.test", kind = matrix_op, no_methods)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.variable.iolets.test", no_methods)]
 struct Variable;
 impl MatrixOp for Variable {
     fn io_count() -> IOCount {

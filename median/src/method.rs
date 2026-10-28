@@ -4,7 +4,7 @@ use crate::{
     defer::{Defer, DeferredCall, OwnedAtoms},
     gimmeback::GimmebackResult,
     notify::Notification,
-    object::MaxObj,
+    object::MaxObjHeader,
     symbol::SymbolRef,
     wrapper::WrapperWrapped,
 };
@@ -160,7 +160,7 @@ impl<E: Display> MethodResult for Result<(), E> {
 /// type's `report_error` hook (through [`WrapperWrapped::report_error`]).
 fn run<W, T, R>(w: &W, what: &str, f: impl FnOnce(&T) -> R)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     R: MethodResult,
 {
     crate::ffi::guard(w, what, || {
@@ -170,7 +170,7 @@ where
 
 pub(crate) extern "C" fn dictionary_tramp<W, T, F, R>(w: &W, name: *mut max_sys::t_symbol)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, crate::dict::Dict) -> R + Copy,
     R: MethodResult,
 {
@@ -186,7 +186,7 @@ where
 
 pub(crate) extern "C" fn savestate_tramp<W, T, F, R>(w: &W, ptr: *mut max_sys::t_dictionary)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &crate::dict::Dict) -> R + Copy,
     R: MethodResult,
 {
@@ -276,7 +276,7 @@ unsafe fn atoms<'a>(ac: c_long, av: *const max_sys::t_atom) -> &'a [Atom] {
 
 pub(crate) extern "C" fn bang_tramp<W, T, F, R>(w: &W)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -286,7 +286,7 @@ where
 
 pub(crate) extern "C" fn dblclick_tramp<W, T, F, R>(w: &W)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -301,7 +301,7 @@ pub(crate) extern "C" fn notify_tramp<W, T, F, R>(
     sender: *mut c_void,
     data: *mut c_void,
 ) where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &Notification) -> R + Copy,
     R: MethodResult,
 {
@@ -319,7 +319,7 @@ pub(crate) extern "C" fn notify_tramp<W, T, F, R>(
 
 pub(crate) extern "C" fn loadbang_tramp<W, T, F, R>(w: &W)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -329,7 +329,7 @@ where
 
 pub(crate) extern "C" fn int_tramp<W, T, F, R>(w: &W, v: max_sys::t_atom_long)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy,
     R: MethodResult,
 {
@@ -339,7 +339,7 @@ where
 
 pub(crate) extern "C" fn float_tramp<W, T, F, R>(w: &W, v: f64)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, f64) -> R + Copy,
     R: MethodResult,
 {
@@ -349,7 +349,7 @@ where
 
 pub(crate) extern "C" fn sym_tramp<W, T, F, R>(w: &W, s: *mut max_sys::t_symbol)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, SymbolRef) -> R + Copy,
     R: MethodResult,
 {
@@ -366,7 +366,7 @@ pub(crate) extern "C" fn list_tramp<W, T, F, R>(
     ac: c_long,
     av: *const max_sys::t_atom,
 ) where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -383,7 +383,7 @@ pub(crate) extern "C" fn any_tramp<W, T, F, R>(
     ac: c_long,
     av: *const max_sys::t_atom,
 ) where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -457,13 +457,13 @@ pub trait SelFn<T, Args, R>:
     #[doc(hidden)]
     fn trampoline<W>() -> MaxMethod
     where
-        W: WrapperWrapped<T> + MaxObj;
+        W: WrapperWrapped<T> + MaxObjHeader;
 
     /// The deferring trampoline for this callable on the wrapper `W` (see [`crate::defer`]).
     #[doc(hidden)]
     fn deferred_trampoline<W>(mode: Defer) -> MaxMethod
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static;
 }
 
@@ -489,7 +489,7 @@ macro_rules! sel_fn_arity {
     ($tramp:ident, $dtramp:ident; $($A:ident $a:ident),*) => {
         extern "C" fn $dtramp<W, T, F, R, $($A,)* const LOW: bool>(w: &W, $($a: <$A as SelArg>::C),*)
         where
-            W: WrapperWrapped<T> + MaxObj,
+            W: WrapperWrapped<T> + MaxObjHeader,
             T: 'static,
             F: Fn(&T, $($A),*) -> R + Copy + Send + 'static,
             R: MethodResult,
@@ -505,7 +505,7 @@ macro_rules! sel_fn_arity {
 
         extern "C" fn $tramp<W, T, F, R, $($A),*>(w: &W, $($a: <$A as SelArg>::C),*)
         where
-            W: WrapperWrapped<T> + MaxObj,
+            W: WrapperWrapped<T> + MaxObjHeader,
             F: Fn(&T, $($A),*) -> R + Copy,
             R: MethodResult,
             $($A: SelArg),*
@@ -535,7 +535,7 @@ macro_rules! sel_fn_arity {
 
             fn trampoline<W>() -> MaxMethod
             where
-                W: WrapperWrapped<T> + MaxObj,
+                W: WrapperWrapped<T> + MaxObjHeader,
             {
                 const {
                     assert!(
@@ -551,7 +551,7 @@ macro_rules! sel_fn_arity {
 
             fn deferred_trampoline<W>(mode: Defer) -> MaxMethod
             where
-                W: WrapperWrapped<T> + MaxObj,
+                W: WrapperWrapped<T> + MaxObjHeader,
                 T: 'static,
             {
                 const {
@@ -586,7 +586,7 @@ pub(crate) extern "C" fn sel_gimme_tramp<W, T, F, R, A>(
     ac: c_long,
     av: *const max_sys::t_atom,
 ) where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: GimmeFn<T, R, A>,
     R: MethodResult,
 {
@@ -611,7 +611,7 @@ pub(crate) extern "C" fn sel_gimmeback_tramp<W, T, F, R, A>(
     rv: *mut max_sys::t_atom,
 ) -> max_sys::t_max_err
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: GimmeFn<T, R, A>,
     R: GimmebackResult,
 {
@@ -635,7 +635,7 @@ where
 
 pub(crate) fn bang_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -645,7 +645,7 @@ where
 
 pub(crate) fn dblclick_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -655,7 +655,7 @@ where
 
 pub(crate) fn notify_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &Notification) -> R + Copy,
     R: MethodResult,
 {
@@ -676,7 +676,7 @@ where
 
 pub(crate) fn loadbang_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T) -> R + Copy,
     R: MethodResult,
 {
@@ -686,7 +686,7 @@ where
 
 pub(crate) fn int_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy,
     R: MethodResult,
 {
@@ -696,7 +696,7 @@ where
 
 pub(crate) fn float_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, f64) -> R + Copy,
     R: MethodResult,
 {
@@ -706,7 +706,7 @@ where
 
 pub(crate) fn sym_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, SymbolRef) -> R + Copy,
     R: MethodResult,
 {
@@ -716,7 +716,7 @@ where
 
 pub(crate) fn list_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -727,7 +727,7 @@ where
 
 pub(crate) fn any_method<W, T, F, R>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy,
     R: MethodResult,
 {
@@ -737,7 +737,7 @@ where
 
 pub(crate) fn sel_gimme_method<W, T, F, R, A>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: GimmeFn<T, R, A>,
     R: MethodResult,
 {
@@ -750,7 +750,7 @@ type GimmeTramp<W> = extern "C" fn(&W, *mut max_sys::t_symbol, c_long, *const ma
 
 pub(crate) fn sel_gimmeback_method<W, T, F, R, A>(_f: F) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     F: GimmeFn<T, R, A>,
     R: GimmebackResult,
 {
@@ -778,7 +778,7 @@ type GimmebackTramp<W> = extern "C" fn(
 /// the call runs.
 fn defer_or_run<W, T, R, C, const LOW: bool>(w: &W, what: &'static str, call: C)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     R: MethodResult,
     C: FnOnce(&T) -> R + Send + 'static,
@@ -800,7 +800,7 @@ where
 
 extern "C" fn bang_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -811,7 +811,7 @@ where
 
 extern "C" fn int_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W, v: max_sys::t_atom_long)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -822,7 +822,7 @@ where
 
 extern "C" fn float_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W, v: f64)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, f64) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -833,7 +833,7 @@ where
 
 extern "C" fn sym_deferred_tramp<W, T, F, R, const LOW: bool>(w: &W, s: *mut max_sys::t_symbol)
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, SymbolRef) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -850,7 +850,7 @@ extern "C" fn list_deferred_tramp<W, T, F, R, const LOW: bool>(
     ac: c_long,
     av: *const max_sys::t_atom,
 ) where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, &[Atom]) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -871,7 +871,7 @@ extern "C" fn gimme_deferred_tramp<W, T, F, R, A, const LOW: bool, const ANY: bo
     ac: c_long,
     av: *const max_sys::t_atom,
 ) where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: GimmeFn<T, R, A>,
     R: MethodResult,
@@ -906,7 +906,7 @@ macro_rules! deferred {
 
 pub(crate) fn bang_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -918,7 +918,7 @@ where
 
 pub(crate) fn int_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -934,7 +934,7 @@ where
 
 pub(crate) fn float_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, f64) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -950,7 +950,7 @@ where
 
 pub(crate) fn sym_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, SymbolRef) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -966,7 +966,7 @@ where
 
 pub(crate) fn list_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, &[Atom]) -> R + Copy + Send + 'static,
     R: MethodResult,
@@ -978,7 +978,7 @@ where
 
 pub(crate) fn any_deferred_method<W, T, F, R>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
     R: MethodResult,
@@ -995,7 +995,7 @@ where
 
 pub(crate) fn sel_gimme_deferred_method<W, T, F, R, A>(_f: F, mode: Defer) -> MaxMethod
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     T: 'static,
     F: GimmeFn<T, R, A>,
     R: MethodResult,

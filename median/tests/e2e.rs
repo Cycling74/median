@@ -3,7 +3,7 @@
 //! outlet and console logs.
 //!
 //! Four externals cover the ways of defining one:
-//! * `Thing` uses `#[derive(MaxObject)]` and `#[median::methods]`, and is registered by the
+//! * `Thing` uses `#[derive(MaxObj)]` and `#[median::methods]`, and is registered by the
 //!   `ext_main` that `median::ext_main!` makes;
 //! * `Typed` is hand written: `ObjClass`, `FieldAttrs`, `MaxObjWrapped`, and `Class::add_*` in
 //!   `class_setup`, registered with `MaxObjWrapper::<T>::register()`;
@@ -17,7 +17,7 @@
 //! kernel (and in median) between tests, so registering is done once per process.
 
 use median::{
-    MaxObject,
+    MaxObj,
     atom::Atom,
     builder::{MSPBuilder, MaxBuilder},
     class::Class,
@@ -43,7 +43,7 @@ use std::sync::{
 /// How many `Thing`s and `Typed`s have been dropped.
 static DROPPED: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "e2e.thing")]
 pub struct Thing {
     obj: ObjRef,

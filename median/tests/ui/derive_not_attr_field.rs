@@ -1,6 +1,6 @@
 use median::prelude::*;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(no_methods)]
 pub struct Simp {
     #[attr]

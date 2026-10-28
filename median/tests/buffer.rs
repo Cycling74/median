@@ -13,8 +13,8 @@ use std::sync::Once;
 
 /// An MSP object that plays channel 1 of its buffer and writes minus the frame index into
 /// channel 0 (mode 0), or claims the buffer and panics (mode 1). `bang` edits the buffer.
-#[derive(MaxObject)]
-#[max(name = "buftest~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "buftest~")]
 pub struct BufTest {
     obj: ObjRef,
     buf: ManagedBufferRef,

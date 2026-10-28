@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 static CALLS: AtomicUsize = AtomicUsize::new(0);
 static DROPS: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(MaxObject)]
-#[max(name = "jit.test.lifecycle", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.lifecycle")]
 #[max(
     description = "A lifecycle test",
     author = "Some One",
@@ -75,8 +75,8 @@ impl Operator {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "jit.test.refuse", kind = matrix_op, no_methods)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.refuse", no_methods)]
 struct Refuse;
 impl MatrixOp for Refuse {
     fn new(_b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
@@ -93,8 +93,8 @@ impl MatrixOp for Refuse {
     }
 }
 
-#[derive(MaxObject)]
-#[max(name = "jit.test.gl", kind = gl, no_methods)]
+#[derive(JitGlObj)]
+#[max(name = "jit.test.gl", no_methods)]
 struct Draw;
 impl Ob3d for Draw {
     fn new(b: &mut JitBuilder<Self>) -> Result<Self, NewError> {
@@ -123,8 +123,8 @@ impl Drop for Draw {
 
 median::ext_main! { Operator, Refuse, Draw }
 
-#[derive(MaxObject)]
-#[max(name = "jit.test.failedclass", kind = matrix_op, no_methods)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.test.failedclass", no_methods)]
 struct FailedClass {
     #[attr]
     value: Int64,

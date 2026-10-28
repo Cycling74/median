@@ -25,7 +25,7 @@ fn count(args: &[Atom]) -> Result<t_atom_long, NewError> {
 }
 
 /// Makes everything the builder can make, then checks its argument.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "picky", no_methods)]
 pub struct Picky {
     _obj: ObjRef,
@@ -61,8 +61,8 @@ impl Drop for Picky {
 }
 
 /// The MSP twin: signal inlets declared before it refuses, so `z_dsp_setup` never runs.
-#[derive(MaxObject)]
-#[max(name = "picky~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "picky~", no_methods)]
 pub struct PickyDsp {
     _clock: Clock,
 }
@@ -82,8 +82,8 @@ impl MSPObjWrapped for PickyDsp {
 }
 
 /// Panics in `new` after making things (the panic path frees them too).
-#[derive(MaxObject)]
-#[max(name = "panicky~", kind = msp, no_methods)]
+#[derive(MSPObj)]
+#[max(name = "panicky~", no_methods)]
 pub struct Panicky;
 
 impl MSPObjWrapped for Panicky {

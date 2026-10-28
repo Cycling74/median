@@ -5,7 +5,7 @@ use crate::error::{MaxError, MaxResult};
 use crate::max::common_symbols;
 use crate::method::{MaxMethod, MethodResult, zst};
 use crate::num::{Float32, Float64, Int64};
-use crate::object::MaxObj;
+use crate::object::MaxObjHeader;
 use crate::symbol::SymbolRef;
 use crate::wrapper::WrapperWrapped;
 
@@ -342,7 +342,7 @@ impl<T> AttrBuilder<T> {
 
     pub fn build(&self) -> Result<Attr<T>, String>
     where
-        T: MaxObj,
+        T: MaxObjHeader,
     {
         if self.set.is_none() && self.get.is_none() && self.offset.is_none() {
             return Err("you must have at least 1 of get, set or offset".into());
@@ -785,7 +785,7 @@ impl AttrValue for SymbolRef {
     }
 }
 
-/// A field type that can back an attribute: `#[attr]` on a field with `#[derive(MaxObject)]`, or
+/// A field type that can back an attribute: `#[attr]` on a field with `#[derive(MaxObj)]`, or
 /// [`Class::add_field_attr`](crate::class::Class::add_field_attr) by hand. The accessors take
 /// `&self`, because Max reads and writes attributes on the main and scheduler threads while
 /// other methods (and `perform`) run, so the field needs interior mutability that is safe to
@@ -1196,7 +1196,7 @@ pub(crate) unsafe extern "C" fn get_tramp<W, T, G, V>(
     av: *mut *mut max_sys::t_atom,
 ) -> max_sys::t_max_err
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     G: Fn(&T) -> V + Copy,
     V: AttrValue,
 {
@@ -1227,7 +1227,7 @@ pub(crate) unsafe extern "C" fn set_tramp<W, T, S, V, R>(
     av: *mut max_sys::t_atom,
 ) -> max_sys::t_max_err
 where
-    W: WrapperWrapped<T> + MaxObj,
+    W: WrapperWrapped<T> + MaxObjHeader,
     S: Fn(&T, V) -> R + Copy,
     V: AttrValue,
     R: MethodResult,
@@ -1250,7 +1250,7 @@ where
     })
 }
 
-fn attr_error<W: MaxObj>() -> max_sys::t_max_err {
+fn attr_error<W: MaxObjHeader>() -> max_sys::t_max_err {
     if W::IS_JITTER {
         max_sys::t_jit_error_code::JIT_ERR_GENERIC as _
     } else {

@@ -22,7 +22,7 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   an explicit unsafe exclusivity contract because a Jitter lock alone does not prove it.
   Unit tests cover strides, disjoint mutation, metadata rejection, callback errors/panics;
   compile-fail tests protect mutable iterator borrowing and the GL callback context.
-  `MatrixOp`/`Ob3d`, `kind = matrix_op|gl`, shared attribute accessors, MOP configuration,
+  `MatrixOp`/`Ob3d`, the `JitMatrixObj`/`JitGlObj` derives, shared attribute accessors, MOP configuration,
   Max forwarding and owner-bound deferred calls are implemented. The SDK's notification and
   inlet handlers are preserved. Both Jitter examples pass mock tests and package on macOS ARM64.
   Callback-scoped chunks and unsafe buffer/geometry adoption now have ownership tests.
@@ -105,7 +105,7 @@ kept for the list of fixes. Originally, after 3d bindings, behind `features = ["
 With the redesign (step 2, §J):
 - `jit::matrix::Wrapper<T>`, `jit::ob3d::Wrapper<T>`, `WrappedMatrixOp`/`WrappedDraw`, `JitObj`,
   the `jit::CLASSES` map, `jit/attr.rs` and the two jit tramp proc-macros, and the core-wrapper diff
-  are rewritten as the `kind = matrix_op` / `kind = gl` derive modes with `ObjRef`. The branch's
+  are rewritten as the `JitMatrixObj` / `JitGlObj` derives with `ObjRef`. The branch's
   known bugs (`assert!(c > 0)` in calc, `expect` on class lookup in `new`, `&mut` in `calc`) are
   fixed by that rewrite rather than patched.
 - Port `jit_scalebias` and `jit_gl_simple` to the derive; their hand-written glue (~60 lines each)

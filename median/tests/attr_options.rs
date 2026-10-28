@@ -23,7 +23,7 @@ fn unattached_attributes_release_their_allocation() {
     assert_eq!(k.live_attribute_count(), before);
 }
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "attropts.thing")]
 pub struct Thing {
     /// every option

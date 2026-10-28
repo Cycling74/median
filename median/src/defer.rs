@@ -9,7 +9,7 @@
 //! ```no_run
 //! use median::prelude::*;
 //!
-//! #[derive(MaxObject)]
+//! #[derive(MaxObj)]
 //! #[max(name = "reader")]
 //! pub struct Reader {
 //!     obj: ObjRef,
@@ -243,7 +243,7 @@ mod tests {
         builder::MaxBuilder,
         class::Class,
         error::{MaxResult, NewError},
-        object::{MaxObj, ObjRef},
+        object::{MaxObjHeader, ObjRef},
         wrapper::{FieldAttrs, MaxObjWrapped, MaxObjWrapper, Methods, ObjClass, WrapperWrapped},
     };
     use median_mock::Atom as MockAtom;
@@ -264,7 +264,7 @@ mod tests {
     impl Methods for D {
         fn register<W>(c: &mut Class<W>) -> MaxResult<()>
         where
-            W: WrapperWrapped<Self> + MaxObj,
+            W: WrapperWrapped<Self> + MaxObjHeader,
         {
             c.add_list_deferred(Self::list, Defer::Low)
         }

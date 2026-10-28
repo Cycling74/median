@@ -4,8 +4,8 @@ use median::{
     prelude::*,
 };
 
-#[derive(MaxObject)]
-#[max(name = "jit.gl.median.simple", kind = gl, no_methods)]
+#[derive(JitGlObj)]
+#[max(name = "jit.gl.median.simple", no_methods)]
 pub struct Simple;
 impl Ob3d for Simple {
     fn new(_: &mut JitBuilder<Self>) -> Result<Self, NewError> {

@@ -10,7 +10,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "queue.thing")]
 pub struct Thing {
     obj: ObjRef,

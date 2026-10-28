@@ -1,4 +1,4 @@
-//! The `simp` example (`#[derive(MaxObject)]`, `#[median::methods]`, `ext_main!`), compiled into
+//! The `simp` example (`#[derive(MaxObj)]`, `#[median::methods]`, `ext_main!`), compiled into
 //! this test and run against the `median-mock` kernel.
 
 mod common;

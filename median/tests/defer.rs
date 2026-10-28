@@ -8,7 +8,7 @@ use median::prelude::*;
 use median_mock::{Atom as MockAtom, Kernel, Level, Role};
 use std::sync::Once;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "defer.thing")]
 pub struct Thing {
     obj: ObjRef,
@@ -185,7 +185,7 @@ fn describe(atoms: &[Atom]) -> String {
 
 /// Hand-written registration of `A_GIMME` methods, deferred, of both shapes: one function that
 /// takes the selector under two selectors, and one that does not.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "defer.hand", no_methods)]
 pub struct Hand {
     obj: ObjRef,

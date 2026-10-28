@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Mutex, Once};
 
 /// The absolute value of the number(s) it is given, like the SDK's `simplejs` `doAbs`.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "gimmeback.test")]
 pub struct Gb {
     /// calls of any method
@@ -103,7 +103,7 @@ static REFUSED: Mutex<Vec<(&'static str, Result<(), MaxError>)>> = Mutex::new(Ve
 impl Methods for Gb {
     fn register<W>(c: &mut Class<W>) -> MaxResult<()>
     where
-        W: WrapperWrapped<Self> + MaxObj,
+        W: WrapperWrapped<Self> + MaxObjHeader,
     {
         c.add_gimmeback(c"doAbs", Self::do_abs)?;
         c.add_gimmeback(c"getcount", Self::count)?;

@@ -1,4 +1,4 @@
-//! The options of `#[attr(..)]`, shared by field attributes (`#[derive(MaxObject)]`) and getter
+//! The options of `#[attr(..)]`, shared by field attributes (`#[derive(MaxObj)]` and the other derives) and getter
 //! attributes (`#[median::methods]`).
 
 use proc_macro2::{Span, TokenStream};

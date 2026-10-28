@@ -1,14 +1,14 @@
-error: unknown option, expected `name = ".."`, `kind = max|msp|matrix_op|gl`, `class_type = box|nobox`, `no_methods`, `description = ".."`, `author = ".."` or `tags = "a, b"`
+error: unknown option, expected `name = ".."`, `class_type = box|nobox`, `no_methods`, `description = ".."`, `author = ".."` or `tags = "a, b"`
  --> tests/ui/derive_options.rs:4:7
   |
 4 | #[max(nmae = "x")]
   |       ^^^^
 
-error: expected `kind = max`, `kind = msp`, `kind = matrix_op` or `kind = gl`
- --> tests/ui/derive_options.rs:8:14
+error: unknown option, expected `name = ".."`, `class_type = box|nobox`, `no_methods`, `description = ".."`, `author = ".."` or `tags = "a, b"`
+ --> tests/ui/derive_options.rs:8:7
   |
-8 | #[max(kind = jitter)]
-  |              ^^^^^^
+8 | #[max(kind = msp)]
+  |       ^^^^
 
 error: the name must not be empty
   --> tests/ui/derive_options.rs:12:14
@@ -16,7 +16,7 @@ error: the name must not be empty
 12 | #[max(name = "")]
    |              ^^
 
-error: #[derive(MaxObject)] does not support generic types: a Max class is one concrete type
+error: #[derive(MaxObj)] does not support generic types: a Max class is one concrete type
   --> tests/ui/derive_options.rs:16:19
    |
 16 | pub struct Generic<T> {

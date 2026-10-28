@@ -9,8 +9,8 @@ use median::{
     prelude::*,
 };
 
-#[derive(MaxObject)]
-#[max(name = "jit.median.scalebias", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.median.scalebias")]
 pub struct ScaleBias {
     #[attr(clip(0, 1), label = "Sum Planes")]
     mode: Int64,

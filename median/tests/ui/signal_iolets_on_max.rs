@@ -1,7 +1,7 @@
 use median::prelude::*;
 
 // signal inlets and outlets are for MSP objects only
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(no_methods)]
 pub struct Simp;
 

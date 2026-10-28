@@ -8,7 +8,7 @@ use crate::defer::Defer;
 use crate::error::{MaxError, MaxResult};
 use crate::gimmeback::GimmebackResult;
 use crate::method::*;
-use crate::object::MaxObj;
+use crate::object::MaxObjHeader;
 use crate::symbol::SymbolRef;
 use crate::wrapper::WrapperWrapped;
 use std::ffi::CStr;
@@ -33,7 +33,7 @@ use std::os::raw::c_long;
 /// ```
 /// use median::{
 ///     atom::Atom, attr::AttrOptions, builder::MaxBuilder, class::Class,
-///     error::{MaxResult, NewError}, max_sys::t_atom_long, num::Int64, object::MaxObj, symbol::SymbolRef,
+///     error::{MaxResult, NewError}, max_sys::t_atom_long, num::Int64, object::MaxObjHeader, symbol::SymbolRef,
 ///     wrapper::*,
 /// };
 /// use std::ffi::CStr;
@@ -58,7 +58,7 @@ use std::os::raw::c_long;
 /// impl FieldAttrs for Example {
 ///     fn register_attrs<W>(c: &mut Class<W>) -> MaxResult<()>
 ///     where
-///         W: WrapperWrapped<Self> + MaxObj,
+///         W: WrapperWrapped<Self> + MaxObjHeader,
 ///     {
 ///         //an attribute "value" backed by the field, clipped to 0..=10
 ///         c.add_field_attr(c"value", |s: &Self| &s.value, AttrOptions::new().clip(0., 10.))
@@ -68,7 +68,7 @@ use std::os::raw::c_long;
 /// impl Methods for Example {
 ///     fn register<W>(c: &mut Class<W>) -> MaxResult<()>
 ///     where
-///         W: WrapperWrapped<Self> + MaxObj,
+///         W: WrapperWrapped<Self> + MaxObjHeader,
 ///     {
 ///         c.add_bang(Self::bang)?;
 ///         c.add_int(Self::int)?;
@@ -491,7 +491,7 @@ impl<W> Class<W> {
     /// an unknown name without calling the method. The received handle shares the sender's data.
     pub fn add_dictionary<T, F, R>(&mut self, _f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, crate::dict::Dict) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -505,7 +505,7 @@ impl<W> Class<W> {
     /// Insert a deep copy of private state to keep the patcher's saved value independent.
     pub fn add_savestate<T, F, R>(&mut self, _f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, &crate::dict::Dict) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -524,7 +524,7 @@ impl<W> Class<W> {
     /// Register the `bang` method.
     pub fn add_bang<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -537,7 +537,7 @@ impl<W> Class<W> {
     /// in a locked patcher (on the main thread).
     pub fn add_dblclick<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -557,7 +557,7 @@ impl<W> Class<W> {
     /// [`Class::add_sel`] refuses it. `Err(MaxError::Duplicate)` if the class has a `notify`
     /// method already (added through this `Class` before, or by the SDK's Jitter wrapper).
     ///
-    /// A Jitter class (`kind = matrix_op` or `gl`) cannot use this (nor `#[notify]`): the SDK's
+    /// A Jitter class (`JitMatrixObj` or `JitGlObj`) cannot use this (nor `#[notify]`): the SDK's
     /// wrapper, or median's glue, owns `notify` there, so a `#[notify]` method on such a type
     /// is a compile error. (The glue forwards the notification to `JitterObject::notify`, which
     /// the matrix and GL kinds implement themselves.)
@@ -569,7 +569,7 @@ impl<W> Class<W> {
     /// [`Notification`]: crate::notify::Notification
     pub fn add_notify<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, &crate::notify::Notification) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -602,7 +602,7 @@ impl<W> Class<W> {
     /// and min register. Unverified here.)
     pub fn add_loadbang<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -614,7 +614,7 @@ impl<W> Class<W> {
     /// Register the `int` method.
     pub fn add_int<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -626,7 +626,7 @@ impl<W> Class<W> {
     /// Register the `float` method.
     pub fn add_float<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, f64) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -638,7 +638,7 @@ impl<W> Class<W> {
     /// Register the `symbol` method.
     pub fn add_sym<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, SymbolRef) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -650,7 +650,7 @@ impl<W> Class<W> {
     /// Register the `list` method. The selector (`list`) is not passed on.
     pub fn add_list<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -662,7 +662,7 @@ impl<W> Class<W> {
     /// Register the `anything` method, which gets the message selector and its arguments.
     pub fn add_any<T, F, R>(&mut self, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
     {
@@ -706,7 +706,7 @@ impl<W> Class<W> {
     /// [`MSP_RESERVED_SELECTORS`].
     pub fn add_sel<T, F, A, R>(&mut self, sel: &CStr, _f: F, defaults: usize) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: SelFn<T, A, R>,
     {
         if is_untyped_selector(sel) {
@@ -739,7 +739,7 @@ impl<W> Class<W> {
     /// class, [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
     pub fn add_gimme<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: GimmeFn<T, R, A>,
         R: MethodResult,
     {
@@ -828,7 +828,7 @@ impl<W> Class<W> {
     /// class, [`MSP_RESERVED_SELECTORS`] (`Err(MaxError::Duplicate)`).
     pub fn add_gimmeback<T, F, R, A>(&mut self, sel: &CStr, f: F) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         F: GimmeFn<T, R, A>,
         R: GimmebackResult,
     {
@@ -855,7 +855,7 @@ impl<W> Class<W> {
     /// a deferred message from `perform`.
     pub fn add_bang_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: Fn(&T) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
@@ -869,7 +869,7 @@ impl<W> Class<W> {
     /// [`add_int`](Self::add_int), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
     pub fn add_int_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: Fn(&T, max_sys::t_atom_long) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
@@ -884,7 +884,7 @@ impl<W> Class<W> {
     /// [`add_bang_deferred`](Self::add_bang_deferred)).
     pub fn add_float_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: Fn(&T, f64) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
@@ -898,7 +898,7 @@ impl<W> Class<W> {
     /// [`add_sym`](Self::add_sym), deferred (see [`add_bang_deferred`](Self::add_bang_deferred)).
     pub fn add_sym_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: Fn(&T, SymbolRef) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
@@ -913,7 +913,7 @@ impl<W> Class<W> {
     /// [`add_bang_deferred`](Self::add_bang_deferred)). The atoms are copied for the call.
     pub fn add_list_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: Fn(&T, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
@@ -928,7 +928,7 @@ impl<W> Class<W> {
     /// The atoms are copied for the call.
     pub fn add_any_deferred<T, F, R>(&mut self, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: Fn(&T, &SymbolRef, &[Atom]) -> R + Copy + Send + Sync + 'static,
         R: MethodResult,
@@ -949,7 +949,7 @@ impl<W> Class<W> {
         mode: Defer,
     ) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: SelFn<T, A, R>,
     {
@@ -973,7 +973,7 @@ impl<W> Class<W> {
     /// either shape of callable, as `add_gimme` does (see [`GimmeFn`]).
     pub fn add_gimme_deferred<T, F, R, A>(&mut self, sel: &CStr, f: F, mode: Defer) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         T: 'static,
         F: GimmeFn<T, R, A>,
         R: MethodResult,
@@ -1004,7 +1004,7 @@ impl<W> Class<W> {
         options: AttrOptions,
     ) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         V: AttrValue,
         G: Fn(&T) -> V + Copy + Send + Sync + 'static,
         S: Fn(&T, V) -> R + Copy + Send + Sync + 'static,
@@ -1036,7 +1036,7 @@ impl<W> Class<W> {
         options: AttrOptions,
     ) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         V: AttrValue,
         G: Fn(&T) -> V + Copy + Send + Sync + 'static,
     {
@@ -1061,7 +1061,7 @@ impl<W> Class<W> {
         options: AttrOptions,
     ) -> MaxResult<()>
     where
-        W: WrapperWrapped<T> + MaxObj,
+        W: WrapperWrapped<T> + MaxObjHeader,
         A: AttrField,
         F: Fn(&T) -> &A + Copy + Send + Sync + 'static,
     {
@@ -1077,7 +1077,7 @@ impl<W> Class<W> {
 
     fn add_built_attr(&mut self, b: &mut AttrBuilder<W>, options: AttrOptions) -> MaxResult<()>
     where
-        W: MaxObj,
+        W: MaxObjHeader,
     {
         b.options(options);
         let attr = b.build().map_err(|_| MaxError::Generic)?;
@@ -1093,7 +1093,7 @@ impl<W> Class<W> {
         types: &[max_sys::e_max_atomtypes::Type],
     ) -> MaxResult<()>
     where
-        W: MaxObj,
+        W: MaxObjHeader,
     {
         // SAFETY: guaranteed by the caller
         unsafe { self.add_typed_inner(sel, m, types, false) }
@@ -1112,7 +1112,7 @@ impl<W> Class<W> {
         allow_reserved: bool,
     ) -> MaxResult<()>
     where
-        W: MaxObj,
+        W: MaxObjHeader,
     {
         if self.attributes_only {
             return Ok(());

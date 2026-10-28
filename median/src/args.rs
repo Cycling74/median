@@ -11,7 +11,7 @@
 //! ```no_run
 //! use median::prelude::*;
 //!
-//! #[derive(MaxObject)]
+//! #[derive(MaxObj)]
 //! #[max(name = "chans", no_methods)]
 //! pub struct Chans {
 //!     outs: Vec<Outlet<Int>>,

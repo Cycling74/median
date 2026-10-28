@@ -3,7 +3,7 @@
 //!
 //! ```
 //! # use median::prelude::*;
-//! # #[derive(MaxObject)]
+//! # #[derive(MaxObj)]
 //! # #[max(no_methods)]
 //! pub struct Counter {
 //!     out: Outlet<Int>,

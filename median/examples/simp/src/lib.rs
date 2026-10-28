@@ -1,9 +1,9 @@
 use median::{atom::AtomValue, gimmeback::Reply, prelude::*};
 
-//the struct is an ordinary struct: `#[derive(MaxObject)]` makes it a Max class named "simp"
+//the struct is an ordinary struct: `#[derive(MaxObj)]` makes it a Max class named "simp"
 //(the type name in lower case, or `#[max(name = "..")]`), with a `Simp::register()` that
 //`ext_main!` below calls.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 //`description`, `author` and `tags` are maxref metadata (`tags` is split on commas); nothing reads
 //them yet.
 #[max(name = "simp", description = "A simple example object")]

@@ -27,7 +27,7 @@ documentation for the full list of markers and options.
 use median::prelude::*;
 
 // the struct is the object; the derive makes it a Max class named "example"
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "example", description = "An example object", tags = "example, median")]
 pub struct Example {
     obj: ObjRef,
@@ -147,7 +147,7 @@ default (`MAX_VERSION=8` selects Max 8).
 registry messaging. `#[dictionary]` takes an owned `Dict`; `#[savestate]` takes `&Dict`.
 Dictionary operations allocate and lock, so they do not belong in `perform`.
 
-`kind = matrix_op` and `kind = gl` derive modes generate the Max/Jitter class glue. See
+The `JitMatrixObj` and `JitGlObj` derives generate the Max/Jitter class glue. See
 [`jit_scalebias`](examples/jit_scalebias/src/lib.rs) and
 [`jit_gl_simple`](examples/jit_gl_simple/src/lib.rs). Matrix access still requires explicit
 unsafe aliasing contracts; GL callbacks receive a context token. These additions have mock

@@ -1,4 +1,4 @@
-//The `simp` example written without `#[derive(MaxObject)]` and `#[median::methods]`: every impl
+//The `simp` example written without `#[derive(MaxObj)]` and `#[median::methods]`: every impl
 //the macros generate is written out here, and they are short. This is a supported way to write
 //an external, not a fallback: it is what to read to see what the macros do, and the way to
 //register things conditionally or under computed names. The object behaves exactly like `simp`.
@@ -16,7 +16,7 @@ pub struct SimpExplicit {
     list_out: Outlet<List>,
 }
 
-//the class identity (what `#[derive(MaxObject)]` and `#[max(name = "simp_explicit")]` give)
+//the class identity (what `#[derive(MaxObj)]` and `#[max(name = "simp_explicit")]` give)
 impl ObjClass for SimpExplicit {
     //the wrapper Max allocates: `MSPObjWrapper<Self>` for an MSP object
     type Wrapper = MaxObjWrapper<Self>;
@@ -51,7 +51,7 @@ impl SimpExplicit {
 impl FieldAttrs for SimpExplicit {
     fn register_attrs<W>(c: &mut Class<W>) -> MaxResult<()>
     where
-        W: WrapperWrapped<Self> + MaxObj,
+        W: WrapperWrapped<Self> + MaxObjHeader,
     {
         c.add_field_attr(
             c"value",
@@ -70,7 +70,7 @@ impl FieldAttrs for SimpExplicit {
 impl Methods for SimpExplicit {
     fn register<W>(c: &mut Class<W>) -> MaxResult<()>
     where
-        W: WrapperWrapped<Self> + MaxObj,
+        W: WrapperWrapped<Self> + MaxObjHeader,
     {
         c.add_bang(Self::bang)?;
         c.add_int(Self::int)?;

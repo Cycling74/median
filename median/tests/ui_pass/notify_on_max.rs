@@ -4,7 +4,7 @@
 use median::{notify::Notification, prelude::*};
 use median_mock as _;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "pass.notify")]
 struct Plain;
 

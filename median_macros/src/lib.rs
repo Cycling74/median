@@ -1,6 +1,7 @@
 //! Procedural macros for `median`, which re-exports them; depend on `median`, not on this
 //! crate.
 
+use crate::derive::Kind;
 use proc_macro::TokenStream;
 use syn::{DeriveInput, ItemImpl, parse_macro_input};
 
@@ -11,11 +12,32 @@ mod error;
 mod methods;
 mod reserved;
 
-/// See `median::MaxObject`.
-#[proc_macro_derive(MaxObject, attributes(max, attr))]
-pub fn derive_max_object(input: TokenStream) -> TokenStream {
+/// See `median::MaxObj`.
+#[proc_macro_derive(MaxObj, attributes(max, attr))]
+pub fn derive_max_obj(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    crate::error::wrap(derive::derive(input).map(Into::into))
+    crate::error::wrap(derive::derive(input, Kind::Max).map(Into::into))
+}
+
+/// See `median::MSPObj`.
+#[proc_macro_derive(MSPObj, attributes(max, attr))]
+pub fn derive_msp_obj(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    crate::error::wrap(derive::derive(input, Kind::Msp).map(Into::into))
+}
+
+/// See `median::JitMatrixObj`.
+#[proc_macro_derive(JitMatrixObj, attributes(max, attr))]
+pub fn derive_jit_matrix_obj(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    crate::error::wrap(derive::derive(input, Kind::Matrix).map(Into::into))
+}
+
+/// See `median::JitGlObj`.
+#[proc_macro_derive(JitGlObj, attributes(max, attr))]
+pub fn derive_jit_gl_obj(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    crate::error::wrap(derive::derive(input, Kind::Gl).map(Into::into))
 }
 
 /// See `median::methods`.

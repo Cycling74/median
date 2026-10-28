@@ -1,6 +1,6 @@
 use median::prelude::*;
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 pub struct Simp;
 
 impl MaxObjWrapped for Simp {

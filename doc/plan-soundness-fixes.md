@@ -65,7 +65,7 @@ literally.
 - Update the generated trampolines in `median_macros/src/tramp.rs` and the `int_float_tramps!` /
   `register_ft_in` code to call them inside `unsafe { }` blocks. The `post!`/`object_post!` macros
   route through `object::post` with a pointer that came from `max_obj()`; keep a safe `post` that
-  takes `&impl MaxObj` and make the raw-pointer one unsafe.
+  takes `&impl MaxObj` (now `MaxObjHeader`) and make the raw-pointer one unsafe.
 
 Acceptance: clippy reports zero `not_unsafe_ptr_arg_deref`; examples build unchanged.
 
@@ -139,7 +139,7 @@ to true (manual test in Max with `hello_dsp`).
 
 ## 6. `ObjBox` and `Wrapper::drop` (H10, M5)
 
-- `object.rs`: `pub struct ObjBox<T: MaxObj> { value: NonNull<T> }`, private. Remove `DerefMut`;
+- `object.rs`: `pub struct ObjBox<T: MaxObjHeader> { value: NonNull<T> }`, private. Remove `DerefMut`;
   keep `Deref`. `into_raw` returns the pointer and `mem::forget`s. `Drop` calls `object_free`.
 - Remove `impl Drop for Wrapper`. Nothing drops a `Wrapper` by value once `ObjBox` holds `NonNull`.
 - `Wrapper::wrapped_mut(&mut self)` becomes `pub(crate)`; the only caller is `ClockHandle::new`,

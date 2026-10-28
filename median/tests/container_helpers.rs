@@ -110,7 +110,7 @@ fn name_switches_and_weak_entry_removal_do_not_release_another_owner() {
     assert_eq!(median_mock::containers::live_count(), 0);
 }
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "dict.helpers.observer")]
 struct Observer;
 impl MaxObjWrapped for Observer {

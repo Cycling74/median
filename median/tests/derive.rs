@@ -1,4 +1,4 @@
-//! `#[derive(MaxObject)]`, `#[median::methods]` and `median::ext_main!`, end to end: the classes
+//! `#[derive(MaxObj)]`, `#[median::methods]` and `median::ext_main!`, end to end: the classes
 //! are registered by the `ext_main` the macro defines, made and sent messages through the
 //! `median-mock` kernel, and what they do is read from its console and outlet logs.
 //!
@@ -11,7 +11,7 @@ use std::fmt::Display;
 use std::sync::OnceLock;
 
 /// Every marker kind. Each method posts what it got, for the object.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "derive.marks")]
 pub struct Marks {
     obj: ObjRef,
@@ -147,7 +147,7 @@ impl Marks {
 }
 
 /// Overrides `report_error`: errors go to an outlet instead of the console.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "derive.reporter")]
 pub struct Reporter {
     errors: Outlet<Any>,
@@ -175,8 +175,8 @@ impl Reporter {
 }
 
 /// An MSP object: a gain set with `float`, applied in `perform`.
-#[derive(MaxObject)]
-#[max(name = "derive.gain~", kind = msp)]
+#[derive(MSPObj)]
+#[max(name = "derive.gain~")]
 pub struct Gain {
     #[attr(clip(0, 4))]
     gain: Float64,
@@ -208,7 +208,7 @@ impl Gain {
 }
 
 /// No methods, no attributes, the default name ("plain").
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(no_methods)]
 pub struct Plain;
 
@@ -219,7 +219,7 @@ impl MaxObjWrapped for Plain {
 }
 
 /// A `nobox` class.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "derive.nobox", class_type = nobox, no_methods)]
 pub struct NoBox;
 
@@ -230,7 +230,7 @@ impl MaxObjWrapped for NoBox {
 }
 
 /// All three maxref options.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "derive.described", no_methods)]
 #[max(description = "A described class", author = "Some One")]
 #[max(tags = " alpha,beta ,  gamma delta")]
@@ -243,7 +243,7 @@ impl MaxObjWrapped for Described {
 }
 
 /// Its registration fails (in `class_setup`), which must not stop the classes after it.
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "derive.broken", no_methods)]
 pub struct Broken;
 

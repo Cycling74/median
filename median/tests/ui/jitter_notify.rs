@@ -8,8 +8,8 @@ use median::{
 };
 
 // a `#[notify]` method on a Jitter type: the SDK wrapper owns `notify`
-#[derive(MaxObject)]
-#[max(name = "jit.bad.notify", kind = matrix_op)]
+#[derive(JitMatrixObj)]
+#[max(name = "jit.bad.notify")]
 struct Operator {
     _obj: JitObjRef,
 }

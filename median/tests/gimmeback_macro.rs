@@ -9,7 +9,7 @@ use std::ffi::c_void;
 use std::sync::Once;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-#[derive(MaxObject)]
+#[derive(MaxObj)]
 #[max(name = "gimmeback.macro")]
 pub struct Gm {
     calls: AtomicI64,
