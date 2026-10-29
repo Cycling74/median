@@ -33,8 +33,8 @@ impl SymbolRef {
         *self.value.get()
     }
 
-    unsafe fn inner_ref(&self) -> &mut max_sys::t_symbol {
-        &mut (*self.inner())
+    unsafe fn inner_ref(&self) -> &max_sys::t_symbol {
+        &*self.inner()
     }
 
     /// Convert to CString.
@@ -123,7 +123,7 @@ impl TryFrom<&str> for SymbolRef {
 
 impl Display for SymbolRef {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.to_string().expect("failed to convert to str"))
+        write!(f, "{}", self.to_cstring().to_string_lossy())
     }
 }
 
@@ -150,6 +150,18 @@ impl Default for SymbolRef {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn display_handles_non_utf8_names() {
+        let name = CString::new(b"name\xff".to_vec()).unwrap();
+        let mut symbol = max_sys::t_symbol {
+            s_name: name.as_ptr() as *mut _,
+            s_thing: std::ptr::null_mut(),
+        };
+        let symbol = SymbolRef::new(&mut symbol);
+        assert_eq!(format!("{}", symbol), "name\u{fffd}");
+        assert!(symbol.to_string().is_err());
+    }
 
     #[test]
     fn size_align() {

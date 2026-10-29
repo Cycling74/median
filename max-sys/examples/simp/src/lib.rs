@@ -17,7 +17,7 @@ impl Simp {
         let x = max_sys::object_alloc(SIMP_CLASS.unwrap());
 
         //since it is simply a u64, don't think we need MaybeUninit
-        let mut x = std::mem::transmute::<_, &mut Simp>(x);
+        let x = std::mem::transmute::<_, &mut Simp>(x);
         x.s_value = 0;
 
         std::mem::transmute::<_, _>(x)

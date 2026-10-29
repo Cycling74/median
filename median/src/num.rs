@@ -1,4 +1,17 @@
 //! Numeric type wrappers.
+//!
+//! These are lock-free cells for sharing a single scalar between threads, for example an attribute
+//! value written on the main or scheduler thread and read on the audio thread.
+//!
+//! # Memory ordering
+//!
+//! All accessors use [`Ordering::Relaxed`]. That is enough for the intended use: one scalar that
+//! readers want as "the latest value", where no other data is read on the strength of having seen
+//! it. It does not order other memory accesses. If a value is used to publish anything else (a
+//! pointer, a buffer, a second value that must be consistent with it), use `Release` on the writer
+//! and `Acquire` on the reader with your own atomics, or a lock off the audio thread.
+
+use std::sync::atomic::Ordering;
 
 //re-export
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -6,28 +19,29 @@ pub use self::atomic64::*;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod atomic64 {
+    use super::Ordering;
+    use std::sync::atomic::{AtomicI64, AtomicU64};
 
     macro_rules! impl_atomic {
-        ($t:ty, $a:ident) => {
+        ($t:ty, $a:ident, $store:ty, $atomic:ty, $to:expr, $from:expr) => {
             #[derive(Default)]
             #[repr(transparent)]
             pub struct $a {
-                pub(crate) value: ::std::cell::UnsafeCell<$t>,
+                pub(crate) value: $atomic,
             }
 
             impl $a {
                 pub fn new(v: $t) -> Self {
                     Self {
-                        value: ::std::cell::UnsafeCell::new(v),
+                        value: <$atomic>::new(($to)(v)),
                     }
                 }
                 pub fn get(&self) -> $t {
-                    unsafe { *self.value.get() }
+                    let v: $store = self.value.load(Ordering::Relaxed);
+                    ($from)(v)
                 }
                 pub fn set(&self, v: $t) {
-                    unsafe {
-                        *self.value.get() = v;
-                    }
+                    self.value.store(($to)(v), Ordering::Relaxed)
                 }
             }
 
@@ -37,9 +51,10 @@ mod atomic64 {
                 }
             }
 
+            #[allow(clippy::from_over_into)]
             impl ::std::convert::Into<$t> for &$a {
                 fn into(self) -> $t {
-                    unsafe { *self.value.get() }
+                    self.get()
                 }
             }
 
@@ -54,15 +69,25 @@ mod atomic64 {
                     Self::new(self.get())
                 }
             }
-            unsafe impl Send for $a {}
-            unsafe impl Sync for $a {}
         };
     }
 
-    //we assume that the following types are atomic on the platform we run on so we wrap them in a
-    //type that codifies that for rust
-    impl_atomic!(f64, Float64);
-    impl_atomic!(max_sys::t_atom_long, Int64);
+    //`Send` and `Sync` come from the atomic fields; there is no `unsafe impl`.
+    impl_atomic!(f64, Float64, u64, AtomicU64, f64::to_bits, f64::from_bits);
+    const fn long_to_i64(v: max_sys::t_atom_long) -> i64 {
+        v as i64
+    }
+    const fn i64_to_long(v: i64) -> max_sys::t_atom_long {
+        v as max_sys::t_atom_long
+    }
+    impl_atomic!(
+        max_sys::t_atom_long,
+        Int64,
+        i64,
+        AtomicI64,
+        long_to_i64,
+        i64_to_long
+    );
 
     impl From<i64> for Int64 {
         fn from(v: i64) -> Self {
@@ -71,10 +96,9 @@ mod atomic64 {
     }
 }
 
-#[cfg(all(test, target_arch = "x86_64"))]
+#[cfg(all(test, any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod tests {
     use super::atomic64::*;
-    use std::cell::UnsafeCell;
     use std::sync::Arc;
 
     #[derive(Default)]
@@ -92,7 +116,7 @@ mod tests {
 
     static BLAH: A = A {
         f: Float64 {
-            value: UnsafeCell::new(0f64),
+            value: std::sync::atomic::AtomicU64::new(0),
         },
     };
 
@@ -123,7 +147,25 @@ mod tests {
     }
 
     #[test]
+    fn float_roundtrip() {
+        let f = Float64::new(-1.5);
+        assert_eq!(f.get(), -1.5);
+        f.set(f64::INFINITY);
+        assert_eq!(f.get(), f64::INFINITY);
+        for bits in [(-0.0f64).to_bits(), 0x7ff8_0000_0000_0042] {
+            f.set(f64::from_bits(bits));
+            assert_eq!(f.get().to_bits(), bits);
+            assert_eq!(f.clone().get().to_bits(), bits);
+        }
+        assert_eq!(Float64::default().get(), 0.0);
+    }
+
+    #[test]
     fn can_share() {
+        fn is_send_sync<T: Send + Sync>() {}
+        is_send_sync::<Float64>();
+        is_send_sync::<Int64>();
+
         let x = Arc::new(A::new());
         (*x).f.set(20f64);
         BLAH.f.set(1f64);

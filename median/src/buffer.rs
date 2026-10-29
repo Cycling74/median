@@ -121,11 +121,11 @@ impl BufferRef {
     /// other buffer references.
     pub unsafe fn notify_if_unchecked(&self, notification: &Notification) {
         //try to get the name of the buffer
-        let name: *mut max_sys::t_symbol = std::ptr::null_mut();
+        let mut name: *mut max_sys::t_symbol = std::ptr::null_mut();
         max_sys::object_method(
             notification.data(),
             GET_NAME.inner(),
-            std::mem::transmute::<_, *mut c_void>(&name),
+            &mut name as *mut *mut max_sys::t_symbol as *mut c_void,
         );
         self.with_lock(|inner| {
             //if the name matches our buffer's name, send notification

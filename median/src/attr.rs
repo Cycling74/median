@@ -227,13 +227,24 @@ impl<T> AttrBuilder<T> {
             AttrVisiblity::UserVisible => max_sys::e_max_attrflags::ATTR_SET_OPAQUE_USER,
         };
         let inner = unsafe {
-            //assign no-ops if we need them
-            let get = std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(
-                self.get.or(Some(get_nop)),
-            );
-            let set = std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(
-                self.set.or(Some(set_nop)),
-            );
+            //Absent accessors: for offset attributes pass None, so the SDK installs its default
+            //accessors that read/write the field at `offset` in the object. For other attributes
+            //keep the no-ops: with NULL accessors `attribute_new` would install the default
+            //accessors, which store into memory owned by the (class-shared) attribute, so e.g.
+            //`@x 5` on a get-only attribute would silently store a value.
+            let is_offset = self.offset.is_some();
+            let get = match self.get {
+                Some(g) => Some(g),
+                None if is_offset => None,
+                None => Some(get_nop::<T> as AttrTrampGetMethod<T>),
+            };
+            let set = match self.set {
+                Some(s) => Some(s),
+                None if is_offset => None,
+                None => Some(set_nop::<T> as AttrTrampSetMethod<T>),
+            };
+            let get = std::mem::transmute::<Option<AttrTrampGetMethod<T>>, Option<MaxMethod>>(get);
+            let set = std::mem::transmute::<Option<AttrTrampSetMethod<T>>, Option<MaxMethod>>(set);
             if let Some(offset) = self.offset {
                 max_sys::attr_offset_new(
                     n.as_ptr(),
@@ -421,6 +432,8 @@ where
     F: Fn() -> T,
     T: Into<Atom>,
 {
+    // Run user code before allocating the result atom.
+    let value: Atom = getter().into();
     unsafe {
         if *ac < 1 || (*av).is_null() {
             *ac = 1;
@@ -431,7 +444,7 @@ where
             }
         }
         let s: &mut Atom = std::mem::transmute::<_, _>(*av);
-        s.assign(getter().into());
+        s.assign(value);
     }
     max_sys::e_max_errorcodes::MAX_ERR_NONE as _
 }
@@ -450,4 +463,23 @@ where
         }
     }
     max_sys::e_max_errorcodes::MAX_ERR_NONE as _
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn panicking_getter_leaves_output_untouched() {
+        let mut count = 0;
+        let mut atoms = std::ptr::null_mut();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            get(&mut count, &mut atoms, || -> Atom {
+                panic!("getter failed");
+            });
+        }));
+        assert!(result.is_err());
+        assert_eq!(count, 0);
+        assert!(atoms.is_null());
+    }
 }

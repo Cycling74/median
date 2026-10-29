@@ -116,25 +116,19 @@ impl ClockHandle {
         MaxObjWrapper::<ClockInner>::register(true);
         let mut clock_target = MaxObjWrapper::<ClockInner>::new_noargs();
         clock_target.wrapped_mut().set(target, func);
-        let clock = max_sys::clock_new(
-            std::mem::transmute::<_, _>(clock_target.max_obj()),
-            Some(std::mem::transmute::<
-                extern "C" fn(&MaxObjWrapper<ClockInner>),
-                MaxMethod,
-            >(ClockInner::call_tramp)),
-        );
-
-        //set the scheduler for the clock to the scheduler for the owning object
+        //Use the owner's scheduler at creation time; storing #S on an existing clock
+        //does not initialize the clock with that scheduler.
         let sched = max_sys::scheduler_fromobject(target);
-        if !sched.is_null() {
-            let spound = CString::new("#S").unwrap();
-            max_sys::object_obex_storeflags(
-                clock,
-                max_sys::gensym(spound.as_ptr()),
-                sched as _,
-                max_sys::e_max_datastore_flags::OBJ_FLAG_DATA as _,
-            );
-        }
+        let obj = std::mem::transmute::<_, *mut c_void>(clock_target.max_obj());
+        let method = Some(std::mem::transmute::<
+            extern "C" fn(&MaxObjWrapper<ClockInner>),
+            MaxMethod,
+        >(ClockInner::call_tramp));
+        let clock = if sched.is_null() {
+            max_sys::clock_new(obj, method)
+        } else {
+            max_sys::clock_new_withscheduler(obj, method, sched)
+        };
 
         //set the patcher and box for the clock
         for lookup in &["#P", "#B"] {
@@ -165,5 +159,7 @@ impl ClockHandle {
 impl Drop for ClockHandle {
     fn drop(&mut self) {
         self.cancel();
+        //Release the clock before its callback target is dropped.
+        unsafe { max_sys::object_free(self.clock) };
     }
 }

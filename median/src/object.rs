@@ -106,14 +106,18 @@ pub unsafe trait MSPObj: Sized {
 
 use std::ffi::CString;
 use std::ops::{Deref, DerefMut};
+use std::os::raw::c_char;
+
+/// The printf format used to pass user text to the console; user text is never the format.
+const FMT_S: *const c_char = b"%s\0".as_ptr() as *const c_char;
+const CSTRING_ERR: &[u8] = b"failed to create CString\0";
 
 /// Post a message to the Max console, associated with the given object.
 pub fn post<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
     unsafe {
         match CString::new(msg) {
-            Ok(p) => max_sys::object_post(obj, p.as_ptr()),
-            //TODO make CString below a const static
-            Err(_) => self::error(obj, "failed to create CString"),
+            Ok(p) => max_sys::object_post(obj, FMT_S, p.as_ptr()),
+            Err(_) => max_sys::object_error(obj, FMT_S, CSTRING_ERR.as_ptr() as *const c_char),
         }
     }
 }
@@ -122,12 +126,8 @@ pub fn post<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
 pub fn error<T: Into<Vec<u8>>>(obj: *mut max_sys::t_object, msg: T) {
     unsafe {
         match CString::new(msg) {
-            Ok(p) => max_sys::object_error(obj, p.as_ptr()),
-            //TODO make CString below a const static
-            Err(_) => {
-                let m = CString::new("failed to create CString").unwrap();
-                max_sys::object_error(obj, m.as_ptr())
-            }
+            Ok(p) => max_sys::object_error(obj, FMT_S, p.as_ptr()),
+            Err(_) => max_sys::object_error(obj, FMT_S, CSTRING_ERR.as_ptr() as *const c_char),
         }
     }
 }

@@ -737,8 +737,8 @@ where
                             dsp64: *mut max_sys::t_object,
                             count: *mut std::os::raw::c_short,
                             samplerate: f64,
-                            maxvectorsize: i64,
-                            flags: i64,
+                            maxvectorsize: c_long,
+                            flags: c_long,
                         ),
                         MaxMethod,
                     >(Self::dsp64)),
@@ -826,8 +826,8 @@ where
         dsp64: *mut max_sys::t_object,
         _count: *mut std::os::raw::c_short,
         samplerate: f64,
-        _maxvectorsize: i64,
-        _flags: i64,
+        _maxvectorsize: c_long,
+        _flags: c_long,
     ) {
         unsafe {
             self.wrapped().dsp_setup(samplerate);
