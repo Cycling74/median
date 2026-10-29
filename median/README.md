@@ -2,6 +2,8 @@
 
 Ergonomic bindings for the [Max/MSP](https://cycling74.com/) [SDK](https://github.com/Cycling74/max-sdk).
 
+See the [changelog](CHANGELOG.md) for release notes.
+
 ## Disclaimer
 
 This is a work in progress.
