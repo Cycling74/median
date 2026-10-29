@@ -93,18 +93,26 @@ median::external! {
             self.clock.delay(10);
         }
 
+        pub fn int(&self, v: t_atom_long) {
+            let i = median::inlet::Proxy::get_inlet(self.max_obj());
+            self.value.set(v);
+            median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
+                .unwrap();
+            post!("direct int from rust {} inlet {}", self.value, i);
+        }
+
         //create an "int" method and automatically register it.
         //the name of the method can be anything you want, it must take 1 argument other than &self
         //that is of type t_atom_long
         #[int]
-        pub fn int(&self, v: t_atom_long) {
+        pub fn proxied(&self, v: t_atom_long) {
             let i = median::inlet::Proxy::get_inlet(self.max_obj());
             self.value.set(v);
             median::attr::touch_with_name(self.max_obj(), SymbolRef::try_from("blah").unwrap())
                 .unwrap();
             //XXX won't compile, needs mutex
             //self._v = format!("from rust {}", self.value);
-            post!("from rust {} inlet {}", self.value, i);
+            post!("proxied from rust {} inlet {}", self.value, i);
         }
 
         //create a "list" method and automatically register it
@@ -147,8 +155,8 @@ median::external! {
         pub fn clocked(&self) {
             post("clocked".to_string());
             let _ = self.list_out.send(&[
-                1i64.into(),
-                12f64.into(),
+                self.value.get().into(),
+                self.fvalue.get().into(),
                 SymbolRef::try_from("foo").unwrap().into(),
             ]);
         }
