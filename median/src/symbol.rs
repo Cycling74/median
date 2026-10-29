@@ -168,14 +168,10 @@ mod tests {
 
     #[test]
     fn display_handles_non_utf8_names() {
-        let name = CString::new(b"name\xff".to_vec()).unwrap();
-        let mut symbol = max_sys::t_symbol {
-            s_name: name.as_ptr() as *mut _,
-            s_thing: std::ptr::null_mut(),
-        };
-        let symbol = SymbolRef::new(&mut symbol);
-        assert_eq!(format!("{}", symbol), "name\u{fffd}");
-        assert!(symbol.to_string().is_err());
+        let _lock = median_mock::lock();
+        let symbol = SymbolRef::from(c"name\xff");
+        assert_eq!(format!("{symbol}"), "name\u{fffd}");
+        assert!(symbol.to_str().is_err());
     }
 
     #[test]

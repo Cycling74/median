@@ -117,8 +117,8 @@ With the redesign (step 2, §J):
   `max-sys/`); delete `rustfmt.toml`'s `merge_imports` (removed unstable option; use
   `imports_granularity` on nightly or nothing); make the generic `build` task dispatch on
   `IS_LINUX_X86`. The Max 9 install path is decided: on `xnor/api-redesign` (2026-10-22)
-  `median/utils/Makefile.toml` installs into `Documents/Max ${MAX_VERSION}/Packages`, with
-  `MAX_VERSION` defaulting to 9 and overridable (`MAX_VERSION=8 cargo make install`); template
+  `median/utils/Makefile.toml` installs into `Documents/${MAX_VERSION}/Packages`, with
+  `MAX_VERSION` defaulting to `Max 9` and overridable (`MAX_VERSION="Max 8" cargo make install`); template
   users pick it up when that reaches `develop` (see 4a).
 - The submodule switch to `max-sdk-base` is the right move; regenerate all bindings against it
   (3d) in the same change so mac/windows are not left on the 2021 headers.

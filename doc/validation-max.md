@@ -5,7 +5,7 @@ Max's implementation of the C API. Record the Max version, OS, architecture, Ove
 Scheduler in Audio Interrupt settings with each result below. An unchecked item is unverified.
 
 Build an example from its directory with `cargo make package`; `cargo make install` copies it
-into the Max 9 user Packages folder (`MAX_VERSION=8` selects Max 8). Restart Max after replacing
+into the Max 9 user Packages folder (`MAX_VERSION="Max 8"` selects Max 8). Restart Max after replacing
 an already loaded external.
 
 The [validation fixtures](../median/examples/validation/README.md) provide four runnable

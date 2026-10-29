@@ -2,4 +2,4 @@
 # Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # rustfmt all crates, examples and the template
-9f2760c66061ff2429ac6e720d0192f5791c6c7b
+aa69fc076825be4c837b403c8fd48a8f26c521ec

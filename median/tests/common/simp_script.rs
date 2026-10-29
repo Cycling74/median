@@ -73,6 +73,8 @@ pub fn run(k: &Kernel, class: &str) -> Vec<String> {
     //the inlets: float (`ft1`), int (`in2`), proxy
     k.send_inlet(obj, 1, "float", &[Atom::Float(1.5)]).unwrap();
     k.send_inlet(obj, 2, "int", &[Atom::Long(7)]).unwrap();
+    //the typed inlet calls `int` directly; a proxy dispatches the registered `proxied` method
+    k.send_inlet(obj, 3, "int", &[Atom::Long(9)]).unwrap();
     k.send_inlet(obj, 3, "bang", &[]).unwrap();
     drain(k, obj, &mut t);
     t.push(format!("advance {}", k.advance(10.)));
@@ -110,11 +112,11 @@ pub const EXPECTED: &[&str] = &[
     "post obj: from rust 0 inlet 0",
     "advance 1",
     "post global: clocked",
-    "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
-    "post global: from rust 5 inlet 0",
+    "outlet 0 list [Long(0), Float(0.0), Sym(\"foo\")]",
+    "post global: proxied from rust 5 inlet 0",
     "touches 1",
     "value [Long(5)]",
-    "post global: from rust 500 inlet 0",
+    "post global: proxied from rust 500 inlet 0",
     //the field holds 500, the attribute's clip applies when it is got
     "value [Long(100)]",
     "value [Long(0)]",
@@ -126,13 +128,14 @@ pub const EXPECTED: &[&str] = &[
     //`set` without a name returns `Err`, posted by the default `report_error`
     "error obj: set needs a name",
     "post global: got float 1.5",
-    "post global: from rust 7 inlet 0",
-    "post obj: from rust 7 inlet 3",
+    "post global: direct int from rust 7 inlet 0",
+    "post global: proxied from rust 9 inlet 3",
+    "post obj: from rust 9 inlet 3",
     "advance 1",
     "post global: clocked",
-    "outlet 0 list [Long(1), Float(12.0), Sym(\"foo\")]",
+    "outlet 0 list [Long(9), Float(2.5), Sym(\"foo\")]",
     "main queue 3",
-    "post obj: value is now 7",
+    "post obj: value is now 9",
     "post obj: read 1 argument(s) on the main thread",
     "live 0",
 ];

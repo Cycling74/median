@@ -498,6 +498,15 @@ Started 2026-10-21 from `xnor/review` after step 1. One commit (or a short serie
 
 ### Where things stand (handoff, 2026-10-23)
 
+Rebased onto `develop` at `adeb3c7` on 2026-10-29. Both `simp` styles preserve the
+separate typed integer inlet callback (`int`) and registered integer message method
+(`proxied`), and the clock outputs the current integer/float values. Their shared mock
+script exercises leftmost, typed and proxy integer dispatch. The packaging tasks and
+vendored template use develop's `MAX_VERSION="Max 8"` override spelling (default `Max 9`).
+Workspace build/tests (including UI and doctests), strict Clippy, formatting and both
+standalone `simp` builds passed after the rebase. These changes have not been run in Max.
+
+
 - Continuation: the user deferred the 0.2.x backport and authorized examples/validation and
   steps 3–5. The baseline `median` and `median-mock` tests passed again. `simplemax` is now
   ported from the SDK, including registration/creation posts, argument inspection and inlet

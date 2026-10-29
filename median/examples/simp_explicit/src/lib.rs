@@ -73,7 +73,7 @@ impl Methods for SimpExplicit {
         W: WrapperWrapped<Self> + MaxObjHeader,
     {
         c.add_bang(Self::bang)?;
-        c.add_int(Self::int)?;
+        c.add_int(Self::proxied)?;
         c.add_list(Self::list)?;
         c.add_any(Self::baz)?;
         //the selector, the method, and how many of its last arguments may be left out
@@ -133,11 +133,21 @@ impl SimpExplicit {
         self.clock.delay(10);
     }
 
+    //the typed integer inlet calls this method directly
     pub fn int(&self, v: t_atom_long) {
         let i = self.obj.proxy_inlet();
         self.value.set(v);
         let _ = self.obj.attr_touch_with_name(c"value");
-        post!("from rust {} inlet {}", self.value, i);
+        post!("direct int from rust {} inlet {}", self.value, i);
+        self.changed.set();
+    }
+
+    //registered as "int": called by the leftmost and proxy inlets
+    pub fn proxied(&self, v: t_atom_long) {
+        let i = self.obj.proxy_inlet();
+        self.value.set(v);
+        let _ = self.obj.attr_touch_with_name(c"value");
+        post!("proxied from rust {} inlet {}", self.value, i);
         self.changed.set();
     }
 
@@ -206,9 +216,11 @@ impl SimpExplicit {
 
     pub fn clocked(&self) {
         post("clocked".to_string());
-        let _ = self
-            .list_out
-            .send(&[1i64.into(), 12f64.into(), SymbolRef::from(c"foo").into()]);
+        let _ = self.list_out.send(&[
+            self.value.get().into(),
+            self.fvalue.get().into(),
+            SymbolRef::from(c"foo").into(),
+        ]);
     }
 }
 

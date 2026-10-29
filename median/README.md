@@ -139,7 +139,7 @@ and Linux hosts are not currently supported.
 
 Template projects vendor the packaging tasks and `PkgInfo`; their builds do not download task
 files from a moving branch. `cargo make install` targets the Max 9 user Packages folder by
-default (`MAX_VERSION=8` selects Max 8).
+default (`MAX_VERSION="Max 8"` selects Max 8).
 
 ## Dictionaries and Jitter
 

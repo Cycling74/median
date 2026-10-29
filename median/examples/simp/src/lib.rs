@@ -83,7 +83,7 @@ impl Simp {
         self.changed.set();
     }
 
-    //an "int" method: takes 1 argument other than &self, of type t_atom_long
+    //an "int" method for the leftmost and proxy inlets; the typed inlet uses `int` above
     #[int]
     pub fn proxied(&self, v: t_atom_long) {
         let i = self.obj.proxy_inlet();
