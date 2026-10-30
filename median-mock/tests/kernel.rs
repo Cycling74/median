@@ -167,15 +167,13 @@ extern "C" fn thing_tick(x: *mut Thing) {
                     max_sys::clock_fdelay((*x).clock, 5.0);
                 }
             }
-            3 => {
+            3 if (*x).qcalls == 0 => {
                 // the first time: reschedule ourselves and fire nested, as a modal dialog's
                 // event loop would with Overdrive off
-                if (*x).qcalls == 0 {
-                    (*x).qcalls += 1;
-                    max_sys::clock_fdelay((*x).clock, 1.0);
-                    assert_eq!(median_mock::Kernel::advance_nested(1.0), 1);
-                    TICKS.lock().unwrap().push(((*x).id, -1.0, true));
-                }
+                (*x).qcalls += 1;
+                max_sys::clock_fdelay((*x).clock, 1.0);
+                assert_eq!(median_mock::Kernel::advance_nested(1.0), 1);
+                TICKS.lock().unwrap().push(((*x).id, -1.0, true));
             }
             _ => {}
         }
