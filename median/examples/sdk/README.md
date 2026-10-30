@@ -21,6 +21,13 @@ registers `jit.median.simple`), and their Jitter core classes `median_jit.median
 Jitter GL classes are `jit.gl.median.<name>` (`jit.gl.median.cube` in crate `jit_gl_cube`);
 `gl/jit.gl.simple` is ported separately as `median/examples/jit_gl_simple`.
 
+## Coverage
+
+The SDK has 108 examples (`source/<category>/<name>`). 72 are ported here, in 74 crates
+(`advanced/dllexample` is `mydll`, `dllcounter` and `dllreport`). 3 are ported elsewhere in
+`median/examples`: `simplemax`, `jit_scalebias` and `jit_gl_simple`. The other 33 are not ported;
+[GAPS.md](GAPS.md) lists them under "Not ported" with what blocks each.
+
 ## Gaps
 
 Where median has no safe API for something an example needs, the port calls `max_sys` directly,

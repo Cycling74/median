@@ -27,6 +27,7 @@ recovers the wrapper from the object pointer and calls `median::ffi::guard`, whi
 - simpletext: `edclose(x, char **text, long size)`, the `jed` editor's close callback, is
   registered raw.
 - mc.pack~: `helpname(x, char *)` is registered raw and writes the class name.
+- sheep: `shepherd_moved` (no arguments) is registered raw, as dummy's `blooop`.
 - jit.gl.gridshape: leaves out `get_cache` (it hands out the internal `jit.gl.mesh`'s cache,
   which the port does not have) and `multiple_draw_begin`/`multiple_draw_end` (`jit.gl.multiple`
   calls them around its iterations so the shape is recalculated once); every draw checks
@@ -430,6 +431,30 @@ No API adds a set filter to an attribute, and the ob3d's attributes are not medi
 - jit.gl.gridshape: leaves out the C's filter on `color`, which recolours the mesh at once; the
   colour is read on every draw.
 
+### UI
+
+#### `jbox` UI objects (`t_jbox`, `t_pxjbox`, `jbox_initclass`, `jgraphics`)
+
+A UI object must begin with a `t_jbox` (`t_pxjbox` for MSP), because `jbox_new` initialises that
+header in place and `jbox_initclass` adds attributes at offsets inside it. median's `Wrapper` is
+`#[repr(C)]` with a `t_object` or `t_pxobject` header and median's own fields right after it, so a
+`t_jbox` in the user struct is never at offset 0, and `WrapperInternal` is sealed to those two
+headers. A port would need a raw `class_new` struct or offset-based pointer recovery, both
+excluded.
+
+median would need a wrapper with a `t_jbox` or `t_pxjbox` header and a derive to select it;
+`jbox_initclass`, `jbox_new`, `jbox_ready` and `jbox_free` around the builder, with the box
+dictionary (`object_dictionaryarg`, `attr_dictionary_process`); markers for `paint`, the mouse
+and key methods, `getdrawparams`, `oksize`, `getvalueof`/`setvalueof` and the drag methods, and a
+default `notify` that ends in `jbox_notify`; `jbox_redraw` and the layer cache from `&self`; a
+`jgraphics` context borrowed for one `paint`, and image surfaces; `rgba` attributes and the
+`PAINT` flag; `class_dspinitjbox` and `dsp_setupjbox`/`dsp_freejbox` for MSP; the text field
+(`jbox_get_textfield`, `textfield_*`); and `jdataview`. max-sys binds all of these; `median-mock`
+has none.
+
+- jslider, uioptimized, uires, uisimp, uitester, uitextfield, scripto, pictmeter~, gridmeter~,
+  dbviewer: not ported.
+
 ### Objects, registration and notification
 
 #### `object_notify` with data, and notification data
@@ -453,24 +478,58 @@ uses it only as a collision test), and no retain/release of a shared NOBOX objec
 #### `object_new` of other classes, and messages and attributes of other objects
 
 No way to own a `t_object` made with `object_new`, call another object's method
-(`object_method`), or read or set its attributes (`object_attr_getobj`, `object_attr_get_rect`,
+(`object_method`, `typedmess`), or read or set its attributes (`object_attr_getobj`,
+`object_attr_getsym`, `object_attr_get_rect`, `object_attr_set_rect`,
 `object_attr_setchar`/`setsym`).
 
 - simpletext: opens Max's text editor (`jed`) raw, keeps it in an `AtomicPtr` and frees it on
   drop.
 - windowwatcher: reads the patcher's `firstview` and the view's `rect`/`visiblecanvasrect` raw,
   and calls `getname` on the attribute an `attr_modified` notification carries.
+- iterate2: sends `front` to a patcher with raw `typedmess`.
+- iterator: calls `getname` on an attribute, reads the view's `rect` and its box's
+  `patching_rect` with `object_attr_get_rect` and sets the latter with `object_attr_set_rect` (the
+  C uses `object_attr_getvalueof`/`setvalueof`; same values, no atoms to free).
+- whosyourdaddy: `object_attr_getsym(jp, "filepath")` and `object_method(jp, "getassoc", ..)`,
+  raw.
 
 #### Patcher access and attaching by pointer
 
-No way to find the object's patcher or box (`object_obex_lookup` `#P`/`#B`);
-`notify::Attachment` attaches by namespace and name only, not to an object by pointer
-(`object_attach_byptr_register`, `object_detach_byptr`).
+No way to find the object's patcher or box (`object_obex_lookup` `#P`/`#B`, or `#P`'s
+`s_thing` during `new`); `notify::Attachment` attaches by namespace and name only, not to an
+object by pointer (`object_attach_byptr_register`, `object_detach_byptr`). There are no patcher
+or box accessors (`jpatcher_get_firstobject`, `jbox_get_nextobject`, `jbox_get_object`,
+`jbox_get_patcher`, `jbox_get_varname`, ...) and no patcher iteration (`object_method(jp,
+"iterate", ..)`); the `PI_*` flags (`ext_maxtypes.h`) are not in max-sys.
 
 - windowwatcher: looks up `#P` raw and keeps the patcher pointer (the patcher outlives its
   boxes); attaches to the view raw in a queue callback, detaches on the view's `free`
   notification and on drop, and keeps the view in an `AtomicPtr` that is null whenever it is not
   attached.
+- howbigisyourp: iterates raw, counting into a `&mut HashMap` passed as the callback argument;
+  skips a `newobj` box with no object (the C asks a null object for its class).
+- iterate2: iterates raw; the callback argument is the `ObjRef` (bang) or the wanted name
+  (`open_subpatcher`), so the name is not stored in the object.
+- iterator: walks the boxes raw, looks up `#B` raw, and attaches to the first view as
+  windowwatcher does.
+- whosyourdaddy: all of it raw, including `zgetfn(target, "parentpatcher")` called through a
+  transmuted function pointer.
+- sheep: reads `#P`'s `s_thing` raw in `new` (the obex has no `#P` yet), and looks up `#P` in the
+  obex on drop.
+- shepherd: attaches by pointer raw to the hashtab (`object_attach_byptr_register`) and to each
+  sheep (`object_attach_byptr`), detaching on drop.
+
+#### Max hashtabs and an object's obex (`hashtab_*`, `object_obex_store`)
+
+No hashtab and no obex store. An object shared between externals through a patcher's obex, whose
+notifications matter (`hashtab_entry_new`, `hashtab_entry_free`), cannot be a std collection.
+
+- sheep: `hashtab_new`, `object_obex_store(jp, "sheephash", ..)`, `hashtab_storeflags(..,
+  OBJ_FLAG_REF)`, and `hashtab_chuckkey` on drop, all raw.
+- shepherd: the same lookup and creation; `hashtab_funall` to attach to or detach from each
+  value, `hashtab_lookup`/`hashtab_getsize` in `notify`, `hashtab_methodall(ht,
+  "shepherd_moved")` for `boo`. It acts on hashtab notifications only from its own hashtab (the C
+  treats any sender as a hashtab), and forgets the hashtab on its `free` notification.
 
 #### `quittask_install`
 
@@ -484,6 +543,7 @@ No way to run code when Max quits.
 No safe way to get a unique symbol; `Dict::register(None)` gets one only for a dictionary.
 
 - dummy: calls `max_sys::symbol_unique` when there is no name argument.
+- sheep: calls it for its registered name.
 
 #### `gettime_forobject`
 
@@ -594,6 +654,16 @@ messages; copying atoms goes through `get_value`.
 - jit.alphablend, jit.charmap, jit.rgb2luma, jit.p.bounds: pass `*const Atom` as the atom array
   of the variadic `jit_object_method`.
 
+### Raw iteration callbacks take a context pointer
+
+`iterate` and `hashtab_funall` call an `extern "C"` function with a `void *`. The ports pass a
+pointer to a local and cast it back in the callback; `hashtab_funall` takes the SDK's `method`
+type, so a typed callback is transmuted.
+
+- howbigisyourp, iterate2: `object_method(.., "iterate", ..)` with a `&mut HashMap`, `&ObjRef`
+  or `&SymbolRef`.
+- shepherd: `hashtab_funall`.
+
 ### Outlets refuse object atoms
 
 `Outlet::send` rejects a message holding an object atom, which the SDK sends as is.
@@ -627,6 +697,7 @@ They are `Send` only, so an object that keeps one must wrap it in a `Mutex` it n
 
 - master: the conduit keeps `Mutex<Registration>`.
 - servant: keeps `Mutex<Subscription>`.
+- sheep: keeps `Mutex<Option<Registration>>` (none outside a patcher).
 
 ### `MaxObjWrapper::new` panics when `new` refuses
 
@@ -749,8 +820,15 @@ those paths are untested.
   folder only the count with no folder and the `types` parsing.
 - `expr_new`/`expr_eval`: a vexpr cannot be made; its tests cover registration and the
   evaluation loop with a stand-in evaluator.
-- Patchers (`#P` in `object_obex_lookup`, `object_attr_getobj`, `object_attach_byptr_register`,
-  `object_attr_get_rect`): windowwatcher tests only an object outside a patcher.
+- Patchers (`#P` in `object_obex_lookup` and its `s_thing`, `object_attr_getobj`,
+  `object_attach_byptr_register`, `object_attr_get_rect`, the variadic `object_method`):
+  windowwatcher, iterate2, iterator and whosyourdaddy test only an object outside a patcher;
+  howbigisyourp tests `bang` outside a patcher and `dump` with counts filled in directly.
+- Hashtabs and attaching by pointer (`hashtab_new`, `hashtab_funall`, `hashtab_methodall`,
+  `object_attach_byptr`): sheep tests an object outside a patcher (unregistered, so `baah`
+  notifies no one) and `shepherd_moved` called directly; shepherd tests an object outside a
+  patcher and the `sheep` notification from a stand-in object attached by name. Registration,
+  the hashtab, attaching to sheep, `boo` and the hashtab notifications are untested.
 - `dictobj_validate`, `dictobj_key_parse`: dict.route's routing and dict.strip's key paths
   (`a::b`, `a[0]`).
 - `path_toabsolutesystempath`: filebyte tests only the missing-file errors, a cancelled dialog
@@ -874,10 +952,11 @@ The crates are `cdylib` only, so one crate's test cannot register another crate'
 
 ## Not ported
 
-The SDK examples with no port, and the gaps above that block them. `matrix/jit.scalebias` is
-ported separately as `median/examples/jit_scalebias`, and `gl/jit.gl.simple` as
-`median/examples/jit_gl_simple`. Every `gl` example is ported; the `patcher` and `ui` categories
-are not started yet.
+The SDK examples with no port, and the gaps above that block them. Every category has been
+surveyed. Every SDK example under `max-sys/thirdparty/max-sdk/source` is a crate in this
+workspace, one of three ported elsewhere in `median/examples` (`basics/simplemax` as
+`simplemax`, `matrix/jit.scalebias` as `jit_scalebias`, `gl/jit.gl.simple` as `jit_gl_simple`),
+or listed here.
 
 ### matrix
 
@@ -927,9 +1006,46 @@ are not started yet.
   a data pointer kept across `perform` calls); dumpout.
 - simplejit~: Jitter in MSP objects (an MSP wrapper around a MOP core).
 
+### patcher
+
+- scripto: `jbox` UI objects (its `scripto_ui` class); `object_new` of other classes
+  (`object_new_typed` of a `jpatcher`, `newobject_sprintf`); `atom_setparse`; attaching by
+  pointer (`object_attach_byptr_register`); `object_notify` with data (`cellclicked` passes a
+  `t_celldesc *`).
+
+### ui
+
+- jslider: `jbox` UI objects (paint with paths, arcs and curves; `mousedown`/`mousedragdelta`/
+  `mouseup` with `jmouse_setposition_box`; `getvalueof`/`setvalueof` for pattr; `stdargs`,
+  `jbox_processlegacydefaults` and legacy rgba attributes; dictionary values read in `new`);
+  `CLASS_ATTR_CHAR`; `preset` (`binbuf_vinsert` into the `#preset` binbuf).
+- uioptimized: `jbox` UI objects (paint through the layer cache, invalidated when an rgba
+  attribute or the hovered rectangle changes; `mousemove`/`mouseleave` hit testing; a
+  `rectangle` attribute whose setter invalidates the layer).
+- uires: `jbox` UI objects (paint of image surfaces from the bundle's resources with
+  `jgraphics_image_surface_create_from_resource`; mouse methods swapping images; `JBOX_HILITE`).
+- uisimp (and its steps uisimp2 to uisimp5): `jbox` UI objects (paint; mouse tracking;
+  `getdrawparams`; rgba `bgcolor`/`bordercolor`/`hilitecolor` and the box `color` from
+  `JBOX_COLOR`, `JBOX_FONTATTR`); `CLASS_ATTR_CHAR`.
+- uitester: `jbox` UI objects (paint exercising most of jgraphics: matrices, patterns, dashes,
+  fonts, `jtextlayout`, image surfaces drawn, scrolled and set pixel by pixel; `mouseenter`
+  cursors with `jmouse_setcursor`; `size` with `jbox_set_size`); `read` of an image file
+  (`open_dialog`, `locatefile_extended`, `jgraphics_image_surface_create_from_file`).
+- uitextfield: `jbox` UI objects (a `JBOX_TEXTFIELD` box: `jbox_get_textfield` and the
+  `textfield_*` setters; text editing through `key`, `keyfilter`, `enter`, `select`; `jsave` and
+  dictionary values read in `new` to save and restore the text; rgba `textcolor`/`bgfillcolor`).
+
 ### Other categories
 
-median has no `jbox` UI objects, so these have no heading above.
-
-- audio/pictmeter~, mc/gridmeter~: a `jbox` UI object that is also an MSP object.
-- advanced/dbviewer: a `jbox` UI object with a `jdataview`; databases.
+- audio/pictmeter~: `jbox` UI objects that are MSP objects (`t_pxjbox`, `dsp_setupjbox`/
+  `dsp_freejbox`; paint of an image surface scaled by the signal level, redrawn from a clock;
+  `acceptsdrag_locked`/`acceptsdrag_unlocked` for file drops); `read` with `open_dialog`/
+  `locatefile_extended` and `jgraphics_image_surface_create_referenced`.
+- mc/gridmeter~: `jbox` UI objects that are MSP objects (`t_pxjbox`, `dsp_setupjbox`/
+  `dsp_freejbox`; paint of a grid of per-channel levels, redrawn from a clock; `oksize`
+  resizing; `jbox_notify`); `z_misc` flags (`Z_MC_INLETS`); `dsp64` `count[]` (it sizes the grid
+  with `getnuminputchannels`); its `multichannelsignal` method.
+- advanced/dbviewer: `jbox` UI objects (a `jdataview` client: `jdataview_new`/`setclient`,
+  `newpatcherview`/`freepatcherview` with `jdataview_patchervis`/`patcherinvis`, columns and
+  rows, `getcelltext`; `jbox_notify`); databases (`db_open`, `db_view_create`,
+  `db_view_getresult`, `db_view_remove`, `db_close`); dumpout (`object_obex_dumpout`).
