@@ -18,6 +18,8 @@ package's `init/`.
 Jitter matrix classes are `jit.median.<name>` (`jit.median.clip` in crate `jit_clip`; `simplejit`
 registers `jit.median.simple`), and their Jitter core classes `median_jit.median.<name>`.
 `matrix/jit.scalebias` is ported separately as `median/examples/jit_scalebias`.
+Jitter GL classes are `jit.gl.median.<name>` (`jit.gl.median.cube` in crate `jit_gl_cube`);
+`gl/jit.gl.simple` is ported separately as `median/examples/jit_gl_simple`.
 
 ## Gaps
 

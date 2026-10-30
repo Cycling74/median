@@ -27,6 +27,10 @@ recovers the wrapper from the object pointer and calls `median::ffi::guard`, whi
 - simpletext: `edclose(x, char **text, long size)`, the `jed` editor's close callback, is
   registered raw.
 - mc.pack~: `helpname(x, char *)` is registered raw and writes the class name.
+- jit.gl.gridshape: leaves out `get_cache` (it hands out the internal `jit.gl.mesh`'s cache,
+  which the port does not have) and `multiple_draw_begin`/`multiple_draw_end` (`jit.gl.multiple`
+  calls them around its iterations so the shape is recalculated once); every draw checks
+  whether to recalculate instead.
 
 #### `CLASS_METHOD_ATTR_PARSE`
 
@@ -35,6 +39,7 @@ gimmeback methods undocumented with a crate-private helper.
 
 - dummy: marks `identify` undocumented and `blooop` documentable through
   `class_extra_lookup`/`hashtab_lookup`/`object_addattr_parse`.
+- jit.gl.gridshape: `rebuild` is not marked undocumented.
 
 #### `object_addmethod`
 
@@ -76,6 +81,9 @@ though `AttrType::Char` exists.
   `Int64`.
 - jit.spill: `plane` is `Int64`.
 - jit.histogram: `autoclear` and `normalize` are `Int64` with `style = "onoff"`.
+- jit.gl.videoplane: `displaylist` (`style = "onoff"`) and `gridmode` (enum "trigrid
+  quadgrid") are `Int64`.
+- jit.gl.gridshape: `gridmode` is `Int64` with `style = "onoff"`.
 
 #### `CLASS_ATTR_BASIC`
 
@@ -95,6 +103,7 @@ No attribute option marks an attribute basic (shown in the inspector's basic vie
 - jit.3m: `min`, `mean` and `max` are not basic.
 - jit.findbounds: `min` and `max` are not basic.
 - jit.histogram: `normval`, `autoclear` and `normalize` are not basic.
+- jit.gl.gridshape: `shape` and `dim` are not basic.
 
 #### `CLASS_ATTR_SYM_VARSIZE` (array attributes)
 
@@ -119,6 +128,9 @@ value, which is boxed outside the Jitter object. The Jitter ports register the a
 - jit.spill: `offset`.
 - jit.turtle: `origin` (a `long[2]` with a count); the accessors keep the count, so a one-value
   set reads back as one value.
+- jit.gl.videoplane, jit.gl.gridshape: `dim` (two `long`s, each at least 2, which the C gets
+  from `jit_attr_addfilterset_clip`); a one-value set changes the first dimension only. The C
+  sends `dim` to its chunk's vertex matrix and reads the result back.
 
 How the inspector shows these attributes is untested.
 
@@ -294,6 +306,8 @@ check of its class, or attachment to it.
 
 - jit.dimmap, jit.thin, jit.coerce, jit.submatrix, jit.fill, jit.iter, jit.print, jit.glue,
   jit.pack, jit.str.op, jit.peek~, jit.poke~: not ported.
+- jit.gl.videoplane: `jit_matrix` checks the name with raw `jit_object_findregistered` before
+  handing the message to its texture.
 
 #### Other Jitter classes (`jit_class_findbyname`, non-MOP Jitter classes)
 
@@ -328,6 +342,11 @@ thread. Every SDK matrix example creates its attributes with these flags.
   jit.rgb2luma, jit.gradient, jit.p.bounds, jit.concat, jit.split, jit.demultiplex, jit.3m,
   jit.findbounds, jit.spill, jit.histogram, jit.turtle: every attribute runs on the calling
   thread; `calc` reads them from atomics or under a `Mutex`.
+- jit.gl.videoplane, jit.gl.gridshape: the same, with `draw` reading them. Methods registered on
+  the Jitter class through `Class` carry no thread flag either: jit.gl.videoplane's
+  `jit_matrix` is not `A_USURP_LOW`, and its `sendtexture` (`A_DEFER_LOW` in the C) is a
+  `#[defer_low]` method of the Max object instead, so a Jitter object made without one (from
+  JavaScript, say) has no `sendtexture`.
 
 #### Dumpout and outlet placement (`max_jit_obex_dumpout_set`, `max_jit_classex_standard_wrap`)
 
@@ -352,6 +371,64 @@ No median wrapper, and not in median-mock.
 `median::jit::matrix::parallel` has `calc2` and `calc3` only.
 
 - jit.3m (simplecalc1), jit.keyscreen (simplecalc4): serial.
+
+### Jitter GL
+
+#### GL chunks kept across draws (`jit_glchunk_new` outside a GL callback)
+
+`GLChunk` borrows the `DrawContext` of one `Ob3d` callback, so an object cannot keep a chunk
+between draws, or build one in `new` or an attribute setter, as the C examples do.
+
+- jit.gl.cube: builds its chunk from a constant table on every draw.
+- jit.gl.videoplane, jit.gl.gridshape: keep the vertices in a `Vec` under a `Mutex`,
+  recalculated when an attribute marks them stale, and copy them into a chunk made on every
+  draw.
+
+#### Raw OpenGL and display lists (`glBegin`, `glVertex3f`, `glNewList`, `glCallList`)
+
+`median::max_sys` has no OpenGL bindings, and median nothing between `jit_ob3d_draw_chunk` and
+the `jit_gl_immediate_*` calls. The C examples draw their grids in immediate mode, and cache
+them in a display list made in `draw` and freed in `dest_closing`, unless `matrixoutput` is on.
+
+- jit.gl.videoplane, jit.gl.gridshape: draw with `jit_ob3d_draw_chunk` in both modes, a
+  `quad_grid` or `tri_grid` chunk by `gridmode` (the C's `GL_QUAD_STRIP`/`GL_TRIANGLE_STRIP`);
+  `displaylist` is an attribute that only marks the geometry stale, and `dest_closing` has
+  nothing to free. That `jit_ob3d_draw_chunk` draws such a chunk as the C's strips do is
+  unverified in Max.
+
+#### Internal Jitter GL objects (`jit_object_new` of `jit_gl_texture`, `jit_gl_mesh`)
+
+An ob3d cannot own another Jitter object through median: no handle for it, and no safe
+`jit_attr_set*`/`jit_object_method`/`object_method_typed` on it.
+
+- jit.gl.videoplane: makes its `jit_gl_texture` with raw `jit_object_new`, keeps it in an
+  `AtomicPtr` freed in `Drop`, and sets its attributes (`name`, `defaultimage`, `rectangle`,
+  `mode`, `filter`, `colormode`, `drawto`) and forwards `jit_matrix` and `sendtexture` to it
+  raw. `texturename` comes from raw `jit_symbol_unique`.
+- jit.gl.gridshape: leaves out the C's internal `jit.gl.mesh` (which draws unless `cache_mode`
+  is `immediate`), the tangent matrix it feeds it, and `get_cache`; `cache_mode` only marks the
+  geometry stale.
+
+#### ob3d attributes and methods (`getcolor`, `matrixoutput`, `boundcalc`, `calcbounds`, `texture`)
+
+`DrawContext` and `JitObjRef` do not expose the attributes and methods that `jit_ob3d_setup`
+adds to the class.
+
+- jit.gl.videoplane, jit.gl.gridshape: read the colour with raw `jit_object_method(x, getcolor,
+  &ac, &av)` and free it with `jit_freebytes`, and after drawing read `boundcalc` (and, in
+  jit.gl.videoplane, `matrixoutput`) with raw `jit_attr_getlong` and send `calcbounds` with the
+  chunk.
+- jit.gl.videoplane: sets the ob3d's `texture` with raw `jit_attr_setsym`. The C's `color 1 1 1
+  1` in `new` (the default) is left out.
+
+#### Attribute filters (`jit_attr_addfilterset_proc`)
+
+No API adds a set filter to an attribute, and the ob3d's attributes are not median's.
+
+- jit.gl.videoplane: adds a raw filter to the class's `drawto` that passes the destination on
+  to its texture, if `jit_class_attr_get` finds the attribute.
+- jit.gl.gridshape: leaves out the C's filter on `color`, which recolours the mesh at once; the
+  colour is read on every draw.
 
 ### Objects, registration and notification
 
@@ -590,6 +667,8 @@ and a getter allocates its atoms with `jit_getbytes`, which median does not wrap
 
 - jit.map, jit.fluoride, jit.gradient, jit.p.bounds, jit.3m, jit.findbounds, jit.spill: all of
   that, with raw `jit_getbytes`.
+- jit.gl.videoplane, jit.gl.gridshape: the same for `dim` on `Core<Self, GlKind>` (`GlKind` is
+  `#[doc(hidden)]` too); jit.gl.videoplane's `drawto` filter is such an accessor as well.
 
 ### No cell for state only `perform` writes
 
@@ -686,6 +765,10 @@ those paths are untested.
 - `jit_rand`: jit.p.bounds uses its own generator; the tests check only that `squish_var` varies
   the bounce within its range.
 - `object_obex_dumpout`: jit.turtle has an ordinary outlet instead.
+- `jit_attr_getlong`, `jit_attr_setsym`, `jit_attr_setlong`, `jit_symbol_unique`,
+  `jit_object_findregistered`, `jit_attr_addfilterset_proc`: jit.gl.videoplane and
+  jit.gl.gridshape read `boundcalc`/`matrixoutput` under `#[cfg(not(test))]`; the rest runs only
+  with a texture, or for `texturename` and `drawto`, which the tests do not set.
 
 ### `dictobj_dictionaryfromatoms` parses only `key: value` pairs
 
@@ -760,6 +843,19 @@ The mock answers `getinput` and `getoutput` with null ("unsupported Jitter metho
   ranges, and the sequence of matrix calls `calc` makes (read from the console); the resized and
   copied data are untested.
 
+### Jitter GL
+
+The mock has no Jitter GL classes and none of the ob3d's own attributes and methods; its chunks
+are CPU matrices that nothing reads.
+
+- jit.gl.videoplane: `jit_object_new` of `jit_gl_texture` returns null, so the tests cover an
+  object without a texture (its error, and `jit_matrix` and `sendtexture` doing nothing).
+- jit.gl.videoplane, jit.gl.gridshape: `getcolor` is refused with a console error, so the
+  colour is the default white; `drawto` is not on the class, so the filter is not added.
+- jit.gl.cube, jit.gl.videoplane, jit.gl.gridshape: the tests check that `draw` makes, draws and
+  releases a chunk; what it holds is checked only through the geometry functions (and the
+  cube's table), not through the chunk.
+
 ### Jitter class registration happens once per process
 
 median registers a Jitter class once per process and the mock keeps classes across kernel
@@ -779,8 +875,9 @@ The crates are `cdylib` only, so one crate's test cannot register another crate'
 ## Not ported
 
 The SDK examples with no port, and the gaps above that block them. `matrix/jit.scalebias` is
-ported separately as `median/examples/jit_scalebias`. The `gl`, `patcher` and `ui` categories are
-not started yet.
+ported separately as `median/examples/jit_scalebias`, and `gl/jit.gl.simple` as
+`median/examples/jit_gl_simple`. Every `gl` example is ported; the `patcher` and `ui` categories
+are not started yet.
 
 ### matrix
 
