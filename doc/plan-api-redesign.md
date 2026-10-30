@@ -608,11 +608,11 @@ standalone `simp` builds passed after the rebase. These changes have not been ru
     Jitter glue registers its forwarding `notify` the same way, still only when the SDK wrapper
     installed none. A `#[notify]`/`add_notify` on a Jitter type is a `cargo build` error
     (`MaxObjHeader::SUPPORTS_NOTIFY` is false for the forwarding wrapper; a post-monomorphisation
-    assert, `ui/jitter_notify`): the SDK wrapper owns `notify` and the glue forwards it to
-    `JitterObject::notify` (`MatrixOp`/`Ob3d` get it through the blanket impl). For that
-    case the trybuild suite now has a pass case (`tests/ui_pass`), so it builds rather than
-    checks and those asserts fire. `#[notify]` cannot be deferred (a `Notification` holds raw
-    pointers). `simp`/`simp_explicit` show both styles; `tests/notify.rs`, `ui/methods_notify`.
+    assert, `tests/compile/jitter_notify`): the SDK wrapper owns `notify` and the glue forwards it to
+    `JitterObject::notify` (`MatrixOp`/`Ob3d` get it through the blanket impl). The
+    compilation runner (`tests/compile.rs`) builds valid and invalid variants, so those
+    asserts fire; `tests/ui_pass` also checks ordinary Max notify registration. `#[notify]` cannot be deferred (a `Notification` holds raw
+    pointers). `simp`/`simp_explicit` show both styles; `tests/notify.rs`, `median_macros/tests/validation/methods_notify.rs`.
   - `b.clock_deferred(f)` / `clock_deferred_with(closure)` (min's `defer_delivery`): a `Clock`
     whose scheduler-thread tick only sets a qelem the `Clock` owns, so the callback runs on the
     main thread at low priority; ticks coalesce while one is queued, a tick during the callback
@@ -738,8 +738,8 @@ standalone `simp` builds passed after the rebase. These changes have not been ru
     including one whose registration panics), `tests/simp.rs` and `tests/simp_explicit.rs` (the
     same script, the same transcript), `tests/multi.rs` (two classes in one `ext_main!`),
     `tests/hello_dsp.rs`, `tests/e2e.rs` (its macro external now uses the derive), unit tests for
-    the accessor trampolines refusing a half-built object, and `tests/ui.rs` (trybuild
-    compile-fail cases for the macro errors).
+    the accessor trampolines refusing a half-built object, and `tests/compile.rs` (isolated compiler/API rejection cases) and direct macro validation
+    tests in `median_macros`; see [the migration plan](plan-compiler-independent-tests.md).
   - Named atom-list selectors now use `#[gimme("name")]`. The old
     `#[sel("name", gimme)]` spelling reports a migration error; `defaults` belongs only to
     typed `#[sel]` methods. Immediate and deferred registration use the same public API.

@@ -13,3 +13,6 @@ proc-macro = true
 quote = "1.0.7"
 syn = { version = "3", features = ["full"] }
 proc-macro2 = "1.0.24"
+
+[dev-dependencies]
+proc-macro2 = { version = "1.0.24", features = ["span-locations"] }

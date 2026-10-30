@@ -7,7 +7,7 @@
 # under max-sys/).
 #
 # Not formatted: the generated bindings (max-sys/src/ffi-*.rs, regenerate them instead) and the
-# trybuild cases (median/tests/ui/*.rs, whose .stderr files record line numbers).
+# macro-validation fixtures (median_macros/tests/validation/*.rs, whose .errors record source lines).
 
 if ! command -v rustfmt > /dev/null 2>&1; then
   echo "rustfmt NOT installed or found in system path."
@@ -18,7 +18,7 @@ fi
 
 STAGED_RS=$(git diff --cached --name-only --diff-filter=ACM \
   | grep '\.rs$' \
-  | grep -v -E '^max-sys/src/ffi-.*\.rs$|^max-sys/thirdparty/|^median/tests/ui/' || true)
+  | grep -v -E '^max-sys/src/ffi-.*\.rs$|^max-sys/thirdparty/|^median_macros/tests/validation/' || true)
 [ -z "${STAGED_RS}" ] && exit 0
 
 CLEAN=""

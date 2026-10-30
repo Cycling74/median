@@ -1,0 +1,3 @@
+8: `#[dictionary]` method must take `(&self, Dict)`
+11: `#[savestate]` method must take `(&self, &Dict)`
+13: dictionary and savestate callbacks cannot be deferred; copy the data explicitly

@@ -1,0 +1,4 @@
+4: `description` must be a string literal
+8: `author` given twice
+12: `tags` is a comma separated list: an entry must not be empty
+16: `tags` is a comma separated list: an entry must not be empty

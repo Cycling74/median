@@ -12,6 +12,9 @@ mod error;
 mod methods;
 mod reserved;
 
+#[cfg(test)]
+mod tests;
+
 /// See `median::MaxObj`.
 #[proc_macro_derive(MaxObj, attributes(max, attr))]
 pub fn derive_max_obj(input: TokenStream) -> TokenStream {

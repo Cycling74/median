@@ -1,0 +1,11 @@
+14: a method can have only one median marker
+17: `#[defer]` goes with a message marker: `#[bang]`, `#[int]`, `#[float]`, `#[sym]`, `#[list]`, `#[any]`, `#[sel(..)]` or `#[gimme(..)]`
+22: a method can have only one of `#[defer]` and `#[defer_low]`
+26: `#[defer_low]` doesn't go with `#[attr]`: attribute accessors aren't deferred
+32: `#[defer]` doesn't go with `#[dblclick]` or `#[loadbang]`: Max calls them on the main thread already
+36: `#[loadbang]` method must take `(&self)`
+39: `#[savestate]` method must take `(&self, &Dict)`
+41: `#[bang]` takes no arguments
+44: unknown option, expected `defaults = n`
+10: `bang` is registered twice in this impl
+13: `bang` is registered twice in this impl

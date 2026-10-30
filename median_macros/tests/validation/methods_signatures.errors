@@ -1,0 +1,11 @@
+8: `#[bang]` method must take `(&self)`
+11: `#[int]` method must take `(&self, t_atom_long)`
+14: `#[float]` method must take `(&self, f64)`
+17: `#[list]` method must take `(&self, &[Atom])`
+20: `#[any]` method must take `(&self, &SymbolRef, &[Atom])`
+23: `#[gimme]` method must take `(&self, &[Atom])`
+26: `#[gimme]` method must take `(&self, &[Atom])`
+29: `#[sel]` method must take `(&self, ..)` with up to 7 arguments, each `f64`, `t_atom_long` or `SymbolRef`
+31: `defaults = 2` is more than the method's 1 argument(s)
+35: `#[attr]` getter must take `(&self)` and return the value (`f64`, `f32`, `t_atom_long` or `SymbolRef`)
+42: `set_foo`, the setter of the `#[attr]` `foo`, must take `(&self, value)`

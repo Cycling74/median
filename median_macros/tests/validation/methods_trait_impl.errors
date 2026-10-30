@@ -1,0 +1,1 @@
+8: #[median::methods] goes on an inherent impl (`impl MyObject { .. }`), not a trait impl

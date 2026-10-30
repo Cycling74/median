@@ -1,0 +1,5 @@
+10: `#[gimmeback]` method must take `(&self, &[Atom])`
+16: `#[gimmeback]` method must take `(&self, &[Atom])`
+21: `dblclick` is an untyped message Max calls with its own arguments, which a typed selector would misread; use `#[dblclick]` instead
+27: `assist` is a selector median registers for itself (inlets, assist, dsp); pick another name
+33: `#[gimmeback]` takes only a selector name; it receives all the atoms

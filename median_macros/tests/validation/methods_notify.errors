@@ -1,0 +1,4 @@
+8: `#[notify]` method must take `(&self, &Notification)`
+11: `#[notify]` method must take `(&self, &Notification)`
+18: notify callbacks cannot be deferred; a notification is valid only during the call, copy the data explicitly
+30: `notify` is registered twice in this impl

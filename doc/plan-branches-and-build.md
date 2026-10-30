@@ -44,7 +44,8 @@ Work in progress on `xnor/api-redesign`; the 0.2.x clock backport is deferred by
   locally. max-sys disables doctests because its generated SDK docs contain C examples;
   median's Rust doctests stay enabled. Intel macOS and Windows GNU workspace/all-targets
   cross-checks pass; those are compilation checks, not native execution. Rust 1.85.0 now passes
-  workspace tests/doctests (UI snapshots stay on stable) and the optional binding-generator
+  workspace tests/doctests (the former UI snapshots are now compiler-independent rejection
+  tests; see [the migration plan](plan-compiler-independent-tests.md)) and the optional binding-generator
   check on Apple Silicon. CI has a separate minimum-version job. No minimum-version bump was
   needed; two CString comparisons and a version-dependent Debug expectation in tests were fixed.
 - Containers: core ownership/locking, registry, atomarray builders and dictionary/save message

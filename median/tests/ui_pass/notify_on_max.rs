@@ -1,6 +1,4 @@
-// built (not only checked), because trybuild only builds when a suite has a passing case and
-// the post-monomorphisation checks of the `jitter_notify` case need that: a `#[notify]` method
-// on an ordinary Max type must keep compiling
+// An ordinary Max object may register notify; the Jitter rejection must not affect it.
 use median::{notify::Notification, prelude::*};
 use median_mock as _;
 

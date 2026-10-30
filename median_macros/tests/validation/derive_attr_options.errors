@@ -1,0 +1,6 @@
+5: `save` given twice
+11: expected string literal
+17: expected `range(min, max)`
+23: unknown attribute option, expected `name = ".."`, `clip(min, max)`, `readonly`, `label = ".."`, `style = ".."`, `category = ".."`, `order = n`, `default = value`, `save`, `enum = ".."`, `range(min, max)` or `hidden`
+29: expected `clip(min, max)`
+37: the attribute `a` is defined twice

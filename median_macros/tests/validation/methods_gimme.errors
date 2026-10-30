@@ -1,0 +1,6 @@
+7: use `#[gimme("name")]` instead of `#[sel("name", gimme)]`
+10: `#[gimme]` takes only a selector name; it receives all the atoms
+13: expected `#[gimme("name")]`
+16: expected `#[gimme("name")]`
+19: the name must not contain a NUL
+30: `same` is registered twice in this impl

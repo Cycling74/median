@@ -27,18 +27,22 @@ cargo clippy --workspace --all-targets -- -D warnings
 cd median/examples/simp && cargo make build    # needs cargo-make; package/install also exist
 ```
 
-`median/tests/ui.rs` runs the `tests/ui/*.rs` compile-fail cases of the macros with `trybuild`
-(it caps trybuild's cargo at half the cores and builds without a rustc wrapper; `tests/ui_pass/`
-holds a pass case so the suite builds rather than checks, which is what makes the
-post-monomorphisation `const` asserts fire; expectations are from current stable); after changing a
-macro error, regenerate the expected output with `TRYBUILD=overwrite cargo test --test ui` and
-review the `.stderr` diff.
+`median/tests/compile.rs` builds valid controls and isolated invalid variants from
+`tests/compile/*.rs`, plus `tests/ui_pass/*.rs`. Each paired fixture has one `// ACCEPT`
+region terminated by `// REJECT: replacement Rust`; the invalid variant substitutes that
+region. The runner always builds (not just checks) so post-monomorphisation const assertions
+fire. It checks Cargo JSON source locations and compilation outcomes, never rustc wording
+or error codes. It caps child Cargo jobs at half the cores and disables rustc wrappers.
+`median_macros/src/tests.rs` tests macro validation directly using `tests/validation/*.rs`;
+each companion `.errors` line is `source-line: message`, checking our own diagnostic text
+and span without compiler rendering. Update these deliberately when changing macro errors.
+Both suites run on minimum Rust and stable.
 
 Formatting: run `script/install-hooks.sh` once per clone. The pre-commit hook
 (`script/pre-commit.sh`) runs `rustfmt` on staged `.rs` files, re-staging fully staged ones and
 aborting if a partly staged file needs formatting. `rustfmt.toml` pins edition 2024, so single-file `rustfmt` agrees with `cargo fmt`. The generated bindings
-(`max-sys/src/ffi-*.rs`) and the trybuild cases (`median/tests/ui/*.rs`, whose `.stderr` files
-record line numbers) are left alone. To format everything, run `cargo fmt --all` and
+(`max-sys/src/ffi-*.rs`) and the macro-validation fixtures (`median_macros/tests/validation/*.rs`, whose `.errors`
+files check our diagnostic source lines) are left alone. To format everything, run `cargo fmt --all` and
 `rustfmt templates/max/src/lib.rs`. A commit that only reformats goes in `.git-blame-ignore-revs`
 (the install script sets `blame.ignoreRevsFile`).
 

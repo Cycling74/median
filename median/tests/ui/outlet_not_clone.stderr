@@ -1,5 +1,0 @@
-error[E0599]: no method named `clone` found for struct `median::outlet::Outlet<K>` in the current scope
-  --> tests/ui/outlet_not_clone.rs:13:25
-   |
-13 |         let _copy = out.clone();
-   |                         ^^^^^ method not found in `median::outlet::Outlet<median::outlet::List>`

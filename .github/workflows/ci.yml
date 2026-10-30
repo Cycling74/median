@@ -16,15 +16,13 @@ jobs:
           submodules: recursive
       - name: Minimum Rust toolchain
         run: rustup toolchain install 1.85.0 --profile minimal --no-self-update
-      # Diagnostic snapshots match Rust 1.99.1 and are tested in the platform matrix below.
-      # Skip that UI runner here because its expected wording is compiler-specific.
       - name: Tests on minimum Rust
-        run: cargo +1.85.0 test --workspace -- --skip macro_errors
+        run: cargo +1.85.0 test --workspace
       - name: Binding generator on minimum Rust
         run: cargo +1.85.0 check -p max-sys --features build-bindings
   test:
     env:
-      RUSTUP_TOOLCHAIN: 1.99.1
+      RUSTUP_TOOLCHAIN: stable
     strategy:
       fail-fast: false
       matrix:
@@ -36,8 +34,7 @@ jobs:
         with:
           submodules: recursive
       - name: Rust toolchain
-        # UI snapshots include standard-library source excerpts, which require rust-src.
-        run: rustup toolchain install 1.99.1 --profile minimal --component clippy --component rust-src --no-self-update
+        run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests

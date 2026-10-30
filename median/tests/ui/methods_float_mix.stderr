@@ -1,5 +1,0 @@
-error: a typed selector cannot mix f64 with other argument types (Max passes them in different registers); use #[gimme("name")] / add_gimme
- --> tests/ui/methods_float_mix.rs:9:9
-  |
-9 |     pub fn range(&self, _lo: f64, _hi: t_atom_long) {}
-  |         ^^
