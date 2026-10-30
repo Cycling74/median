@@ -1,0 +1,78 @@
+# vim: set ts=4 sw=4 expandtab:
+# Builds every member once and wraps each dylib as `<class>.mxo` in a single Max package. The
+# class name comes from the member's `[package.metadata.max] name`, since crate names cannot
+# hold `.` or `~`. macOS only.
+[config]
+default_to_workspace = false
+
+[env]
+MAX_VERSION = { value = "Max 9", condition = { env_not_set = ["MAX_VERSION"] } }
+MAX_PACKAGE_NAME = "median-sdk-examples"
+TARGET_TRIPLE = "${CARGO_MAKE_RUST_TARGET_TRIPLE}"
+INSTALL_DIR = "${HOME}/Documents/${MAX_VERSION}/Packages"
+
+[env.development]
+BUILD_ARGS = "build"
+PROFILE_DIR = "debug"
+
+[env.release]
+BUILD_ARGS = "build|--release"
+PROFILE_DIR = "release"
+
+[tasks.build]
+clear = true
+command = "cargo"
+args = ["@@split(BUILD_ARGS,|)", "--workspace", "--target", "${TARGET_TRIPLE}"]
+
+[tasks.test]
+clear = true
+command = "cargo"
+args = ["test", "--workspace"]
+
+[tasks.package]
+clear = true
+dependencies = ["build"]
+condition = { platforms = ["mac"] }
+script_runner = "@shell"
+script = ['''
+set -eu
+out="target/${TARGET_TRIPLE}/${PROFILE_DIR}"
+pkg="$out/${MAX_PACKAGE_NAME}"
+rm -rf "$pkg"
+mkdir -p "$pkg/externals"
+for manifest in */*/Cargo.toml; do
+    crate=$(awk -F'"' '/^\[/{s=$0} s=="[package]" && /^name *=/{print $2}' "$manifest")
+    class=$(awk -F'"' '/^\[/{s=$0} s=="[package.metadata.max]" && /^name *=/{print $2}' "$manifest")
+    [ -n "$class" ] || { echo "$manifest: no [package.metadata.max] name" >&2; exit 1; }
+    mxo="$pkg/externals/$class.mxo"
+    mkdir -p "$mxo/Contents/MacOS"
+    cp "$out/lib$crate.dylib" "$mxo/Contents/MacOS/$class"
+    cp PkgInfo "$mxo/Contents/"
+    plist="$mxo/Contents/Info.plist"
+    plutil -create xml1 "$plist"
+    plutil -insert CFBundleExecutable -string "$class" "$plist"
+    plutil -insert CFBundleName -string "$class" "$plist"
+    plutil -insert CFBundlePackageType -string iLaX "$plist"
+    plutil -insert CFBundleVersion -string "${CARGO_MAKE_CRATE_VERSION:-0.1.0}" "$plist"
+    codesign -f -s - "$mxo" 2>/dev/null
+done
+metadata="$pkg/package-info.json"
+plutil -create xml1 "$metadata"
+plutil -insert name -string "${MAX_PACKAGE_NAME}" "$metadata"
+plutil -insert version -string "0.1.0" "$metadata"
+plutil -insert platforms -json '["mac"]' "$metadata"
+plutil -convert json "$metadata"
+echo "$pkg"
+''']
+
+[tasks.install]
+clear = true
+dependencies = ["package"]
+condition = { platforms = ["mac"] }
+script_runner = "@shell"
+script = ['''
+set -eu
+mkdir -p "${INSTALL_DIR}"
+rm -rf "${INSTALL_DIR}/${MAX_PACKAGE_NAME}"
+cp -R "target/${TARGET_TRIPLE}/${PROFILE_DIR}/${MAX_PACKAGE_NAME}" "${INSTALL_DIR}/"
+''']

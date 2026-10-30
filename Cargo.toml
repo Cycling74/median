@@ -6,7 +6,7 @@ exclude = [
     "median/examples/simplemax", "median/examples/simp", "median/examples/simp_explicit",
     "median/examples/jit_scalebias", "median/examples/jit_gl_simple",
     "median/examples/hello_dsp", "median/examples/multi", "max-sys/examples/simp", "templates/max",
-    "median/examples/validation",
+    "median/examples/validation", "median/examples/sdk",
 ]
 
 [workspace.package]

@@ -8,6 +8,9 @@ There are a few examples here:
 * `hello_dsp` - is a basic MSP object.
 * `multi` - is a multi object external that contains both a MSP and Max object and an init file that tells Max where to find them.
 
+* `sdk` - ports of the Max SDK examples, one crate each, with their own workspace, README and
+  list of API gaps.
+
 * `jit_scalebias` - a 4-plane char matrix operator, registered as `jit.median.scalebias`; demonstrates `#[derive(JitMatrixObj)]`, MOP configuration, atomic attributes, and explicit matrix access contracts.
 * `jit_gl_simple` - the SDK quad, registered as `jit.gl.median.simple`; demonstrates `#[derive(JitGlObj)]` and GL callback contexts. Requires a Jitter render destination.
 

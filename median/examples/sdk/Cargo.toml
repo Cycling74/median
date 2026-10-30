@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["basics/*", "misc/*", "audio/*", "dictionary/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+
+[workspace.dependencies]
+median = { path = "../.." }
+median-mock = { path = "../../../median-mock" }
+
+[profile.release]
+lto = true
+# The trampolines catch panics and post them to the Max console; that needs unwinding.
+panic = "unwind"
+
+[profile.dev]
+panic = "unwind"
