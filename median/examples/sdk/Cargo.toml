@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["basics/*", "misc/*", "audio/*", "dictionary/*"]
+members = ["*/*"]
+exclude = ["target"]
 
 [workspace.package]
 edition = "2024"

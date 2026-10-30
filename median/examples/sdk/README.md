@@ -10,7 +10,10 @@ the two side by side to see how an SDK idiom is written with median.
 
 Every class is registered with a `median.` prefix (`median.plussz`, `median.times~`), so the
 ports can be loaded next to the C builds. Crate names replace `.` with `_` and `~` with `_tilde`;
-the Max class name is the crate's `[package.metadata.max] name`.
+the Max class name is the crate's `[package.metadata.max] name`. A crate without that table is a
+shared library the externals link against (`advanced/mydll`); packaging puts it in the package's
+`support/`. A crate's `init/` files (object mappings, as for `median.mc.combine~`) go to the
+package's `init/`.
 
 ## Gaps
 

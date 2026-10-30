@@ -1,7 +1,7 @@
 # vim: set ts=4 sw=4 expandtab:
 # Builds every member once and wraps each dylib as `<class>.mxo` in a single Max package. The
 # class name comes from the member's `[package.metadata.max] name`, since crate names cannot
-# hold `.` or `~`. macOS only.
+# hold `.` or `~`. Each crate's `init/` files go to the package's `init/`. macOS only.
 [config]
 default_to_workspace = false
 
@@ -43,7 +43,18 @@ mkdir -p "$pkg/externals"
 for manifest in */*/Cargo.toml; do
     crate=$(awk -F'"' '/^\[/{s=$0} s=="[package]" && /^name *=/{print $2}' "$manifest")
     class=$(awk -F'"' '/^\[/{s=$0} s=="[package.metadata.max]" && /^name *=/{print $2}' "$manifest")
-    [ -n "$class" ] || { echo "$manifest: no [package.metadata.max] name" >&2; exit 1; }
+    crate_dir=$(dirname "$manifest")
+    if [ -d "$crate_dir/init" ]; then
+        mkdir -p "$pkg/init"
+        cp "$crate_dir/init/"* "$pkg/init/"
+    fi
+    # A crate without a Max class is a shared library the externals link against.
+    if [ -z "$class" ]; then
+        mkdir -p "$pkg/support"
+        cp "$out/lib$crate.dylib" "$pkg/support/"
+        codesign -f -s - "$pkg/support/lib$crate.dylib" 2>/dev/null
+        continue
+    fi
     mxo="$pkg/externals/$class.mxo"
     mkdir -p "$mxo/Contents/MacOS"
     cp "$out/lib$crate.dylib" "$mxo/Contents/MacOS/$class"

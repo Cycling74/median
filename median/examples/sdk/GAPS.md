@@ -25,6 +25,7 @@ recovers the wrapper from the object pointer and calls `median::ffi::guard`, whi
 - dummy: `blooop` (no arguments) is registered raw.
 - simpletext: `edclose(x, char **text, long size)`, the `jed` editor's close callback, is
   registered raw.
+- mc.pack~: `helpname(x, char *)` is registered raw and writes the class name.
 
 #### `CLASS_METHOD_ATTR_PARSE`
 
@@ -64,6 +65,8 @@ though `AttrType::Char` exists.
 
 - attrtester: `usemin` and `usemax` are `Int64` with `style = "onoff"`.
 - vexpr: `scalarmode` is an `Int64` attribute.
+- limi~: `bypass` and `dcblock` are `Int64` with `style = "onoff"`, `mode` an `Int64` with
+  `enum = "Linear Exponential"`.
 
 #### `CLASS_ATTR_BASIC`
 
@@ -73,6 +76,7 @@ No attribute option marks an attribute basic (shown in the inspector's basic vie
 - dict.strip: `keys` is not basic.
 - lores~: `cutoff` and `resonance` are not basic.
 - vexpr: `scalarmode` is not basic.
+- mc.pack~: `chans` is not basic.
 
 #### `CLASS_ATTR_SYM_VARSIZE` (array attributes)
 
@@ -109,6 +113,44 @@ the C only when an inlet that has had a value is also connected.
 - simpwave~: start and end from arguments, floats or `set` replace inlets 1 and 2; a `set` that
   leaves one out returns it to the signal.
 
+The same trampoline hides the dsp64 chain object, so `getnuminputchannels` (per-inlet MC channel
+counts) cannot be called either.
+
+- mc.pack~: an inlet's channel count is the last one `inputchanged` reported (1 until then, what
+  Max gives an unconnected inlet).
+
+#### More than 64 signal channels (`MAX_SIGNAL_IO`)
+
+`perform` gets its slices from stack tables of 64; an object with more signal inlets or outlets,
+or an MC signal wider than 64 channels, gets an error at `dsp64` and silent outputs. MC signals go
+to 1024 channels (`MC_MAX_CHANS`).
+
+- limi~: clamps its channel argument to 1..=64 instead of 1..=1024, silently, as the SDK clamps.
+- mc.rotate~: the SDK takes up to 512 channels; the port is silent above 64.
+- mc.pack~: the SDK takes up to 1024 inlets or output channels; the port is silent above 64 of
+  either.
+
+#### Multichannel signal outlets (`"multichannelsignal"`)
+
+No outlet kind for it, and `t_outlet` is opaque in max-sys, so an `Outlet::signal()` cannot be
+retyped. A raw `outlet_append(obj, null, gensym("multichannelsignal"))` made in `new` after the
+builder's outlets keeps their numbering (a raw outlet made before them would shift every later
+builder outlet's assist text; `outlet_new` would make it leftmost and shift all of them). median's
+table has no entry for it, so its assist text must come from the `assist` hook, and median's
+signal-outlet count leaves it out (used only for the 64 check; `perform` gets Max's real
+`numouts`).
+
+- mc.rotate~, mc.pack~: raw outlet appended last, assist from the hook.
+
+#### MC channel protocol (`multichanneloutputs`, `inputchanged`)
+
+Both are on median's untyped-selector list, which refuses them as typed methods, and there is no
+hook for them.
+
+- mc.rotate~, mc.pack~: registered raw with `class_addmethod(.., A_CANT)` and hand-written
+  trampolines (`long f(x, long index)`, `long f(x, long index, long count)`) that call
+  `median::ffi::guard_or`; mc.pack~'s are generic over its two classes.
+
 #### `dsp64` `maxvectorsize`
 
 Also dropped by the trampoline.
@@ -118,11 +160,16 @@ Also dropped by the trampoline.
 - fftinfo~: outputs the FFT size (half of it without full spectrum) as the spectral frame size,
   which is what `pfft~` runs its subpatch at.
 
-#### `z_misc` flags (`Z_PUT_FIRST`)
+#### `z_misc` flags (`Z_PUT_FIRST`, `Z_MC_INLETS`)
 
-No builder option for the DSP-sort flags, and max-sys has none of the `Z_*` constants.
+No builder option for them, and max-sys has none of the `Z_*` constants. There is also no hook
+after the builder's `z_dsp_setup`, so a port ORs its flag in during `new`, before `z_dsp_setup`
+runs; the SDK examples (and median for `Z_NO_INPLACE`) set it after. Whether `z_dsp_setup` keeps
+bits set before it is untested; if it clears them, the MC ports see only the first channel of
+each input.
 
 - fftinfo~: ORs a local `Z_PUT_FIRST` into `(*builder.msp_obj()).z_misc`.
+- mc.rotate~, mc.pack~: OR a local `Z_MC_INLETS` (32) the same way.
 
 #### `pfft~` introspection (`t_pfftpub`, `__pfft~__`)
 
@@ -173,6 +220,13 @@ No way to find the object's patcher or box (`object_obex_lookup` `#P`/`#B`);
   notification and on drop, and keeps the view in an `AtomicPtr` that is null whenever it is not
   attached.
 
+#### `quittask_install`
+
+No way to run code when Max quits.
+
+- threadpool: its shared pool's four threads, started in `class_setup`, are never stopped; at quit
+  they sit idle on a condvar instead of being ended by a quit task.
+
 #### `symbol_unique`
 
 No safe way to get a unique symbol; `Dict::register(None)` gets one only for a dictionary.
@@ -195,6 +249,7 @@ used on what it finds; and median has no binary reading (`sysfile_read`, `sysfil
 `sysfile_geteof`), only `FilePath::read_text`.
 
 - filein: gets the system path raw, then reads and seeks with `std::fs::File`.
+- filebyte: the same, keeping the `File` open in a `Mutex<Option<File>>` between reads.
 
 #### Modification dates (`path_getfilemoddate`, `path_getmoddate`, `path_resolvefile`, `systime_secondstodate`)
 
@@ -214,6 +269,25 @@ No folder lookup or enumeration, no file type sniffing, and no standard list of 
 #### `jed` text editor
 
 See "`object_new` of other classes" above.
+
+### Databases and text
+
+#### Databases (`ext_database.h`: `db_open`, `db_close`, `db_query*`, `db_result_*`)
+
+No binding. `db_query` is variadic and printf-style, so a caller formatting values into SQL must
+escape them itself.
+
+- dbcuelist: everything is raw, through `db_query_direct` with SQL the port formats, names and
+  values written as single-quoted literals with `'` doubled (the C's double quotes make SQLite
+  read a value as a column name when one matches, so `cue.destroy name` deleted every cue);
+  results are freed by a `Drop` guard; the handle is in a `Mutex` with an `unsafe impl Send`.
+
+#### `atom_setparse`
+
+No way to parse text into atoms (the reverse of `Atom::text`).
+
+- dbcuelist: calls it raw, reads the result as `&[Atom]` through the `#[repr(transparent)]`
+  cast, and frees it with `sysmem_freeptr`.
 
 ### Dictionaries and expressions
 
@@ -255,6 +329,7 @@ messages; copying atoms goes through `get_value`.
 - buddy, iter, match, past, thresh, vexpr: each defines a `Copy` enum of int, float and symbol,
   converted from atoms on input and back on output.
 - dict.group: copies atoms with a `copy_atom` helper.
+- linky, threadpool: the same; threadpool's task arguments cross to the worker and back as it.
 - vexpr: makes the `A_NOTHING` atoms `expr` needs for unused arguments with `std::mem::zeroed`.
 
 ### Raw `max_sys` calls take `*mut t_atom` from `&[Atom]`
@@ -305,6 +380,14 @@ Creating a NOBOX object from Rust has no fallible form; a refusing `new` panics 
 - master: creates its conduit with it (the conduit refuses only an empty name, which the master
   never passes, or a registration collision).
 
+### Worker threads return results through a `Queue`
+
+A `#[defer]`/`#[defer_low]` method is reached only by a message, and neither the object nor its
+`ObjRef` is `Send`, so a thread of the object's own cannot call `defer_low` on it as the C does.
+
+- simplethread: sets a `Queue` whose callback outputs the count.
+- threadpool: the completion pushes its arguments into a `Mutex<Vec<_>>` and sets a `Queue`.
+
 ### Deferring from code
 
 `#[defer]` defers a whole method, unconditionally; there is no way to defer a call only in some
@@ -329,6 +412,34 @@ Filter memory and coefficients that only the audio thread touches still have to 
 
 - lores~: keeps its filter state in `Float64`s; `clear` and `dsp_setup` set flags that `perform`
   acts on rather than writing the state themselves.
+- limi~: the state includes lookahead buffers, which atomics do not cover; it is in a `Mutex`
+  only `perform` locks, with `try_lock` (silence if it ever failed), and setters store into
+  atomics and set a flag that `perform` applies.
+
+### Attribute setters are found by the getter's method name
+
+The setter of a `#[attr]` getter must be `set_<getter fn name>`; with
+`#[attr(name = "bypass")] fn get_bypass` the macro looks for `set_get_bypass` and, finding none,
+makes the attribute read-only without a diagnostic. Setting it still reports success.
+
+- limi~: names the getters after the attributes.
+
+### Two classes from one struct
+
+Two classes need two Rust types, and the derive does not take generics.
+
+- mc.pack~: shared state in a plain struct; a local `macro_rules!` emits the two derived types and
+  a trait makes the raw trampolines generic over both.
+
+### Externals that link a shared library
+
+Cargo has no stable artifact dependency, so an external that links a `cdylib` of the workspace
+orders the build with an unused path dependency and links it from `build.rs`.
+
+- mydll: a `cdylib` without `[package.metadata.max]`; `build.rs` sets the install name
+  `@loader_path/../../../../support/libmydll.dylib` (the package's `support/`).
+- dllcounter, dllreport: declare mydll's functions in an `unsafe extern "C"` block and link it
+  with `rustc-link-lib=dylib=mydll` from `<profile>/deps`. Windows linking is not handled.
 
 ## Mock limitations
 
@@ -353,6 +464,10 @@ those paths are untested.
   `object_attr_get_rect`): windowwatcher tests only an object outside a patcher.
 - `dictobj_validate`, `dictobj_key_parse`: dict.route's routing and dict.strip's key paths
   (`a::b`, `a[0]`).
+- `path_toabsolutesystempath`: filebyte tests only the missing-file errors, a cancelled dialog
+  and reading without a file.
+- `db_*`: dbcuelist tests only an object without a `name`; the queries, `cue.do` output and
+  `atom_setparse` are untested.
 
 ### `dictobj_dictionaryfromatoms` parses only `key: value` pairs
 
@@ -370,6 +485,24 @@ Max's syntax also has a standalone `:` and several values per key (`a : 1 2 3`).
 The mock creates the same iolets whatever `c_noinlet` says.
 
 - servant: that it has no inlet is untested.
+
+### MC
+
+The mock's `dsp64` sizes `count[]` from `"signal"` outlets only, and nothing models channel
+counts, `Z_MC_INLETS`, or Max calling `inputchanged`/`multichanneloutputs`.
+
+- mc.rotate~, mc.pack~: the tests call those methods (and `helpname`) directly and run `perform`
+  with several channel counts; that Max calls them, and in what order, is untested.
+
+### A shared library's Max calls in a test
+
+The test binary keeps only the mock functions something in it references, so a separately
+linked library resolving `post` by `dynamic_lookup` finds nothing ("missing symbol called"). The
+library is found under `cargo test` only through the library path cargo sets; its install name
+does not resolve there.
+
+- dllcounter, dllreport: each test references `median::max_sys::post` through
+  `std::hint::black_box` to keep the mock's `post`, then checks mydll's post and the shared count.
 
 ### No `pfft~`
 
