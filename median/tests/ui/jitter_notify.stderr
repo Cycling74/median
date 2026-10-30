@@ -23,7 +23,7 @@ note: erroneous constant encountered
   | | ...   };
   | |_______^
 
-note: the above error was encountered while instantiating `fn Class::<median::jit::wrapper::Forward<median::wrapper::Wrapper<median::max_sys::object, MaxWrapperInternal<MaxGlue<Operator, MatrixKind>>, MaxGlue<Operator, MatrixKind>>, Operator, MatrixKind>>::add_notify::<Operator, for<'a, 'b> fn(&'a Operator, &'b Notification) {Operator::notified}, ()>`
+note: the above error was encountered while instantiating `fn Class::<median::jit::wrapper::Forward<Wrapper<median::max_sys::object, MaxWrapperInternal<MaxGlue<Operator, median::jit::wrapper::MatrixKind>>, MaxGlue<Operator, median::jit::wrapper::MatrixKind>>, Operator, median::jit::wrapper::MatrixKind>>::add_notify::<Operator, for<'a, 'b> fn(&'a Operator, &'b Notification) {Operator::notified}, ()>`
   --> tests/ui/jitter_notify.rs:35:8
    |
 35 |     fn notified(&self, _n: &Notification) {}

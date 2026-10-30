@@ -77,14 +77,14 @@ error[E0277]: the trait bound `Reply: From<i32>` is not satisfied
 27 |     pub fn res(&self, _atoms: &[Atom]) -> Result<i32, String> {
    |            ^^^ the trait `From<i32>` is not implemented for `Reply`
    |
-   = help: the following other types implement trait `From<T>`:
-             `Reply` implements `From<()>`
-             `Reply` implements `From<AtomArray>`
-             `Reply` implements `From<Vec<median::atom::Atom>>`
-             `Reply` implements `From<f64>`
-             `Reply` implements `From<isize>`
-             `Reply` implements `From<median::dict::Dict>`
-             `Reply` implements `From<median::symbol::SymbolRef>`
+   = help: `Reply` implements trait `From<T>`:
+             From<()>
+             From<AtomArray>
+             From<Vec<median::atom::Atom>>
+             From<f64>
+             From<isize>
+             From<median::dict::Dict>
+             From<median::symbol::SymbolRef>
    = note: required for `i32` to implement `Into<Reply>`
    = note: required for `Result<i32, String>` to implement `GimmebackResult`
 note: required by a bound in `Class::<W>::add_gimmeback`

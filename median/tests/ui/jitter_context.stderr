@@ -4,7 +4,6 @@ error: cannot construct `DrawContext` with struct literal syntax due to private 
 6 |     let _ = DrawContext {};
   |             ^^^^^^^^^^^
   |
-  = note: private fields `owner` and `_thread` that were not provided
 help: you might have meant to use the `current` associated function
   |
 6 -     let _ = DrawContext {};

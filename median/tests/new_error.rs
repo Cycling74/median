@@ -136,12 +136,9 @@ fn an_err_from_new_gives_max_null_and_frees_everything() {
         &["x".into()],
         "the count must be an int, not x",
     );
-    refused(
-        &k,
-        "picky",
-        &[MockAtom::Long(-1)],
-        "out of range integral type conversion attempted",
-    );
+    // The standard library's error wording can change between Rust versions.
+    let negative_count_error = u32::try_from(-1 as t_atom_long).unwrap_err().to_string();
+    refused(&k, "picky", &[MockAtom::Long(-1)], &negative_count_error);
     //`T` was never made, so never dropped
     assert_eq!(DROPPED.load(Ordering::SeqCst), dropped);
 

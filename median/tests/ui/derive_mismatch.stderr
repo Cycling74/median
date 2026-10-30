@@ -4,13 +4,13 @@ error[E0271]: type mismatch resolving `<Simp as ObjClass>::Wrapper == Wrapper<ob
 8 | impl MaxObjWrapped for Simp {
   |                        ^^^^ type mismatch resolving `<Simp as ObjClass>::Wrapper == Wrapper<object, MaxWrapperInternal<Simp>, Simp>`
   |
-note: expected this to be `median::wrapper::Wrapper<median::max_sys::object, MaxWrapperInternal<Simp>, Simp>`
+note: expected this to be `Wrapper<median::max_sys::object, MaxWrapperInternal<Simp>, Simp>`
  --> tests/ui/derive_mismatch.rs:4:10
   |
 4 | #[derive(MSPObj)]
   |          ^^^^^^
-  = note: expected struct `median::wrapper::Wrapper<median::max_sys::object, MaxWrapperInternal<Simp>, Simp>`
-             found struct `median::wrapper::Wrapper<t_pxobject, MSPWrapperInternal<Simp>, Simp>`
+  = note: expected struct `Wrapper<median::max_sys::object, MaxWrapperInternal<Simp>, Simp>`
+             found struct `Wrapper<t_pxobject, MSPWrapperInternal<Simp>, Simp>`
 note: required by a bound in `median::wrapper::MaxObjWrapped`
  --> src/wrapper.rs
   |
@@ -20,11 +20,11 @@ note: required by a bound in `median::wrapper::MaxObjWrapped`
   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `MaxObjWrapped`
   = note: this error originates in the derive macro `MSPObj` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the function or associated item `register` exists for struct `median::wrapper::Wrapper<t_pxobject, MSPWrapperInternal<Simp>, Simp>`, but its trait bounds were not satisfied
+error[E0599]: the associated function or constant `register` exists for struct `Wrapper<t_pxobject, MSPWrapperInternal<Simp>, Simp>`, but its trait bounds were not satisfied
  --> tests/ui/derive_mismatch.rs:4:10
   |
 4 | #[derive(MSPObj)]
-  |          ^^^^^^ function or associated item cannot be called due to unsatisfied trait bounds
+  |          ^^^^^^ associated function or constant cannot be called due to unsatisfied trait bounds
 5 | #[max(no_methods)]
 6 | pub struct Simp;
   | --------------- doesn't satisfy `Simp: MSPObjWrapped`
