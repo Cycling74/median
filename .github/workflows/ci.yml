@@ -36,7 +36,8 @@ jobs:
         with:
           submodules: recursive
       - name: Rust toolchain
-        run: rustup toolchain install 1.99.1 --profile minimal --component clippy --no-self-update
+        # UI snapshots include standard-library source excerpts, which require rust-src.
+        run: rustup toolchain install 1.99.1 --profile minimal --component clippy --component rust-src --no-self-update
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests

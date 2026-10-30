@@ -1,6 +1,6 @@
 //! The errors of `#[derive(MaxObj)]` and `#[median::methods]`: each file in `tests/ui` must
 //! fail to compile with the error in its `.stderr` file. (`TRYBUILD=overwrite` regenerates them.)
-//! Diagnostic snapshots match Rust 1.99.1.
+//! Diagnostic snapshots match Rust 1.99.1 with the `rust-src` component installed.
 
 #[test]
 fn macro_errors() {

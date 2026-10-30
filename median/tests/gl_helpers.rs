@@ -115,13 +115,18 @@ fn chunks_copy_draw_and_release_on_success_and_unwind() {
     assert_eq!(COMPLETED.load(Ordering::SeqCst), 1);
     assert_eq!(median_mock::jit::live_chunk_count(), 0);
     assert_eq!(median_mock::jit::live_geometry_count(), 0);
-    assert_eq!(median_mock::jit::buffer_destroy_count(), 3);
+    // The buffer fixtures in `draw` are compiled out on Windows.
+    let buffers_per_draw = if cfg!(target_os = "windows") { 0 } else { 3 };
+    assert_eq!(median_mock::jit::buffer_destroy_count(), buffers_per_draw);
     PANIC.store(true, Ordering::SeqCst);
     assert_ne!(unsafe { draw(core) }, 0);
     PANIC.store(false, Ordering::SeqCst);
     assert_eq!(median_mock::jit::live_chunk_count(), 0);
     assert_eq!(median_mock::jit::live_geometry_count(), 0);
-    assert_eq!(median_mock::jit::buffer_destroy_count(), 6);
+    assert_eq!(
+        median_mock::jit::buffer_destroy_count(),
+        2 * buffers_per_draw
+    );
     assert!(
         k.take_console_log()
             .iter()
