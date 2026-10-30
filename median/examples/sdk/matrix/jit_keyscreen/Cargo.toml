@@ -1,0 +1,17 @@
+[package]
+name = "jit_keyscreen"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[package.metadata.max]
+name = "jit.median.keyscreen"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+median.workspace = true
+
+[dev-dependencies]
+median-mock.workspace = true

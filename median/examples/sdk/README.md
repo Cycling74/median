@@ -15,6 +15,10 @@ shared library the externals link against (`advanced/mydll`); packaging puts it 
 `support/`. A crate's `init/` files (object mappings, as for `median.mc.combine~`) go to the
 package's `init/`.
 
+Jitter matrix classes are `jit.median.<name>` (`jit.median.clip` in crate `jit_clip`; `simplejit`
+registers `jit.median.simple`), and their Jitter core classes `median_jit.median.<name>`.
+`matrix/jit.scalebias` is ported separately as `median/examples/jit_scalebias`.
+
 ## Gaps
 
 Where median has no safe API for something an example needs, the port calls `max_sys` directly,

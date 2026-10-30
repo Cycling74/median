@@ -4,12 +4,13 @@ What the SDK examples need that median has no safe API for. Each entry names the
 examples that use it, and what those ports do instead. In the code, the raw calls are marked
 `// GAP:`.
 
-Three sections:
+Four sections:
 
 - API gaps: median cannot express it; the port calls `max_sys` or changes behaviour.
 - Rough edges: median can express it, but awkwardly.
 - Mock limitations: the port takes a path in Max that `median-mock` cannot run, so its test
   skips it.
+- Not ported: the examples with no port, and the gaps that block them.
 
 ## API gaps
 
@@ -67,6 +68,14 @@ though `AttrType::Char` exists.
 - vexpr: `scalarmode` is an `Int64` attribute.
 - limi~: `bypass` and `dcblock` are `Int64` with `style = "onoff"`, `mode` an `Int64` with
   `enum = "Linear Exponential"`.
+- jit.p.bounds: `mode` is `Int64`.
+- jit.concat: `mode` (enum "Append Right to Left" "Append Left to Right"), `concatdim`,
+  `autoclear` and `truncate` (`style = "onoff"`) are `Int64`.
+- jit.split: `splitdim` and `autoclear` are `Int64`.
+- jit.demultiplex: `demultiplexdim` (enum `0` .. `31`) and `autoclear` (`style = "onoff"`) are
+  `Int64`.
+- jit.spill: `plane` is `Int64`.
+- jit.histogram: `autoclear` and `normalize` are `Int64` with `style = "onoff"`.
 
 #### `CLASS_ATTR_BASIC`
 
@@ -77,13 +86,41 @@ No attribute option marks an attribute basic (shown in the inspector's basic vie
 - lores~: `cutoff` and `resonance` are not basic.
 - vexpr: `scalarmode` is not basic.
 - mc.pack~: `chans` is not basic.
+- jit.clip, jit.eclipse, jit.keyscreen, jit.map, jit.fluoride: no attribute is basic (the C makes
+  all of them sticky basic); the sticky category `Behavior` is given per attribute with
+  `category`.
+- jit.concat, jit.demultiplex: no attribute is basic (the C makes all of them sticky basic).
+- jit.alphablend: `mode` is not basic.
+- jit.gradient: `start`, `end` and `cheby` are not basic.
+- jit.3m: `min`, `mean` and `max` are not basic.
+- jit.findbounds: `min` and `max` are not basic.
+- jit.histogram: `normval`, `autoclear` and `normalize` are not basic.
 
 #### `CLASS_ATTR_SYM_VARSIZE` (array attributes)
 
-`#[attr]` and `Class::add_attr` hold one value.
+`#[attr]` and `Class::add_attr` hold one value. On a Jitter class there is also no counterpart of
+`jit_attr_offset_array` (a fixed array with a count field), and no field offset reaches the user
+value, which is boxed outside the Jitter object. The Jitter ports register the attribute with
+`AttrBuilder` and hand-written accessors in `MatrixOp::class_setup`.
 
 - dict.strip: registers `keys` with `AttrBuilder::new_accessors` and hand-written `extern "C"`
   accessors (see the rough edge on custom accessors).
+- jit.map: `map` (four `Float64`s). The C's count offset is `0`, which would store the count
+  over the object header; the port keeps the fixed size of four.
+- jit.fluoride: `glow` (three `Float64`s and a count, the C's `glowcount`).
+- jit.gradient: `start`, `end` (4) and `cheby` (64), with accessors generic over a const index
+  into `[Mutex<FloatArray>; 3]`; a set keeps the count, and values past it keep their old ones,
+  as in the C.
+- jit.p.bounds: `squish` and `squish_var` the same; `bounds_hi` and `bounds_lo` have the C's
+  custom accessors (`x` disables a bound). Counts are clamped to the 30 slots, which the C
+  overflows.
+- jit.3m: `min`, `mean` and `max` are read-only (`AttrBuilder::new_get`).
+- jit.findbounds: `min` and `max` are settable, `boundmin` and `boundmax` read-only.
+- jit.spill: `offset`.
+- jit.turtle: `origin` (a `long[2]` with a count); the accessors keep the count, so a one-value
+  set reads back as one value.
+
+How the inspector shows these attributes is untested.
 
 #### ITM time attributes and objects
 
@@ -177,6 +214,144 @@ max-sys does not bind `r_pfft.h`, and median has nothing for finding the owning 
 
 - fftinfo~: reads `gensym("__pfft~__")->s_thing` raw through a local `#[repr(C)]` copy of
   `t_pfftpub`.
+
+### Jitter
+
+#### MOP wrap flags and the processing step (`MAX_JIT_MOP_FLAGS_OWN_*`, `max_jit_classex_mop_mproc`)
+
+median's Max side always calls `max_jit_class_mop_wrap(c, jit, 0)` and has no hook on the Max
+class around it, so a port cannot own `jit_matrix`, `bang`, `outputmatrix`, adapt or notify, and
+no processing step of its own runs after `matrix_calc`. A `#[bang]` or `#[sel("outputmatrix")]`
+on the Max class relies on a later `class_addmethod` replacing the wrap's method, which the
+headers do not state.
+
+- jit.3m, jit.findbounds, jit.spill: the C's processing step outputs the results after
+  `matrix_calc`; the ports send them from `calc`, on the thread the matrix arrived on. jit.3m and
+  jit.spill have a `#[bang]` that re-outputs the last results without checking `outputmode`.
+- jit.gradient: the C owns `jit_matrix` and `outputmatrix`, so a matrix at its inlet is ignored;
+  the port has the default behaviour, where a matrix at the inlet adapts the output's size and
+  outputs the gradient.
+- jit.p.bounds: the C owns adapt and shapes the output in `calc`; the port keeps that code and the
+  default adaptation also runs before `calc`, so the output ends up the same.
+
+#### Max-side MOP setup (`max_jit_mop_setup_simple`)
+
+median's Max `new` calls `max_jit_mop_setup_simple` after the user's `MatrixOp::new` and runs
+nothing after it, so the Max wrapper's matrices cannot be configured at creation
+(`max_jit_mop_getoutput`, then `setinfo`), and a variable io count cannot be set from the
+arguments (`max_jit_mop_variable_addinputs`, `max_jit_mop_variable_addoutputs`).
+
+- jit.rgb2luma: the C makes output 1 a 1-plane, 2-dimensional char matrix; the port relies on
+  `single_plane_count(1)` and `planelink 0` on the output. Whether Max's first output matrix
+  honours them is unverified; if not, `calc` refuses until the output has one plane.
+- jit.histogram: the C makes the output a 1-dimensional, 256 cell long matrix (or what its
+  arguments give); the port's output is what the MOP makes of the class's output settings (long
+  or char, at least 256 wide, not linked to the input).
+
+#### Per-io MOP configuration (`getinput`, `getoutput`, `jit_mop_input_nolink`, `jit_mop_output_nolink`, `ioproc`)
+
+`MOP` has `single_type` and `single_plane_count`, which apply to every io; nothing reaches one io
+to restrict its types, plane count or dimensions (`types`, `mindim`, `maxdim`, `minplanecount`,
+`mindimcount`), unlink it from input 1 (`dimlink`, `typelink`, `planelink`, the `nolink`
+functions) or set its `ioproc`. The ports get the io with
+`jit_object_method(mop, getinput|getoutput, n)` in `mop_setup` and send it the attribute as a
+message with atoms, as the C does for most of them; a null io is skipped.
+
+- jit.alphablend: `types char float32 float64` on input 2 and output 1.
+- jit.charmap: `dimlink 0`, `mindim 256` and `maxdim 256` on input 2 (`dimlink` is
+  `jit_attr_setlong` in the C).
+- jit.rgb2luma: `planelink 0` on output 1 (`jit_attr_setlong` in the C).
+- jit.p.bounds: `types float32 float64`, `minplanecount 2` and `mindimcount 2` on input 1 and
+  output 1.
+- jit.histogram: `dimlink 0` and `typelink 0` with raw `jit_attr_setlong`, `mindim 256` and
+  `types long char` as messages, on output 1.
+- jit.concat: `jit_mop_input_nolink(mop, 2)` and `jit_mop_output_nolink(mop, 1)` raw, and input
+  2's `ioproc` set to `jit_mop_ioproc_copy_adapt`.
+- jit.split, jit.demultiplex: `jit_mop_output_nolink` raw for both outputs.
+
+#### Matrix methods (`setinfo`, `setinfo_ex`, `frommatrix`, `clear`, `data`)
+
+`Matrix` only locks and reads info and data; nothing resizes or clears a matrix, copies ranges
+between matrices, or points a matrix at other storage, and max-sys binds only the flags of
+`t_matrix_conv_info` (`jit.common.h`), not the struct. The raw calls go through
+`jit_object_method` on `Matrix::as_ptr()`. They are sound while no guard of that handle is alive,
+which `Matrix::lock`'s mutable borrow ensures, except when the same matrix is both an input and an
+output; the ports' `unsafe fn` helpers ask the caller for that.
+
+- jit.concat: `setinfo`, `clear` and two `frommatrix` calls on the output, with a local
+  `#[repr(C)]` copy of `t_matrix_conv_info`.
+- jit.split: the same for both outputs.
+- jit.demultiplex: the same, one `frommatrix` per run.
+- jit.p.bounds: sends the output `type`, `planecount` and `dim` before locking it; `clear` is
+  replaced by writing zeros through `chunks_mut`.
+- jit.histogram: `autoclear` zeroes the output's cells itself instead of sending `clear`.
+
+#### Owned and named matrices (`jit_object_new(_jit_sym_jit_matrix, ..)`, `jit_object_findregistered`)
+
+A `Matrix` is only borrowed for one `calc`. There is no matrix a port owns (a temporary, or one
+with `JIT_MATRIX_DATA_REFERENCE` over other storage), and no lookup of a matrix by name with a
+check of its class, or attachment to it.
+
+- jit.dimmap, jit.thin, jit.coerce, jit.submatrix, jit.fill, jit.iter, jit.print, jit.glue,
+  jit.pack, jit.str.op, jit.peek~, jit.poke~: not ported.
+
+#### Other Jitter classes (`jit_class_findbyname`, non-MOP Jitter classes)
+
+The derives make a median MOP (`JitMatrixObj`) or ob3d (`JitGlObj`) with its standard Max
+wrapper. There is no Max wrapper around a built-in Jitter class found with
+`jit_class_findbyname`, no Jitter class without a MOP, and no core with a MOP whose Max side is
+not a MOP wrapper.
+
+- jit.op, jit.la.diagproduct, jit.hello, jit.print: not ported.
+
+#### Jitter notification (`MAX_JIT_MOP_FLAGS_OWN_NOTIFY`, `jit_object_register`, `jit_object_attach`, `jit_object_notify`)
+
+`JitObjRef` posts only; it cannot register its object, attach to another, or send a
+notification, and the MOP wrapper's `notify` cannot be replaced.
+
+- jit.notify: not ported.
+
+#### Jitter in MSP objects
+
+No wrapper is both an MSP object and a Jitter object: there is no MSP wrapper around a MOP core,
+and `perform` cannot use a matrix.
+
+- simplejit~, jit.peek~, jit.poke~: not ported.
+
+#### Jitter attribute thread flags (`JIT_ATTR_GET_DEFER_LOW`, `JIT_ATTR_SET_USURP_LOW`)
+
+median's Jitter attributes (`#[attr]` fields and `AttrBuilder`) carry only the opaque bits, so
+getters and setters run on the calling thread instead of being deferred or usurped to the main
+thread. Every SDK matrix example creates its attributes with these flags.
+
+- simplejit, jit.clip, jit.eclipse, jit.keyscreen, jit.map, jit.fluoride, jit.alphablend,
+  jit.rgb2luma, jit.gradient, jit.p.bounds, jit.concat, jit.split, jit.demultiplex, jit.3m,
+  jit.findbounds, jit.spill, jit.histogram, jit.turtle: every attribute runs on the calling
+  thread; `calc` reads them from atomics or under a `Mutex`.
+
+#### Dumpout and outlet placement (`max_jit_obex_dumpout_set`, `max_jit_classex_standard_wrap`)
+
+A plain `MaxObj` cannot make one of its outlets the obex dumpout or take the Jitter wrapper's
+standard messages, and median-mock has no `object_obex_dumpout`, so a raw call would abort every
+test that makes the object. On a MOP, `JitBuilder::outlet` appends after the matrix outlets and
+dumpout; the C puts its own outlets left of dumpout.
+
+- jit.turtle: the right outlet is an ordinary outlet with the assist text "dumpout" that nothing
+  sends to; `get<attribute>` replies and the standard Jitter messages (`getattributes`,
+  `summary`, ...) are missing.
+- jit.3m (outlets 1 to 3), jit.findbounds (1 and 2), jit.spill (1): right of dumpout (outlet 0).
+
+#### `jit_rand`, `jit_rand_setseed`
+
+No median wrapper, and not in median-mock.
+
+- jit.p.bounds: an object-local LCG seeds each 2D slice.
+
+#### `jit_parallel_ndim_simplecalc1` and `simplecalc4`
+
+`median::jit::matrix::parallel` has `calc2` and `calc3` only.
+
+- jit.3m (simplecalc1), jit.keyscreen (simplecalc4): serial.
 
 ### Objects, registration and notification
 
@@ -338,6 +513,9 @@ messages; copying atoms goes through `get_value`.
 `atoms.as_ptr().cast_mut().cast()`, relying on `#[repr(transparent)]`.
 
 - delay2: `time_setvalue` with message and creation atoms.
+- jit.histogram: `mindim` and `types` to its output io.
+- jit.alphablend, jit.charmap, jit.rgb2luma, jit.p.bounds: pass `*const Atom` as the atom array
+  of the variadic `jit_object_method`.
 
 ### Outlets refuse object atoms
 
@@ -404,6 +582,14 @@ A hand-written accessor for `AttrBuilder::new_accessors` needs `median::ffi::gua
 `sysmem_newptr`.
 
 - dict.strip: does both for `keys`.
+- jit.turtle: the same for `origin`.
+
+On a Jitter class the accessor's object is `median::jit::wrapper::Core<Self, MatrixKind>`, where
+`MatrixKind` is `#[doc(hidden)]`; it reaches the user value through `WrapperWrapped::wrapped`,
+and a getter allocates its atoms with `jit_getbytes`, which median does not wrap.
+
+- jit.map, jit.fluoride, jit.gradient, jit.p.bounds, jit.3m, jit.findbounds, jit.spill: all of
+  that, with raw `jit_getbytes`.
 
 ### No cell for state only `perform` writes
 
@@ -415,6 +601,30 @@ Filter memory and coefficients that only the audio thread touches still have to 
 - limi~: the state includes lookahead buffers, which atomics do not cover; it is in a `Mutex`
   only `perform` locks, with `try_lock` (silence if it ever failed), and setters store into
   atomics and set a flag that `perform` applies.
+
+### No per-cell operator with the SDK's simplecalc domain
+
+median's chunk views iterate one matrix at a time. The domain of `jit_parallel_ndim_simplecalc*`
+(an input dimension of size 1 repeats, a smaller input truncates the domain, output plane `p`
+reads input plane `p % planes`), and anything reading several matrices at once, needs index
+arithmetic over copies.
+
+- simplejit, jit.clip, jit.map, jit.fluoride, jit.keyscreen, jit.eclipse: each has the same
+  private `Cells<T>` helper, which copies every input (ending the borrow before the output is
+  touched, so in-place calculation is sound) and the output, computes into the copy and writes it
+  back through `chunks_mut`: two extra copies per frame, in six crates.
+- jit.alphablend, jit.charmap: copy each input into a dense `Snapshot`, then index it by output
+  coordinate; the C's own versions of that domain read past a unit dimension, which both ports
+  fix.
+- jit.rgb2luma, jit.p.bounds: copy the input the same way; jit.p.bounds walks rows 0 and 1 of
+  each 2D chunk of the output.
+
+### A Jitter core without a Max wrapper has no outlets
+
+`JitBuilder::outlet` fails for a core made with `jit_object_new`, so outlets the core sends to are
+optional.
+
+- jit.3m, jit.findbounds, jit.spill: keep them in an `Option`.
 
 ### Attribute setters are found by the getter's method name
 
@@ -468,6 +678,14 @@ those paths are untested.
   and reading without a file.
 - `db_*`: dbcuelist tests only an object without a `name`; the queries, `cue.do` output and
   `atom_setparse` are untested.
+- `jit_mop_input_nolink`, `jit_mop_output_nolink`, `jit_mop_ioproc_copy_adapt`: jit.concat,
+  jit.split and jit.demultiplex make those calls under `#[cfg(not(test))]`, so the tests register
+  the MOP linked.
+- `jit_attr_setlong`: jit.histogram calls it only on the io `getoutput` returns, which the mock
+  never does; jit.charmap and jit.rgb2luma send `dimlink` and `planelink` as messages instead.
+- `jit_rand`: jit.p.bounds uses its own generator; the tests check only that `squish_var` varies
+  the bounce within its range.
+- `object_obex_dumpout`: jit.turtle has an ordinary outlet instead.
 
 ### `dictobj_dictionaryfromatoms` parses only `key: value` pairs
 
@@ -509,6 +727,47 @@ does not resolve there.
 - fftinfo~: the test binds a zeroed `t_pfftpub` to `__pfft~__` itself; what a real `pfft~`
   binds, and when, is untested.
 
+### The Max side of a matrix operator
+
+`max_jit_class_mop_wrap` is a no-op, so the Max object has no `jit_matrix`, `bang` or
+`outputmatrix`.
+
+- every matrix port except jit.turtle: the tests call the core's `matrix_calc` directly and set
+  attributes through the Max object; the patcher path (MOP inlets, adapt, output, `outputmode`)
+  is untested, including jit.gradient's response to an incoming matrix and jit.3m's and
+  jit.spill's `#[bang]` replacing the MOP's.
+
+### `jit_parallel_ndim_simplecalc*`
+
+Not in the mock, so the ports calculate serially over the chunk views.
+
+- simplejit, jit.clip, jit.map, jit.fluoride, jit.rgb2luma (simplecalc2), jit.alphablend,
+  jit.charmap (simplecalc3, jit.charmap with `JIT_PARALLEL_NDIM_FLAGS_FULL_MATRIX` on the table),
+  jit.keyscreen (simplecalc4), jit.3m (simplecalc1): serial. The other ported matrix examples
+  are serial in the C as well.
+
+### MOP io objects and matrix methods
+
+The mock answers `getinput` and `getoutput` with null ("unsupported Jitter method") and refuses
+`setinfo`, `clear` and `frommatrix` (an error on the console, null returned); it implements only
+`lock`, `getinfo` and `getdata`.
+
+- jit.alphablend, jit.charmap, jit.rgb2luma, jit.p.bounds, jit.histogram: registration is tested
+  with the io settings skipped.
+- jit.p.bounds: resizing is tested only as refused; the tests otherwise give it an output already
+  shaped like the input.
+- jit.concat, jit.split, jit.demultiplex: the tests check the computed output infos and copy
+  ranges, and the sequence of matrix calls `calc` makes (read from the console); the resized and
+  copied data are untested.
+
+### Jitter class registration happens once per process
+
+median registers a Jitter class once per process and the mock keeps classes across kernel
+resets, so console output from `class_setup` appears only in whichever test registers first.
+
+- jit.eclipse: its three credit lines (posted from `class_setup`, as the C posts them in
+  `ext_main`) are not asserted.
+
 ### Two externals in one test
 
 The crates are `cdylib` only, so one crate's test cannot register another crate's classes.
@@ -516,3 +775,64 @@ The crates are `cdylib` only, so one crate's test cannot register another crate'
 - master: tested with a test-only subscriber class standing in for `median.servant`.
 - servant: tested with a test-only `median.conduit` that sends `sendmessage` with raw
   `object_notify`.
+
+## Not ported
+
+The SDK examples with no port, and the gaps above that block them. `matrix/jit.scalebias` is
+ported separately as `median/examples/jit_scalebias`. The `gl`, `patcher` and `ui` categories are
+not started yet.
+
+### matrix
+
+- jit.noise: MOP wrap flags (it needs `MAX_JIT_MOP_FLAGS_OWN_OUTPUTMATRIX |
+  MAX_JIT_MOP_FLAGS_OWN_JIT_MATRIX` and an `outputmatrix` that runs `matrix_calc` for a MOP with
+  no inputs; whether the default wrap's output step calculates is unverified); `jit_rand`;
+  `simplecalc1`.
+- jit.la.diagproduct: other Jitter classes (it wraps Jitter's built-in `jit_la_diagproduct`);
+  MOP wrap flags (processing step).
+- jit.change: MOP wrap flags (a processing step decides whether to output); matrix methods
+  (`frommatrix`); a `report` char attribute on the Max class (`max_jit_classex_addattr`);
+  dumpout.
+- jit.notify: Jitter notification (a `notify` of its own on the MOP wrapper, registering and
+  attaching its core); `symbol_unique`; `object_notify` with data.
+- jit.dimmap: owned matrices (a temporary with `JIT_MATRIX_DATA_REFERENCE`); per-io MOP
+  configuration (output nolink); matrix methods (`setinfo`, `frommatrix`); array attributes
+  (`map`, `invert`).
+- jit.thin: as jit.dimmap, without the attributes.
+- jit.transpose: per-io MOP configuration (an output `ioproc` that is a C callback of its own,
+  output nolink); matrix methods (`frommatrix`).
+- jit.coerce, jit.submatrix: matrix methods (`setinfo_ex` and `data` pointing the output at the
+  input's storage); owned matrices; MOP wrap flags (`MAX_JIT_MOP_FLAGS_OWN_ALL`, processing
+  step); Max-side MOP setup (`max_jit_mop_getoutput`); dumpout.
+- jit.glue, jit.pack: Max-side MOP setup (inputs from arguments,
+  `max_jit_mop_variable_addinputs`); MOP wrap flags (their own `jit_matrix` per inlet, with
+  `max_jit_obex_inletnumber_get`); named matrices; per-io MOP configuration (`ioproc`); dumpout.
+- jit.unpack: Max-side MOP setup (outputs from arguments, `max_jit_mop_variable_addoutputs`);
+  MOP wrap flags (own `jit_matrix`); dumpout.
+- jit.scissors: Max-side MOP setup (`max_jit_mop_variable_addoutputs`); MOP wrap flags (own
+  `bang` and `outputmatrix`); per-io MOP configuration (nolink); matrix methods (`frommatrix`);
+  dumpout.
+- jit.str.op: per-io MOP configuration (nolink, `jit_mop_ioproc_copy_adapt`); MOP wrap flags
+  (processing step, its own `jit_matrix` for inlet 2, `max_jit_obex_inletnumber_get`); named
+  matrices; matrix methods (`frommatrix`); dumpout.
+- jit.textfile: `jed` text editor; `A_CANT` methods (`okclose`, `edsave`, `edclose`, and
+  `get_texthandle`/`set_texthandle` on the Jitter class); file writing (`path_createsysfile`,
+  `sysfile_write`; `FilePath` only reads text); MOP wrap flags (own adapt, `bang` and
+  `outputmatrix`, processing step); dumpout.
+- jit.op: other Jitter classes (it wraps Jitter's built-in `jit_op`); MOP wrap flags (own
+  `jit_matrix`, processing step).
+- jit.hello: other Jitter classes (a Jitter class without a MOP); dumpout.
+- jit.print: other Jitter classes (a core with a MOP adornment and a Max side that is not a MOP
+  wrapper); named matrices (`jit_matrix` by name); dumpout.
+- jit.fill, jit.iter: named matrices (lookup with `jit_object_findregistered` and a class check);
+  dumpout. Both are Max objects with no Jitter class.
+- jit.peek~, jit.poke~: Jitter in MSP objects; named matrices (attaching to a matrix by name, and
+  a data pointer kept across `perform` calls); dumpout.
+- simplejit~: Jitter in MSP objects (an MSP wrapper around a MOP core).
+
+### Other categories
+
+median has no `jbox` UI objects, so these have no heading above.
+
+- audio/pictmeter~, mc/gridmeter~: a `jbox` UI object that is also an MSP object.
+- advanced/dbviewer: a `jbox` UI object with a `jdataview`; databases.
