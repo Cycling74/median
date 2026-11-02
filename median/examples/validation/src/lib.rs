@@ -85,9 +85,9 @@ impl Messages {
         report(&self.obj, &self.label, &format!("{sel} {values}"));
     }
 
-    // The gimmeback methods are for typed callers (`js`, patch 05): a patch cord cannot reach
-    // them (observed in Max 9.2 on 2026-10-27), so median hides them from the patcher. Each posts a line so a run shows the method ran even if the
-    // caller drops the reply.
+    // The gimmeback methods are for typed callers (direct `v8` methods in patch 05): a patch
+    // cord cannot reach them (observed in Max 9.2 on 2026-10-27), so median hides them from
+    // the patcher. Except for getquiet, each posts a line so a run shows the method ran.
 
     #[gimmeback("getcount")]
     fn get_count(&self, atoms: &[Atom]) -> t_atom_long {

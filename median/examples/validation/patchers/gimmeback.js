@@ -1,151 +1,99 @@
-// Gimmeback host check (patch 05-gimmeback.maxpat). Used by both [js gimmeback.js] and
-// [v8 gimmeback.js]. The patch has a [median.validate gimme] with the scripting name "validate".
+// Gimmeback host check for [v8 gimmeback.js] in 05-gimmeback.maxpat.
+// The [median.validate gimme] box has the scripting name "validate".
+// Call its exposed methods directly; Maxobj.message() does not return these replies.
+// The user verified direct calls and getstate's Dict reply in Max. Release the Dict
+// with freepeer() after reading it, as in the verified state call below.
 //
-// Each message calls one gimmeback method with obj.message(...) and posts what came back, as a
-// JavaScript value and its typeof. The call is made directly with the arguments spelled out:
-// obj.message.apply(..) is not a plain function call in [js] (the first run posted the message
-// function itself as the "reply"). Whether Maxobj.message hands back the method's reply is one
-// of the things this run establishes (a reply of undefined may mean the call does not pass it
-// on, not that median is wrong).
+// Messages:
+//   count 1 2 3    -> getcount: 3
+//   list 1 2.5 foo -> getlist: [2, 5, "foo"]
+//   state          -> getstate: Dict containing {label: "gimme", count: 0}
+//   fail           -> getfail: intentional error in the Max console
+//   state loop     -> getquiet: 4096 ints, summarized every 100th call
+//   burst 6000     -> getquiet 6000 times, one console line when done
+//   bang           -> count, list, state and fail with the arguments above
 //
-// Observed on 2026-10-27 (Max 9.2 ARM64): [js] reaches the method with the right arguments;
-// [v8] does not: its message() reports "bad arguments" / "missing arguments" for the selector,
-// the method does not run, and the value is null. So the [v8] box is a negative control.
-//
-// Observed on 2026-10-27, third run (direct-call script): Maxobj.message(..) in [js] returns the
-// message function object itself ("function message() { [native code] } (function)"), never the
-// method's reply, although the method runs. A script cannot read a gimmeback reply through
-// Maxobj.message; the SDK's route for that is the simplejs pattern, which median does not
-// support yet (doc/plan-gimmeback.md, "Calling one").
-//
-// Leak check (the decisive one): "burst 6000" calls getquiet 6000 times in a tight loop and posts
-// "burst done: 6000 calls" once. Each reply is 4096 ints (64 KiB), so 6000 replies are 384 MB if
-// they leak. Read Max's memory in Activity Monitor, click the burst message box, read it again;
-// repeat a few times. A leak is a step of about 384 MB per click that never comes back. A few
-// tens of MB that stay flat across repeated clicks is allocator slack, not a leak.
-//
-// Messages (the patch's message boxes):
-//   count 1 2 3        -> getcount            expected (unverified): the number 3
-//   list 1 2.5 foo     -> getlist             expected (unverified): [2, 5, "foo"]
-//   state              -> getstate            expected (unverified): an object {label: "gimme", count: 0}
-//   fail               -> getfail             expected (unverified): an error in the Max console, no value
-//   state loop         -> getquiet, for the leak check: a 4096-atom list, posts nothing (the script
-//                         posts only every 100th call)
-//   burst 6000         -> getquiet 6000 times in a loop, one line when done (the leak check above)
-//   bang               -> all four with the arguments above
+// For the memory check, compare Activity Monitor before/after repeated bursts.
+// Each reply is 64 KiB of atoms: 6000 unreleased replies would be about 384 MB.
+// Memory behavior of this direct-call path still needs a host check.
 
-var calls = 0;
+let calls = 0;
 
-function describe(v) {
-    var t = typeof v;
-    if (v === null) {
-        return "null (" + t + ")";
-    }
-    if (v instanceof Array) {
-        var parts = [];
-        for (var i = 0; i < v.length; i++) {
-            parts.push(String(v[i]) + ":" + typeof v[i]);
-        }
-        return "[" + parts.join(", ") + "] (Array, length " + v.length + ")";
-    }
-    if (t == "object") {
-        var keys = [];
-        try {
-            for (var k in v) {
-                keys.push(k + "=" + String(v[k]));
-            }
-        } catch (e) {
-            keys.push("(enumeration failed: " + e + ")");
-        }
-        var extra = "";
-        try {
-            if (typeof v.getkeys == "function") {
-                var names = v.getkeys();
-                var items = [];
-                if (names !== undefined && names !== null) {
-                    names = [].concat(names);
-                    for (var j = 0; j < names.length; j++) {
-                        items.push(names[j] + "=" + String(v.get(names[j])));
-                    }
-                }
-                extra = " getkeys: {" + items.join(", ") + "}";
-            }
-        } catch (e2) {
-            extra = " (getkeys failed: " + e2 + ")";
-        }
-        return String(v) + " (object; keys {" + keys.join(", ") + "})" + extra;
-    }
-    return String(v) + " (" + t + ")";
-}
-
-// A direct call with up to three arguments (no Function.apply, see the header).
-function call(obj, selector, args) {
-    switch (args.length) {
-        case 0:
-            return obj.message(selector);
-        case 1:
-            return obj.message(selector, args[0]);
-        case 2:
-            return obj.message(selector, args[0], args[1]);
-        default:
-            return obj.message(selector, args[0], args[1], args[2]);
-    }
-}
-
-function ask(selector, args) {
-    var obj = this.patcher.getnamed("validate");
+function target() {
+    const obj = this.patcher.getnamed("validate");
     if (!obj) {
         post("gimmeback.js: no object named validate in this patcher\n");
-        return;
     }
-    var r = call(obj, selector, args);
-    post(selector, "->", describe(r), "\n");
-    return r;
+    return obj;
 }
 
-function count() {
-    ask("getcount", arrayfromargs(arguments));
+function describe(value) {
+    if (Array.isArray(value)) {
+        const parts = value.map(item => String(item) + ":" + typeof item);
+        return "[" + parts.join(", ") + "] (Array, length " + value.length + ")";
+    }
+    return String(value) + " (" + typeof value + ")";
 }
 
-function list() {
-    ask("getlist", arrayfromargs(arguments));
+function count(...args) {
+    const obj = target();
+    if (obj) {
+        post("getcount ->", describe(obj.getcount(...args)), "\n");
+    }
+}
+
+function list(...args) {
+    const obj = target();
+    if (obj) {
+        post("getlist ->", describe(obj.getlist(...args)), "\n");
+    }
 }
 
 function state() {
+    const obj = target();
+    if (!obj) {
+        return;
+    }
     if (arguments.length > 0) {
-        // leak check: 100 calls a second, so say something only now and then
-        var obj = this.patcher.getnamed("validate");
-        if (!obj) {
-            return;
-        }
-        var r = obj.message("getquiet");
+        const reply = obj.getquiet();
         calls++;
         if (calls % 100 == 1) {
-            post("getquiet loop call", calls, "->", describe(r), "\n");
+            post("getquiet loop call", calls, "-> length", reply.length, "\n");
         }
         return;
     }
-    ask("getstate", []);
+    const d = obj.getstate();
+    if (d) {
+        try {
+            post(JSON.stringify(d), "\n");
+        } finally {
+            d.freepeer();
+        }
+    } else {
+        post("getstate ->", describe(d), "\n");
+    }
 }
 
 function burst(n) {
-    var obj = this.patcher.getnamed("validate");
+    const obj = target();
     if (!obj) {
-        post("gimmeback.js: no object named validate in this patcher\n");
         return;
     }
     n = Math.floor(Number(n));
-    if (!(n > 0)) {
+    if (!Number.isFinite(n) || n <= 0) {
         n = 1;
     }
-    for (var i = 0; i < n; i++) {
-        obj.message("getquiet");
+    for (let i = 0; i < n; i++) {
+        obj.getquiet();
     }
     post("burst done:", n, "calls\n");
 }
 
 function fail() {
-    ask("getfail", []);
+    const obj = target();
+    if (obj) {
+        post("getfail ->", describe(obj.getfail()), "\n");
+    }
 }
 
 function bang() {

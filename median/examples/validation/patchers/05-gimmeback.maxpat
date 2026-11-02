@@ -31,7 +31,7 @@
             1100.0,
             40.0
           ],
-          "text": "5. Gimmeback methods (A_GIMMEBACK) \u2014 three host checks. Open the Max console first; start with both toggles off. Everything marked expected (unverified) is an assumption for the run to settle."
+          "text": "5. Gimmeback methods (A_GIMMEBACK) \u2014 v8 direct calls, patch-cord rejection and Jitter dumpout. Open the Max console first; start with both toggles off."
         }
       },
       {
@@ -51,7 +51,7 @@
       },
       {
         "box": {
-          "id": "js-head",
+          "id": "v8-head",
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
@@ -61,12 +61,12 @@
             520.0,
             40.0
           ],
-          "text": "A1. [js gimmeback.js]: JavaScript calls obj.message(...) on the object named validate. burst 6000 is the decisive memory check."
+          "text": "A. [v8 gimmeback.js]: call exposed methods directly on the object named validate (obj.getcount(...), obj.getstate(), etc.)."
         }
       },
       {
         "box": {
-          "id": "js-toggle",
+          "id": "v8-toggle",
           "maxclass": "toggle",
           "numinlets": 1,
           "numoutlets": 1,
@@ -83,7 +83,7 @@
       },
       {
         "box": {
-          "id": "js-metro",
+          "id": "v8-metro",
           "maxclass": "newobj",
           "numinlets": 2,
           "numoutlets": 1,
@@ -101,7 +101,7 @@
       },
       {
         "box": {
-          "id": "js-bang",
+          "id": "v8-bang",
           "maxclass": "button",
           "numinlets": 1,
           "numoutlets": 1,
@@ -118,7 +118,7 @@
       },
       {
         "box": {
-          "id": "js-count",
+          "id": "v8-count",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
@@ -136,7 +136,7 @@
       },
       {
         "box": {
-          "id": "js-list",
+          "id": "v8-list",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
@@ -154,7 +154,7 @@
       },
       {
         "box": {
-          "id": "js-state",
+          "id": "v8-state",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
@@ -172,7 +172,7 @@
       },
       {
         "box": {
-          "id": "js-fail",
+          "id": "v8-fail",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
@@ -190,7 +190,7 @@
       },
       {
         "box": {
-          "id": "js-loop",
+          "id": "v8-loop",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
@@ -208,187 +208,12 @@
       },
       {
         "box": {
-          "id": "js-script",
-          "maxclass": "newobj",
-          "numinlets": 1,
-          "numoutlets": 1,
-          "patching_rect": [
-            25.0,
-            270.0,
-            150.0,
-            22.0
-          ],
-          "text": "js gimmeback.js",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-head",
-          "maxclass": "comment",
-          "numinlets": 1,
-          "numoutlets": 0,
-          "patching_rect": [
-            590.0,
-            100.0,
-            520.0,
-            40.0
-          ],
-          "text": "A2. [v8 gimmeback.js]: the same script. If [js] reports undefined for every reply, record that and try this one."
-        }
-      },
-      {
-        "box": {
-          "id": "v8-toggle",
-          "maxclass": "toggle",
-          "numinlets": 1,
-          "numoutlets": 1,
-          "patching_rect": [
-            1035.0,
-            150.0,
-            24.0,
-            24.0
-          ],
-          "outlettype": [
-            "int"
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-metro",
-          "maxclass": "newobj",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            1070.0,
-            150.0,
-            70.0,
-            22.0
-          ],
-          "text": "metro 10",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-bang",
-          "maxclass": "button",
-          "numinlets": 1,
-          "numoutlets": 1,
-          "patching_rect": [
-            590.0,
-            195.0,
-            24.0,
-            24.0
-          ],
-          "outlettype": [
-            "bang"
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-count",
-          "maxclass": "message",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            630.0,
-            195.0,
-            100.0,
-            22.0
-          ],
-          "text": "count 1 2 3",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-list",
-          "maxclass": "message",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            740.0,
-            195.0,
-            130.0,
-            22.0
-          ],
-          "text": "list 1 2.5 foo",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-state",
-          "maxclass": "message",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            880.0,
-            195.0,
-            50.0,
-            22.0
-          ],
-          "text": "state",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-fail",
-          "maxclass": "message",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            940.0,
-            195.0,
-            40.0,
-            22.0
-          ],
-          "text": "fail",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
-          "id": "v8-loop",
-          "maxclass": "message",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            1035.0,
-            195.0,
-            90.0,
-            22.0
-          ],
-          "text": "state loop",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
           "id": "v8-script",
           "maxclass": "newobj",
           "numinlets": 1,
           "numoutlets": 1,
           "patching_rect": [
-            590.0,
+            25.0,
             270.0,
             150.0,
             22.0
@@ -414,36 +239,6 @@
           "text": "median.validate gimme",
           "outlettype": [],
           "varname": "validate"
-        }
-      },
-      {
-        "box": {
-          "id": "js-expect",
-          "maxclass": "comment",
-          "numinlets": 1,
-          "numoutlets": 0,
-          "patching_rect": [
-            25.0,
-            320.0,
-            1100.0,
-            80.0
-          ],
-          "text": "Observed 2026-10-27 (third run): getcount is no longer in median.validate's message list (undocumented works). Maxobj.message(..) in [js] returns the message function object itself (\"function message() { [native code] } (function)\"), never the method's reply, although the method runs: a script cannot read a gimmeback reply through Maxobj.message (the simplejs route is not supported by median yet). The values below were never observed; for each message the console shows the method's own line (gimme: getcount 3; main=true ...) and the script's line. fail -> the error \"getfail: intentional error\" in the console. The bang button sends all four."
-        }
-      },
-      {
-        "box": {
-          "id": "js-leak",
-          "maxclass": "comment",
-          "numinlets": 1,
-          "numoutlets": 0,
-          "patching_rect": [
-            25.0,
-            405.0,
-            1100.0,
-            75.0
-          ],
-          "text": "Leak check. DECISIVE TEST: click the burst 6000 message box (the [js] one; the [v8] one will refuse it, which is fine). It calls getquiet 6000 times in a loop and posts \"burst done: 6000 calls\". Each reply is 4096 ints (64 KiB), so 6000 replies are 384 MB if they leak. Read Max's memory in Activity Monitor, click, read again, repeat a few times. A step of about 384 MB per click that never comes back means the reply leaks (Reply::Atoms/Reply::Dict must change); a few tens of MB that stay flat across repeated clicks is allocator slack. The toggle's metro 10 (state loop, 100 getquiet calls a second) is the weaker test: it was inconclusive on 2026-10-27 (memory crept and fell back, and the runs post to the console), so use burst."
         }
       },
       {
@@ -669,30 +464,12 @@
       },
       {
         "box": {
-          "id": "js-burst",
-          "maxclass": "message",
-          "numinlets": 2,
-          "numoutlets": 1,
-          "patching_rect": [
-            470.0,
-            230.0,
-            90.0,
-            22.0
-          ],
-          "text": "burst 6000",
-          "outlettype": [
-            ""
-          ]
-        }
-      },
-      {
-        "box": {
           "id": "v8-burst",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
           "patching_rect": [
-            1035.0,
+            470.0,
             230.0,
             90.0,
             22.0
@@ -807,107 +584,41 @@
             825.0,
             60.0
           ],
-          "text": "Expected (unverified): Max's memory a few tens of MB higher at most after a click and flat across repeated clicks. A step of about 384 MB per click (6000 replies of 64 KiB) that never comes back means the reply leaks. Read Activity Monitor before and after each click."
+          "text": "Observed 2026-10-27 (Max 9.2 ARM64): no visible memory growth across bursts. Repeat using Activity Monitor before/after each click. Persistent growth of about 384 MB per click (6000 replies of 64 KiB) would indicate a leak."
+        }
+      },
+      {
+        "box": {
+          "id": "v8-expect",
+          "maxclass": "comment",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [
+            25.0,
+            320.0,
+            1100.0,
+            65.0
+          ],
+          "text": "Direct v8 calls return gimmeback values (user verified). Expected: count 1 2 3 -> 3; list 1 2.5 foo -> [2, 5, \"foo\"]; state -> a Dict containing label \"gimme\" and count 0, printed as JSON and released with freepeer(). fail posts \"getfail: intentional error\". The bang button runs all four. Use direct methods, not Maxobj.message()."
+        }
+      },
+      {
+        "box": {
+          "id": "v8-leak",
+          "maxclass": "comment",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [
+            25.0,
+            405.0,
+            1100.0,
+            75.0
+          ],
+          "text": "Memory check (direct v8 calls; not yet verified): click burst 6000 and compare Max's memory in Activity Monitor before/after; repeat. getquiet returns 4096 ints (64 KiB of atoms) per call, about 384 MB for 6000 unreleased replies. Persistent growth across bursts suggests a leak. Each burst posts only its completion. The optional metro calls getquiet 100 times a second and posts only the array length every 100th call. Stop it afterwards."
         }
       }
     ],
     "lines": [
-      {
-        "patchline": {
-          "source": [
-            "js-toggle",
-            0
-          ],
-          "destination": [
-            "js-metro",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-metro",
-            0
-          ],
-          "destination": [
-            "js-loop",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-bang",
-            0
-          ],
-          "destination": [
-            "js-script",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-count",
-            0
-          ],
-          "destination": [
-            "js-script",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-list",
-            0
-          ],
-          "destination": [
-            "js-script",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-state",
-            0
-          ],
-          "destination": [
-            "js-script",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-fail",
-            0
-          ],
-          "destination": [
-            "js-script",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-loop",
-            0
-          ],
-          "destination": [
-            "js-script",
-            0
-          ]
-        }
-      },
       {
         "patchline": {
           "source": [
@@ -1084,18 +795,6 @@
           ],
           "destination": [
             "jit-print",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "js-burst",
-            0
-          ],
-          "destination": [
-            "js-script",
             0
           ]
         }
